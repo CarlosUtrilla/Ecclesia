@@ -14,5 +14,21 @@
     "song": "song",
     "songs": "songs",
     "addSong": "Add song"
+  },
+  "songEditor": {
+    "newSong": "New song",
+    "editSong": "Edit song",
+    "title": "Title",
+    "titlePlaceholder": "Song name",
+    "artist": "Artist",
+    "artistPlaceholder": "Who sings it",
+    "author": "Author",
+    "authorPlaceholder": "Who wrote it",
+    "copyright": "Copyright",
+    "copyrightPlaceholder": "Copyright information",
+    "lyrics": "Lyrics",
+    "lyricsPlaceholder": "Write the song lyrics...",
+    "save": "Save",
+    "cancel": "Cancel"
   }
 }

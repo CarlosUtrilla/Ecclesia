@@ -71,7 +71,7 @@ export default function SongsPanelLibrary() {
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button size="icon">
+            <Button size="icon" onClick={() => window.windowAPI.openSongWindow()}>
               <Plus className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -106,7 +106,11 @@ export default function SongsPanelLibrary() {
           // Lista de canciones
           <>
             {allSongs.map((song) => (
-              <Card key={song.id} className="p-4 hover:bg-accent cursor-pointer transition-colors">
+              <Card
+                key={song.id}
+                className="p-4 hover:bg-accent cursor-pointer transition-colors"
+                onClick={() => window.windowAPI.openSongWindow(song.id)}
+              >
                 <h3 className="font-semibold text-base">{song.title}</h3>
                 <div className="text-sm text-muted-foreground mt-1">
                   {song.artist && <span>{song.artist}</span>}

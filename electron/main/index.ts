@@ -13,7 +13,7 @@ function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1200,
-    height: 670,
+    height: 800,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -37,7 +37,7 @@ function createWindow(): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../../app/assets/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
@@ -59,6 +59,35 @@ app.whenReady().then(async () => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
+  // Abrir ventana para crear/editar canción
+  ipcMain.on('open-song-window', (_event, songId?: number) => {
+    const songWindow = new BrowserWindow({
+      width: 1100,
+      height: 670,
+      show: false,
+      autoHideMenuBar: true,
+      ...(process.platform === 'linux' ? { icon } : {}),
+      webPreferences: {
+        preload: join(__dirname, '../preload/index.js'),
+        sandbox: false
+      }
+    })
+
+    songWindow.on('ready-to-show', () => {
+      songWindow.show()
+    })
+
+    const route = songId ? `/song/${songId}` : '/song/new'
+
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      songWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
+    } else {
+      songWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+        hash: route
+      })
+    }
+  })
+
   registerRoutes()
   createWindow()
 
@@ -68,8 +97,10 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
   app.on('web-contents-created', (_event, contents) => {
+    // Capturar el frameId ANTES de que se destruya
+    const frameId = (contents.mainFrame as any)?.frameId
+
     contents.on('destroyed', () => {
-      const frameId = (contents.mainFrame as any)?.frameId
       if (frameId) {
         console.log(`🧹 Limpiando sesión para frameId ${frameId} desde main.ts`)
         authStore.clear(frameId)
@@ -108,9 +139,7 @@ app.whenReady().then(async () => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  app.quit()
 })
 
 // In this file you can include the rest of your app's specific main process
