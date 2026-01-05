@@ -12,6 +12,26 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model Song {
+  id        Int      @id @default(autoincrement())
+  title     String
+  artist    String?
+  author    String?
+  copyright String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lyrics    Lyrics[]
+}
+
+model Lyrics {
+  id        Int      @id @default(autoincrement())
+  content   String
+  song      Song     @relation(fields: [songId], references: [id])
+  songId    Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum SettingOptions {
   SALES_DAILY   @map("goals.daily")
   SALES_MONTHLY @map("goals.monthly")

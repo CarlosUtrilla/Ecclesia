@@ -13,7 +13,7 @@
     "paths": {
       "@/*": [
         "./app/*"
-      ]
+      ],
     },
     "experimentalDecorators": true
   }

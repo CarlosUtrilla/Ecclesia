@@ -6,28 +6,32 @@ import { app } from 'electron'
 let prisma: PrismaClient | null = null
 
 async function initPrisma() {
-  const userDataPath = app.getPath('userData')
-  const destDbPath = path.join(userDataPath, 'dev.db')
-  const srcDbPath = path.resolve(__dirname, '../../prisma/dev.db')
+  try {
+    const userDataPath = app.getPath('userData')
+    const destDbPath = path.join(userDataPath, 'dev.db')
+    const srcDbPath = path.resolve(__dirname, '../../prisma/dev.db')
 
-  // Copiar base si no existe
-  const exists = await fs.pathExists(destDbPath)
-  if (!exists || !app.isPackaged) {
-    await fs.copy(srcDbPath, destDbPath)
-    console.log('Base de datos copiada a userData')
-  }
-
-  prisma = new PrismaClient({
-    datasources: {
-      db: {
-        url: `file:${destDbPath}`
-      }
+    // Copiar base si no existe
+    const exists = await fs.pathExists(destDbPath)
+    if (!exists || !app.isPackaged) {
+      await fs.copy(srcDbPath, destDbPath)
+      console.log('Base de datos copiada a userData')
     }
-  })
 
-  await prisma.$connect()
+    prisma = new PrismaClient({
+      datasources: {
+        db: {
+          url: `file:${destDbPath}`
+        }
+      }
+    })
 
-  return prisma
+    await prisma.$connect()
+    console.log('Prisma conectado a la base de datos')
+    return prisma
+  } catch (error) {
+    console.error('Error al inicializar Prisma:', error)
+  }
 }
 
 function getPrisma() {

@@ -27,7 +27,8 @@ export default defineConfig({
       alias: {
         '@': resolve('app'),
         '@api': resolve('./database/api.ts'),
-        '@queries': resolve('./queries')
+        '@queries': resolve('./queries'),
+        '@locales': resolve('./locales/index.ts')
       }
     },
     plugins: [

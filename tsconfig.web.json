@@ -8,6 +8,7 @@
     "database/api.ts",
     "queries/**/*",
     "queries/**/*.tsx",
+    "locales",
   ],
   "compilerOptions": {
     "composite": true,
@@ -22,6 +23,9 @@
       ],
       "@queries/*": [
         "./queries/*"
+      ],
+      "@locales": [
+        "./locales/index.ts"
       ]
     }
   }

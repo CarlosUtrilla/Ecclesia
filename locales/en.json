@@ -1,0 +1,17 @@
+{
+  "libraryMenu":{
+    "songs": "Songs",
+    "images": "Images",
+    "videos": "Videos",
+    "bible": "Bible"
+  },
+  "songsPanelLibrary": {
+    "searchSongs": "Search songs...",
+    "noSongsFound": "No songs found",
+    "noSongs": "No songs",
+    "tryAnotherSearch": "Try another search",
+    "addFirstSong": "Add your first song",
+    "song": "song",
+    "songs": "songs"
+  }
+}
