@@ -5,7 +5,9 @@ import t from '@locales'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { SongsListResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useEffect, useRef, useState } from 'react'
-import { Search, Music } from 'lucide-react'
+import { Search, Music, Plus } from 'lucide-react'
+import { Button } from '@/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
 
 export default function SongsPanelLibrary() {
   const [search, setSearch] = useState('')
@@ -53,25 +55,28 @@ export default function SongsPanelLibrary() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const allSongs = data?.pages.flatMap((page) => page.songs) ?? []
-  const totalSongs = data?.pages[0]?.total ?? 0
 
   return (
     <div className="flex flex-col h-full">
       {/* Buscador */}
-      <div className="p-4 py-2 pt-0 border-b">
-        <div className="relative">
+      <div className="p-2 bg-muted/30 border-b flex items-center gap-2">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder={t('songsPanelLibrary.searchSongs')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 !bg-background"
           />
         </div>
-        <p className="text-sm text-muted-foreground mt-2">
-          {totalSongs}{' '}
-          {totalSongs === 1 ? t('songsPanelLibrary.song') : t('songsPanelLibrary.songs')}
-        </p>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="icon">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t('songsPanelLibrary.addSong')}</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Lista de canciones */}
