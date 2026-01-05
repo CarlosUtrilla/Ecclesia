@@ -1,0 +1,28 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  "include": [
+    "app/env.d.ts",
+    "app/**/*",
+    "app/**/*.tsx",
+    "electron/preload/*.d.ts",
+    "database/api.ts",
+    "queries/**/*",
+    "queries/**/*.tsx",
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./app/*"
+      ],
+      "@api": [
+        "./database/api.ts"
+      ],
+      "@queries/*": [
+        "./queries/*"
+      ]
+    }
+  }
+}
