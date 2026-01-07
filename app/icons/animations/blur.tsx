@@ -1,0 +1,20 @@
+import React from 'react'
+
+export default function BlurIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <circle cx="6" cy="12" r="1" opacity="0.3" />
+      <circle cx="12" cy="12" r="1.5" opacity="0.6" />
+      <circle cx="18" cy="12" r="2" opacity="1" />
+    </svg>
+  )
+}

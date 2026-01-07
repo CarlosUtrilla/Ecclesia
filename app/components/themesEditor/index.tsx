@@ -20,7 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import FormatLineSpacingIcon from '@/icons/line-spacing'
 import LetterSpacingIcon from '@/icons/letter-spacing'
 import BackgroundSelector from './backgroundSelector'
+import AnimationSelector from './animationSelector'
 import { PresentationView } from '../PresentationView'
+import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSettings'
 
 import { useResizeObserver } from 'usehooks-ts'
 
@@ -80,16 +82,26 @@ export default function ThemesEditor() {
       textAlign: 'center',
       bold: false,
       italic: false,
-      underline: false
+      underline: false,
+      animationSettings: JSON.stringify(defaultAnimationSettings)
     },
     onSubmit: (values) => {
       console.log(values)
     }
   })
+
+  // Parse animation settings
+  const animationSettings: AnimationSettings = React.useMemo(() => {
+    try {
+      return JSON.parse(values.animationSettings)
+    } catch {
+      return defaultAnimationSettings
+    }
+  }, [values.animationSettings])
   return (
     <div className="h-full flex flex-col">
       <div>
-        <div className="bg-muted/50 border-b flex p-2 gap-4 items-center">
+        <div className="p-2  flex items-center gap-1 border-b flex-wrap">
           <div className="">
             {/* Theme Name */}
             <Input
@@ -109,7 +121,7 @@ export default function ThemesEditor() {
               </Button>
             </div>
           </div>
-          <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="!h-16 mx-1" />
           {/* Background Selector */}
           <BackgroundSelector
             backgroundType={backgroundType}
@@ -117,10 +129,17 @@ export default function ThemesEditor() {
             onTypeChange={setBackgroundType}
             onValueChange={(value) => setFieldValue('background', value)}
           />
+          <Separator orientation="vertical" className="!h-16 mx-1" />
+
+          {/* Animation Selector */}
+          <AnimationSelector
+            settings={animationSettings}
+            onChange={(settings) => setFieldValue('animationSettings', JSON.stringify(settings))}
+          />
         </div>
 
         {/* Barra de herramientas de estilo */}
-        <div className="p-2 bg-muted/50 flex items-center gap-1 border-b flex-wrap">
+        <div className="p-2 flex items-center gap-1 border-b flex-wrap">
           {/* Font Size */}
           <FontFamilySelector
             value={values.fontFamily}
@@ -153,7 +172,7 @@ export default function ThemesEditor() {
             />
           </div>
 
-          <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="!h-6 mx-1" />
 
           {/* Bold */}
           <Button
@@ -188,7 +207,7 @@ export default function ThemesEditor() {
             <UnderlineIcon className="h-4 w-4" />
           </Button>
 
-          <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="!h-6 mx-1" />
 
           {/* Line Height */}
           <Select
@@ -226,7 +245,7 @@ export default function ThemesEditor() {
             </SelectContent>
           </Select>
 
-          <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="!h-6 mx-1" />
 
           {/* Text Align */}
           <Button

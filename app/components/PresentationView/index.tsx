@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn, sanitizeHTML } from '../../lib/utils'
 import { PresentationViewProps, PresentationViewsItemsProps, ScreenSize } from './types'
 import { useDisplays } from '@/hooks/useDisplays'
+import { getAnimationVariants, wordVariants, AnimationType } from '@/lib/animations'
+import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
 
 export function PresentationView({ maxHeight = 150, items, theme, live }: PresentationViewProps) {
   const [screenSize, setScreenSize] = useState<ScreenSize>({
@@ -64,6 +67,80 @@ export function PresentationViewItem({
   const calculatedFontSize = theme.textSize
     ? `${(screenSize.height * theme.textSize) / 320}px`
     : 'inherit'
+
+  // Parse animation settings
+  let animationSettings: AnimationSettings
+  try {
+    animationSettings = JSON.parse(theme.animationSettings || '{}')
+  } catch {
+    animationSettings = defaultAnimationSettings
+  }
+
+  const animationType = (animationSettings.type || 'fade') as AnimationType
+  const variants = getAnimationVariants(
+    animationType,
+    animationSettings.duration,
+    animationSettings.delay,
+    animationSettings.easing
+  )
+
+  // Para la animación 'split', dividimos el texto en palabras
+  const renderAnimatedText = () => {
+    if (animationType === 'split') {
+      const words = text.split(' ')
+      return (
+        <motion.div
+          variants={variants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          style={{
+            color: theme.textColor,
+            fontFamily: theme.fontFamily,
+            fontStyle: theme.italic ? 'italic' : 'normal',
+            fontWeight: theme.bold ? 'bold' : 'normal',
+            textDecoration: theme.underline ? 'underline' : 'none',
+            lineHeight: theme.lineHeight,
+            letterSpacing: theme.letterSpacing,
+            textAlign: theme.textAlign as 'left' | 'center' | 'right',
+            fontSize: calculatedFontSize
+          }}
+        >
+          {words.map((word, index) => (
+            <motion.span
+              key={index}
+              variants={wordVariants}
+              style={{ display: 'inline-block', marginRight: '0.3em' }}
+            >
+              {word}
+            </motion.span>
+          ))}
+        </motion.div>
+      )
+    }
+
+    return (
+      <motion.div
+        variants={variants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        style={{
+          color: theme.textColor,
+          fontFamily: theme.fontFamily,
+          fontStyle: theme.italic ? 'italic' : 'normal',
+          fontWeight: theme.bold ? 'bold' : 'normal',
+          textDecoration: theme.underline ? 'underline' : 'none',
+          lineHeight: theme.lineHeight,
+          letterSpacing: theme.letterSpacing,
+          textAlign: theme.textAlign as 'left' | 'center' | 'right',
+          fontSize: calculatedFontSize
+        }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHTML(text) }}
+      />
+    )
+  }
+
   return (
     <div
       style={{
@@ -71,7 +148,7 @@ export function PresentationViewItem({
         maxWidth: '100%',
         aspectRatio: screenSize.aspectRatio,
         maxHeight: '100%',
-        overflow: 'auto',
+        overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -81,20 +158,9 @@ export function PresentationViewItem({
         'rounded-none': live
       })}
     >
-      <div
-        style={{
-          color: theme.textColor,
-          fontFamily: theme.fontFamily,
-          fontStyle: theme.italic ? 'italic' : '',
-          fontWeight: theme.bold ? 'bold' : '',
-          textDecoration: theme.underline ? 'underline' : '',
-          lineHeight: theme.lineHeight,
-          letterSpacing: theme.letterSpacing,
-          textAlign: theme.textAlign as 'left' | 'center' | 'right',
-          fontSize: calculatedFontSize
-        }}
-        dangerouslySetInnerHTML={{ __html: sanitizeHTML(text) }}
-      ></div>
+      <AnimatePresence mode="wait">
+        <div key={text}>{renderAnimatedText()}</div>
+      </AnimatePresence>
     </div>
   )
 }
