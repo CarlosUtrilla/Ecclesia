@@ -11,11 +11,13 @@ async function initPrisma() {
     const destDbPath = path.join(userDataPath, 'dev.db')
     const srcDbPath = path.resolve(__dirname, '../../prisma/dev.db')
 
-    // Copiar base si no existe
+    // Copiar base solo si no existe (no sobrescribir en desarrollo)
     const exists = await fs.pathExists(destDbPath)
-    if (!exists || !app.isPackaged) {
+    if (!exists) {
       await fs.copy(srcDbPath, destDbPath)
-      console.log('Base de datos copiada a userData')
+      console.log('Base de datos copiada a userData:', destDbPath)
+    } else {
+      console.log('Usando base de datos existente:', destDbPath)
     }
 
     prisma = new PrismaClient({

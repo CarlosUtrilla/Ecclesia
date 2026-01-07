@@ -63,3 +63,24 @@ model Setting {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 }
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Media {
+  id        Int       @id @default(autoincrement())
+  name      String
+  type      MediaType // 'image' o 'video'
+  format    String // webp, png, jpg, gif, mp4, webm, etc.
+  filePath  String    @unique // Ruta relativa al directorio de datos de la app
+  fileSize  Int // Tamaño en bytes
+  width     Int? // Ancho en píxeles (opcional)
+  height    Int? // Alto en píxeles (opcional)
+  duration  Float? // Duración en segundos (solo para videos)
+  thumbnail String? // Ruta a miniatura generada
+  folder    String? // Ruta de carpeta para organizar medios (ej: "Navidad/2025" o null para raíz)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}

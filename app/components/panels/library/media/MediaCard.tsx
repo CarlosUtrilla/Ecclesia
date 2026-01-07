@@ -1,0 +1,85 @@
+import { Image, Video, Trash2, Edit, Copy, Scissors } from 'lucide-react'
+import { Button } from '@/ui/button'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger
+} from '@/ui/context-menu'
+import { Media } from '@prisma/client'
+
+interface MediaCardProps {
+  media: Media
+  onDelete: (media: Media) => void
+  onCopy: (item: Media, isFolder: boolean) => void
+  onCut: (item: Media, isFolder: boolean) => void
+  onRename: (item: Media, isFolder: boolean, currentName: string) => void
+  formatFileSize: (bytes: number) => string
+}
+
+export function MediaCard({ media, onDelete, onCopy, onCut, onRename }: MediaCardProps) {
+  // Usar thumbnail si está disponible, sino el archivo original
+  // Usar tres slashes (myapp:///) para que todo sea path, no host
+  // Codificar la URL para manejar espacios y caracteres especiales
+  const filePath = media.thumbnail || media.filePath
+  const encodedPath = encodeURIComponent(filePath)
+  const mediaUrl = `myapp:///${encodedPath}`
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger>
+        <div className="group relative border rounded-lg overflow-hidden bg-muted/30 hover:shadow-md transition-shadow">
+          {/* Preview */}
+          <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
+            <img src={mediaUrl} alt={media.name} className="w-full h-full object-cover" />
+          </div>
+
+          {/* Info */}
+          <div className="flex items-center gap-1 p-2">
+            {media.type === 'IMAGE' ? (
+              <Image className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <Video className="h-4 w-4 text-muted-foreground" />
+            )}
+            <p className="text-sm font-medium truncate" title={media.name}>
+              {media.name}
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => onDelete(media)}
+              title="Eliminar"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => onRename(media, false, media.name)}>
+          <Edit className="h-4 w-4" />
+          Renombrar
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onCopy(media, false)}>
+          <Copy className="h-4 w-4" />
+          Copiar
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onCut(media, false)}>
+          <Scissors className="h-4 w-4" />
+          Cortar
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" onClick={() => onDelete(media)}>
+          <Trash2 className="h-4 w-4" />
+          Eliminar
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}

@@ -1,8 +1,7 @@
 {
   "libraryMenu":{
     "songs": "Canciones",
-    "images": "Imágenes",
-    "videos": "Videos",
+    "medios": "Medios",
     "bible": "Biblia"
   },
   "songsPanelLibrary": {

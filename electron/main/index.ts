@@ -4,6 +4,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerRoutes } from '../../database'
 import { initPrisma } from './prisma'
 import { createMainWindow, createSongWindow, createThemeWindow } from './windowManager'
+import { registerMediaHandlers } from './mediaHandlers'
 
 import 'reflect-metadata'
 import { authStore } from '../../database/stores/authStore'
@@ -24,6 +25,9 @@ app.whenReady().then(async () => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  // Registrar handlers de medios
+  registerMediaHandlers()
 
   // Obtener fuentes del sistema
   ipcMain.handle('get-system-fonts', async () => {
@@ -82,28 +86,85 @@ app.whenReady().then(async () => {
     })
   })
 
-  //Protocolo seguro para cargar imagen en frontend
+  //Protocolo seguro para cargar medios en frontend
   protocol.handle('myapp', async (request) => {
     const userDataPath = app.getPath('userData')
-    const imagesPath = path.join(userDataPath, 'images')
+    const url = new URL(request.url)
+    const encodedFileName = url.pathname.slice(1) // quitar "/"
+
+    // Decodificar el nombre del archivo para manejar espacios y caracteres especiales
+    const fileName = decodeURIComponent(encodedFileName)
+
+    // Validar que fileName no esté vacío
+    if (!fileName) {
+      return new Response('Bad request: No filename provided', { status: 400 })
+    }
+
+    // Intentar primero en media/, luego en images/ para retrocompatibilidad
+    const mediaPath = path.join(userDataPath, 'media', fileName)
+    const imagePath = path.join(userDataPath, 'images', fileName)
+    const filePath = fs.existsSync(mediaPath) ? mediaPath : imagePath
+
+    if (!fs.existsSync(filePath)) {
+      return new Response('File not found', { status: 404 })
+    }
+
+    // Verificar que sea un archivo, no un directorio
+    const stats = await fs.promises.stat(filePath)
+    if (!stats.isFile()) {
+      return new Response('Not a file', { status: 400 })
+    }
+
+    const buffer = await fs.promises.readFile(filePath)
+    const uint8 = new Uint8Array(buffer)
+
+    const ext = path.extname(filePath).toLowerCase()
+    const mimeTypes: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp',
+      '.gif': 'image/gif',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mov': 'video/quicktime',
+      '.avi': 'video/x-msvideo'
+    }
+
+    const mime = mimeTypes[ext] || 'application/octet-stream'
+
+    return new Response(uint8, { headers: { 'Content-Type': mime } })
+  })
+
+  // Protocolo para cargar medios (imágenes y videos)
+  protocol.handle('media', async (request) => {
+    const userDataPath = app.getPath('userData')
+    const mediaPath = path.join(userDataPath, 'media')
     const url = new URL(request.url)
     const fileName = url.pathname.slice(1) // quitar "/"
-    const filePath = path.join(imagesPath, fileName)
+    const filePath = path.join(mediaPath, fileName)
 
     if (!fs.existsSync(filePath)) {
       return new Response('File not found', { status: 404 })
     }
 
     const buffer = await fs.promises.readFile(filePath)
-    const uint8 = new Uint8Array(buffer) // ← Convertir a Uint8Array
+    const uint8 = new Uint8Array(buffer)
 
     const ext = path.extname(filePath).toLowerCase()
-    const mime =
-      ext === '.png'
-        ? 'image/png'
-        : ext === '.jpg' || ext === '.jpeg'
-          ? 'image/jpeg'
-          : 'application/octet-stream'
+    const mimeTypes: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.webp': 'image/webp',
+      '.gif': 'image/gif',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mov': 'video/quicktime',
+      '.avi': 'video/x-msvideo'
+    }
+
+    const mime = mimeTypes[ext] || 'application/octet-stream'
 
     return new Response(uint8, { headers: { 'Content-Type': mime } })
   })

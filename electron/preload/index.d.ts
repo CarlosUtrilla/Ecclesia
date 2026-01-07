@@ -1,4 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import { MediaType } from '@prisma/client'
 
 export interface DisplayInfo {
   id: number
@@ -32,6 +33,31 @@ declare global {
     systemAPI: {
       getSystemFonts: () => Promise<string[]>
       getDisplays: () => Promise<DisplayInfo[]>
+    }
+    mediaAPI: {
+      selectFiles: (type: MediaType | 'all') => Promise<string[]>
+      importFile: (
+        sourcePath: string,
+        folder?: string
+      ) => Promise<{
+        name: string
+        type: MediaType
+        format: string
+        filePath: string
+        fileSize: number
+        thumbnail?: string
+        folder?: string | null
+      }>
+      getFullPath: (fileName: string) => Promise<string>
+      deleteFile: (filePath: string, thumbnail?: string | null) => Promise<boolean>
+      createFolder: (folderPath: string) => Promise<{ success: boolean; path: string }>
+      deleteFolder: (folderPath: string) => Promise<{ success: boolean }>
+      rename: (
+        oldPath: string,
+        newName: string,
+        isFolder: boolean
+      ) => Promise<{ success: boolean; newPath: string }>
+      listFolders: (parentFolder?: string) => Promise<string[]>
     }
   }
 }
