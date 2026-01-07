@@ -1,46 +1,14 @@
-import { app, shell, BrowserWindow, ipcMain, protocol, screen } from 'electron'
-import path, { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { app, BrowserWindow, ipcMain, protocol, screen } from 'electron'
+import path from 'path'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerRoutes } from '../../database'
 import { initPrisma } from './prisma'
+import { createMainWindow, createSongWindow, createThemeWindow } from './windowManager'
 
 import 'reflect-metadata'
 import { authStore } from '../../database/stores/authStore'
 import fs from 'fs'
 import fontList from 'font-list'
-
-function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    show: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
-
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-}
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -56,9 +24,6 @@ app.whenReady().then(async () => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
-
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
 
   // Obtener fuentes del sistema
   ipcMain.handle('get-system-fonts', async () => {
@@ -88,70 +53,23 @@ app.whenReady().then(async () => {
 
   // Abrir ventana para crear/editar canción
   ipcMain.on('open-song-window', (_event, songId?: number) => {
-    const songWindow = new BrowserWindow({
-      width: 1100,
-      height: 670,
-      show: false,
-      autoHideMenuBar: true,
-      ...(process.platform === 'linux' ? { icon } : {}),
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        sandbox: false
-      }
-    })
-
-    songWindow.on('ready-to-show', () => {
-      songWindow.show()
-    })
-
-    const route = songId ? `/song/${songId}` : '/song/new'
-
-    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-      songWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-    } else {
-      songWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-        hash: route
-      })
-    }
+    createSongWindow(songId)
   })
 
   // Abrir ventana para crear/editar tema
   ipcMain.on('open-theme-window', (_event, themeId?: number) => {
-    const themeWindow = new BrowserWindow({
-      width: 1100,
-      height: 670,
-      show: false,
-      autoHideMenuBar: true,
-      ...(process.platform === 'linux' ? { icon } : {}),
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        sandbox: false
-      }
-    })
-
-    themeWindow.on('ready-to-show', () => {
-      themeWindow.show()
-    })
-
-    const route = themeId ? `/theme/${themeId}` : '/theme/new'
-
-    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-      themeWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-    } else {
-      themeWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-        hash: route
-      })
-    }
+    createThemeWindow(themeId)
   })
 
   registerRoutes()
-  createWindow()
+  createMainWindow()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
   })
+
   app.on('web-contents-created', (_event, contents) => {
     // Capturar el frameId ANTES de que se destruya
     const frameId = (contents.mainFrame as any)?.frameId

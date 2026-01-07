@@ -38,7 +38,7 @@ export const easingOptions: EasingConfig[] = [
 
 export const defaultAnimationSettings: AnimationSettings = {
   type: 'fade',
-  duration: 0.6,
+  duration: 0.4,
   delay: 0,
   easing: 'easeInOut'
 }

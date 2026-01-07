@@ -45,7 +45,7 @@ model Themes {
   bold              Boolean  @default(false)
   italic            Boolean  @default(false)
   underline         Boolean  @default(false)
-  animationSettings String   @default("{\"type\":\"fade\",\"duration\":0.6,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con configuración completa
+  animationSettings String   @default("{\"type\":\"fade\",\"duration\":0.4,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con configuración completa
   previewImage      String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

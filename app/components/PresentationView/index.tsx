@@ -136,18 +136,36 @@ export function PresentationViewItem({
   // Para la animación 'split', dividimos el texto en palabras
   const renderAnimatedText = useMemo(() => {
     if (animationType === 'split') {
-      const words = text.split(' ')
+      // Dividir el texto respetando los <br> y otros tags HTML
+      const lines = text.split(/<br\s*\/?>/i)
+
       return (
-        <motion.div variants={variants} initial="initial" animate="animate" exit="exit" style={textStyle}>
-          {words.map((word, index) => (
-            <motion.span
-              key={index}
-              variants={wordVariants}
-              style={{ display: 'inline-block', marginRight: '0.3em' }}
-            >
-              {word}
-            </motion.span>
-          ))}
+        <motion.div
+          variants={variants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          style={textStyle}
+        >
+          {lines.map((line, lineIndex) => {
+            const words = line
+              .trim()
+              .split(' ')
+              .filter((word) => word.length > 0)
+            return (
+              <div key={lineIndex}>
+                {words.map((word, wordIndex) => (
+                  <motion.span
+                    key={`${lineIndex}-${wordIndex}`}
+                    variants={wordVariants}
+                    style={{ display: 'inline-block', marginRight: '0.3em' }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(word) }}
+                  />
+                ))}
+                {lineIndex < lines.length - 1 && <br />}
+              </div>
+            )
+          })}
         </motion.div>
       )
     }

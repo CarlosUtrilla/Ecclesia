@@ -36,6 +36,8 @@ export default function ThemesEditor() {
   })
 
   const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
+  const [animationKey, setAnimationKey] = useState(0)
+
   const { values, setFieldValue, handleChange } = useFormik<Themes>({
     initialValues: {
       id: 0,
@@ -73,6 +75,7 @@ export default function ThemesEditor() {
   const handleAnimationChange = useCallback(
     (settings: AnimationSettings) => {
       setFieldValue('animationSettings', JSON.stringify(settings))
+      setAnimationKey((prev) => prev + 1) // Recargar preview al cambiar animación
     },
     [setFieldValue]
   )
@@ -86,6 +89,11 @@ export default function ThemesEditor() {
     (value: string) => setFieldValue('background', value),
     [setFieldValue]
   )
+
+  const handlePreviewAnimation = useCallback(() => {
+    setAnimationKey((prev) => prev + 1)
+  }, [])
+
   return (
     <div className="h-full flex flex-col">
       <div>
@@ -120,7 +128,11 @@ export default function ThemesEditor() {
           <Separator orientation="vertical" className="!h-16 mx-1" />
 
           {/* Animation Selector */}
-          <AnimationSelector settings={animationSettings} onChange={handleAnimationChange} />
+          <AnimationSelector
+            settings={animationSettings}
+            onChange={handleAnimationChange}
+            onPreview={handlePreviewAnimation}
+          />
         </div>
 
         {/* Barra de herramientas de estilo */}
@@ -273,6 +285,7 @@ export default function ThemesEditor() {
       </div>
       <div className="flex-1 bg-muted flex items-center justify-center p-4" ref={previewRef}>
         <PresentationView
+          key={animationKey}
           theme={values}
           items={[
             {

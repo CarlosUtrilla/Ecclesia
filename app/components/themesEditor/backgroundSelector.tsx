@@ -39,7 +39,7 @@ export default function BackgroundSelector({
   onValueChange
 }: BackgroundSelectorProps) {
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <label className="text-xs text-muted-foreground whitespace-nowrap">Fondo:</label>
       <div className="flex items-center gap-2">
         {/* Background Type Selector */}
