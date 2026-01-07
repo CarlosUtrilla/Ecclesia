@@ -13,7 +13,7 @@ import {
   Italic,
   Underline as UnderlineIcon
 } from 'lucide-react'
-import React, { useRef } from 'react'
+import { useRef, useMemo, useCallback, useState } from 'react'
 import { Separator } from '@/ui/separator'
 import FontFamilySelector from '@/ui/fontFamilySelector'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
@@ -23,39 +23,9 @@ import BackgroundSelector from './backgroundSelector'
 import AnimationSelector from './animationSelector'
 import { PresentationView } from '../PresentationView'
 import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSettings'
+import { fontSizes, lineHeights, letterSpacings } from '@/lib/themeConstants'
 
 import { useResizeObserver } from 'usehooks-ts'
-
-const fontSizes = [
-  { label: '12px', value: 12 },
-  { label: '14px', value: 14 },
-  { label: '16px', value: 16 },
-  { label: '18px', value: 18 },
-  { label: '20px', value: 20 },
-  { label: '24px', value: 24 },
-  { label: '28px', value: 28 },
-  { label: '32px', value: 32 },
-  { label: '36px', value: 36 },
-  { label: '48px', value: 48 },
-  { label: '64px', value: 64 }
-]
-
-const lineHeights = [
-  { label: '1.0', value: 1.0 },
-  { label: '1.2', value: 1.2 },
-  { label: '1.5', value: 1.5 },
-  { label: '1.8', value: 1.8 },
-  { label: '2.0', value: 2.0 }
-]
-
-const letterSpacings = [
-  { label: 'Normal', value: 0 },
-  { label: '0.5px', value: 0.5 },
-  { label: '1px', value: 1 },
-  { label: '2px', value: 2 },
-  { label: '3px', value: 3 },
-  { label: '4px', value: 4 }
-]
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -65,7 +35,7 @@ export default function ThemesEditor() {
     ref: previewRef as React.RefObject<HTMLDivElement>
   })
 
-  const [backgroundType, setBackgroundType] = React.useState<BackgroundType>('color')
+  const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
   const { values, setFieldValue, handleChange } = useFormik<Themes>({
     initialValues: {
       id: 0,
@@ -90,14 +60,32 @@ export default function ThemesEditor() {
     }
   })
 
-  // Parse animation settings
-  const animationSettings: AnimationSettings = React.useMemo(() => {
+  // Parse animation settings - memoizado para evitar re-parseos
+  const animationSettings = useMemo<AnimationSettings>(() => {
     try {
       return JSON.parse(values.animationSettings)
     } catch {
       return defaultAnimationSettings
     }
   }, [values.animationSettings])
+
+  // Callbacks memoizados para evitar re-renders
+  const handleAnimationChange = useCallback(
+    (settings: AnimationSettings) => {
+      setFieldValue('animationSettings', JSON.stringify(settings))
+    },
+    [setFieldValue]
+  )
+
+  const handleFontFamilyChange = useCallback(
+    (value: string) => setFieldValue('fontFamily', value),
+    [setFieldValue]
+  )
+
+  const handleBackgroundChange = useCallback(
+    (value: string) => setFieldValue('background', value),
+    [setFieldValue]
+  )
   return (
     <div className="h-full flex flex-col">
       <div>
@@ -127,24 +115,18 @@ export default function ThemesEditor() {
             backgroundType={backgroundType}
             value={values.background}
             onTypeChange={setBackgroundType}
-            onValueChange={(value) => setFieldValue('background', value)}
+            onValueChange={handleBackgroundChange}
           />
           <Separator orientation="vertical" className="!h-16 mx-1" />
 
           {/* Animation Selector */}
-          <AnimationSelector
-            settings={animationSettings}
-            onChange={(settings) => setFieldValue('animationSettings', JSON.stringify(settings))}
-          />
+          <AnimationSelector settings={animationSettings} onChange={handleAnimationChange} />
         </div>
 
         {/* Barra de herramientas de estilo */}
         <div className="p-2 flex items-center gap-1 border-b flex-wrap">
           {/* Font Size */}
-          <FontFamilySelector
-            value={values.fontFamily}
-            onChange={(value) => setFieldValue('fontFamily', value)}
-          />
+          <FontFamilySelector value={values.fontFamily} onChange={handleFontFamilyChange} />
           <Select
             value={String(values.textSize)}
             onValueChange={(value) => setFieldValue('textSize', Number(value))}

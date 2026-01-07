@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -27,27 +27,41 @@ export default function AnimationEditor({ settings, onChange }: AnimationEditorP
   const [localSettings, setLocalSettings] = useState<AnimationSettings>(settings)
   const [previewKey, setPreviewKey] = useState(0)
 
-  const handleSave = () => {
+  // Sincronizar localSettings cuando cambian las settings externas
+  useEffect(() => {
+    setLocalSettings(settings)
+  }, [settings])
+
+  const handleSave = useCallback(() => {
     onChange(localSettings)
     setOpen(false)
-  }
+  }, [localSettings, onChange])
 
-  const handlePreview = () => {
+  const handlePreview = useCallback(() => {
     setPreviewKey((prev) => prev + 1)
-  }
+  }, [])
 
-  const updateSetting = <K extends keyof AnimationSettings>(
-    key: K,
-    value: AnimationSettings[K]
-  ) => {
-    setLocalSettings((prev) => ({ ...prev, [key]: value }))
-  }
+  const updateSetting = useCallback(
+    <K extends keyof AnimationSettings>(key: K, value: AnimationSettings[K]) => {
+      setLocalSettings((prev) => ({ ...prev, [key]: value }))
+    },
+    []
+  )
 
-  const variants = getAnimationVariants(
-    localSettings.type as AnimationType,
-    localSettings.duration,
-    localSettings.delay,
-    localSettings.easing
+  const handleReset = useCallback(() => {
+    setLocalSettings(defaultAnimationSettings)
+    handlePreview()
+  }, [handlePreview])
+
+  const variants = useMemo(
+    () =>
+      getAnimationVariants(
+        localSettings.type as AnimationType,
+        localSettings.duration,
+        localSettings.delay,
+        localSettings.easing
+      ),
+    [localSettings.type, localSettings.duration, localSettings.delay, localSettings.easing]
   )
 
   return (
@@ -178,13 +192,7 @@ export default function AnimationEditor({ settings, onChange }: AnimationEditorP
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setLocalSettings(defaultAnimationSettings)
-              handlePreview()
-            }}
-          >
+          <Button variant="ghost" onClick={handleReset}>
             Restablecer
           </Button>
           <Button onClick={handleSave}>Guardar</Button>

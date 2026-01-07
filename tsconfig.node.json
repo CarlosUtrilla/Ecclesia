@@ -6,11 +6,20 @@
     "electron/preload/**/*",
     "database/**/*"
   ],
+  "exclude": [
+    "node_modules",
+    "out",
+    "dist",
+    "**/.vite",
+    "**/generated"
+  ],
   "compilerOptions": {
     "composite": true,
     "experimentalDecorators": true,
     "types": [
       "electron-vite/node"
-    ]
+    ],
+    "skipLibCheck": true,
+    "incremental": true
   }
 }

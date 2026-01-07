@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn, sanitizeHTML } from '../../lib/utils'
 import { PresentationViewProps, PresentationViewsItemsProps, ScreenSize } from './types'
@@ -68,44 +68,77 @@ export function PresentationViewItem({
     ? `${(screenSize.height * theme.textSize) / 320}px`
     : 'inherit'
 
-  // Parse animation settings
-  let animationSettings: AnimationSettings
-  try {
-    animationSettings = JSON.parse(theme.animationSettings || '{}')
-  } catch {
-    animationSettings = defaultAnimationSettings
-  }
+  // Parse animation settings - memoizado
+  const animationSettings = useMemo<AnimationSettings>(() => {
+    try {
+      return JSON.parse(theme.animationSettings || '{}')
+    } catch {
+      return defaultAnimationSettings
+    }
+  }, [theme.animationSettings])
 
   const animationType = (animationSettings.type || 'fade') as AnimationType
-  const variants = getAnimationVariants(
-    animationType,
-    animationSettings.duration,
-    animationSettings.delay,
-    animationSettings.easing
+
+  // Memoizar variants para evitar recalcular en cada render
+  const variants = useMemo(
+    () =>
+      getAnimationVariants(
+        animationType,
+        animationSettings.duration,
+        animationSettings.delay,
+        animationSettings.easing
+      ),
+    [animationType, animationSettings.duration, animationSettings.delay, animationSettings.easing]
+  )
+
+  // Memoizar estilos de texto
+  const textStyle = useMemo(
+    () => ({
+      color: theme.textColor,
+      fontFamily: theme.fontFamily,
+      fontStyle: theme.italic ? 'italic' : 'normal',
+      fontWeight: theme.bold ? 'bold' : 'normal',
+      textDecoration: theme.underline ? 'underline' : 'none',
+      lineHeight: theme.lineHeight,
+      letterSpacing: theme.letterSpacing,
+      textAlign: theme.textAlign as 'left' | 'center' | 'right',
+      fontSize: calculatedFontSize
+    }),
+    [
+      theme.textColor,
+      theme.fontFamily,
+      theme.italic,
+      theme.bold,
+      theme.underline,
+      theme.lineHeight,
+      theme.letterSpacing,
+      theme.textAlign,
+      calculatedFontSize
+    ]
+  )
+
+  // Memoizar estilos de contenedor
+  const containerStyle = useMemo(
+    () => ({
+      width: `${screenSize.width}px`,
+      maxWidth: '100%',
+      aspectRatio: screenSize.aspectRatio,
+      maxHeight: '100%',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background
+    }),
+    [screenSize.width, screenSize.aspectRatio, background]
   )
 
   // Para la animación 'split', dividimos el texto en palabras
-  const renderAnimatedText = () => {
+  const renderAnimatedText = useMemo(() => {
     if (animationType === 'split') {
       const words = text.split(' ')
       return (
-        <motion.div
-          variants={variants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          style={{
-            color: theme.textColor,
-            fontFamily: theme.fontFamily,
-            fontStyle: theme.italic ? 'italic' : 'normal',
-            fontWeight: theme.bold ? 'bold' : 'normal',
-            textDecoration: theme.underline ? 'underline' : 'none',
-            lineHeight: theme.lineHeight,
-            letterSpacing: theme.letterSpacing,
-            textAlign: theme.textAlign as 'left' | 'center' | 'right',
-            fontSize: calculatedFontSize
-          }}
-        >
+        <motion.div variants={variants} initial="initial" animate="animate" exit="exit" style={textStyle}>
           {words.map((word, index) => (
             <motion.span
               key={index}
@@ -125,41 +158,21 @@ export function PresentationViewItem({
         initial="initial"
         animate="animate"
         exit="exit"
-        style={{
-          color: theme.textColor,
-          fontFamily: theme.fontFamily,
-          fontStyle: theme.italic ? 'italic' : 'normal',
-          fontWeight: theme.bold ? 'bold' : 'normal',
-          textDecoration: theme.underline ? 'underline' : 'none',
-          lineHeight: theme.lineHeight,
-          letterSpacing: theme.letterSpacing,
-          textAlign: theme.textAlign as 'left' | 'center' | 'right',
-          fontSize: calculatedFontSize
-        }}
+        style={textStyle}
         dangerouslySetInnerHTML={{ __html: sanitizeHTML(text) }}
       />
     )
-  }
+  }, [animationType, text, variants, textStyle])
 
   return (
     <div
-      style={{
-        width: `${screenSize.width}px`,
-        maxWidth: '100%',
-        aspectRatio: screenSize.aspectRatio,
-        maxHeight: '100%',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background
-      }}
+      style={containerStyle}
       className={cn('rounded-md border bg-background', {
         'rounded-none': live
       })}
     >
       <AnimatePresence mode="wait">
-        <div key={text}>{renderAnimatedText()}</div>
+        <div key={text}>{renderAnimatedText}</div>
       </AnimatePresence>
     </div>
   )

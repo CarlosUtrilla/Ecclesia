@@ -7,5 +7,32 @@
   },
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  },
+  // Optimizaciones de rendimiento para VS Code
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/out/**": true,
+    "**/dist/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/*/**": true,
+    "**/.vite/**": true,
+    "**/.prisma/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/out": true,
+    "**/dist": true,
+    "**/.vite": true,
+    "**/.prisma": true,
+    "**/generated": true,
+    "**/*.log": true
+  },
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/node_modules": false
+  },
+  "typescript.tsserver.maxTsServerMemory": 4096,
+  "typescript.disableAutomaticTypeAcquisition": false,
+  "files.autoSave": "onFocusChange"
 }

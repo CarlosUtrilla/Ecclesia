@@ -10,6 +10,15 @@
     "queries/**/*.tsx",
     "locales",
   ],
+  "exclude": [
+    "node_modules",
+    "out",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/.vite",
+    "**/generated"
+  ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
@@ -27,6 +36,8 @@
       "@locales": [
         "./locales/index.ts"
       ]
-    }
+    },
+    "skipLibCheck": true,
+    "incremental": true
   }
 }

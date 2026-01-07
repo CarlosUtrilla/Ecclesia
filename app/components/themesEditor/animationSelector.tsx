@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { animations } from '@/lib/animations'
 import { AnimationSettings } from '@/lib/animationSettings'
@@ -8,12 +9,20 @@ type AnimationSelectorProps = {
   onChange: (settings: AnimationSettings) => void
 }
 
-export default function AnimationSelector({ settings, onChange }: AnimationSelectorProps) {
+const AnimationSelector = memo(function AnimationSelector({
+  settings,
+  onChange
+}: AnimationSelectorProps) {
+  const handleTypeChange = useCallback(
+    (val: string) => onChange({ ...settings, type: val }),
+    [settings, onChange]
+  )
+
   return (
     <div className="space-y-2">
       <label className="text-xs text-muted-foreground whitespace-nowrap">Animación:</label>
       <div className="flex items-center gap-2">
-        <Select value={settings.type} onValueChange={(val) => onChange({ ...settings, type: val })}>
+        <Select value={settings.type} onValueChange={handleTypeChange}>
           <SelectTrigger size="sm" className="w-[180px]">
             <SelectValue placeholder="Seleccionar animación" />
           </SelectTrigger>
@@ -38,4 +47,6 @@ export default function AnimationSelector({ settings, onChange }: AnimationSelec
       </div>
     </div>
   )
-}
+})
+
+export default AnimationSelector

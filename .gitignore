@@ -2,8 +2,14 @@ node_modules
 dist
 out
 .DS_Store
+**/.DS_Store
 .eslintcache
 *.log*
 
 /generated/prisma
 .env
+
+# Archivos de caché de VS Code y herramientas
+.vscode/.history
+.vite
+*.tsbuildinfo
