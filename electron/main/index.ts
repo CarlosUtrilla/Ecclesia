@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, protocol } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, protocol, screen } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -8,6 +8,7 @@ import { initPrisma } from './prisma'
 import 'reflect-metadata'
 import { authStore } from '../../database/stores/authStore'
 import fs from 'fs'
+import fontList from 'font-list'
 
 function createWindow(): void {
   // Create the browser window.
@@ -59,6 +60,32 @@ app.whenReady().then(async () => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
+  // Obtener fuentes del sistema
+  ipcMain.handle('get-system-fonts', async () => {
+    try {
+      const fonts = await fontList.getFonts()
+      return fonts
+    } catch (error) {
+      console.error('Error al obtener fuentes del sistema:', error)
+      return []
+    }
+  })
+
+  // Obtener todas las pantallas disponibles
+  ipcMain.handle('get-displays', () => {
+    const displays = screen.getAllDisplays()
+    return displays.map((display) => ({
+      id: display.id,
+      label: display.label || `Display ${display.id}`,
+      bounds: display.bounds,
+      workArea: display.workArea,
+      scaleFactor: display.scaleFactor,
+      rotation: display.rotation,
+      internal: display.internal,
+      aspectRatio: display.bounds.width / display.bounds.height
+    }))
+  })
+
   // Abrir ventana para crear/editar canción
   ipcMain.on('open-song-window', (_event, songId?: number) => {
     const songWindow = new BrowserWindow({
@@ -83,6 +110,35 @@ app.whenReady().then(async () => {
       songWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
     } else {
       songWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+        hash: route
+      })
+    }
+  })
+
+  // Abrir ventana para crear/editar tema
+  ipcMain.on('open-theme-window', (_event, themeId?: number) => {
+    const themeWindow = new BrowserWindow({
+      width: 1100,
+      height: 670,
+      show: false,
+      autoHideMenuBar: true,
+      ...(process.platform === 'linux' ? { icon } : {}),
+      webPreferences: {
+        preload: join(__dirname, '../preload/index.js'),
+        sandbox: false
+      }
+    })
+
+    themeWindow.on('ready-to-show', () => {
+      themeWindow.show()
+    })
+
+    const route = themeId ? `/theme/${themeId}` : '/theme/new'
+
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      themeWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
+    } else {
+      themeWindow.loadFile(join(__dirname, '../renderer/index.html'), {
         hash: route
       })
     }

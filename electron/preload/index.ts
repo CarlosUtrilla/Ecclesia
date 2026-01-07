@@ -4,7 +4,14 @@ import { exposeRoutes } from '../../database'
 
 // Funciones adicionales para ventanas
 const windowAPI = {
-  openSongWindow: (songId?: number) => ipcRenderer.send('open-song-window', songId)
+  openSongWindow: (songId?: number) => ipcRenderer.send('open-song-window', songId),
+  openThemeWindow: (themeId?: number) => ipcRenderer.send('open-theme-window', themeId)
+}
+
+// API para obtener fuentes del sistema
+const systemAPI = {
+  getSystemFonts: () => ipcRenderer.invoke('get-system-fonts'),
+  getDisplays: () => ipcRenderer.invoke('get-displays')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -15,6 +22,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', exposeRoutes())
     contextBridge.exposeInMainWorld('windowAPI', windowAPI)
+    contextBridge.exposeInMainWorld('systemAPI', systemAPI)
   } catch (error) {
     console.error(error)
   }
@@ -25,4 +33,6 @@ if (process.contextIsolated) {
   window.api = api
   // @ts-ignore (define in dts)
   window.windowAPI = windowAPI
+  // @ts-ignore (define in dts)
+  window.systemAPI = systemAPI
 }

@@ -3,7 +3,6 @@ import RichTextEditor from '@/ui/richTextEditor'
 import t from '@locales'
 import { Song } from '@prisma/client'
 import { useFormik } from 'formik'
-import { PreviewPresentationProvider, PreviewPresentation } from '../previewPresentation'
 import { Button } from '@/ui/button'
 export default function SongEditor() {
   const { values, handleChange, handleSubmit } = useFormik<Song>({
@@ -89,12 +88,12 @@ export default function SongEditor() {
         />
       </div>
       <div className="flex gap-2 bg-muted/40 items-center justify-center col-span-9">
-        <PreviewPresentationProvider maxHeight={150}>
-          <PreviewPresentation text={values.title || t('songEditor.title')} />
+        {/* <PresentationViewProvider maxHeight={150}>
+          <PresentationView text={values.title || t('songEditor.title')} />
           {separateFullTextOnLyrics(values.fullText || '').map((section, index) => (
-            <PreviewPresentation key={index} text={section} />
+            <PresentationView key={index} text={section} />
           ))}
-        </PreviewPresentationProvider>
+        </PresentationViewProvider> */}
       </div>
     </div>
   )
