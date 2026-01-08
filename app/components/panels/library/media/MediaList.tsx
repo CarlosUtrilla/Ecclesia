@@ -1,0 +1,152 @@
+import { Folder, Trash2, Edit, Copy, Scissors } from 'lucide-react'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger
+} from '@/ui/context-menu'
+import { Media } from './types'
+import { SelectableItem } from './hooks/useSelection'
+import { formatFileSize } from './utils'
+
+interface MediaListProps {
+  items: Media[]
+  folders: string[]
+  onDelete: (media: Media) => void
+  onDeleteFolder: (folderName: string) => void
+  onNavigateToFolder: (folderName: string) => void
+  onCopy: (item: Media | string, isFolder: boolean) => void
+  onCut: (item: Media | string, isFolder: boolean) => void
+  onRename: (item: Media | string, isFolder: boolean, currentName: string) => void
+  onItemClick: (item: SelectableItem, e: React.MouseEvent) => void
+  isSelected: (item: SelectableItem) => boolean
+}
+
+export function MediaList({
+  items,
+  folders,
+  onDelete,
+  onDeleteFolder,
+  onNavigateToFolder,
+  onCopy,
+  onCut,
+  onRename,
+  onItemClick,
+  isSelected
+}: MediaListProps) {
+  if (folders.length === 0 && items.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <p>No hay medios disponibles</p>
+        <p className="text-sm mt-1">Importa imágenes o videos para comenzar</p>
+      </div>
+    )
+  }
+
+  const allItems: SelectableItem[] = [...folders, ...items]
+
+  return (
+    <div className="overflow-hidden">
+      {/* Lista */}
+      <div className="divide-y">
+        {allItems.map((item) => {
+          const isFolder = typeof item === 'string'
+          const selected = isSelected(item)
+          const filePath = isFolder ? '' : item.thumbnail || item.filePath
+          const encodedPath = encodeURIComponent(filePath)
+          const mediaUrl = `myapp:///${encodedPath}`
+          return (
+            <ContextMenu key={isFolder ? `folder:${item}` : `file:${item.id}`}>
+              <ContextMenuTrigger asChild>
+                <div
+                  className={`grid grid-cols-[auto_1fr_120px_120px] gap-4 px-2 py-1 hover:bg-muted/50 cursor-pointer transition-colors ${
+                    selected ? 'bg-blue-100 ' : ''
+                  }`}
+                  onClick={(e) => onItemClick(item, e)}
+                  onDoubleClick={() => {
+                    if (isFolder) {
+                      onNavigateToFolder(item)
+                    }
+                  }}
+                >
+                  {/* Icono */}
+                  <div className="h-6 w-6 flex items-center justify-center">
+                    {isFolder ? (
+                      <Folder className="h-5 w-5 text-primary fill-primary" />
+                    ) : (
+                      <img className="h-6 w-6 aspect-square" src={mediaUrl} />
+                    )}
+                  </div>
+
+                  {/* Nombre */}
+                  <div className="flex items-center min-w-0">
+                    <span className="truncate font-medium">{isFolder ? item : item.name}</span>
+                  </div>
+
+                  {/* Tipo */}
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    {isFolder ? 'Carpeta' : item.type === 'IMAGE' ? 'Imagen' : 'Video'}
+                  </div>
+
+                  {/* Tamaño */}
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    {isFolder ? '-' : formatFileSize(item.fileSize)}
+                  </div>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                {isFolder ? (
+                  <>
+                    <ContextMenuItem onClick={() => onNavigateToFolder(item)}>
+                      <Folder className="h-4 w-4" />
+                      Abrir
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => onRename(item, true, item)}>
+                      <Edit className="h-4 w-4" />
+                      Renombrar
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => onCopy(item, true)}>
+                      <Copy className="h-4 w-4" />
+                      Copiar
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => onCut(item, true)}>
+                      <Scissors className="h-4 w-4" />
+                      Cortar
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem variant="destructive" onClick={() => onDeleteFolder(item)}>
+                      <Trash2 className="h-4 w-4" />
+                      Eliminar
+                    </ContextMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <ContextMenuItem onClick={() => onRename(item, false, item.name)}>
+                      <Edit className="h-4 w-4" />
+                      Renombrar
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => onCopy(item, false)}>
+                      <Copy className="h-4 w-4" />
+                      Copiar
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => onCut(item, false)}>
+                      <Scissors className="h-4 w-4" />
+                      Cortar
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem variant="destructive" onClick={() => onDelete(item)}>
+                      <Trash2 className="h-4 w-4" />
+                      Eliminar
+                    </ContextMenuItem>
+                  </>
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

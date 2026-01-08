@@ -55,7 +55,7 @@ export function MediaCard({
       <ContextMenuTrigger>
         <div
           className={`group relative border rounded-lg overflow-hidden bg-muted/30 hover:shadow-md transition-shadow cursor-pointer ${
-            isSelected ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950 dark:text-white' : ''
+            isSelected ? 'ring-2 ring-blue-500 bg-blue-100 dark:bg-blue-950 dark:text-white' : ''
           }`}
           draggable
           onDragStart={handleDragStart}

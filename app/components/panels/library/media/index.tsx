@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Plus, Search, FolderPlus, ChevronRight, Home } from 'lucide-react'
+import { Plus, Search, FolderPlus, ChevronRight, Home, LayoutGrid, List } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { MediaFilterDto } from 'database/controllers/media/media.dto'
 import { Media } from './types'
 import { MediaGridWrapper } from './MediaGridWrapper'
+import { MediaList } from './MediaList'
 import { NewFolderDialog } from './NewFolderDialog'
 import { RenameDialog } from './RenameDialog'
 import { useMediaOperations } from './hooks/useMediaOperations'
@@ -17,6 +18,7 @@ import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } fr
 export default function MediaLibrary() {
   const [searchTerm, setSearchTerm] = useState('')
   const [currentFolder, setCurrentFolder] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [showRenameDialog, setShowRenameDialog] = useState(false)
@@ -263,8 +265,11 @@ export default function MediaLibrary() {
     onPaste: handlePaste,
     onDelete: handleDeleteSelection,
     onSelectAll: () => selection.selectAll(allSelectableItems),
-    onNavigate: (direction, extendSelection = false) =>
-      selection.navigateSelection(direction, allSelectableItems, 2, extendSelection)
+    onNavigate: (direction, extendSelection = false) => {
+      // En vista de lista: 1 columna, en vista de cuadrícula: 2 columnas
+      const columnsPerRow = viewMode === 'list' ? 1 : 2
+      selection.navigateSelection(direction, allSelectableItems, columnsPerRow, extendSelection)
+    }
   })
 
   return (
@@ -280,6 +285,26 @@ export default function MediaLibrary() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8"
             />
+          </div>
+          <div className="flex border rounded-md">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-r-none"
+              onClick={() => setViewMode('grid')}
+              title="Vista de cuadrícula"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-l-none"
+              onClick={() => setViewMode('list')}
+              title="Vista de lista"
+            >
+              <List className="h-4 w-4" />
+            </Button>
           </div>
           <Button onClick={() => setShowNewFolderDialog(true)} size="sm" disabled={loading}>
             <FolderPlus className="h-4 w-4 mr-1" />
@@ -322,27 +347,45 @@ export default function MediaLibrary() {
           ))}
         </div>
 
-        {/* Grid de medios */}
-        <MediaGridWrapper
-          items={mediaItems}
-          folders={folders}
-          currentFolder={currentFolder}
-          onDelete={handleDelete}
-          onDeleteFolder={handleDeleteFolder}
-          onNavigateToFolder={navigateToFolder}
-          onCopy={handleCopySingle}
-          onCut={handleCutSingle}
-          onPaste={handlePaste}
-          onDrop={handleDrop}
-          onRename={(item, isFolder, currentName) => {
-            setRenameTarget({ item, isFolder, currentName })
-            setShowRenameDialog(true)
-          }}
-          formatFileSize={formatFileSize}
-          onItemClick={handleItemClick}
-          isSelected={selection.isSelected}
-          onClearSelection={selection.clearSelection}
-        />
+        {/* Grid o Lista de medios */}
+        {viewMode === 'grid' ? (
+          <MediaGridWrapper
+            items={mediaItems}
+            folders={folders}
+            currentFolder={currentFolder}
+            onDelete={handleDelete}
+            onDeleteFolder={handleDeleteFolder}
+            onNavigateToFolder={navigateToFolder}
+            onCopy={handleCopySingle}
+            onCut={handleCutSingle}
+            onPaste={handlePaste}
+            onDrop={handleDrop}
+            onRename={(item, isFolder, currentName) => {
+              setRenameTarget({ item, isFolder, currentName })
+              setShowRenameDialog(true)
+            }}
+            formatFileSize={formatFileSize}
+            onItemClick={handleItemClick}
+            isSelected={selection.isSelected}
+            onClearSelection={selection.clearSelection}
+          />
+        ) : (
+          <MediaList
+            items={mediaItems}
+            folders={folders}
+            onDelete={handleDelete}
+            onDeleteFolder={handleDeleteFolder}
+            onNavigateToFolder={navigateToFolder}
+            onCopy={handleCopySingle}
+            onCut={handleCutSingle}
+            onRename={(item, isFolder, currentName) => {
+              setRenameTarget({ item, isFolder, currentName })
+              setShowRenameDialog(true)
+            }}
+            onItemClick={handleItemClick}
+            isSelected={selection.isSelected}
+          />
+        )}
       </div>
 
       {loading && (
