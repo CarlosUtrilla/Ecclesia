@@ -1,7 +1,7 @@
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
-import { Themes } from '@prisma/client'
-import { useFormik } from 'formik'
+import { Themes, Media } from '@prisma/client'
+import { useForm, Controller } from 'react-hook-form'
 import {
   Save,
   Type,
@@ -24,10 +24,15 @@ import AnimationSelector from './animationSelector'
 import { PresentationView } from '../PresentationView'
 import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSettings'
 import { fontSizes, lineHeights, letterSpacings } from '@/lib/themeConstants'
+import { ColorPicker } from '@/ui/colorPicker'
 
 import { useResizeObserver } from 'usehooks-ts'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
+
+type ThemeFormData = Themes & {
+  backgroundMedia?: Media | null
+}
 
 export default function ThemesEditor() {
   const previewRef = useRef<HTMLDivElement>(null)
@@ -38,11 +43,12 @@ export default function ThemesEditor() {
   const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
   const [animationKey, setAnimationKey] = useState(0)
 
-  const { values, setFieldValue, handleChange } = useFormik<Themes>({
-    initialValues: {
+  const { control, setValue, watch } = useForm<ThemeFormData>({
+    defaultValues: {
       id: 0,
       name: '',
       background: '',
+      backgroundMediaId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       letterSpacing: 0,
@@ -57,37 +63,37 @@ export default function ThemesEditor() {
       underline: false,
       animationSettings: JSON.stringify(defaultAnimationSettings)
     },
-    onSubmit: (values) => {
-      console.log(values)
-    }
+    mode: 'onChange',
+    shouldUnregister: false
   })
+
+  // Observar valores para preview - optimizado por react-hook-form
+  const previewData = watch()
 
   // Parse animation settings - memoizado para evitar re-parseos
   const animationSettings = useMemo<AnimationSettings>(() => {
     try {
-      return JSON.parse(values.animationSettings)
+      return JSON.parse(previewData.animationSettings)
     } catch {
       return defaultAnimationSettings
     }
-  }, [values.animationSettings])
+  }, [previewData])
 
   // Callbacks memoizados para evitar re-renders
+  const handleMediaChange = useCallback(
+    (mediaId: number | null, media: any) => {
+      setValue('backgroundMediaId', mediaId)
+      setValue('backgroundMedia', media as any)
+    },
+    [setValue]
+  )
+
   const handleAnimationChange = useCallback(
     (settings: AnimationSettings) => {
-      setFieldValue('animationSettings', JSON.stringify(settings))
-      setAnimationKey((prev) => prev + 1) // Recargar preview al cambiar animación
+      setValue('animationSettings', JSON.stringify(settings))
+      setAnimationKey((prev) => prev + 1)
     },
-    [setFieldValue]
-  )
-
-  const handleFontFamilyChange = useCallback(
-    (value: string) => setFieldValue('fontFamily', value),
-    [setFieldValue]
-  )
-
-  const handleBackgroundChange = useCallback(
-    (value: string) => setFieldValue('background', value),
-    [setFieldValue]
+    [setValue]
   )
 
   const handlePreviewAnimation = useCallback(() => {
@@ -100,12 +106,12 @@ export default function ThemesEditor() {
         <div className="p-2  flex items-center gap-1 border-b flex-wrap">
           <div className="">
             {/* Theme Name */}
-            <Input
-              className="!bg-background"
-              placeholder="Enter theme name"
+            <Controller
               name="name"
-              value={values.name}
-              onChange={handleChange}
+              control={control}
+              render={({ field }) => (
+                <Input className="!bg-background" placeholder="Enter theme name" {...field} />
+              )}
             />
             <div className="ml-auto flex mt-1.5 gap-2 w-full">
               <Button size="sm" className="flex-1">
@@ -121,9 +127,11 @@ export default function ThemesEditor() {
           {/* Background Selector */}
           <BackgroundSelector
             backgroundType={backgroundType}
-            value={values.background}
+            value={previewData.background}
             onTypeChange={setBackgroundType}
-            onValueChange={handleBackgroundChange}
+            onValueChange={(v) => setValue('background', v)}
+            onMediaChange={handleMediaChange}
+            selectedMedia={previewData.backgroundMedia}
           />
           <Separator orientation="vertical" className="!h-16 mx-1" />
 
@@ -138,155 +146,195 @@ export default function ThemesEditor() {
         {/* Barra de herramientas de estilo */}
         <div className="p-2 flex items-center gap-1 border-b flex-wrap">
           {/* Font Size */}
-          <FontFamilySelector value={values.fontFamily} onChange={handleFontFamilyChange} />
-          <Select
-            value={String(values.textSize)}
-            onValueChange={(value) => setFieldValue('textSize', Number(value))}
-          >
-            <SelectTrigger size="sm">
-              <Type className="h-4 w-4" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {fontSizes.map((size) => (
-                <SelectItem key={size.value} value={String(size.value)}>
-                  {size.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="fontFamily"
+            control={control}
+            render={({ field }) => (
+              <FontFamilySelector value={field.value} onChange={field.onChange} />
+            )}
+          />
+          <Controller
+            name="textSize"
+            control={control}
+            render={({ field }) => (
+              <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+                <SelectTrigger size="sm">
+                  <Type className="h-4 w-4" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {fontSizes.map((size) => (
+                    <SelectItem key={size.value} value={String(size.value)}>
+                      {size.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
 
           {/* Text Color */}
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={values.textColor}
-              onChange={(e) => setFieldValue('textColor', e.target.value)}
-              className="h-8 w-10 cursor-pointer rounded border"
-            />
-          </div>
+          <Controller
+            name="textColor"
+            control={control}
+            render={({ field }) => (
+              <ColorPicker value={field.value} onChange={field.onChange} className="h-8 w-10" />
+            )}
+          />
 
           <Separator orientation="vertical" className="!h-6 mx-1" />
 
           {/* Bold */}
-          <Button
-            type="button"
-            size="icon"
-            variant={values.bold ? 'default' : 'ghost'}
-            onClick={() => setFieldValue('bold', !values.bold)}
-            className="h-8 w-8"
-          >
-            <Bold className="h-4 w-4" />
-          </Button>
+          <Controller
+            name="bold"
+            control={control}
+            render={({ field }) => (
+              <Button
+                type="button"
+                size="icon"
+                variant={field.value ? 'default' : 'ghost'}
+                onClick={() => field.onChange(!field.value)}
+                className="h-8 w-8"
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+            )}
+          />
 
           {/* Italic */}
-          <Button
-            type="button"
-            size="icon"
-            variant={values.italic ? 'default' : 'ghost'}
-            onClick={() => setFieldValue('italic', !values.italic)}
-            className="h-8 w-8"
-          >
-            <Italic className="h-4 w-4" />
-          </Button>
+          <Controller
+            name="italic"
+            control={control}
+            render={({ field }) => (
+              <Button
+                type="button"
+                size="icon"
+                variant={field.value ? 'default' : 'ghost'}
+                onClick={() => field.onChange(!field.value)}
+                className="h-8 w-8"
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+            )}
+          />
 
           {/* Underline */}
-          <Button
-            type="button"
-            size="icon"
-            variant={values.underline ? 'default' : 'ghost'}
-            onClick={() => setFieldValue('underline', !values.underline)}
-            className="h-8 w-8"
-          >
-            <UnderlineIcon className="h-4 w-4" />
-          </Button>
+          <Controller
+            name="underline"
+            control={control}
+            render={({ field }) => (
+              <Button
+                type="button"
+                size="icon"
+                variant={field.value ? 'default' : 'ghost'}
+                onClick={() => field.onChange(!field.value)}
+                className="h-8 w-8"
+              >
+                <UnderlineIcon className="h-4 w-4" />
+              </Button>
+            )}
+          />
 
           <Separator orientation="vertical" className="!h-6 mx-1" />
 
           {/* Line Height */}
-          <Select
-            value={String(values.lineHeight)}
-            onValueChange={(value) => setFieldValue('lineHeight', Number(value))}
-          >
-            <SelectTrigger size="sm" className="w-[95px]">
-              <FormatLineSpacingIcon className="h-5 w-5" />
-              <SelectValue placeholder="Line height" />
-            </SelectTrigger>
-            <SelectContent>
-              {lineHeights.map((height) => (
-                <SelectItem key={height.value} value={String(height.value)}>
-                  {height.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="lineHeight"
+            control={control}
+            render={({ field }) => (
+              <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+                <SelectTrigger size="sm" className="w-[95px]">
+                  <FormatLineSpacingIcon className="h-5 w-5" />
+                  <SelectValue placeholder="Line height" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lineHeights.map((height) => (
+                    <SelectItem key={height.value} value={String(height.value)}>
+                      {height.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
 
           {/* Letter Spacing */}
-          <Select
-            value={String(values.letterSpacing)}
-            onValueChange={(value) => setFieldValue('letterSpacing', Number(value))}
-          >
-            <SelectTrigger size="sm" className="w-[120px]">
-              <LetterSpacingIcon className="h-4 w-4" />
-              <SelectValue placeholder="Letter spacing" />
-            </SelectTrigger>
-            <SelectContent>
-              {letterSpacings.map((spacing) => (
-                <SelectItem key={spacing.value} value={String(spacing.value)}>
-                  {spacing.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="letterSpacing"
+            control={control}
+            render={({ field }) => (
+              <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+                <SelectTrigger size="sm" className="w-[120px]">
+                  <LetterSpacingIcon className="h-4 w-4" />
+                  <SelectValue placeholder="Letter spacing" />
+                </SelectTrigger>
+                <SelectContent>
+                  {letterSpacings.map((spacing) => (
+                    <SelectItem key={spacing.value} value={String(spacing.value)}>
+                      {spacing.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
 
           <Separator orientation="vertical" className="!h-6 mx-1" />
 
           {/* Text Align */}
-          <Button
-            type="button"
-            size="icon"
-            variant={values.textAlign === 'left' ? 'default' : 'ghost'}
-            onClick={() => setFieldValue('textAlign', 'left')}
-            className="h-8 w-8"
-          >
-            <AlignLeft className="h-4 w-4" />
-          </Button>
+          <Controller
+            name="textAlign"
+            control={control}
+            render={({ field }) => (
+              <>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={field.value === 'left' ? 'default' : 'ghost'}
+                  onClick={() => field.onChange('left')}
+                  className="h-8 w-8"
+                >
+                  <AlignLeft className="h-4 w-4" />
+                </Button>
 
-          <Button
-            type="button"
-            size="icon"
-            variant={values.textAlign === 'center' ? 'default' : 'ghost'}
-            onClick={() => setFieldValue('textAlign', 'center')}
-            className="h-8 w-8"
-          >
-            <AlignCenter className="h-4 w-4" />
-          </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={field.value === 'center' ? 'default' : 'ghost'}
+                  onClick={() => field.onChange('center')}
+                  className="h-8 w-8"
+                >
+                  <AlignCenter className="h-4 w-4" />
+                </Button>
 
-          <Button
-            type="button"
-            size="icon"
-            variant={values.textAlign === 'right' ? 'default' : 'ghost'}
-            onClick={() => setFieldValue('textAlign', 'right')}
-            className="h-8 w-8"
-          >
-            <AlignRight className="h-4 w-4" />
-          </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={field.value === 'right' ? 'default' : 'ghost'}
+                  onClick={() => field.onChange('right')}
+                  className="h-8 w-8"
+                >
+                  <AlignRight className="h-4 w-4" />
+                </Button>
 
-          <Button
-            type="button"
-            size="icon"
-            variant={values.textAlign === 'justify' ? 'default' : 'ghost'}
-            onClick={() => setFieldValue('textAlign', 'justify')}
-            className="h-8 w-8"
-          >
-            <AlignJustify className="h-4 w-4" />
-          </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={field.value === 'justify' ? 'default' : 'ghost'}
+                  onClick={() => field.onChange('justify')}
+                  className="h-8 w-8"
+                >
+                  <AlignJustify className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          />
         </div>
       </div>
       <div className="flex-1 bg-muted flex items-center justify-center p-4" ref={previewRef}>
         <PresentationView
           key={animationKey}
-          theme={values}
+          theme={previewData}
           items={[
             {
               text: `Testing Theme Preview

@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { Button } from '@/ui/button'
-import { Input } from '@/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +8,8 @@ import {
 } from '@/ui/dropdown-menu'
 import { ChevronDown, Palette, Image as ImageIcon, Video, Sparkles } from 'lucide-react'
 import { MediaPicker, Media, MediaType } from '@/components/panels/library/media/exports'
+import { ColorPicker } from '@/ui/colorPicker'
+import { useMediaServer } from '@/contexts/MediaServerContext'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -17,6 +18,8 @@ interface BackgroundSelectorProps {
   value: string
   onTypeChange: (type: BackgroundType) => void
   onValueChange: (value: string) => void
+  onMediaChange?: (mediaId: number | null, media: Media | null) => void
+  selectedMedia?: Media | null
 }
 
 const backgroundTypeLabels: Record<BackgroundType, string> = {
@@ -37,21 +40,19 @@ export default function BackgroundSelector({
   backgroundType,
   value,
   onTypeChange,
-  onValueChange
+  onValueChange,
+  onMediaChange,
+  selectedMedia
 }: BackgroundSelectorProps) {
+  const { buildMediaUrl } = useMediaServer()
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [pickerType, setPickerType] = useState<MediaType | undefined>(undefined)
 
-  const handleOpenPicker = (type: 'IMAGE' | 'VIDEO') => {
-    setPickerType(type)
-    setIsPickerOpen(true)
-  }
-
   const handleSelectMedia = async (media: Media) => {
-    // Usar el protocolo myapp:// con la ruta relativa del archivo codificada
-    const encodedPath = encodeURIComponent(media.filePath)
-    const mediaUrl = `myapp:///${encodedPath}`
-    onValueChange(mediaUrl)
+    // Marcar que el background es un medio
+    onValueChange('media')
+    // Pasar el ID del medio y el objeto completo al parent
+    onMediaChange?.(media.id, media)
   }
 
   return (
@@ -72,10 +73,6 @@ export default function BackgroundSelector({
               <Palette className="h-4 w-4" />
               Color Sólido
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onTypeChange('gradient')} className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              Degradado
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onTypeChange('image')} className="gap-2">
               <ImageIcon className="h-4 w-4" />
               Imagen
@@ -89,21 +86,7 @@ export default function BackgroundSelector({
 
         {/* Background Input based on type */}
         {backgroundType === 'color' && (
-          <input
-            type="color"
-            value={value || '#ffffff'}
-            onChange={(e) => onValueChange(e.target.value)}
-            className="h-8 w-20 cursor-pointer rounded border"
-          />
-        )}
-
-        {backgroundType === 'gradient' && (
-          <Input
-            placeholder="linear-gradient(45deg, #667eea, #764ba2)"
-            value={value}
-            onChange={(e) => onValueChange(e.target.value)}
-            className="!bg-background text-xs flex-1 max-w-md h-8"
-          />
+          <ColorPicker value={value || '#ffffff'} onChange={onValueChange} />
         )}
 
         {backgroundType === 'image' && (
@@ -111,17 +94,36 @@ export default function BackgroundSelector({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleOpenPicker('IMAGE')}
+              onClick={() => {
+                setPickerType('IMAGE')
+                setIsPickerOpen(true)
+              }}
               className="h-8"
             >
-              {value ? 'Cambiar imagen' : 'Seleccionar imagen'}
+              {value === 'media' && selectedMedia ? 'Cambiar imagen' : 'Seleccionar imagen'}
             </Button>
-            {value && (
+            {value === 'media' && selectedMedia && (
               <>
                 <div className="h-8 w-8 rounded border overflow-hidden flex items-center justify-center bg-muted">
-                  <img src={value} alt="Preview" className="w-full h-full object-cover" />
+                  {selectedMedia.thumbnail ? (
+                    <img
+                      src={buildMediaUrl(selectedMedia.thumbnail)}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => onValueChange('')} className="h-8">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    onValueChange('')
+                    onMediaChange?.(null, null)
+                  }}
+                  className="h-8"
+                >
                   Limpiar
                 </Button>
               </>
@@ -134,17 +136,36 @@ export default function BackgroundSelector({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleOpenPicker('VIDEO')}
+              onClick={() => {
+                setPickerType('VIDEO')
+                setIsPickerOpen(true)
+              }}
               className="h-8"
             >
-              {value ? 'Cambiar video' : 'Seleccionar video'}
+              {value === 'media' && selectedMedia ? 'Cambiar video' : 'Seleccionar video'}
             </Button>
-            {value && (
+            {value === 'media' && selectedMedia && (
               <>
                 <div className="h-8 w-8 rounded border overflow-hidden flex items-center justify-center bg-muted">
-                  <Video className="h-4 w-4 text-muted-foreground" />
+                  {selectedMedia.thumbnail ? (
+                    <img
+                      src={buildMediaUrl(selectedMedia.thumbnail)}
+                      alt="Video preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Video className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => onValueChange('')} className="h-8">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    onValueChange('')
+                    onMediaChange?.(null, null)
+                  }}
+                  className="h-8"
+                >
                   Limpiar
                 </Button>
               </>

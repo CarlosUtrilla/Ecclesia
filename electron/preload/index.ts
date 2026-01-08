@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { exposeRoutes } from '../../database'
 import { MediaType } from '@prisma/client'
@@ -31,7 +31,20 @@ const mediaAPI = {
   move: (sourcePath: string, targetFolder: string | null, isFolder: boolean) =>
     ipcRenderer.invoke('media:move', sourcePath, targetFolder, isFolder),
   copyFile: (sourcePath: string, targetFolder: string | null, isFolder: boolean) =>
-    ipcRenderer.invoke('media:copy-file', sourcePath, targetFolder, isFolder)
+    ipcRenderer.invoke('media:copy-file', sourcePath, targetFolder, isFolder),
+  convertVideo: (filePath: string) => ipcRenderer.invoke('media:convert-video', filePath),
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  getServerPort: () => ipcRenderer.invoke('get-media-server-port'),
+  onImportProgress: (callback: (data: { progress: number; fileName: string }) => void) => {
+    ipcRenderer.on('media:import-progress', (_event, data) => callback(data))
+    return () => ipcRenderer.removeAllListeners('media:import-progress')
+  },
+  onConvertProgress: (
+    callback: (data: { progress: number; filePath: string; convertedFilePath: string }) => void
+  ) => {
+    ipcRenderer.on('media:convert-progress', (_event, data) => callback(data))
+    return () => ipcRenderer.removeAllListeners('media:convert-progress')
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

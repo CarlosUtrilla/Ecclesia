@@ -13,6 +13,7 @@ import { useMediaOperations } from './hooks/useMediaOperations'
 import { useClipboard } from './hooks/useClipboard'
 import { useSelection, SelectableItem } from './hooks/useSelection'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useDragAndDrop } from './hooks/useDragAndDrop'
 import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } from './utils'
 
 export default function MediaLibrary() {
@@ -27,10 +28,21 @@ export default function MediaLibrary() {
     isFolder: boolean
     currentName: string
   } | null>(null)
+  const [conversionProgress, setConversionProgress] = useState<{
+    fileName: string
+    progress: number
+  } | null>(null)
 
   const operations = useMediaOperations(currentFolder)
   const { clipboard, copy, cut, clear, getSourcePath } = useClipboard(currentFolder)
   const selection = useSelection()
+
+  // Drag and drop para importar archivos
+  const dragAndDrop = useDragAndDrop({
+    onFilesDropped: (filePaths) => {
+      operations.importMutation.mutate(filePaths)
+    }
+  })
 
   // Queries
   const { data: mediaData, isLoading } = useQuery({
@@ -54,6 +66,21 @@ export default function MediaLibrary() {
 
   const mediaItems = mediaData?.items || []
   const allSelectableItems: SelectableItem[] = [...folders, ...mediaItems]
+
+  // Escuchar progreso de conversión de video
+  useEffect(() => {
+    const unsubscribe = window.mediaAPI.onImportProgress(({ progress, fileName }) => {
+      setConversionProgress({ fileName, progress })
+
+      if (progress >= 100) {
+        setTimeout(() => {
+          setConversionProgress(null)
+        }, 500)
+      }
+    })
+
+    return unsubscribe
+  }, [])
 
   // Limpiar selección cuando cambie de carpeta
   useEffect(() => {
@@ -323,7 +350,25 @@ export default function MediaLibrary() {
       </div>
 
       {/* Contenido con breadcrumbs y grid */}
-      <div className="flex-1 overflow-auto p-3 flex flex-col">
+      <div
+        className="flex-1 overflow-auto p-3 flex flex-col relative"
+        onDragEnter={dragAndDrop.handleDragEnter}
+        onDragOver={dragAndDrop.handleDragOver}
+        onDragLeave={dragAndDrop.handleDragLeave}
+        onDrop={dragAndDrop.handleDrop}
+      >
+        {/* Overlay cuando se está arrastrando */}
+        {dragAndDrop.isDragging && (
+          <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50">
+            <div className="bg-background rounded-lg p-8 shadow-lg pointer-events-none">
+              <p className="text-lg font-semibold">Suelta los archivos aquí</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Se importarán a {currentFolder || 'la raíz'}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Breadcrumbs */}
         <div className="flex items-center gap-1 text-sm mb-3">
           <Button
@@ -397,7 +442,24 @@ export default function MediaLibrary() {
         <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-            <p className="mt-2 text-sm text-muted-foreground">Cargando...</p>
+            {conversionProgress ? (
+              <>
+                <p className="mt-2 text-sm font-medium">
+                  Convirtiendo video &quot;{conversionProgress.fileName}&quot;
+                </p>
+                <div className="mt-2 w-48 mx-auto bg-secondary rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-full transition-all duration-300"
+                    style={{ width: `${conversionProgress.progress}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {conversionProgress.progress}% - Optimizando para máxima compatibilidad
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">Cargando...</p>
+            )}
           </div>
         </div>
       )}

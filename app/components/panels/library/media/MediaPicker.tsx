@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Search, Home, ChevronRight, LayoutGrid, List } from 'lucide-react'
@@ -9,6 +9,8 @@ import { Media, MediaType } from './types'
 import { MediaGrid } from './MediaGrid'
 import { MediaList } from './MediaList'
 import { formatFileSize, normalizeFolder, buildFolderPath } from './utils'
+import { useMediaOperations } from './hooks/useMediaOperations'
+import { useDragAndDrop } from './hooks/useDragAndDrop'
 
 interface MediaPickerProps {
   open: boolean
@@ -29,6 +31,15 @@ export function MediaPicker({
   const [currentFolder, setCurrentFolder] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
+
+  const operations = useMediaOperations(currentFolder)
+
+  // Drag and drop para importar archivos
+  const dragAndDrop = useDragAndDrop({
+    onFilesDropped: (filePaths) => {
+      operations.importMutation.mutate(filePaths)
+    }
+  })
 
   const { data: mediaData, isLoading } = useQuery({
     queryKey: ['media', searchTerm, currentFolder, filterType],
@@ -78,6 +89,9 @@ export function MediaPicker({
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Selecciona un archivo de la biblioteca de medios
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -147,7 +161,25 @@ export function MediaPicker({
           </div>
 
           {/* Grid/List */}
-          <div className="flex-1 overflow-auto px-6 py-3">
+          <div
+            className="flex-1 overflow-auto px-6 py-3 relative"
+            onDragEnter={dragAndDrop.handleDragEnter}
+            onDragOver={dragAndDrop.handleDragOver}
+            onDragLeave={dragAndDrop.handleDragLeave}
+            onDrop={dragAndDrop.handleDrop}
+          >
+            {/* Overlay cuando se está arrastrando */}
+            {dragAndDrop.isDragging && (
+              <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50">
+                <div className="bg-background rounded-lg p-8 shadow-lg pointer-events-none">
+                  <p className="text-lg font-semibold">Suelta los archivos aquí</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Se importarán a {currentFolder || 'la raíz'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

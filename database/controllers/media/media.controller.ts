@@ -16,6 +16,10 @@ export class MediaController {
     return await this.mediaService.findOne(parseInt(id))
   }
 
+  async findByFilePath(data: { filePath: string }) {
+    return await this.mediaService.findByFilePath(data.filePath)
+  }
+
   async update(id: string, data: UpdateMediaDto) {
     return await this.mediaService.update(parseInt(id), data)
   }

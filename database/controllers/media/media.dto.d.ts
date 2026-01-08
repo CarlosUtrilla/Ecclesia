@@ -10,6 +10,7 @@ export interface CreateMediaDto {
   height?: number
   duration?: number
   thumbnail?: string
+  fallback?: string
   folder?: string
 }
 
@@ -30,6 +31,7 @@ export interface MediaDto {
   height?: number | null
   duration?: number | null
   thumbnail?: string | null
+  fallback?: string | null
   folder?: string | null
   createdAt: Date
   updatedAt: Date

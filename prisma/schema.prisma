@@ -35,7 +35,9 @@ model Lyrics {
 model Themes {
   id                Int      @id @default(autoincrement())
   name              String   @unique
-  background        String
+  background        String // Color, gradient, o "media" si usa backgroundMedia
+  backgroundMediaId Int? // ID del medio (imagen/video) usado como fondo
+  backgroundMedia   Media?   @relation(fields: [backgroundMediaId], references: [id])
   textColor         String
   textSize          Int
   lineHeight        Float
@@ -79,8 +81,12 @@ model Media {
   width     Int? // Ancho en píxeles (opcional)
   height    Int? // Alto en píxeles (opcional)
   duration  Float? // Duración en segundos (solo para videos)
-  thumbnail String? // Ruta a miniatura generada
+  thumbnail String? // Ruta a miniatura generada (segundo 1.5 para videos)
+  fallback  String? // Ruta a imagen de fallback (frame inicial para videos)
   folder    String? // Ruta de carpeta para organizar medios (ej: "Navidad/2025" o null para raíz)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  // Relación inversa con Themes
+  themesUsingAsBackground Themes[]
 }

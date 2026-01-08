@@ -2,11 +2,11 @@ import { Input } from '@/ui/input'
 import RichTextEditor from '@/ui/richTextEditor'
 import t from '@locales'
 import { Song } from '@prisma/client'
-import { useFormik } from 'formik'
+import { useForm, Controller } from 'react-hook-form'
 import { Button } from '@/ui/button'
 export default function SongEditor() {
-  const { values, handleChange, handleSubmit } = useFormik<Song>({
-    initialValues: {
+  const { control, watch, handleSubmit } = useForm<Song>({
+    defaultValues: {
       title: '',
       author: '',
       copyright: '',
@@ -14,11 +14,14 @@ export default function SongEditor() {
       id: -1,
       createdAt: new Date(),
       updatedAt: new Date()
-    },
-    onSubmit: (values) => {
-      console.log(values)
     }
   })
+
+  const values = watch()
+
+  const onSubmit = (data: Song) => {
+    console.log(data)
+  }
 
   const separateFullTextOnLyrics = (fullText: string) => {
     // Tiptap genera párrafos con <p> tags
@@ -61,30 +64,37 @@ export default function SongEditor() {
     <div className="grid grid-cols-12 h-svh">
       <div className="p-3 gap-2 col-span-3 bg-sidebar border-r flex flex-col">
         <div className="flex items-center justify-center mb-2">
-          <Button onClick={() => handleSubmit()}>{t('songEditor.save')}</Button>
+          <Button onClick={handleSubmit(onSubmit)}>{t('songEditor.save')}</Button>
         </div>
-        <Input
-          placeholder={t('songEditor.title')}
-          value={values.title}
-          onChange={handleChange}
+        <Controller
           name="title"
+          control={control}
+          render={({ field }) => <Input placeholder={t('songEditor.title')} {...field} />}
         />
-        <Input
-          placeholder={t('songEditor.author')}
-          value={values.author || ''}
-          onChange={handleChange}
+        <Controller
           name="author"
+          control={control}
+          render={({ field }) => (
+            <Input placeholder={t('songEditor.author')} {...field} value={field.value || ''} />
+          )}
         />
-        <Input
-          placeholder={t('songEditor.copyright')}
-          value={values.copyright || ''}
-          onChange={handleChange}
+        <Controller
           name="copyright"
+          control={control}
+          render={({ field }) => (
+            <Input placeholder={t('songEditor.copyright')} {...field} value={field.value || ''} />
+          )}
         />
-        <RichTextEditor
-          className="flex-1"
-          text={values.fullText || ''}
-          onTextChange={(newText) => handleChange({ target: { name: 'fullText', value: newText } })}
+        <Controller
+          name="fullText"
+          control={control}
+          render={({ field }) => (
+            <RichTextEditor
+              className="flex-1"
+              text={field.value || ''}
+              onTextChange={field.onChange}
+            />
+          )}
         />
       </div>
       <div className="flex gap-2 bg-muted/40 items-center justify-center col-span-9">

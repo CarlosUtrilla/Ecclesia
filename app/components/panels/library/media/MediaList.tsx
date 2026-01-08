@@ -1,3 +1,4 @@
+import React from 'react'
 import { Folder, Trash2, Edit, Copy, Scissors } from 'lucide-react'
 import {
   ContextMenu,
@@ -9,6 +10,7 @@ import {
 import { Media } from './types'
 import { SelectableItem } from './hooks/useSelection'
 import { formatFileSize } from './utils'
+import { useMediaServer } from '@/contexts/MediaServerContext'
 
 interface MediaListProps {
   items: Media[]
@@ -35,6 +37,7 @@ export function MediaList({
   onItemClick,
   isSelected
 }: MediaListProps) {
+  const { buildMediaUrl } = useMediaServer()
   if (folders.length === 0 && items.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -55,7 +58,8 @@ export function MediaList({
           const selected = isSelected(item)
           const filePath = isFolder ? '' : item.thumbnail || item.filePath
           const encodedPath = encodeURIComponent(filePath)
-          const mediaUrl = `myapp:///${encodedPath}`
+          const mediaUrl = buildMediaUrl(encodedPath)
+
           return (
             <ContextMenu key={isFolder ? `folder:${item}` : `file:${item.id}`}>
               <ContextMenuTrigger asChild>

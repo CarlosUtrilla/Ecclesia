@@ -6,7 +6,7 @@
   <title>Electron</title>
   <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: myapp:; media-src 'self' myapp:;" />
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://127.0.0.1:* http://localhost:* http://*:*; media-src 'self' http://127.0.0.1:* http://localhost:* http://*:*;" />
   <link href="./fonts/Inter-VariableFont_opsz,wght.ttf" rel="stylesheet">
   <link href="./fonts/Inter-Italic-VariableFont_opsz,wght.ttf" rel="stylesheet">
 </head>

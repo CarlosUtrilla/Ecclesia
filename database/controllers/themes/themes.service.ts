@@ -12,6 +12,9 @@ export class ThemesService {
   async getAllThemes() {
     const prisma = getPrisma()
     return await prisma.themes.findMany({
+      include: {
+        backgroundMedia: true
+      },
       orderBy: { createdAt: 'desc' }
     })
   }
@@ -19,14 +22,20 @@ export class ThemesService {
   async getThemeById(id: number) {
     const prisma = getPrisma()
     return await prisma.themes.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        backgroundMedia: true
+      }
     })
   }
 
   async getThemeByName(name: string) {
     const prisma = getPrisma()
     return await prisma.themes.findUnique({
-      where: { name }
+      where: { name },
+      include: {
+        backgroundMedia: true
+      }
     })
   }
 

@@ -68,6 +68,19 @@ declare global {
         targetFolder: string | null,
         isFolder: boolean
       ) => Promise<{ success: boolean; newPath: string; newFileName: string; newThumbnail?: string }>
+      convertVideo: (filePath: string) => Promise<{
+        originalPath: string
+        convertedPath: string
+        success: boolean
+      }>
+      getPathForFile: (file: File) => string
+      getServerPort: () => Promise<number>
+      onImportProgress: (
+        callback: (data: { progress: number; fileName: string }) => void
+      ) => () => void
+      onConvertProgress: (
+        callback: (data: { progress: number; filePath: string; convertedFilePath: string }) => void
+      ) => () => void
     }
   }
 }

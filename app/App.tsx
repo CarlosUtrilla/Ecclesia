@@ -1,31 +1,55 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import LibraryPanel from './components/panels/library'
 import SongEditor from './components/songEditor'
 import ThemesEditor from './components/themesEditor'
 import PreviewPanel from './components/panels/preview'
+import { MediaServerProvider } from './contexts/MediaServerContext'
+import { SplashScreen } from './components/SplashScreen'
+import { useMediaServer } from './contexts/MediaServerContext'
+
+function AppContent() {
+  const { isReady } = useMediaServer()
+  const location = useLocation()
+
+  // Solo mostrar splash en la ruta principal
+  const showSplash = location.pathname === '/'
+
+  return (
+    <>
+      {showSplash ? (
+        <SplashScreen isReady={isReady}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <div className="grid grid-cols-4 h-svh">
+                  <LibraryPanel />
+                  <PreviewPanel />
+                </div>
+              }
+            />
+          </Routes>
+        </SplashScreen>
+      ) : (
+        <Routes>
+          {/* Rutas para crear/editar canción (ventana modal) */}
+          <Route path="/song/new" element={<SongEditor />} />
+          <Route path="/song/:id" element={<SongEditor />} />
+
+          {/* Rutas para crear/editar tema (ventana modal) */}
+          <Route path="/theme/new" element={<ThemesEditor />} />
+          <Route path="/theme/:id" element={<ThemesEditor />} />
+        </Routes>
+      )}
+    </>
+  )
+}
 
 function App() {
   return (
-    <Routes>
-      {/* Ruta principal con el panel de biblioteca */}
-      <Route
-        path="/"
-        element={
-          <div className="grid grid-cols-4 h-svh">
-            <LibraryPanel />
-            <PreviewPanel />
-          </div>
-        }
-      />
-
-      {/* Rutas para crear/editar canción (ventana modal) */}
-      <Route path="/song/new" element={<SongEditor />} />
-      <Route path="/song/:id" element={<SongEditor />} />
-
-      {/* Rutas para crear/editar tema (ventana modal) */}
-      <Route path="/theme/new" element={<ThemesEditor />} />
-      <Route path="/theme/:id" element={<ThemesEditor />} />
-    </Routes>
+    <MediaServerProvider>
+      <AppContent />
+    </MediaServerProvider>
   )
 }
 

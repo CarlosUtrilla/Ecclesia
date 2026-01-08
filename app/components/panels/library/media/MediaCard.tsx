@@ -1,3 +1,4 @@
+import React from 'react'
 import { Image, Video, Trash2, Edit, Copy, Scissors } from 'lucide-react'
 import { Button } from '@/ui/button'
 import {
@@ -9,6 +10,7 @@ import {
 } from '@/ui/context-menu'
 import { Media } from './types'
 import { SelectableItem } from './hooks/useSelection'
+import { useMediaServer } from '@/contexts/MediaServerContext'
 
 interface MediaCardProps {
   media: Media
@@ -30,12 +32,9 @@ export function MediaCard({
   onClick,
   isSelected = false
 }: MediaCardProps) {
-  // Usar thumbnail si está disponible, sino el archivo original
-  // Usar tres slashes (myapp:///) para que todo sea path, no host
-  // Codificar la URL para manejar espacios y caracteres especiales
+  const { buildMediaUrl } = useMediaServer()
   const filePath = media.thumbnail || media.filePath
-  const encodedPath = encodeURIComponent(filePath)
-  const mediaUrl = `myapp:///${encodedPath}`
+  const mediaUrl = buildMediaUrl(filePath)
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = 'move'
