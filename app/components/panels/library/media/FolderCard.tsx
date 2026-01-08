@@ -98,14 +98,15 @@ export function FolderCard({
     }
 
     // Para click simple, esperar un poco para ver si es doble click
-    // Si hay modificadores (Shift, Ctrl), ejecutar inmediatamente
+    // Si hay modificadores (Shift, Ctrl), ejecutar inmediatamente sin delay
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       onClick(folderName, e)
     } else {
+      // Reducir el delay a 150ms para una respuesta más rápida
       clickTimeout.current = setTimeout(() => {
         onClick(folderName, e)
         clickTimeout.current = null
-      }, 200)
+      }, 150)
     }
   }
 

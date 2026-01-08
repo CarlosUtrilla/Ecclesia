@@ -115,9 +115,6 @@ app.whenReady().then(async () => {
       return new Response('Not a file', { status: 400 })
     }
 
-    const buffer = await fs.promises.readFile(filePath)
-    const uint8 = new Uint8Array(buffer)
-
     const ext = path.extname(filePath).toLowerCase()
     const mimeTypes: Record<string, string> = {
       '.png': 'image/png',
@@ -128,12 +125,47 @@ app.whenReady().then(async () => {
       '.mp4': 'video/mp4',
       '.webm': 'video/webm',
       '.mov': 'video/quicktime',
-      '.avi': 'video/x-msvideo'
+      '.avi': 'video/x-msvideo',
+      '.ogg': 'video/ogg'
     }
 
     const mime = mimeTypes[ext] || 'application/octet-stream'
 
-    return new Response(uint8, { headers: { 'Content-Type': mime } })
+    // Para videos, soportar range requests
+    const rangeHeader = request.headers.get('range')
+    if (rangeHeader && mime.startsWith('video/')) {
+      const parts = rangeHeader.replace(/bytes=/, '').split('-')
+      const start = parseInt(parts[0], 10)
+      const end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1
+      const chunksize = end - start + 1
+
+      const buffer = Buffer.alloc(chunksize)
+      const fd = await fs.promises.open(filePath, 'r')
+      await fd.read(buffer, 0, chunksize, start)
+      await fd.close()
+
+      return new Response(buffer, {
+        status: 206,
+        headers: {
+          'Content-Type': mime,
+          'Content-Range': `bytes ${start}-${end}/${stats.size}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize.toString()
+        }
+      })
+    }
+
+    // Para imágenes u otros archivos, cargar completo
+    const buffer = await fs.promises.readFile(filePath)
+    const uint8 = new Uint8Array(buffer)
+
+    return new Response(uint8, {
+      headers: {
+        'Content-Type': mime,
+        'Content-Length': stats.size.toString(),
+        'Accept-Ranges': 'bytes'
+      }
+    })
   })
 
   // Protocolo para cargar medios (imágenes y videos)

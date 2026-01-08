@@ -1,10 +1,28 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn, sanitizeHTML } from '../../lib/utils'
 import { PresentationViewProps, PresentationViewsItemsProps, ScreenSize } from './types'
 import { useDisplays } from '@/hooks/useDisplays'
 import { getAnimationVariants, wordVariants, AnimationType } from '@/lib/animations'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
+
+// Detectar tipo de medio basado en la extensión del archivo
+type MediaType = 'image' | 'video' | 'color' | 'gradient'
+
+function getMediaType(background: string): MediaType {
+  if (!background) return 'color'
+
+  const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov']
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp']
+
+  const lowerBackground = background.toLowerCase()
+
+  if (videoExtensions.some((ext) => lowerBackground.includes(ext))) return 'video'
+  if (imageExtensions.some((ext) => lowerBackground.includes(ext))) return 'image'
+  if (lowerBackground.includes('gradient')) return 'gradient'
+
+  return 'color'
+}
 
 export function PresentationView({ maxHeight = 150, items, theme, live }: PresentationViewProps) {
   const [screenSize, setScreenSize] = useState<ScreenSize>({
@@ -64,9 +82,20 @@ export function PresentationViewItem({
   live
 }: PresentationViewsItemsProps) {
   const background = theme.background
+  const mediaType = useMemo(() => getMediaType(background), [background])
+  const videoRef = useRef<HTMLVideoElement>(null)
   const calculatedFontSize = theme.textSize
     ? `${(screenSize.height * theme.textSize) / 320}px`
     : 'inherit'
+
+  // Asegurar que el video se reproduzca cuando esté listo
+  useEffect(() => {
+    if (mediaType === 'video' && videoRef.current) {
+      videoRef.current.play().catch((error) => {
+        console.error('Error al reproducir video:', error)
+      })
+    }
+  }, [mediaType, background])
 
   // Parse animation settings - memoizado
   const animationSettings = useMemo<AnimationSettings>(() => {
@@ -128,9 +157,10 @@ export function PresentationViewItem({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background
+      position: 'relative' as const,
+      background: mediaType === 'color' || mediaType === 'gradient' ? background : 'transparent'
     }),
-    [screenSize.width, screenSize.aspectRatio, background]
+    [screenSize.width, screenSize.aspectRatio, background, mediaType]
   )
 
   // Para la animación 'split', dividimos el texto en palabras
@@ -189,9 +219,56 @@ export function PresentationViewItem({
         'rounded-none': live
       })}
     >
-      <AnimatePresence mode="wait">
-        <div key={text}>{renderAnimatedText}</div>
-      </AnimatePresence>
+      {/* Fondo de imagen - no cambia con el texto */}
+      {mediaType === 'image' && (
+        <img
+          src={background}
+          alt="Background"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            zIndex: 0
+          }}
+        />
+      )}
+
+      {/* Fondo de video - no cambia con el texto, se reproduce en bucle */}
+      {mediaType === 'video' && (
+        <video
+          ref={videoRef}
+          key={background}
+          src={background}
+          autoPlay
+          loop
+          muted
+          playsInline
+          onError={(e) => console.error('Error cargando video:', e)}
+          onLoadedData={() => {
+            console.log('Video cargado correctamente')
+            videoRef.current?.play()
+          }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            zIndex: 0
+          }}
+        />
+      )}
+
+      {/* Contenido de texto - cambia con animaciones */}
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', padding: '1rem' }}>
+        <AnimatePresence mode="wait">
+          <div key={text}>{renderAnimatedText}</div>
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, FolderPlus, ChevronRight, Home, LayoutGrid, List } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
@@ -54,6 +54,11 @@ export default function MediaLibrary() {
 
   const mediaItems = mediaData?.items || []
   const allSelectableItems: SelectableItem[] = [...folders, ...mediaItems]
+
+  // Limpiar selección cuando cambie de carpeta
+  useEffect(() => {
+    selection.clearSelection()
+  }, [currentFolder])
 
   // Handlers de selección
   const handleItemClick = (item: SelectableItem, e: React.MouseEvent) => {

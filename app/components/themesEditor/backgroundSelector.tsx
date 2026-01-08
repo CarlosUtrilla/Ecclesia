@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import {
@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger
 } from '@/ui/dropdown-menu'
 import { ChevronDown, Palette, Image as ImageIcon, Video, Sparkles } from 'lucide-react'
+import { MediaPicker, Media, MediaType } from '@/components/panels/library/media/exports'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -38,6 +39,21 @@ export default function BackgroundSelector({
   onTypeChange,
   onValueChange
 }: BackgroundSelectorProps) {
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
+  const [pickerType, setPickerType] = useState<MediaType | undefined>(undefined)
+
+  const handleOpenPicker = (type: 'IMAGE' | 'VIDEO') => {
+    setPickerType(type)
+    setIsPickerOpen(true)
+  }
+
+  const handleSelectMedia = async (media: Media) => {
+    // Usar el protocolo myapp:// con la ruta relativa del archivo codificada
+    const encodedPath = encodeURIComponent(media.filePath)
+    const mediaUrl = `myapp:///${encodedPath}`
+    onValueChange(mediaUrl)
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <label className="text-xs text-muted-foreground whitespace-nowrap">Fondo:</label>
@@ -92,54 +108,58 @@ export default function BackgroundSelector({
 
         {backgroundType === 'image' && (
           <div className="flex items-center gap-2">
-            <Input
-              type="file"
-              accept="image/*"
-              className="!bg-background text-xs max-w-xs h-8"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) {
-                  const reader = new FileReader()
-                  reader.onload = (event) => {
-                    onValueChange(event.target?.result as string)
-                  }
-                  reader.readAsDataURL(file)
-                }
-              }}
-            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleOpenPicker('IMAGE')}
+              className="h-8"
+            >
+              {value ? 'Cambiar imagen' : 'Seleccionar imagen'}
+            </Button>
             {value && (
-              <Button size="sm" variant="ghost" onClick={() => onValueChange('')} className="h-8">
-                Limpiar
-              </Button>
+              <>
+                <div className="h-8 w-8 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                  <img src={value} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => onValueChange('')} className="h-8">
+                  Limpiar
+                </Button>
+              </>
             )}
           </div>
         )}
 
         {backgroundType === 'video' && (
           <div className="flex items-center gap-2">
-            <Input
-              type="file"
-              accept="video/*"
-              className="!bg-background text-xs max-w-xs h-8"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) {
-                  const reader = new FileReader()
-                  reader.onload = (event) => {
-                    onValueChange(event.target?.result as string)
-                  }
-                  reader.readAsDataURL(file)
-                }
-              }}
-            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleOpenPicker('VIDEO')}
+              className="h-8"
+            >
+              {value ? 'Cambiar video' : 'Seleccionar video'}
+            </Button>
             {value && (
-              <Button size="sm" variant="ghost" onClick={() => onValueChange('')} className="h-8">
-                Limpiar
-              </Button>
+              <>
+                <div className="h-8 w-8 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                  <Video className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => onValueChange('')} className="h-8">
+                  Limpiar
+                </Button>
+              </>
             )}
           </div>
         )}
       </div>
+
+      <MediaPicker
+        open={isPickerOpen}
+        onOpenChange={setIsPickerOpen}
+        onSelect={handleSelectMedia}
+        filterType={pickerType}
+        title={pickerType === 'IMAGE' ? 'Seleccionar imagen' : 'Seleccionar video'}
+      />
     </div>
   )
 }
