@@ -144,7 +144,7 @@ export function registerMediaHandlers() {
         filePath,
         fileSize: stats.size,
         thumbnail: `thumbnails/${thumbnailFileName}`,
-        folder: folder || null
+        folder: folder ?? undefined
       }
     } catch (error: any) {
       console.error('Error al importar archivo:', error)
@@ -229,18 +229,25 @@ export function registerMediaHandlers() {
   // Renombrar archivo o carpeta
   ipcMain.handle(
     'media:rename',
-    async (_event, oldPath: string, newName: string, isFolder: boolean) => {
+    async (_event, oldPath: string, newName: string, _isFolder: boolean) => {
       try {
         const userDataPath = app.getPath('userData')
         const basePath = path.join(userDataPath, 'media', 'files')
-
         const oldFullPath = path.join(basePath, oldPath)
         const directory = path.dirname(oldPath)
-        const newPath = directory === '.' ? newName : path.join(directory, newName)
+
+        // Preservar la extensión del archivo original si no se proporcionó
+        const oldExt = path.extname(oldPath)
+        const newExt = path.extname(newName)
+        const finalNewName = newExt ? newName : newName + oldExt
+
+        const newPath = directory === '.' ? finalNewName : path.join(directory, finalNewName)
         const newFullPath = path.join(basePath, newPath)
 
         if (!fs.existsSync(oldFullPath)) {
-          throw new Error('El archivo o carpeta no existe')
+          throw new Error(
+            `El archivo "${oldPath}" no existe en la ubicación esperada: ${oldFullPath}`
+          )
         }
 
         if (fs.existsSync(newFullPath)) {
@@ -277,4 +284,131 @@ export function registerMediaHandlers() {
       throw error
     }
   })
+
+  // Mover archivo o carpeta a otra ubicación
+  ipcMain.handle(
+    'media:move',
+    async (_event, sourcePath: string, targetFolder: string | null, _isFolder: boolean) => {
+      try {
+        const userDataPath = app.getPath('userData')
+        const basePath = path.join(userDataPath, 'media', 'files')
+        const sourceFullPath = path.join(basePath, sourcePath)
+        const fileName = path.basename(sourcePath)
+        const targetPath = targetFolder ? path.join(targetFolder, fileName) : fileName
+        const targetFullPath = path.join(basePath, targetPath)
+
+        if (!fs.existsSync(sourceFullPath)) {
+          throw new Error(
+            `El archivo "${sourcePath}" no existe en la ubicación esperada: ${sourceFullPath}`
+          )
+        }
+
+        if (fs.existsSync(targetFullPath)) {
+          throw new Error('Ya existe un archivo o carpeta con ese nombre en el destino')
+        }
+
+        // Crear directorio destino si no existe
+        const targetDir = path.dirname(targetFullPath)
+        if (!fs.existsSync(targetDir)) {
+          fs.mkdirSync(targetDir, { recursive: true })
+        }
+
+        fs.renameSync(sourceFullPath, targetFullPath)
+
+        return { success: true, newPath: targetPath }
+      } catch (error: any) {
+        console.error('Error al mover:', error)
+        throw error
+      }
+    }
+  )
+
+  // Copiar archivo o carpeta
+  ipcMain.handle(
+    'media:copy-file',
+    async (_event, sourcePath: string, targetFolder: string | null, isFolder: boolean) => {
+      try {
+        const userDataPath = app.getPath('userData')
+        const basePath = path.join(userDataPath, 'media', 'files')
+        const sourceFullPath = path.join(basePath, sourcePath)
+
+        if (!fs.existsSync(sourceFullPath)) {
+          throw new Error(`El archivo o carpeta "${sourcePath}" no existe`)
+        }
+
+        // Obtener el nombre base y extensión
+        const fileName = path.basename(sourcePath)
+        const ext = path.extname(fileName)
+        const baseName = path.basename(fileName, ext)
+
+        // Generar nombre único para la copia
+        const hash = crypto.randomBytes(4).toString('hex')
+        const newFileName = ext ? `${baseName}-copia-${hash}${ext}` : `${baseName}-copia-${hash}`
+
+        const targetPath = targetFolder ? path.join(targetFolder, newFileName) : newFileName
+        const targetFullPath = path.join(basePath, targetPath)
+
+        // Crear directorio destino si no existe
+        const targetDir = path.dirname(targetFullPath)
+        if (!fs.existsSync(targetDir)) {
+          fs.mkdirSync(targetDir, { recursive: true })
+        }
+
+        if (isFolder) {
+          // Copiar carpeta recursivamente
+          copyFolderRecursive(sourceFullPath, targetFullPath)
+          return { success: true, newPath: targetPath, newFileName }
+        } else {
+          // Copiar archivo
+          fs.copyFileSync(sourceFullPath, targetFullPath)
+
+          // Copiar thumbnail si existe
+          const thumbnailsPath = path.join(userDataPath, 'media', 'thumbnails')
+          let newThumbnailPath: string | undefined
+          
+          // Buscar thumbnail asociado (podría tener diferentes nombres)
+          if (fs.existsSync(thumbnailsPath)) {
+            const thumbnailFiles = fs.readdirSync(thumbnailsPath)
+            const sourceBaseName = path.basename(sourcePath, ext)
+            
+            for (const thumbFile of thumbnailFiles) {
+              if (thumbFile.includes(sourceBaseName)) {
+                const sourceThumbPath = path.join(thumbnailsPath, thumbFile)
+                const newThumbName = `thumb-${baseName.replaceAll(' ', '_')}-copia-${hash}.jpg`
+                const targetThumbPath = path.join(thumbnailsPath, newThumbName)
+                fs.copyFileSync(sourceThumbPath, targetThumbPath)
+                newThumbnailPath = `thumbnails/${newThumbName}`
+                break
+              }
+            }
+          }
+
+          return { success: true, newPath: targetPath, newFileName, newThumbnail: newThumbnailPath }
+        }
+      } catch (error: any) {
+        console.error('Error al copiar:', error)
+        throw error
+      }
+    }
+  )
+}
+
+// Función auxiliar para copiar carpetas recursivamente
+function copyFolderRecursive(source: string, target: string) {
+  if (!fs.existsSync(target)) {
+    fs.mkdirSync(target, { recursive: true })
+  }
+
+  const files = fs.readdirSync(source)
+
+  for (const file of files) {
+    const sourcePath = path.join(source, file)
+    const targetPath = path.join(target, file)
+
+    if (fs.statSync(sourcePath).isDirectory()) {
+      copyFolderRecursive(sourcePath, targetPath)
+    } else {
+      fs.copyFileSync(sourcePath, targetPath)
+    }
+  }
 }

@@ -15,7 +15,8 @@ export interface CreateMediaDto {
 
 export interface UpdateMediaDto {
   name?: string
-  folder?: string
+  filePath?: string
+  folder?: string | null
 }
 
 export interface MediaDto {

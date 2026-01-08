@@ -7,7 +7,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from '@/ui/context-menu'
-import { Media } from '@prisma/client'
+import { Media } from './types'
+import { SelectableItem } from './hooks/useSelection'
 
 interface MediaCardProps {
   media: Media
@@ -16,9 +17,19 @@ interface MediaCardProps {
   onCut: (item: Media, isFolder: boolean) => void
   onRename: (item: Media, isFolder: boolean, currentName: string) => void
   formatFileSize: (bytes: number) => string
+  onClick?: (item: SelectableItem, e: React.MouseEvent) => void
+  isSelected?: boolean
 }
 
-export function MediaCard({ media, onDelete, onCopy, onCut, onRename }: MediaCardProps) {
+export function MediaCard({
+  media,
+  onDelete,
+  onCopy,
+  onCut,
+  onRename,
+  onClick,
+  isSelected = false
+}: MediaCardProps) {
   // Usar thumbnail si está disponible, sino el archivo original
   // Usar tres slashes (myapp:///) para que todo sea path, no host
   // Codificar la URL para manejar espacios y caracteres especiales
@@ -26,10 +37,30 @@ export function MediaCard({ media, onDelete, onCopy, onCut, onRename }: MediaCar
   const encodedPath = encodeURIComponent(filePath)
   const mediaUrl = `myapp:///${encodedPath}`
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/json', JSON.stringify({ item: media, isFolder: false }))
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Prevenir clicks en el botón de eliminar
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
+    onClick?.(media, e)
+  }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger>
-        <div className="group relative border rounded-lg overflow-hidden bg-muted/30 hover:shadow-md transition-shadow">
+        <div
+          className={`group relative border rounded-lg overflow-hidden bg-muted/30 hover:shadow-md transition-shadow cursor-pointer ${
+            isSelected ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950 dark:text-white' : ''
+          }`}
+          draggable
+          onDragStart={handleDragStart}
+          onClick={handleClick}
+        >
           {/* Preview */}
           <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
             <img src={mediaUrl} alt={media.name} className="w-full h-full object-cover" />
@@ -37,11 +68,13 @@ export function MediaCard({ media, onDelete, onCopy, onCut, onRename }: MediaCar
 
           {/* Info */}
           <div className="flex items-center gap-1 p-2">
-            {media.type === 'IMAGE' ? (
-              <Image className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <Video className="h-4 w-4 text-muted-foreground" />
-            )}
+            <div className="w-4 h-4">
+              {media.type === 'IMAGE' ? (
+                <Image className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Video className="h-4 w-4 aspect-square text-muted-foreground" />
+              )}
+            </div>
             <p className="text-sm font-medium truncate" title={media.name}>
               {media.name}
             </p>

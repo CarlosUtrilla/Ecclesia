@@ -46,7 +46,7 @@ declare global {
         filePath: string
         fileSize: number
         thumbnail?: string
-        folder?: string | null
+        folder?: string
       }>
       getFullPath: (fileName: string) => Promise<string>
       deleteFile: (filePath: string, thumbnail?: string | null) => Promise<boolean>
@@ -58,6 +58,16 @@ declare global {
         isFolder: boolean
       ) => Promise<{ success: boolean; newPath: string }>
       listFolders: (parentFolder?: string) => Promise<string[]>
+      move: (
+        sourcePath: string,
+        targetFolder: string | null,
+        isFolder: boolean
+      ) => Promise<{ success: boolean; newPath: string }>
+      copyFile: (
+        sourcePath: string,
+        targetFolder: string | null,
+        isFolder: boolean
+      ) => Promise<{ success: boolean; newPath: string; newFileName: string; newThumbnail?: string }>
     }
   }
 }

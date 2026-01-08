@@ -62,11 +62,4 @@ export class MediaService {
       where: { id }
     })
   }
-
-  async findByFilePath(filePath: string): Promise<MediaDto | null> {
-    const prisma = getPrisma()
-    return await prisma.media.findUnique({
-      where: { filePath }
-    })
-  }
 }

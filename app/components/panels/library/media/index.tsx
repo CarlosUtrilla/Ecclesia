@@ -1,267 +1,301 @@
 import { useState } from 'react'
 import { Plus, Search, FolderPlus, ChevronRight, Home } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/tabs'
-import { MediaType } from '@prisma/client'
 import { MediaFilterDto } from 'database/controllers/media/media.dto'
 import { Media } from './types'
 import { MediaGridWrapper } from './MediaGridWrapper'
 import { NewFolderDialog } from './NewFolderDialog'
 import { RenameDialog } from './RenameDialog'
+import { useMediaOperations } from './hooks/useMediaOperations'
+import { useClipboard } from './hooks/useClipboard'
+import { useSelection, SelectableItem } from './hooks/useSelection'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } from './utils'
 
 export default function MediaLibrary() {
-  const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<'all' | MediaType>('all')
   const [currentFolder, setCurrentFolder] = useState<string | null>(null)
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
-  const [clipboard, setClipboard] = useState<{
-    type: 'copy' | 'cut'
-    item: Media | string
-    isFolder: boolean
-  } | null>(null)
   const [showRenameDialog, setShowRenameDialog] = useState(false)
   const [renameTarget, setRenameTarget] = useState<{
     item: Media | string
     isFolder: boolean
     currentName: string
   } | null>(null)
-  const [renameName, setRenameName] = useState('')
 
-  // Query para cargar medios
+  const operations = useMediaOperations(currentFolder)
+  const { clipboard, copy, cut, clear, getSourcePath } = useClipboard(currentFolder)
+  const selection = useSelection()
+
+  // Queries
   const { data: mediaData, isLoading } = useQuery({
-    queryKey: ['media', activeTab, searchTerm, currentFolder],
+    queryKey: ['media', searchTerm, currentFolder],
     queryFn: async () => {
-      const params: MediaFilterDto = {}
-      if (activeTab !== 'all') {
-        params.type = activeTab as MediaType
-      }
-      if (searchTerm) {
-        params.search = searchTerm
-      }
+      const params: MediaFilterDto = searchTerm ? { search: searchTerm } : {}
       const allMedia = await window.api.media.findAll(params)
 
-      // Filtrar por carpeta actual
-      const filteredItems = allMedia.items.filter((item: Media) => {
-        return item.folder === currentFolder
-      })
+      const filteredItems = allMedia.items.filter(
+        (item: Media) => normalizeFolder(item.folder) === currentFolder
+      )
 
       return { ...allMedia, items: filteredItems }
     }
   })
 
-  // Query para carpetas
   const { data: folders = [] } = useQuery({
     queryKey: ['folders', currentFolder],
     queryFn: () => window.mediaAPI.listFolders(currentFolder || undefined)
   })
 
   const mediaItems = mediaData?.items || []
+  const allSelectableItems: SelectableItem[] = [...folders, ...mediaItems]
 
-  // Mutation para importar archivos
-  const importMutation = useMutation({
-    mutationFn: async (filePaths: string[]) => {
-      const results = []
-      for (const filePath of filePaths) {
-        const fileData = await window.mediaAPI.importFile(filePath, currentFolder || undefined)
-        const media = await window.api.media.create(fileData)
-        results.push(media as never)
+  // Handlers de selección
+  const handleItemClick = (item: SelectableItem, e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      selection.selectRange(item, allSelectableItems)
+    } else if (e.ctrlKey || e.metaKey) {
+      selection.toggleSelect(item)
+    } else {
+      selection.selectSingle(item)
+    }
+  }
+
+  // Handlers de clipboard con selección múltiple
+  const handleCopySelection = () => {
+    const selected = selection.getSelectedItems(allSelectableItems)
+    if (selected.length === 0) return
+    copy(selected)
+  }
+
+  const handleCutSelection = () => {
+    const selected = selection.getSelectedItems(allSelectableItems)
+    if (selected.length === 0) return
+    cut(selected)
+  }
+
+  // Handlers para elementos individuales (menú contextual)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleCopySingle = (item: Media | string, _isFolder: boolean) => {
+    copy([item])
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleCutSingle = (item: Media | string, _isFolder: boolean) => {
+    cut([item])
+  }
+
+  const handleDeleteSelection = async () => {
+    const selected = selection.getSelectedItems(allSelectableItems)
+    if (selected.length === 0) return
+
+    const message =
+      selected.length === 1
+        ? `¿Eliminar "${typeof selected[0] === 'string' ? selected[0] : selected[0].name}"?`
+        : `¿Eliminar ${selected.length} elementos?`
+
+    if (!confirm(message)) return
+
+    try {
+      for (const item of selected) {
+        if (typeof item === 'string') {
+          await operations.deleteFolderMutation.mutateAsync(item)
+        } else {
+          await operations.deleteMutation.mutateAsync(item)
+        }
       }
-      return results
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['media'] })
+      selection.clearSelection()
+    } catch (error) {
+      console.error('Error al eliminar:', error)
+      alert('Error al eliminar algunos elementos')
     }
-  })
+  }
 
-  // Mutation para crear carpeta
-  const createFolderMutation = useMutation({
-    mutationFn: async (folderName: string) => {
-      const folderPath = currentFolder ? `${currentFolder}/${folderName}` : folderName
-      return await window.mediaAPI.createFolder(folderPath)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['folders'] })
-      handleCloseNewFolderDialog()
-    }
-  })
-
-  // Mutation para eliminar carpeta
-  const deleteFolderMutation = useMutation({
-    mutationFn: async (folderName: string) => {
-      const folderPath = currentFolder ? `${currentFolder}/${folderName}` : folderName
-      return await window.mediaAPI.deleteFolder(folderPath)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['folders'] })
-    }
-  })
-
-  // Mutation para renombrar
-  const renameMutation = useMutation({
-    mutationFn: async ({
-      oldPath,
-      newName,
-      isFolder
-    }: {
-      oldPath: string
-      newName: string
-      isFolder: boolean
-    }) => {
-      return await window.mediaAPI.rename(oldPath, newName, isFolder)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['media'] })
-      queryClient.invalidateQueries({ queryKey: ['folders'] })
-      handleCloseRenameDialog()
-    }
-  })
-
-  // Mutation para eliminar
-  const deleteMutation = useMutation({
-    mutationFn: async (media: Media) => {
-      await window.api.media.delete(media.id.toString())
-      await window.mediaAPI.deleteFile(media.filePath, media.thumbnail)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['media'] })
-    }
-  })
-
-  // Importar archivos
+  // Handlers
   const handleImport = async () => {
     try {
-      const type: MediaType | 'all' = activeTab === 'all' ? 'all' : (activeTab as MediaType)
-      const filePaths = await window.mediaAPI.selectFiles(type)
-
-      if (filePaths.length === 0) return
-
-      await importMutation.mutateAsync(filePaths)
+      const filePaths = await window.mediaAPI.selectFiles('all')
+      if (filePaths.length > 0) {
+        await operations.importMutation.mutateAsync(filePaths)
+      }
     } catch (error) {
       console.error('Error en importación:', error)
     }
   }
 
-  // Eliminar medio
   const handleDelete = async (media: Media) => {
     if (!confirm(`¿Eliminar "${media.name}"?`)) return
-
     try {
-      await deleteMutation.mutateAsync(media)
+      await operations.deleteMutation.mutateAsync(media)
     } catch (error) {
       console.error('Error al eliminar medio:', error)
     }
   }
 
-  // Crear carpeta
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return
     try {
-      await createFolderMutation.mutateAsync(newFolderName.trim())
+      await operations.createFolderMutation.mutateAsync(newFolderName.trim())
+      setShowNewFolderDialog(false)
+      setNewFolderName('')
     } catch (error) {
       console.error('Error al crear carpeta:', error)
     }
   }
 
-  // Cerrar diálogo de nueva carpeta
-  const handleCloseNewFolderDialog = () => {
-    setShowNewFolderDialog(false)
-    setNewFolderName('')
-  }
-
-  // Cerrar diálogo de renombrar
-  const handleCloseRenameDialog = () => {
-    setShowRenameDialog(false)
-    setRenameTarget(null)
-    setRenameName('')
-  }
-
-  // Eliminar carpeta
   const handleDeleteFolder = async (folderName: string) => {
     if (!confirm(`¿Eliminar la carpeta "${folderName}"?`)) return
     try {
-      await deleteFolderMutation.mutateAsync(folderName)
+      await operations.deleteFolderMutation.mutateAsync(folderName)
     } catch (error: any) {
       alert(error.message || 'Error al eliminar carpeta')
     }
   }
 
-  // Renombrar
-  const handleRename = async () => {
-    if (!renameTarget || !renameName.trim()) return
+  const handleRename = async (newName: string) => {
+    if (!renameTarget || !newName.trim()) return
 
     try {
-      let oldPath: string
+      const oldPath =
+        typeof renameTarget.item === 'string'
+          ? buildFolderPath(currentFolder, renameTarget.item)
+          : stripFilesPrefix(renameTarget.item.filePath)
 
-      if (typeof renameTarget.item === 'string') {
-        // Es una carpeta
-        oldPath = currentFolder ? `${currentFolder}/${renameTarget.item}` : renameTarget.item
-      } else {
-        // Es un archivo - remover el prefijo "files/" del filePath
-        const filePath = renameTarget.item.filePath
-        oldPath = filePath.startsWith('files/') ? filePath.substring(6) : filePath
-      }
+      const mediaId = typeof renameTarget.item === 'object' ? renameTarget.item.id : undefined
 
-      await renameMutation.mutateAsync({
+      await operations.renameMutation.mutateAsync({
         oldPath,
-        newName: renameName.trim(),
-        isFolder: renameTarget.isFolder
+        newName: newName.trim(),
+        isFolder: renameTarget.isFolder,
+        mediaId
       })
     } catch (error: any) {
+      console.error('Error en handleRename:', error)
       alert(error.message || 'Error al renombrar')
+    } finally {
+      setShowRenameDialog(false)
+      setRenameTarget(null)
     }
   }
 
-  // Copiar
-  const handleCopy = (item: Media | string, isFolder: boolean) => {
-    setClipboard({ type: 'copy', item, isFolder })
-  }
-
-  // Cortar
-  const handleCut = (item: Media | string, isFolder: boolean) => {
-    setClipboard({ type: 'cut', item, isFolder })
-  }
-
-  // Pegar (placeholder - necesita implementación completa)
   const handlePaste = async () => {
     if (!clipboard) return
 
-    // TODO: Implementar mover/copiar archivos
-    alert('Funcionalidad de pegar en desarrollo')
-    setClipboard(null)
-  }
+    try {
+      for (const clipItem of clipboard.items) {
+        const sourcePath = getSourcePath(clipItem.item, clipItem.sourceFolder)
+        const mediaId = typeof clipItem.item === 'object' ? clipItem.item.id : undefined
 
-  // Navegar a carpeta
-  const navigateToFolder = (folderName: string | null) => {
-    if (folderName === null) {
-      setCurrentFolder(null)
-    } else {
-      const newPath = currentFolder ? `${currentFolder}/${folderName}` : folderName
-      setCurrentFolder(newPath)
+        if (clipboard.type === 'cut') {
+          await operations.moveMutation.mutateAsync({
+            sourcePath,
+            targetFolder: currentFolder,
+            isFolder: clipItem.isFolder,
+            mediaId
+          })
+        } else {
+          const originalMedia = typeof clipItem.item === 'object' ? clipItem.item : undefined
+          await operations.copyMutation.mutateAsync({
+            sourcePath,
+            targetFolder: currentFolder,
+            isFolder: clipItem.isFolder,
+            originalMedia
+          })
+        }
+      }
+
+      if (clipboard.type === 'cut') {
+        clear()
+      }
+    } catch (error: any) {
+      console.error('Error al pegar:', error)
+      alert(error.message || 'Error al pegar los elementos')
     }
   }
 
-  // Breadcrumbs
-  const breadcrumbs = currentFolder ? currentFolder.split('/') : []
+  const handleDrop = async (
+    droppedItem: { item: Media | string; isFolder: boolean },
+    targetFolder: string | null
+  ) => {
+    try {
+      const sourceFolder =
+        typeof droppedItem.item === 'string'
+          ? currentFolder
+          : normalizeFolder(droppedItem.item.folder)
 
-  // Formatear tamaño de archivo
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B'
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+      // No mover si es la misma ubicación
+      if (sourceFolder === targetFolder) return
+
+      const sourcePath =
+        typeof droppedItem.item === 'string'
+          ? buildFolderPath(currentFolder, droppedItem.item)
+          : stripFilesPrefix(droppedItem.item.filePath)
+
+      const mediaId = typeof droppedItem.item === 'object' ? droppedItem.item.id : undefined
+
+      await operations.moveMutation.mutateAsync({
+        sourcePath,
+        targetFolder,
+        isFolder: droppedItem.isFolder,
+        mediaId
+      })
+    } catch (error: any) {
+      console.error('Error en handleDrop:', error)
+      alert(error.message || 'Error al mover el elemento')
+    }
   }
 
-  const loading = isLoading || importMutation.isPending || deleteMutation.isPending
+  const navigateToFolder = (folderName: string | null) => {
+    setCurrentFolder(folderName ? buildFolderPath(currentFolder, folderName) : null)
+  }
+
+  const breadcrumbs = currentFolder?.split('/') || []
+  const loading =
+    isLoading || operations.importMutation.isPending || operations.deleteMutation.isPending
+
+  // Atajos de teclado - Debe estar después de todas las definiciones de handlers
+  useKeyboardShortcuts({
+    onCopy: handleCopySelection,
+    onCut: handleCutSelection,
+    onPaste: handlePaste,
+    onDelete: handleDeleteSelection,
+    onSelectAll: () => selection.selectAll(allSelectableItems),
+    onNavigate: (direction, extendSelection = false) =>
+      selection.navigateSelection(direction, allSelectableItems, 2, extendSelection)
+  })
 
   return (
     <div className="h-full flex flex-col relative">
-      {/* Header */}
-      <div className="p-3 border-b space-y-2">
+      {/* Header - Solo búsqueda y acciones */}
+      <div className="p-3 border-b">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar medios..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Button onClick={() => setShowNewFolderDialog(true)} size="sm" disabled={loading}>
+            <FolderPlus className="h-4 w-4 mr-1" />
+            Carpeta
+          </Button>
+          <Button onClick={handleImport} size="sm" disabled={loading}>
+            <Plus className="h-4 w-4 mr-1" />
+            Importar
+          </Button>
+        </div>
+      </div>
+
+      {/* Contenido con breadcrumbs y grid */}
+      <div className="flex-1 overflow-auto p-3 flex flex-col">
         {/* Breadcrumbs */}
-        <div className="flex items-center gap-1 text-sm">
+        <div className="flex items-center gap-1 text-sm mb-3">
           <Button
             variant="ghost"
             size="sm"
@@ -288,123 +322,56 @@ export default function MediaLibrary() {
           ))}
         </div>
 
-        {/* Barra de búsqueda y acciones */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar medios..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          <Button onClick={() => setShowNewFolderDialog(true)} size="sm" disabled={loading}>
-            <FolderPlus className="h-4 w-4 mr-1" />
-            Carpeta
-          </Button>
-          <Button onClick={handleImport} size="sm" disabled={loading}>
-            <Plus className="h-4 w-4 mr-1" />
-            Importar
-          </Button>
-        </div>
+        {/* Grid de medios */}
+        <MediaGridWrapper
+          items={mediaItems}
+          folders={folders}
+          currentFolder={currentFolder}
+          onDelete={handleDelete}
+          onDeleteFolder={handleDeleteFolder}
+          onNavigateToFolder={navigateToFolder}
+          onCopy={handleCopySingle}
+          onCut={handleCutSingle}
+          onPaste={handlePaste}
+          onDrop={handleDrop}
+          onRename={(item, isFolder, currentName) => {
+            setRenameTarget({ item, isFolder, currentName })
+            setShowRenameDialog(true)
+          }}
+          formatFileSize={formatFileSize}
+          onItemClick={handleItemClick}
+          isSelected={selection.isSelected}
+          onClearSelection={selection.clearSelection}
+        />
       </div>
-
-      {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as any)}
-        className="flex-1 flex flex-col"
-      >
-        <div className="px-3 pt-2">
-          <TabsList>
-            <TabsTrigger value="all">Todos</TabsTrigger>
-            <TabsTrigger value="IMAGE">Imágenes</TabsTrigger>
-            <TabsTrigger value="VIDEO">Videos</TabsTrigger>
-          </TabsList>
-        </div>
-
-        <div className="flex-1 overflow-auto p-3">
-          <TabsContent value="all" className="mt-0">
-            <MediaGridWrapper
-              items={mediaItems}
-              folders={folders}
-              onDelete={handleDelete}
-              onDeleteFolder={handleDeleteFolder}
-              onNavigateToFolder={navigateToFolder}
-              onCopy={handleCopy}
-              onCut={handleCut}
-              onPaste={handlePaste}
-              onRename={(item, isFolder, currentName) => {
-                setRenameTarget({ item, isFolder, currentName })
-                setRenameName(currentName)
-                setShowRenameDialog(true)
-              }}
-              formatFileSize={formatFileSize}
-            />
-          </TabsContent>
-          <TabsContent value="IMAGE" className="mt-0">
-            <MediaGridWrapper
-              items={mediaItems}
-              folders={folders}
-              onDelete={handleDelete}
-              onDeleteFolder={handleDeleteFolder}
-              onNavigateToFolder={navigateToFolder}
-              onCopy={handleCopy}
-              onCut={handleCut}
-              onPaste={handlePaste}
-              onRename={(item, isFolder, currentName) => {
-                setRenameTarget({ item, isFolder, currentName })
-                setRenameName(currentName)
-                setShowRenameDialog(true)
-              }}
-              formatFileSize={formatFileSize}
-            />
-          </TabsContent>
-          <TabsContent value="VIDEO" className="mt-0">
-            <MediaGridWrapper
-              items={mediaItems}
-              folders={folders}
-              onDelete={handleDelete}
-              onDeleteFolder={handleDeleteFolder}
-              onNavigateToFolder={navigateToFolder}
-              onCopy={handleCopy}
-              onCut={handleCut}
-              onPaste={handlePaste}
-              onRename={(item, isFolder, currentName) => {
-                setRenameTarget({ item, isFolder, currentName })
-                setRenameName(currentName)
-                setShowRenameDialog(true)
-              }}
-              formatFileSize={formatFileSize}
-            />
-          </TabsContent>
-        </div>
-      </Tabs>
 
       {loading && (
         <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
             <p className="mt-2 text-sm text-muted-foreground">Cargando...</p>
           </div>
         </div>
       )}
 
-      {/* Diálogos */}
       <NewFolderDialog
         open={showNewFolderDialog}
         folderName={newFolderName}
-        onOpenChange={handleCloseNewFolderDialog}
+        onOpenChange={(open) => {
+          setShowNewFolderDialog(open)
+          if (!open) setNewFolderName('')
+        }}
         onFolderNameChange={setNewFolderName}
         onCreate={handleCreateFolder}
       />
 
       <RenameDialog
         open={showRenameDialog}
-        name={renameName}
-        onOpenChange={handleCloseRenameDialog}
-        onNameChange={setRenameName}
+        initialName={renameTarget?.currentName || ''}
+        onOpenChange={(open) => {
+          setShowRenameDialog(open)
+          if (!open) setRenameTarget(null)
+        }}
         onRename={handleRename}
       />
     </div>

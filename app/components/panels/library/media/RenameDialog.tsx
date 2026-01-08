@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/ui/dialog'
 import { Input } from '@/ui/input'
@@ -5,19 +6,26 @@ import { Label } from '@/ui/label'
 
 interface RenameDialogProps {
   open: boolean
-  name: string
+  initialName: string
   onOpenChange: (open: boolean) => void
-  onNameChange: (name: string) => void
-  onRename: () => void
+  onRename: (newName: string) => void
 }
 
-export function RenameDialog({
-  open,
-  name,
-  onOpenChange,
-  onNameChange,
-  onRename
-}: RenameDialogProps) {
+export function RenameDialog({ open, initialName, onOpenChange, onRename }: RenameDialogProps) {
+  const [name, setName] = useState('')
+
+  // Inicializar el nombre cuando se abre el diálogo
+  useEffect(() => {
+    if (open) {
+      setName(initialName)
+    }
+  }, [open, initialName])
+
+  const handleRename = () => {
+    if (!name.trim()) return
+    onRename(name.trim())
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -30,10 +38,13 @@ export function RenameDialog({
             <Input
               id="rename"
               value={name}
-              onChange={(e) => onNameChange(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Nuevo nombre"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') onRename()
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleRename()
+                }
                 if (e.key === 'Escape') onOpenChange(false)
               }}
             />
@@ -43,7 +54,7 @@ export function RenameDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={onRename} disabled={!name.trim()}>
+          <Button onClick={handleRename} disabled={!name.trim()}>
             Renombrar
           </Button>
         </DialogFooter>

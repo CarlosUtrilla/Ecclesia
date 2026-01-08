@@ -27,7 +27,11 @@ const mediaAPI = {
   deleteFolder: (folderPath: string) => ipcRenderer.invoke('media:delete-folder', folderPath),
   rename: (oldPath: string, newName: string, isFolder: boolean) =>
     ipcRenderer.invoke('media:rename', oldPath, newName, isFolder),
-  listFolders: (parentFolder?: string) => ipcRenderer.invoke('media:list-folders', parentFolder)
+  listFolders: (parentFolder?: string) => ipcRenderer.invoke('media:list-folders', parentFolder),
+  move: (sourcePath: string, targetFolder: string | null, isFolder: boolean) =>
+    ipcRenderer.invoke('media:move', sourcePath, targetFolder, isFolder),
+  copyFile: (sourcePath: string, targetFolder: string | null, isFolder: boolean) =>
+    ipcRenderer.invoke('media:copy-file', sourcePath, targetFolder, isFolder)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
