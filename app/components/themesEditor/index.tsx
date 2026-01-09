@@ -27,6 +27,7 @@ import { fontSizes, lineHeights, letterSpacings } from '@/lib/themeConstants'
 import { ColorPicker } from '@/ui/colorPicker'
 
 import { useResizeObserver } from 'usehooks-ts'
+import { PresentationViewItems } from '../PresentationView/types'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -40,6 +41,7 @@ export default function ThemesEditor() {
     ref: previewRef as React.RefObject<HTMLDivElement>
   })
 
+  const [selectedPreview, setSelectedPreview] = useState(0)
   const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
   const [animationKey, setAnimationKey] = useState(0)
 
@@ -335,17 +337,36 @@ export default function ThemesEditor() {
         <PresentationView
           key={animationKey}
           theme={previewData}
-          items={[
-            {
-              text: `Testing Theme Preview
-              <br>Aa Áá Ee Éé Ii Íí Oo Óó Uu Úú
-              <br>Çç Ññ Ää Öö Üü ß
-              <br>Àà Èè Ìì Òò Ùù`
-            }
-          ]}
+          items={PreviewsItems}
+          live
           maxHeight={height - 32}
+          currentIndex={selectedPreview}
         />
+      </div>
+      <div className="p-3 bg-muted/50 flex items-center gap-1 justify-center">
+        {PreviewsItems.map((item, index) => (
+          <PresentationView
+            onClick={() => setSelectedPreview(index)}
+            key={index}
+            theme={previewData}
+            items={[item]}
+            maxHeight={120}
+            selected={selectedPreview === index}
+          />
+        ))}
       </div>
     </div>
   )
 }
+
+const PreviewsItems: PresentationViewItems[] = [
+  {
+    text: `Testing Theme Preview
+          <br>Aa Áá Ee Éé Ii Íí Oo Óó Uu Úú
+          <br>Çç Ññ Ää Öö Üü ß
+          <br>Àà Èè Ìì Òò Ùù`
+  },
+  {
+    text: 'Second Slide Preview'
+  }
+]

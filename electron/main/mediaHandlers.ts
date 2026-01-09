@@ -491,42 +491,39 @@ export function registerMediaHandlers() {
   })
 
   // Renombrar archivo o carpeta
-  ipcMain.handle(
-    'media:rename',
-    async (_event, oldPath: string, newName: string, _isFolder: boolean) => {
-      try {
-        const userDataPath = app.getPath('userData')
-        const basePath = path.join(userDataPath, 'media', 'files')
-        const oldFullPath = path.join(basePath, oldPath)
-        const directory = path.dirname(oldPath)
+  ipcMain.handle('media:rename', async (_event, oldPath: string, newName: string) => {
+    try {
+      const userDataPath = app.getPath('userData')
+      const basePath = path.join(userDataPath, 'media', 'files')
+      const oldFullPath = path.join(basePath, oldPath)
+      const directory = path.dirname(oldPath)
 
-        // Preservar la extensión del archivo original si no se proporcionó
-        const oldExt = path.extname(oldPath)
-        const newExt = path.extname(newName)
-        const finalNewName = newExt ? newName : newName + oldExt
+      // Preservar la extensión del archivo original si no se proporcionó
+      const oldExt = path.extname(oldPath)
+      const newExt = path.extname(newName)
+      const finalNewName = newExt ? newName : newName + oldExt
 
-        const newPath = directory === '.' ? finalNewName : path.join(directory, finalNewName)
-        const newFullPath = path.join(basePath, newPath)
+      const newPath = directory === '.' ? finalNewName : path.join(directory, finalNewName)
+      const newFullPath = path.join(basePath, newPath)
 
-        if (!fs.existsSync(oldFullPath)) {
-          throw new Error(
-            `El archivo "${oldPath}" no existe en la ubicación esperada: ${oldFullPath}`
-          )
-        }
-
-        if (fs.existsSync(newFullPath)) {
-          throw new Error('Ya existe un archivo o carpeta con ese nombre')
-        }
-
-        fs.renameSync(oldFullPath, newFullPath)
-
-        return { success: true, newPath }
-      } catch (error: any) {
-        console.error('Error al renombrar:', error)
-        throw error
+      if (!fs.existsSync(oldFullPath)) {
+        throw new Error(
+          `El archivo "${oldPath}" no existe en la ubicación esperada: ${oldFullPath}`
+        )
       }
+
+      if (fs.existsSync(newFullPath)) {
+        throw new Error('Ya existe un archivo o carpeta con ese nombre')
+      }
+
+      fs.renameSync(oldFullPath, newFullPath)
+
+      return { success: true, newPath }
+    } catch (error: any) {
+      console.error('Error al renombrar:', error)
+      throw error
     }
-  )
+  })
 
   // Listar carpetas
   ipcMain.handle('media:list-folders', async (_event, parentFolder?: string) => {
@@ -550,42 +547,39 @@ export function registerMediaHandlers() {
   })
 
   // Mover archivo o carpeta a otra ubicación
-  ipcMain.handle(
-    'media:move',
-    async (_event, sourcePath: string, targetFolder: string | null, _isFolder: boolean) => {
-      try {
-        const userDataPath = app.getPath('userData')
-        const basePath = path.join(userDataPath, 'media', 'files')
-        const sourceFullPath = path.join(basePath, sourcePath)
-        const fileName = path.basename(sourcePath)
-        const targetPath = targetFolder ? path.join(targetFolder, fileName) : fileName
-        const targetFullPath = path.join(basePath, targetPath)
+  ipcMain.handle('media:move', async (_event, sourcePath: string, targetFolder: string | null) => {
+    try {
+      const userDataPath = app.getPath('userData')
+      const basePath = path.join(userDataPath, 'media', 'files')
+      const sourceFullPath = path.join(basePath, sourcePath)
+      const fileName = path.basename(sourcePath)
+      const targetPath = targetFolder ? path.join(targetFolder, fileName) : fileName
+      const targetFullPath = path.join(basePath, targetPath)
 
-        if (!fs.existsSync(sourceFullPath)) {
-          throw new Error(
-            `El archivo "${sourcePath}" no existe en la ubicación esperada: ${sourceFullPath}`
-          )
-        }
-
-        if (fs.existsSync(targetFullPath)) {
-          throw new Error('Ya existe un archivo o carpeta con ese nombre en el destino')
-        }
-
-        // Crear directorio destino si no existe
-        const targetDir = path.dirname(targetFullPath)
-        if (!fs.existsSync(targetDir)) {
-          fs.mkdirSync(targetDir, { recursive: true })
-        }
-
-        fs.renameSync(sourceFullPath, targetFullPath)
-
-        return { success: true, newPath: targetPath }
-      } catch (error: any) {
-        console.error('Error al mover:', error)
-        throw error
+      if (!fs.existsSync(sourceFullPath)) {
+        throw new Error(
+          `El archivo "${sourcePath}" no existe en la ubicación esperada: ${sourceFullPath}`
+        )
       }
+
+      if (fs.existsSync(targetFullPath)) {
+        throw new Error('Ya existe un archivo o carpeta con ese nombre en el destino')
+      }
+
+      // Crear directorio destino si no existe
+      const targetDir = path.dirname(targetFullPath)
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true })
+      }
+
+      fs.renameSync(sourceFullPath, targetFullPath)
+
+      return { success: true, newPath: targetPath }
+    } catch (error: any) {
+      console.error('Error al mover:', error)
+      throw error
     }
-  )
+  })
 
   // Copiar archivo o carpeta
   ipcMain.handle(

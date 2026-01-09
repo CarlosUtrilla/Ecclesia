@@ -4,6 +4,7 @@ import SongEditor from './components/songEditor'
 import ThemesEditor from './components/themesEditor'
 import PreviewPanel from './components/panels/preview'
 import { MediaServerProvider } from './contexts/MediaServerContext'
+import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
 import { SplashScreen } from './components/SplashScreen'
 import { useMediaServer } from './contexts/MediaServerContext'
 
@@ -48,7 +49,9 @@ function AppContent() {
 function App() {
   return (
     <MediaServerProvider>
-      <AppContent />
+      <ScreenSizeProvider>
+        <AppContent />
+      </ScreenSizeProvider>
     </MediaServerProvider>
   )
 }
