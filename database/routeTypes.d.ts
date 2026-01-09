@@ -9,8 +9,3 @@ type ClassMethods<T> = {
 export type RoutesTypes = {
   [K in keyof typeof routes]: ClassMethods<InstanceType<(typeof routes)[K]>>
 }
-declare global {
-  interface Window {
-    api: RoutesTypes
-  }
-}

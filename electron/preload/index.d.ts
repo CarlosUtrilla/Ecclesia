@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import { MediaType } from '@prisma/client'
+import { RoutesTypes } from 'database/routeTypes'
 
 export interface DisplayInfo {
   id: number
@@ -25,10 +26,11 @@ export interface DisplayInfo {
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: unknown
+    api: RoutesTypes
     windowAPI: {
       openSongWindow: (songId?: number) => void
       openThemeWindow: (themeId?: number) => void
+      closeCurrentWindow: () => void
     }
     systemAPI: {
       getSystemFonts: () => Promise<string[]>
@@ -67,7 +69,12 @@ declare global {
         sourcePath: string,
         targetFolder: string | null,
         isFolder: boolean
-      ) => Promise<{ success: boolean; newPath: string; newFileName: string; newThumbnail?: string }>
+      ) => Promise<{
+        success: boolean
+        newPath: string
+        newFileName: string
+        newThumbnail?: string
+      }>
       convertVideo: (filePath: string) => Promise<{
         originalPath: string
         convertedPath: string

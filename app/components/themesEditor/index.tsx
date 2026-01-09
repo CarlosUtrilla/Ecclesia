@@ -1,7 +1,7 @@
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
-import { Themes, Media } from '@prisma/client'
 import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Save,
   Type,
@@ -13,7 +13,7 @@ import {
   Italic,
   Underline as UnderlineIcon
 } from 'lucide-react'
-import { useRef, useMemo, useCallback, useState } from 'react'
+import { useRef, useMemo, useCallback, useState, useEffect } from 'react'
 import { Separator } from '@/ui/separator'
 import FontFamilySelector from '@/ui/fontFamilySelector'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
@@ -25,17 +25,23 @@ import { PresentationView } from '../PresentationView'
 import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSettings'
 import { fontSizes, lineHeights, letterSpacings } from '@/lib/themeConstants'
 import { ColorPicker } from '@/ui/colorPicker'
-
 import { useResizeObserver } from 'usehooks-ts'
 import { PresentationViewItems } from '../PresentationView/types'
+import { useParams } from 'react-router'
+import { CreateThemeSchema, UpdateThemeSchema } from './schema'
+import { z } from 'zod'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
-type ThemeFormData = Themes & {
-  backgroundMedia?: Media | null
+type FormData = z.infer<typeof CreateThemeSchema> & {
+  backgroundMedia?: any
+  id?: number
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 export default function ThemesEditor() {
+  const { id } = useParams()
   const previewRef = useRef<HTMLDivElement>(null)
   const { height = 0 } = useResizeObserver({
     ref: previewRef as React.RefObject<HTMLDivElement>
@@ -45,32 +51,61 @@ export default function ThemesEditor() {
   const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
   const [animationKey, setAnimationKey] = useState(0)
 
-  const { control, setValue, watch } = useForm<ThemeFormData>({
+  const {
+    control,
+    setValue,
+    watch,
+    formState: { isDirty, errors },
+    handleSubmit,
+    reset
+  } = useForm<FormData>({
     defaultValues: {
-      id: 0,
       name: '',
       background: '',
       backgroundMediaId: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
       letterSpacing: 0,
       lineHeight: 1.5,
       textSize: 16,
       textColor: '#000000',
-      fontFamily: '"Arial", sans-serif',
+      fontFamily: 'Arial',
       previewImage: '',
       textAlign: 'center',
       bold: false,
       italic: false,
       underline: false,
-      animationSettings: JSON.stringify(defaultAnimationSettings)
+      animationSettings: JSON.stringify(defaultAnimationSettings),
+      ...(id ? { id: Number(id) } : {})
     },
     mode: 'onChange',
-    shouldUnregister: false
+    shouldUnregister: false,
+    resolver: zodResolver(id ? UpdateThemeSchema : CreateThemeSchema)
   })
 
+  // Cargar datos del tema si hay un id
+  useEffect(() => {
+    if (id) {
+      const loadTheme = async () => {
+        try {
+          const theme = await window.api.themes.getThemeById(Number(id))
+          reset({
+            ...theme
+          })
+        } catch (error) {
+          console.error('Error loading theme:', error)
+        }
+      }
+      loadTheme()
+    }
+  }, [id])
+
   // Observar valores para preview - optimizado por react-hook-form
-  const previewData = watch()
+  const watchedData = watch()
+  const previewData = {
+    ...watchedData,
+    id: watchedData.id || 0,
+    createdAt: watchedData.createdAt || new Date(),
+    updatedAt: watchedData.updatedAt || new Date()
+  }
 
   // Parse animation settings - memoizado para evitar re-parseos
   const animationSettings = useMemo<AnimationSettings>(() => {
@@ -84,15 +119,15 @@ export default function ThemesEditor() {
   // Callbacks memoizados para evitar re-renders
   const handleMediaChange = useCallback(
     (mediaId: number | null, media: any) => {
-      setValue('backgroundMediaId', mediaId)
-      setValue('backgroundMedia', media as any)
+      setValue('backgroundMediaId', mediaId, { shouldDirty: true })
+      setValue('backgroundMedia', media as any, { shouldDirty: true })
     },
     [setValue]
   )
 
   const handleAnimationChange = useCallback(
     (settings: AnimationSettings) => {
-      setValue('animationSettings', JSON.stringify(settings))
+      setValue('animationSettings', JSON.stringify(settings), { shouldDirty: true })
       setAnimationKey((prev) => prev + 1)
     },
     [setValue]
@@ -101,6 +136,36 @@ export default function ThemesEditor() {
   const handlePreviewAnimation = useCallback(() => {
     setAnimationKey((prev) => prev + 1)
   }, [])
+
+  const onSave = handleSubmit(async (data) => {
+    console.log('Saving theme data:', data)
+    if (!data.name || data.name.trim() === '') {
+      alert('Se requiere un nombre para el tema.')
+      return
+    }
+    try {
+      if (id !== undefined) {
+        // Update existing theme
+        await window.api.themes.updateTheme(data.id!, data as any)
+      } else {
+        // Create new theme
+        await window.api.themes.createTheme(data)
+      }
+      // cerrar ventana
+      window.electron.ipcRenderer.send('theme-saved')
+      window.windowAPI.closeCurrentWindow()
+    } catch (error: any) {
+      console.error('Error saving theme:', error)
+      const errorMessage = error?.message || 'Ocurrió un error desconocido al guardar el tema.'
+
+      // Mostrar mensaje específico si es error de nombre duplicado
+      if (errorMessage.includes('Ya existe un tema con el nombre')) {
+        alert(errorMessage)
+      } else {
+        alert('Ocurrió un error al guardar el tema: ' + errorMessage)
+      }
+    }
+  })
 
   return (
     <div className="h-full flex flex-col">
@@ -112,11 +177,16 @@ export default function ThemesEditor() {
               name="name"
               control={control}
               render={({ field }) => (
-                <Input className="!bg-background" placeholder="Enter theme name" {...field} />
+                <Input
+                  error={errors.name ? errors.name.message : ''}
+                  className="!bg-background"
+                  placeholder="Enter theme name"
+                  {...field}
+                />
               )}
             />
             <div className="ml-auto flex mt-1.5 gap-2 w-full">
-              <Button size="sm" className="flex-1">
+              <Button onClick={onSave} disabled={!isDirty} size="sm" className="flex-1">
                 <Save />
                 Save
               </Button>
@@ -131,7 +201,7 @@ export default function ThemesEditor() {
             backgroundType={backgroundType}
             value={previewData.background}
             onTypeChange={setBackgroundType}
-            onValueChange={(v) => setValue('background', v)}
+            onValueChange={(v) => setValue('background', v, { shouldDirty: true })}
             onMediaChange={handleMediaChange}
             selectedMedia={previewData.backgroundMedia}
           />

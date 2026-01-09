@@ -154,7 +154,9 @@ export function PresentationView({
       onClick={onClick}
       style={containerStyle}
       className={cn('border bg-background', {
-        'outline-2 outline-primary': selected
+        'outline-2 outline-primary transition-colors': selected,
+        'cursor-pointer': onClick !== undefined,
+        'border-0': live
       })}
     >
       {/* Fondos con transición cross-fade */}
@@ -184,6 +186,7 @@ export function PresentationView({
           animationType={animationType}
           variants={variants}
           textStyle={textStyle}
+          isPreview={!live}
         />
       </AnimatePresence>
     </div>

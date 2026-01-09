@@ -1,5 +1,4 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
-import path from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerRoutes } from '../../database'
 import { initPrisma } from './prisma'
@@ -16,10 +15,10 @@ import fontList from 'font-list'
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   await initPrisma()
-  
+
   // Iniciar servidor de medios
   startMediaServer()
-  
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
@@ -32,7 +31,7 @@ app.whenReady().then(async () => {
 
   // Registrar handlers de medios
   registerMediaHandlers()
-  
+  registerRoutes()
   // Obtener puerto del servidor de medios
   ipcMain.handle('get-media-server-port', () => {
     return getMediaServerPort()
@@ -74,7 +73,24 @@ app.whenReady().then(async () => {
     createThemeWindow(themeId)
   })
 
-  registerRoutes()
+  // Cerrar ventana actual
+  ipcMain.on('close-current-window', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window) {
+      window.close()
+    }
+  })
+
+  // Notificar a ventana principal cuando se guarda un tema
+  ipcMain.on('theme-saved', () => {
+    const mainWindow = BrowserWindow.getAllWindows()
+    if (mainWindow && mainWindow.length > 0) {
+      mainWindow.forEach((win) => {
+        win.webContents.send('theme-saved')
+      })
+    }
+  })
+
   createMainWindow()
 
   app.on('activate', function () {

@@ -1,15 +1,45 @@
-import { PresentationView, PresentationViewProvider } from '@/components/PresentationView'
+import { PresentationView } from '@/components/PresentationView'
 import { Button } from '@/ui/button'
-import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from '@/ui/context-menu'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Edit, Plus, Trash2 } from 'lucide-react'
+import { useEffect } from 'react'
 
 export default function ThemesPanel() {
-  const { data = [] } = useQuery({
+  const queryClient = useQueryClient()
+  const { data = [], refetch } = useQuery({
     queryKey: ['themes'],
     queryFn: async () => {
       return window.api.themes.getAllThemes()
     }
   })
+
+  useEffect(() => {
+    const unsubscribe = window.electron.ipcRenderer.on('theme-saved', () => {
+      console.log('invalidando query')
+      refetch()
+    })
+    return unsubscribe
+  }, [queryClient])
+
+  const handleEditarTema = (themeId: number) => {
+    window.windowAPI.openThemeWindow(themeId)
+  }
+
+  const handleEliminarTema = (themeId: number) => {
+    // preguntar confirmación
+    const confirmed = window.confirm('¿Estás seguro de que deseas eliminar este tema?')
+    if (!confirmed) return
+
+    window.api.themes.deleteTheme(themeId).then(() => {
+      refetch()
+    })
+  }
   return (
     <div className="flex-1 border-t">
       <div className="bg-muted/40 px-3 py-1 border-b flex justify-between items-center">
@@ -24,12 +54,29 @@ export default function ThemesPanel() {
           </Button>
         </div>
       </div>
-      <div className="flex gap-2 flex-wrap overflow-y-auto p-3 max-h-max">
-        {/*  <PresentationViewProvider maxHeight={120}>
-          {data.map((theme) => (
-            <PresentationView key={theme.id} text="" />
-          ))}
-        </PresentationViewProvider> */}
+      <div className="grid grid-cols-2 gap-2 flex-wrap overflow-y-auto p-3 max-h-max">
+        {data.map((theme) => (
+          <ContextMenu key={theme.id}>
+            <ContextMenuTrigger className="rounded-md overflow-hidden">
+              <PresentationView
+                theme={theme}
+                items={[
+                  {
+                    text: 'Preview Text'
+                  }
+                ]}
+              />
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onClick={() => handleEditarTema(theme.id)}>
+                <Edit /> Editar tema
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => handleEliminarTema(theme.id)}>
+                <Trash2 className="text-destructive" /> Borrar tema
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        ))}
       </div>
     </div>
   )

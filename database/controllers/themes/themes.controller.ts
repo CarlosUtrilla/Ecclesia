@@ -1,4 +1,5 @@
 import { ThemesService } from './themes.service'
+import { CreateThemeDto, UpdateThemeDto } from './themes.dto'
 
 export class ThemesController {
   private themesService: ThemesService
@@ -7,27 +8,27 @@ export class ThemesController {
     this.themesService = new ThemesService()
   }
 
-  createTheme = async (data: any) => {
+  async createTheme(data: CreateThemeDto) {
     return await this.themesService.createTheme(data)
   }
 
-  getAllThemes = async () => {
+  async getAllThemes() {
     return await this.themesService.getAllThemes()
   }
 
-  getThemeById = async (id: number) => {
+  async getThemeById(id: number) {
     return await this.themesService.getThemeById(id)
   }
 
-  getThemeByName = async (name: string) => {
+  async getThemeByName(name: string) {
     return await this.themesService.getThemeByName(name)
   }
 
-  updateTheme = async (id: number, data: any) => {
+  async updateTheme(id: number, data: UpdateThemeDto) {
     return await this.themesService.updateTheme(id, data)
   }
 
-  deleteTheme = async (id: number) => {
+  async deleteTheme(id: number) {
     return await this.themesService.deleteTheme(id)
   }
 }

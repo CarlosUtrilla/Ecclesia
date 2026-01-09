@@ -1,12 +1,22 @@
 import { getPrisma } from '../../../electron/main/prisma'
 import { CreateThemeDto, UpdateThemeDto } from './themes.dto'
+import { Prisma } from '@prisma/client'
 
 export class ThemesService {
   async createTheme(data: CreateThemeDto) {
     const prisma = getPrisma()
-    return await prisma.themes.create({
-      data
-    })
+    try {
+      return await prisma.themes.create({
+        data
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new Error(`Ya existe un tema con el nombre "${data.name}"`)
+        }
+      }
+      throw error
+    }
   }
 
   async getAllThemes() {
@@ -41,10 +51,19 @@ export class ThemesService {
 
   async updateTheme(id: number, data: UpdateThemeDto) {
     const prisma = getPrisma()
-    return await prisma.themes.update({
-      where: { id },
-      data
-    })
+    try {
+      return await prisma.themes.update({
+        where: { id },
+        data
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new Error(`Ya existe un tema con el nombre "${data.name}"`)
+        }
+      }
+      throw error
+    }
   }
 
   async deleteTheme(id: number) {

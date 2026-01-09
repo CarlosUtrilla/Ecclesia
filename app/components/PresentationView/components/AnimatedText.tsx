@@ -8,10 +8,20 @@ interface AnimatedTextProps {
   animationType: AnimationType
   variants: any
   textStyle: React.CSSProperties
+  isPreview?: boolean
 }
 
-export function AnimatedText({ text, animationType, variants, textStyle }: AnimatedTextProps) {
+export function AnimatedText({
+  text,
+  animationType,
+  variants,
+  textStyle,
+  isPreview
+}: AnimatedTextProps) {
   const content = useMemo(() => {
+    if (isPreview) {
+      return <div style={textStyle} dangerouslySetInnerHTML={{ __html: sanitizeHTML(text) }} />
+    }
     if (animationType === 'split') {
       const lines = text.split(/<br\s*\/?>/i)
 
@@ -56,7 +66,7 @@ export function AnimatedText({ text, animationType, variants, textStyle }: Anima
         dangerouslySetInnerHTML={{ __html: sanitizeHTML(text) }}
       />
     )
-  }, [animationType, text, variants, textStyle])
+  }, [animationType, text, variants, textStyle, isPreview])
 
   return (
     <div key={text} style={{ position: 'relative', zIndex: 1, width: '100%', padding: '1rem' }}>

@@ -6,7 +6,8 @@ import { MediaType } from '@prisma/client'
 // Funciones adicionales para ventanas
 const windowAPI = {
   openSongWindow: (songId?: number) => ipcRenderer.send('open-song-window', songId),
-  openThemeWindow: (themeId?: number) => ipcRenderer.send('open-theme-window', themeId)
+  openThemeWindow: (themeId?: number) => ipcRenderer.send('open-theme-window', themeId),
+  closeCurrentWindow: () => ipcRenderer.send('close-current-window')
 }
 
 // API para obtener fuentes del sistema
