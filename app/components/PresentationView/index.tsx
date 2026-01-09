@@ -156,7 +156,8 @@ export function PresentationView({
       className={cn('border bg-background', {
         'outline-2 outline-primary transition-colors': selected,
         'cursor-pointer': onClick !== undefined,
-        'border-0': live
+        'border-0': live,
+        'rounded-md': !live
       })}
     >
       {/* Fondos con transición cross-fade */}
