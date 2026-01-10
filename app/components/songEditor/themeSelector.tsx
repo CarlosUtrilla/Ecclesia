@@ -15,7 +15,7 @@ export default function ThemeSelector({ selectedTheme, setSelectedTheme }: Props
     queryKey: ['themes'],
     queryFn: async () => {
       const themes = await window.api.themes.getAllThemes()
-      if (themes.length > 0 && !selectedTheme) {
+      if (themes.length > 0 && selectedTheme.name === 'Blank') {
         setSelectedTheme(themes[0])
       }
       return themes

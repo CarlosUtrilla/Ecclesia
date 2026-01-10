@@ -134,7 +134,9 @@ export default function RichTextEditor({ lyrics, onChange, className }: Props) {
   })
 
   useEffect(() => {
-    if (!editor || !tagSongs.length) return
+    if (!editor || !tagSongs.length) {
+      return
+    }
     ;(editor.storage as any).songTags = tagSongs
 
     // fuerza re-render de NodeViews
@@ -146,9 +148,9 @@ export default function RichTextEditor({ lyrics, onChange, className }: Props) {
   }
 
   return (
-    <div className={cn('border rounded-md overflow-hidden', className)}>
+    <div className={cn('border rounded-md overflow-hidden flex flex-col', className)}>
       {/* Barra de herramientas */}
-      <div className="bg-muted/30 p-2 flex items-center gap-1 border-b">
+      <div className="bg-muted/30 p-2 flex items-center gap-1 border-b overflow-x-auto scro">
         <Button
           type="button"
           size="icon"
@@ -236,7 +238,7 @@ export default function RichTextEditor({ lyrics, onChange, className }: Props) {
       </div>
 
       {/* Editor */}
-      <EditorContent editor={editor} />
+      <EditorContent className="flex-1 overflow-y-auto" editor={editor} />
     </div>
   )
 }

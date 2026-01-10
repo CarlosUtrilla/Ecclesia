@@ -2,6 +2,7 @@ import { getContrastTextColor } from '@/lib/utils'
 import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react'
+import { useEffect, useState } from 'react'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -26,11 +27,31 @@ const SongGroupView = (props: any) => {
 
   const tagId = node.attrs.tagId
 
-  // 🔥 obtener tags desde editor.storage
-  const tags = editor.storage.songTags ?? []
+  // Estado local para forzar re-render
+  const [tags, setTags] = useState(editor.storage.songTags ?? [])
+
+  useEffect(() => {
+    // Actualizar cuando cambie el storage
+    const updateTags = () => {
+      setTags(editor.storage.songTags ?? [])
+    }
+
+    // Escuchar transacciones del editor
+    const { view } = editor
+    const originalDispatch = view.dispatch.bind(view)
+
+    view.dispatch = (tr: any) => {
+      originalDispatch(tr)
+      updateTags()
+    }
+
+    return () => {
+      view.dispatch = originalDispatch
+    }
+  }, [editor])
 
   const tag = tags.find((t: any) => String(t.id) === String(tagId))
-  const backgroundColor = tag ? `${tag.color}B5` : undefined
+  const backgroundColor = tag ? `${tag.color}db` : undefined
   const color = backgroundColor ? getContrastTextColor(tag.color) : undefined
   return (
     <NodeViewWrapper className="my-1 rounded-md px-2 py-1" style={{ backgroundColor, color }}>
@@ -79,41 +100,107 @@ export const SongGroup = Node.create({
         ({ state, commands, editor }) => {
           const { from, to } = state.selection
 
-          // Analizar qué hay en la selección
-          let groupCount = 0
-          let paragraphsInGroups = 0
-          let paragraphsOutsideGroups = 0
-          let allGroupsHaveSameTag = true
+          // Función para fusionar grupos adyacentes con el mismo tag en TODO el documento
+          const mergeAdjacentGroups = () => {
+            setTimeout(() => {
+              const { state: newState } = editor.view
+              const { tr: finalTr, doc: finalDoc, schema: finalSchema } = newState
 
-          state.doc.nodesBetween(from, to, (node, _pos, parent) => {
-            if (node.type.name === 'songGroup') {
-              groupCount++
-              if (node.attrs.tagId !== tagId) {
-                allGroupsHaveSameTag = false
-              }
-            } else if (node.type.name === 'paragraph') {
-              if (parent?.type.name === 'songGroup') {
-                paragraphsInGroups++
-              } else {
-                paragraphsOutsideGroups++
-              }
-            }
-          })
+              // Primero convertir todos los nodos a un array para poder mirar hacia adelante
+              const allNodes: any[] = []
+              finalDoc.content.forEach((node: any) => {
+                allNodes.push(node)
+              })
 
-          // Toggle: si TODOS los párrafos están en grupos con el mismo tag, remover
-          if (groupCount > 0 && paragraphsOutsideGroups === 0 && allGroupsHaveSameTag) {
-            return commands.lift('songGroup')
+              const mergedNodes: any[] = []
+              let i = 0
+
+              while (i < allNodes.length) {
+                const node = allNodes[i]
+
+                if (node.type.name === 'songGroup') {
+                  const currentTagId = node.attrs.tagId
+                  const groupParagraphs: any[] = []
+
+                  // Agregar párrafos del grupo actual
+                  node.content.forEach((p: any) => {
+                    groupParagraphs.push(p)
+                  })
+
+                  // Mirar hacia adelante: recoger párrafos sueltos y grupos con el mismo tag
+                  let j = i + 1
+                  while (j < allNodes.length) {
+                    const nextNode = allNodes[j]
+
+                    if (
+                      nextNode.type.name === 'songGroup' &&
+                      nextNode.attrs.tagId === currentTagId
+                    ) {
+                      // Mismo tag - fusionar
+                      nextNode.content.forEach((p: any) => {
+                        groupParagraphs.push(p)
+                      })
+                      j++
+                    } else if (nextNode.type.name === 'paragraph') {
+                      // Párrafo suelto - ver si el siguiente es grupo con mismo tag
+                      let k = j + 1
+                      let foundMatchingGroup = false
+                      while (k < allNodes.length) {
+                        if (allNodes[k].type.name === 'paragraph') {
+                          k++
+                        } else if (
+                          allNodes[k].type.name === 'songGroup' &&
+                          allNodes[k].attrs.tagId === currentTagId
+                        ) {
+                          foundMatchingGroup = true
+                          break
+                        } else {
+                          break
+                        }
+                      }
+
+                      if (foundMatchingGroup) {
+                        // Agregar este párrafo al grupo
+                        groupParagraphs.push(nextNode)
+                        j++
+                      } else {
+                        // No hay más grupos con este tag, detener
+                        break
+                      }
+                    } else {
+                      // Grupo con diferente tag o nodo desconocido
+                      break
+                    }
+                  }
+
+                  // Crear grupo fusionado
+                  mergedNodes.push(
+                    finalSchema.nodes.songGroup.create({ tagId: currentTagId }, groupParagraphs)
+                  )
+                  i = j
+                } else {
+                  // Párrafo suelto o nodo desconocido
+                  mergedNodes.push(node)
+                  i++
+                }
+              }
+
+              // Solo reemplazar si hubo cambios
+              if (mergedNodes.length > 0) {
+                finalTr.replaceWith(0, finalDoc.content.size, mergedNodes)
+                editor.view.dispatch(finalTr)
+              }
+            }, 0)
           }
 
-          // Si hay grupos con diferente tag o mezcla, reconstruir manualmente
-          if (groupCount > 0) {
+          // Función auxiliar para reconstruir grupos
+          const reconstructGroups = (newTagId: number | null) => {
             const { tr, doc, schema } = state
 
             // Expandir rango para incluir grupos completos
             let expandedFrom = from
             let expandedTo = to
 
-            // Encontrar todos los grupos que intersectan con la selección
             doc.nodesBetween(0, doc.content.size, (node, pos) => {
               if (node.type.name === 'songGroup') {
                 const groupEnd = pos + node.nodeSize
@@ -124,7 +211,7 @@ export const SongGroup = Node.create({
               }
             })
 
-            // Extraer TODOS los párrafos en el rango expandido con su tag original
+            // Extraer todos los párrafos en el rango expandido
             const allParagraphs: Array<{
               node: any
               originalTagId: number | null
@@ -141,7 +228,7 @@ export const SongGroup = Node.create({
               }
             })
 
-            // Reconstruir: agrupar párrafos consecutivos con el mismo tagId
+            // Reconstruir: agrupar párrafos consecutivos
             const newNodes: any[] = []
             let currentGroup: { tagId: number | null; paragraphs: any[] } = {
               tagId: null,
@@ -149,9 +236,8 @@ export const SongGroup = Node.create({
             }
 
             allParagraphs.forEach((p) => {
-              const resultTagId = p.inSelection ? tagId : p.originalTagId
+              const resultTagId = p.inSelection ? newTagId : p.originalTagId
 
-              // Si cambia el tag, cerrar grupo actual
               if (currentGroup.paragraphs.length > 0 && currentGroup.tagId !== resultTagId) {
                 if (currentGroup.tagId !== null) {
                   newNodes.push(
@@ -185,15 +271,52 @@ export const SongGroup = Node.create({
               }
             }
 
-            // Reemplazar todo el rango expandido con los nodos reconstruidos
             tr.replaceWith(expandedFrom, expandedTo, newNodes)
             editor.view.dispatch(tr)
 
+            // Ejecutar fusión final
+            mergeAdjacentGroups()
+          }
+
+          // Analizar qué hay en la selección
+          let groupCount = 0
+          let paragraphsInGroups = 0
+          let paragraphsOutsideGroups = 0
+          let allGroupsHaveSameTag = true
+
+          state.doc.nodesBetween(from, to, (node, _pos, parent) => {
+            if (node.type.name === 'songGroup') {
+              groupCount++
+              if (node.attrs.tagId !== tagId) {
+                allGroupsHaveSameTag = false
+              }
+            } else if (node.type.name === 'paragraph') {
+              if (parent?.type.name === 'songGroup') {
+                paragraphsInGroups++
+              } else {
+                paragraphsOutsideGroups++
+              }
+            }
+          })
+
+          // Toggle: si TODOS los párrafos tienen el mismo tag, desagrupar
+          if (groupCount > 0 && paragraphsOutsideGroups === 0 && allGroupsHaveSameTag) {
+            reconstructGroups(null)
             return true
           }
 
-          // Sin grupos existentes, aplicar directamente
-          return commands.wrapIn('songGroup', { tagId })
+          // Si hay grupos con diferente tag o mezcla, reconstruir con nuevo tag
+          if (groupCount > 0) {
+            reconstructGroups(tagId)
+            return true
+          }
+
+          // Sin grupos existentes, aplicar directamente y luego fusionar
+          const result = commands.wrapIn('songGroup', { tagId })
+          if (result) {
+            mergeAdjacentGroups()
+          }
+          return result
         },
       unsetSongGroup:
         () =>

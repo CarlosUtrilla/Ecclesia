@@ -8,7 +8,7 @@ export default function useTagSongs() {
   })
 
   useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('theme-saved', () => {
+    const unsubscribe = window.electron.ipcRenderer.on('tags-saved', () => {
       console.log('invalidando query')
       refetch()
     })

@@ -65,7 +65,7 @@ export default function ThemesEditor() {
       backgroundMediaId: null,
       letterSpacing: 0,
       lineHeight: 1.5,
-      textSize: 16,
+      textSize: 28,
       textColor: '#000000',
       fontFamily: 'Arial',
       previewImage: '',

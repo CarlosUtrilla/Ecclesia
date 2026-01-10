@@ -71,7 +71,7 @@ export default function SongEditor() {
 
   return (
     <div className="grid grid-cols-12 h-svh">
-      <div className="p-3 gap-2 col-span-3 bg-sidebar border-r flex flex-col">
+      <div className="p-3 gap-2 col-span-4 xl:col-span-3 bg-sidebar border-r flex flex-col overflow-hidden">
         <div className="flex items-center justify-center mb-2 gap-2">
           <Button onClick={handleSubmit(onSubmit)}>{t('songEditor.save')}</Button>
           <Button onClick={() => window.windowAPI.openTagSongsWindow()}>
@@ -108,7 +108,7 @@ export default function SongEditor() {
           )}
         />
       </div>
-      <div className="col-span-9 flex overflow-hidden">
+      <div className="col-span-8 xl:col-span-9 flex overflow-hidden">
         <div className="p-4 bg-muted/40 flex-1 mx-auto overflow-y-auto">
           <div className="flex flex-wrap h-min gap-2 justify-center">
             <PresentationView
@@ -119,7 +119,7 @@ export default function SongEditor() {
                 }
               ]}
               theme={selectedTheme!}
-              maxHeight={180}
+              maxHeight={160}
             />
             {cleanesLyrics.map((lyric, index) => (
               <PresentationView
@@ -130,7 +130,7 @@ export default function SongEditor() {
                   }
                 ]}
                 theme={selectedTheme!}
-                maxHeight={180}
+                maxHeight={160}
                 tagSongId={lyric.songsTagsId}
               />
             ))}
