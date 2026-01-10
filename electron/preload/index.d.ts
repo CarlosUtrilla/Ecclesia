@@ -30,6 +30,7 @@ declare global {
     windowAPI: {
       openSongWindow: (songId?: number) => void
       openThemeWindow: (themeId?: number) => void
+      openTagSongsWindow: () => void
       closeCurrentWindow: () => void
     }
     systemAPI: {

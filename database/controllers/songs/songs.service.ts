@@ -1,38 +1,66 @@
 import { getPrisma } from '../../../electron/main/prisma'
-import type {
-  CreateSongDTO,
-  UpdateSongDTO,
-  GetSongsDTO,
-  SongResponseDTO,
-  SongsListResponseDTO
-} from './songs.dto'
+import type { CreateSongDTO, GetSongsDTO, SongsListResponseDTO } from './songs.dto'
 
 class SongsService {
+  separateFullTextOnLyrics(fullText: string) {
+    // Tiptap genera párrafos con <p> tags
+    // Un doble salto de línea se representa como dos <p> consecutivos o un <p> vacío
+    // Dividimos por párrafos vacíos o dobles saltos de línea
+
+    // Primero, dividir por párrafos
+    const paragraphs = fullText.split(/<\/p>\s*<p>/).map((p) => {
+      // Limpiar tags de apertura/cierre del inicio y final
+      return p
+        .replace(/^<p>/, '')
+        .replace(/<\/p>$/, '')
+        .trim()
+    })
+
+    // Agrupar párrafos separados por párrafos vacíos (doble enter)
+    const sections: string[] = []
+    let currentSection: string[] = []
+
+    paragraphs.forEach((paragraph) => {
+      if (paragraph === '' || paragraph === '<br>' || paragraph === '&nbsp;') {
+        // Párrafo vacío = doble enter = nueva sección
+        if (currentSection.length > 0) {
+          sections.push(`<p>${currentSection.join('</p><p>')}</p>`)
+          currentSection = []
+        }
+      } else {
+        currentSection.push(paragraph)
+      }
+    })
+
+    // Agregar la última sección si existe
+    if (currentSection.length > 0) {
+      sections.push(`<p>${currentSection.join('</p><p>')}</p>`)
+    }
+
+    return sections
+  }
   // Crear canción
-  async createSong(data: CreateSongDTO): Promise<SongResponseDTO> {
+  async createSong(data: CreateSongDTO) {
     const prisma = getPrisma()
-    const { lyrics, ...songData } = data
+    const { fullText, ...songData } = data
+
+    const lyrics = this.separateFullTextOnLyrics(fullText)
 
     const song = await prisma.song.create({
       data: {
         ...songData,
-        lyrics: lyrics
-          ? {
-              create: {
-                content: lyrics
-              }
-            }
-          : undefined
+        lyrics: {
+          createMany: {
+            data: lyrics.map((content) => ({ content }))
+          }
+        }
       },
       include: {
         lyrics: true
       }
     })
 
-    return {
-      ...song,
-      lyrics: song.lyrics[0] || null
-    }
+    return song
   }
 
   // Obtener canciones con paginación
@@ -78,7 +106,7 @@ class SongsService {
   }
 
   // Obtener una canción por ID
-  async getSongById(id: number): Promise<SongResponseDTO | null> {
+  async getSongById(id: number) {
     const prisma = getPrisma()
     const song = await prisma.song.findUnique({
       where: { id },
@@ -96,9 +124,9 @@ class SongsService {
   }
 
   // Actualizar canción
-  async updateSong(data: UpdateSongDTO): Promise<SongResponseDTO> {
+  async updateSong(id: number, data: CreateSongDTO) {
     const prisma = getPrisma()
-    const { id, lyrics, ...songData } = data
+    const { lyrics, ...songData } = data
 
     // Actualizar la canción y las letras si existen
     const song = await prisma.song.update({
@@ -135,7 +163,7 @@ class SongsService {
   }
 
   // Buscar canciones
-  async searchSongs(query: string, limit = 10): Promise<SongResponseDTO[]> {
+  async searchSongs(query: string, limit = 10) {
     const prisma = getPrisma()
     const songs = await prisma.song.findMany({
       where: {

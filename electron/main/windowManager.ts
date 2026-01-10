@@ -1,4 +1,4 @@
-import { BrowserWindow, shell, dialog } from 'electron'
+import { BrowserWindow, shell, dialog, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -66,9 +66,10 @@ export function createMainWindow(): BrowserWindow {
 }
 
 export function createSongWindow(songId?: number): BrowserWindow {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
   const songWindow = new BrowserWindow({
-    width: 1100,
-    height: 670,
+    width: Math.round(width * 0.8),
+    height: Math.round(height * 0.8),
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -96,9 +97,10 @@ export function createSongWindow(songId?: number): BrowserWindow {
 }
 
 export function createThemeWindow(themeId?: number): BrowserWindow {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
   const themeWindow = new BrowserWindow({
-    width: 1100,
-    height: 670,
+    width: Math.round(width * 0.8),
+    height: Math.round(height * 0.8),
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -123,4 +125,34 @@ export function createThemeWindow(themeId?: number): BrowserWindow {
   }
 
   return themeWindow
+}
+
+export function createTagsSongWindow(): BrowserWindow {
+  const tagSongWindow = new BrowserWindow({
+    width: 950,
+    height: 400,
+    show: false,
+    autoHideMenuBar: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  tagSongWindow.on('ready-to-show', () => {
+    tagSongWindow.show()
+  })
+
+  const route = '/tagSongEditor'
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    tagSongWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
+  } else {
+    tagSongWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      hash: route
+    })
+  }
+
+  return tagSongWindow
 }

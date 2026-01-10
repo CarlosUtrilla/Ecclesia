@@ -1974,6 +1974,11 @@
   resolved "https://registry.yarnpkg.com/@tiptap/extension-heading/-/extension-heading-3.14.0.tgz#1c6bb3e099b049ee8024380e73dd7fa6e4491167"
   integrity sha512-4xpahSo3b1dN2nwA0XKXLQVz9nZ/vE443a/Y5QLWeXiu3v9wkcMs/5kQ5ysFeDZRBTfVUWBqhngI7zhvDUx2zQ==
 
+"@tiptap/extension-highlight@^3.15.3":
+  version "3.15.3"
+  resolved "https://registry.yarnpkg.com/@tiptap/extension-highlight/-/extension-highlight-3.15.3.tgz#5197e49535ffd5b647ef91167dd2b72b4d7fc592"
+  integrity sha512-ZZyuKGW4WrMx3pBEfsHqOcqEklfiiAjVuvhji9FJcip1w0B2OnMWkgZw7rdAlsQG8pGH6NWh9Gf2DOUsjuAa6A==
+
 "@tiptap/extension-horizontal-rule@^3.14.0":
   version "3.14.0"
   resolved "https://registry.yarnpkg.com/@tiptap/extension-horizontal-rule/-/extension-horizontal-rule-3.14.0.tgz#c8cb034428975fa0ecd2581637db8765698c323d"

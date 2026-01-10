@@ -7,6 +7,7 @@ import { MediaType } from '@prisma/client'
 const windowAPI = {
   openSongWindow: (songId?: number) => ipcRenderer.send('open-song-window', songId),
   openThemeWindow: (themeId?: number) => ipcRenderer.send('open-theme-window', themeId),
+  openTagSongsWindow: () => ipcRenderer.send('open-tag-songs-window'),
   closeCurrentWindow: () => ipcRenderer.send('close-current-window')
 }
 

@@ -3,21 +3,34 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { Extension } from '@tiptap/core'
-import { Button } from './button'
-import { Bold, Italic, Underline as UnderlineIcon, Type } from 'lucide-react'
+import { Button } from '../../../ui/button'
+import { Bold, Italic, Underline as UnderlineIcon, Type, Tags } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger
-} from './dropdown-menu'
-import { Separator } from './separator'
+} from '../../../ui/dropdown-menu'
+import { Separator } from '../../../ui/separator'
 import { cn } from '@/lib/utils'
 import { useEffect } from 'react'
 
+import { SongGroup } from './SongGroup'
+import { BlockEditor, blocksToContent, contentToBlocks } from './utils'
+import useTagSongs from '@/hooks/useTagSongs'
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType
+      unsetFontSize: () => ReturnType
+    }
+  }
+}
+
 type Props = {
-  text: string
-  onTextChange: (newText: string) => void
+  lyrics: BlockEditor[]
+  onChange: (newLyrics: BlockEditor[]) => void
   className?: string
 }
 
@@ -84,26 +97,34 @@ const FontSize = Extension.create({
   }
 })
 
-export default function RichTextEditor({ text, onTextChange, className }: Props) {
+export default function RichTextEditor({ lyrics, onChange, className }: Props) {
+  const { tagSongs } = useTagSongs()
+
+  const extensions = [
+    StarterKit.configure({
+      heading: false,
+      codeBlock: false,
+      horizontalRule: false,
+      blockquote: false,
+      bulletList: false,
+      orderedList: false,
+      listItem: false,
+      strike: false
+    }),
+    Underline,
+    TextStyle,
+    FontSize,
+    SongGroup
+  ]
+  const content = {
+    type: 'doc',
+    content: blocksToContent(lyrics, extensions)
+  }
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: false,
-        codeBlock: false,
-        horizontalRule: false,
-        blockquote: false,
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-        strike: false
-      }),
-      Underline,
-      TextStyle,
-      FontSize
-    ],
-    content: text,
+    extensions,
+    content,
     onUpdate: ({ editor }) => {
-      onTextChange(editor.getHTML())
+      onChange(contentToBlocks(editor))
     },
     editorProps: {
       attributes: {
@@ -112,12 +133,13 @@ export default function RichTextEditor({ text, onTextChange, className }: Props)
     }
   })
 
-  // Actualizar contenido cuando cambie desde fuera
   useEffect(() => {
-    if (editor && text !== editor.getHTML()) {
-      editor.commands.setContent(text)
-    }
-  }, [text, editor])
+    if (!editor || !tagSongs.length) return
+    ;(editor.storage as any).songTags = tagSongs
+
+    // fuerza re-render de NodeViews
+    editor.view.dispatch(editor.state.tr)
+  }, [tagSongs, editor])
 
   if (!editor) {
     return null
@@ -152,7 +174,7 @@ export default function RichTextEditor({ text, onTextChange, className }: Props)
           size="icon"
           variant={editor.isActive('underline') ? 'default' : 'ghost'}
           onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className="h-8 w-8"
+          className="h-8 w-8 first:w-2"
         >
           <UnderlineIcon className="h-4 w-4" />
         </Button>
@@ -173,6 +195,40 @@ export default function RichTextEditor({ text, onTextChange, className }: Props)
                 onClick={() => editor.chain().focus().setFontSize(size.value).run()}
               >
                 <span style={{ fontSize: size.value }}>{size.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" size="sm" variant="ghost" className="h-8 gap-2">
+              <Tags className="h-4 w-4" />
+              <span className="text-xs">Tags</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {tagSongs.map((tag) => (
+              <DropdownMenuItem
+                key={tag.id}
+                onClick={() => editor.chain().focus().setSongGroup(tag.id).run()}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-sm border"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  <span>{tag.name}</span>
+                  <span
+                    className="ml-auto text-xs font-mono font-semibold px-1.5 py-0.5 rounded"
+                    style={{
+                      backgroundColor: tag.color + '25',
+                      color: tag.color
+                    }}
+                  >
+                    {tag.shortName}
+                  </span>
+                </div>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

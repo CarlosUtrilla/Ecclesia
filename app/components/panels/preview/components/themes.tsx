@@ -6,12 +6,11 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/ui/context-menu'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Edit, Plus, Trash2 } from 'lucide-react'
 import { useEffect } from 'react'
 
 export default function ThemesPanel() {
-  const queryClient = useQueryClient()
   const { data = [], refetch } = useQuery({
     queryKey: ['themes'],
     queryFn: async () => {
@@ -25,7 +24,7 @@ export default function ThemesPanel() {
       refetch()
     })
     return unsubscribe
-  }, [queryClient])
+  }, [])
 
   const handleEditarTema = (themeId: number) => {
     window.windowAPI.openThemeWindow(themeId)

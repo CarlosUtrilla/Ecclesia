@@ -2,7 +2,12 @@ import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerRoutes } from '../../database'
 import { initPrisma } from './prisma'
-import { createMainWindow, createSongWindow, createThemeWindow } from './windowManager'
+import {
+  createMainWindow,
+  createSongWindow,
+  createTagsSongWindow,
+  createThemeWindow
+} from './windowManager'
 import { registerMediaHandlers } from './mediaHandlers'
 import { startMediaServer, stopMediaServer, getMediaServerPort } from './mediaServer'
 
@@ -73,6 +78,10 @@ app.whenReady().then(async () => {
     createThemeWindow(themeId)
   })
 
+  // Abrir ventana para crear/editar tema
+  ipcMain.on('open-tag-songs-window', () => {
+    createTagsSongWindow()
+  })
   // Cerrar ventana actual
   ipcMain.on('close-current-window', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
@@ -87,6 +96,16 @@ app.whenReady().then(async () => {
     if (mainWindow && mainWindow.length > 0) {
       mainWindow.forEach((win) => {
         win.webContents.send('theme-saved')
+      })
+    }
+  })
+
+  // Notificar a ventana principal cuando se guarda un tema
+  ipcMain.on('tags-saved', () => {
+    const mainWindow = BrowserWindow.getAllWindows()
+    if (mainWindow && mainWindow.length > 0) {
+      mainWindow.forEach((win) => {
+        win.webContents.send('tags-saved')
       })
     }
   })

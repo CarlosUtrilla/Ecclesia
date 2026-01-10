@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { cn } from '../../lib/utils'
+import { cn, getContrastTextColor } from '../../lib/utils'
 import { PresentationViewProps } from './types'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
@@ -10,6 +10,8 @@ import { BackgroundImage } from './components/BackgroundImage'
 import { BackgroundVideoThumbnail } from './components/BackgroundVideoThumbnail'
 import { BackgroundVideoLive } from './components/BackgroundVideoLive'
 import { AnimatedText } from './components/AnimatedText'
+
+import useTagSongs from '@/hooks/useTagSongs'
 
 // Tipos para backgrounds
 type MediaType = 'image' | 'video' | 'color' | 'gradient'
@@ -27,8 +29,11 @@ export function PresentationView({
   live = false,
   currentIndex = 0,
   onClick,
-  selected
+  selected,
+  tagSongId
 }: PresentationViewProps) {
+  const { tagSongs } = useTagSongs()
+
   const { buildMediaUrl } = useMediaServer()
   const screenSize = useScreenSize(maxHeight)
 
@@ -147,17 +152,23 @@ export function PresentationView({
     [screenSize.width, screenSize.aspectRatio, background, mediaType]
   )
 
+  const tagSong = useMemo(() => {
+    if (tagSongId === undefined) return null
+    return tagSongs.find((tag) => tag.id === tagSongId) || null
+  }, [tagSongId, tagSongs])
+
   if (!currentItem) return null
 
   return (
     <div
       onClick={onClick}
       style={containerStyle}
-      className={cn('border bg-background', {
+      className={cn('border bg-background relative', {
         'outline-2 outline-primary transition-colors': selected,
         'cursor-pointer': onClick !== undefined,
         'border-0': live,
-        'rounded-md': !live
+        'rounded-md': !live,
+        'pb-7': tagSong !== null
       })}
     >
       {/* Fondos con transición cross-fade */}
@@ -190,6 +201,17 @@ export function PresentationView({
           isPreview={!live}
         />
       </AnimatePresence>
+      {tagSong !== null ? (
+        <div
+          style={{
+            backgroundColor: tagSong.color,
+            color: getContrastTextColor(tagSong.color)
+          }}
+          className="absolute flex items-center bottom-0 h-7 w-full text-[0.8rem] px-3"
+        >
+          {tagSong.name}
+        </div>
+      ) : null}
     </div>
   )
 }

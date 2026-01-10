@@ -24,12 +24,27 @@ model Song {
 }
 
 model Lyrics {
+  id          Int      @id @default(autoincrement())
+  content     String
+  tag         TagSongs @relation(fields: [tagSongsId], references: [id])
+  //Relations
+  song        Song     @relation(fields: [songId], references: [id])
+  songId      Int      @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  songsTagsId Int
+  tagSongsId  Int
+}
+
+model TagSongs {
   id        Int      @id @default(autoincrement())
-  content   String
-  song      Song     @relation(fields: [songId], references: [id])
-  songId    Int      @unique
+  name      String   @unique
+  shortName String   @unique
+  shortCut  String   @unique
+  color     String // Color en formato HEX o nombre de color CSS
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  lyrics    Lyrics[]
 }
 
 model Themes {

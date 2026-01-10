@@ -6,13 +6,13 @@ export type ThemeWithMedia = Themes & {
 
 export type PresentationViewProps = {
   maxHeight?: number
-  preview?: boolean
   theme: ThemeWithMedia
   live?: boolean
   currentIndex?: number
   items: PresentationViewItems[]
   onClick?: () => void
   selected?: boolean
+  tagSongId?: number | undefined
 }
 
 export type PresentationViewItems = {

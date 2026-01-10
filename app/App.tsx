@@ -7,6 +7,7 @@ import { MediaServerProvider } from './contexts/MediaServerContext'
 import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
 import { SplashScreen } from './components/SplashScreen'
 import { useMediaServer } from './contexts/MediaServerContext'
+import TagSongsEditor from './components/tagSongsEditor.tsx'
 
 function AppContent() {
   const { isReady } = useMediaServer()
@@ -40,6 +41,9 @@ function AppContent() {
           {/* Rutas para crear/editar tema (ventana modal) */}
           <Route path="/theme/new" element={<ThemesEditor />} />
           <Route path="/theme/:id" element={<ThemesEditor />} />
+
+          {/* Rutas para crear/editar tags de canciones */}
+          <Route path="/tagSongEditor" element={<TagSongsEditor />} />
         </Routes>
       )}
     </>

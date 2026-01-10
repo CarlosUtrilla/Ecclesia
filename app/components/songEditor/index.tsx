@@ -1,89 +1,90 @@
 import { Input } from '@/ui/input'
-import RichTextEditor from '@/ui/richTextEditor'
+import RichTextEditor from '@/components/songEditor/richEditor/richTextEditor'
 import t from '@locales'
-import { Song, Themes } from '@prisma/client'
+import { Themes } from '@prisma/client'
 import { useForm, Controller } from 'react-hook-form'
 import { Button } from '@/ui/button'
-import { useQuery } from '@tanstack/react-query'
 import { PresentationView } from '../PresentationView'
-import { cn } from '@/lib/utils'
-import { useState } from 'react'
-import { Spinner } from '@/ui/spinner'
+import { useMemo, useState } from 'react'
+import ThemeSelector from './themeSelector'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useParams } from 'react-router'
+import { CreateSongSchema } from './songsSchemas'
+import { CreateSongDTO } from 'database/controllers/songs/songs.dto'
+import { Tags } from 'lucide-react'
+import { BlockEditor } from './richEditor/utils'
+
+const BlankTheme: Themes = {
+  id: -1,
+  name: 'Blank',
+  background: '#ffffff',
+  backgroundMediaId: null,
+  letterSpacing: 0,
+  lineHeight: 1.5,
+  textSize: 16,
+  textColor: '#000000',
+  fontFamily: 'Arial',
+  previewImage: '',
+  textAlign: 'center',
+  bold: false,
+  italic: false,
+  underline: false,
+  animationSettings: '{"type":"fade","duration":0.4,"delay":0,"easing":"easeInOut"}',
+  createdAt: new Date(),
+  updatedAt: new Date()
+}
+
 export default function SongEditor() {
-  const [selectedTheme, setSelectedTheme] = useState<Themes | undefined>(undefined)
-  const { data: themes = [] } = useQuery({
-    queryKey: ['themes'],
-    queryFn: async () => {
-      const themes = await window.api.themes.getAllThemes()
-      setSelectedTheme(themes[0])
-      return themes
-    }
-  })
-  const { control, watch, handleSubmit } = useForm<Song>({
+  const { id } = useParams()
+  const [selectedTheme, setSelectedTheme] = useState<Themes>(BlankTheme)
+
+  const {
+    control,
+    watch,
+    handleSubmit,
+    formState: { errors }
+  } = useForm({
     defaultValues: {
       title: '',
-      author: '',
       copyright: '',
+      author: '',
       fullText: '',
-      id: -1,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
+      lyrics: []
+    },
+    resolver: zodResolver(CreateSongSchema)
   })
 
   const values = watch()
 
-  const onSubmit = (data: Song) => {
-    console.log(data)
-  }
-
-  const separateFullTextOnLyrics = (fullText: string) => {
-    // Tiptap genera párrafos con <p> tags
-    // Un doble salto de línea se representa como dos <p> consecutivos o un <p> vacío
-    // Dividimos por párrafos vacíos o dobles saltos de línea
-
-    // Primero, dividir por párrafos
-    const paragraphs = fullText.split(/<\/p>\s*<p>/).map((p) => {
-      // Limpiar tags de apertura/cierre del inicio y final
-      return p
-        .replace(/^<p>/, '')
-        .replace(/<\/p>$/, '')
-        .trim()
-    })
-
-    // Agrupar párrafos separados por párrafos vacíos (doble enter)
-    const sections: string[] = []
-    let currentSection: string[] = []
-
-    paragraphs.forEach((paragraph) => {
-      if (paragraph === '' || paragraph === '<br>' || paragraph === '&nbsp;') {
-        // Párrafo vacío = doble enter = nueva sección
-        if (currentSection.length > 0) {
-          sections.push(`<p>${currentSection.join('</p><p>')}</p>`)
-          currentSection = []
-        }
-      } else {
-        currentSection.push(paragraph)
-      }
-    })
-
-    // Agregar la última sección si existe
-    if (currentSection.length > 0) {
-      sections.push(`<p>${currentSection.join('</p><p>')}</p>`)
+  const onSubmit = async (data: CreateSongDTO) => {
+    if (id !== undefined) {
+      await window.api.songs.updateSong(Number(id), data)
+    } else {
+      await window.api.songs.createSong(data)
     }
-
-    return sections
   }
+
+  const cleanesLyrics = useMemo(() => {
+    console.log(values.lyrics)
+    return values.lyrics.filter((l) => l.content !== '') as BlockEditor[]
+  }, [values.lyrics])
+
   return (
     <div className="grid grid-cols-12 h-svh">
-      <div className="p-3 gap-2 col-span-4 bg-sidebar border-r flex flex-col">
-        <div className="flex items-center justify-center mb-2">
+      <div className="p-3 gap-2 col-span-3 bg-sidebar border-r flex flex-col">
+        <div className="flex items-center justify-center mb-2 gap-2">
           <Button onClick={handleSubmit(onSubmit)}>{t('songEditor.save')}</Button>
+          <Button onClick={() => window.windowAPI.openTagSongsWindow()}>
+            <Tags />
+            Editar etiquetas
+          </Button>
         </div>
         <Controller
           name="title"
           control={control}
-          render={({ field }) => <Input placeholder={t('songEditor.title')} {...field} />}
+          render={({ field }) => (
+            <Input placeholder={t('songEditor.title')} {...field} error={errors.title?.message} />
+          )}
         />
         <Controller
           name="author"
@@ -100,61 +101,42 @@ export default function SongEditor() {
           )}
         />
         <Controller
-          name="fullText"
+          name="lyrics"
           control={control}
           render={({ field }) => (
-            <RichTextEditor
-              className="flex-1"
-              text={field.value || ''}
-              onTextChange={field.onChange}
-            />
+            <RichTextEditor className="flex-1" lyrics={field.value} onChange={field.onChange} />
           )}
         />
       </div>
-      <div className="col-span-8 flex flex-col">
-        <div
-          className={cn(
-            'bg-muted p-4 overflow-x-auto flex items-center justify-center',
-            'w-full border-b gap-1'
-          )}
-        >
-          {themes.map((theme) => (
-            <PresentationView
-              maxHeight={90}
-              key={theme.id}
-              theme={theme}
-              items={[{ text: theme.name }]}
-              onClick={() => setSelectedTheme(theme)}
-              selected={selectedTheme?.id === theme.id}
-            />
-          ))}
-        </div>
-        {selectedTheme ? (
-          <div className="flex flex-wrap flex-1 gap-2 p-4 bg-muted/40 items-start justify-center col-span-9">
+      <div className="col-span-9 flex overflow-hidden">
+        <div className="p-4 bg-muted/40 flex-1 mx-auto overflow-y-auto">
+          <div className="flex flex-wrap h-min gap-2 justify-center">
             <PresentationView
               items={[
                 {
                   text: `${values.title || '(Título de la canción)'}
-                        <br/>${values.author ? `${values.author}${values.copyright ? ` - ${values.copyright}` : ''}` : ''}`
+                          <br/>${values.author ? `${values.author}${values.copyright ? ` - ${values.copyright}` : ''}` : ''}`
                 }
               ]}
               theme={selectedTheme!}
+              maxHeight={180}
             />
-            {separateFullTextOnLyrics(values.fullText || '').map((section, index) => (
+            {cleanesLyrics.map((lyric, index) => (
               <PresentationView
                 key={index}
                 items={[
                   {
-                    text: section
+                    text: lyric.content
                   }
                 ]}
                 theme={selectedTheme!}
+                maxHeight={180}
+                tagSongId={lyric.songsTagsId}
               />
             ))}
           </div>
-        ) : (
-          <Spinner />
-        )}
+        </div>
+        <ThemeSelector selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} />
       </div>
     </div>
   )

@@ -1,10 +1,6 @@
-export type CreateSongDTO = {
-  title: string
-  artist?: string
-  author?: string
-  copyright?: string
-  lyrics?: string // HTML content
-}
+import { Song } from '@prisma/client'
+
+export type CreateSongDTO = Pick<Song, 'title' | 'author' | 'copyright' | 'fullText'>
 
 export type UpdateSongDTO = {
   id: number
@@ -19,20 +15,6 @@ export type GetSongsDTO = {
   page: number
   limit?: number
   search?: string
-}
-
-export type SongResponseDTO = {
-  id: number
-  title: string
-  artist: string | null
-  author: string | null
-  copyright: string | null
-  createdAt: Date
-  updatedAt: Date
-  lyrics?: {
-    id: number
-    content: string
-  } | null
 }
 
 export type SongsListResponseDTO = {

@@ -12,17 +12,17 @@ let prisma: PrismaClient | null = null
 async function runMigrations(dbPath: string) {
   try {
     console.log('🔄 Ejecutando migraciones en la base de datos local...')
-    
+
     // Establecer la variable de entorno para la URL de la base de datos
     const databaseUrl = `file:${dbPath}`
-    
+
     // Determinar si estamos en desarrollo o producción
     const isDev = !app.isPackaged
-    
+
     // Obtener rutas correctas según el entorno
     let prismaPath: string
     let migrationsPath: string
-    
+
     if (isDev) {
       // En desarrollo
       prismaPath = path.join(process.cwd(), 'node_modules', '.bin', 'prisma')
@@ -31,47 +31,56 @@ async function runMigrations(dbPath: string) {
       // En producción (app empaquetada)
       prismaPath = path.join(process.resourcesPath, 'node_modules', '.bin', 'prisma')
       migrationsPath = path.join(process.resourcesPath, 'prisma')
-      
+
       // Verificar si existe, si no, usar rutas alternativas
       if (!fs.existsSync(prismaPath)) {
-        prismaPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '.bin', 'prisma')
+        prismaPath = path.join(
+          process.resourcesPath,
+          'app.asar.unpacked',
+          'node_modules',
+          '.bin',
+          'prisma'
+        )
       }
       if (!fs.existsSync(migrationsPath)) {
         migrationsPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'prisma')
       }
     }
-    
+
     const schemaPath = path.join(migrationsPath, 'schema.prisma')
-    
+
     console.log('📁 Rutas de migración:')
     console.log('  - Prisma CLI:', prismaPath)
     console.log('  - Migraciones:', migrationsPath)
     console.log('  - Schema:', schemaPath)
-    
+
     // Verificar que existen los archivos necesarios
     if (!fs.existsSync(schemaPath)) {
       console.error('❌ No se encontró schema.prisma en:', schemaPath)
       return false
     }
-    
+
     // Ejecutar prisma migrate deploy
-    const command = process.platform === 'win32'
-      ? `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
-      : `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
-    
+    const command =
+      process.platform === 'win32'
+        ? `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
+        : `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
+
     console.log('🚀 Ejecutando comando:', command)
-    
+    console.log('🎯 Base de datos destino:', databaseUrl)
+
     const { stdout, stderr } = await execAsync(command, {
       env: {
         ...process.env,
-        DATABASE_URL: databaseUrl
+        DATABASE_URL: databaseUrl,
+        PRISMA_SKIP_POSTINSTALL_GENERATE: '1'
       },
       cwd: migrationsPath
     })
-    
+
     if (stdout) console.log('✅ Migraciones aplicadas:', stdout)
     if (stderr && !stderr.includes('Datasource')) console.error('⚠️ Advertencias:', stderr)
-    
+
     return true
   } catch (error: any) {
     console.error('❌ Error al ejecutar migraciones:', error.message)
@@ -117,7 +126,7 @@ async function initPrisma() {
   try {
     const userDataPath = app.getPath('userData')
     const destDbPath = path.join(userDataPath, 'dev.db')
-    
+
     // Determinar ruta de la base de datos fuente según el entorno
     const isDev = !app.isPackaged
     const srcDbPath = isDev
@@ -140,22 +149,23 @@ async function initPrisma() {
 
     // Siempre ejecutar migraciones para mantener la DB actualizada
     const migrationSuccess = await runMigrations(destDbPath)
-    
+
     // Si las migraciones fallan y la DB existe
     if (!migrationSuccess && exists) {
       const hasData = await hasUserData(destDbPath)
-      
-      if (hasData && !isDev) {
-        // PRODUCCIÓN con datos: NO eliminar, mostrar error al usuario
-        console.error('❌ ERROR CRÍTICO: La base de datos no puede migrarse y contiene datos del usuario.')
-        console.error('   Por favor contacte soporte técnico.')
-        throw new Error(
-          'La base de datos requiere actualizaciones que no pueden aplicarse automáticamente. ' +
-          'Por favor contacte soporte técnico para preservar sus datos.'
+
+      if (hasData) {
+        // TIENE DATOS: NUNCA eliminar, mostrar error
+        console.error(
+          '❌ ERROR CRÍTICO: La base de datos no puede migrarse y contiene datos del usuario.'
         )
+        console.error('   Las migraciones fallaron pero tus datos están seguros.')
+        console.error('   La aplicación continuará con la versión actual de la base de datos.')
+        console.warn('⚠️  IMPORTANTE: Algunas funciones nuevas pueden no estar disponibles.')
+        // NO lanzar error, permitir que la app continúe con la DB actual
       } else {
-        // DESARROLLO o sin datos: seguro eliminar y recrear
-        console.log('🔄 Recreando base de datos desde cero...')
+        // SIN DATOS: seguro eliminar y recrear
+        console.log('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
         await fs.remove(destDbPath)
         if (await fs.pathExists(srcDbPath)) {
           await fs.copy(srcDbPath, destDbPath)

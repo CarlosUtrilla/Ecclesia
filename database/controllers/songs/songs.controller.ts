@@ -1,16 +1,10 @@
 import SongsService from './songs.service'
-import type {
-  CreateSongDTO,
-  UpdateSongDTO,
-  GetSongsDTO,
-  SongResponseDTO,
-  SongsListResponseDTO
-} from './songs.dto'
+import type { CreateSongDTO, GetSongsDTO, SongsListResponseDTO } from './songs.dto'
 
 class SongsController {
   private songsService = new SongsService()
 
-  async createSong(data: CreateSongDTO): Promise<SongResponseDTO> {
+  async createSong(data: CreateSongDTO) {
     return this.songsService.createSong(data)
   }
 
@@ -18,19 +12,19 @@ class SongsController {
     return this.songsService.getSongsInfiniteScroll(params)
   }
 
-  async getSongById(id: number): Promise<SongResponseDTO | null> {
+  async getSongById(id: number) {
     return this.songsService.getSongById(id)
   }
 
-  async updateSong(data: UpdateSongDTO): Promise<SongResponseDTO> {
-    return this.songsService.updateSong(data)
+  async updateSong(id: number, data: CreateSongDTO) {
+    return this.songsService.updateSong(id, data)
   }
 
   async deleteSong(id: number): Promise<void> {
     return this.songsService.deleteSong(id)
   }
 
-  async searchSongs(query: string, limit?: number): Promise<SongResponseDTO[]> {
+  async searchSongs(query: string, limit?: number) {
     return this.songsService.searchSongs(query, limit)
   }
 }

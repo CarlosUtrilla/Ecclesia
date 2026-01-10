@@ -64,6 +64,15 @@
   --spacing: 0.25rem;
 }
 
+@keyframes pulse-fast {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
 .dark {
   --background: hsl(222.8571 84.0000% 4.9020%);
   --foreground: hsl(210.0000 40.0000% 98.0392%);
