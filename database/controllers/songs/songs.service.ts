@@ -43,10 +43,12 @@ class SongsService {
   async createSong(data: CreateSongDTO) {
     const prisma = getPrisma()
     const { lyrics, ...songData } = data
+    const fullText = lyrics.map((lyric) => lyric.content).join('\n')
 
     const song = await prisma.song.create({
       data: {
         ...songData,
+        fullText,
         lyrics: {
           createMany: {
             data: lyrics.map((content) => ({
@@ -120,7 +122,7 @@ class SongsService {
 
     return {
       ...song,
-      lyrics: song.lyrics[0] || null
+      lyrics: song.lyrics
     }
   }
 
@@ -128,31 +130,34 @@ class SongsService {
   async updateSong(id: number, data: CreateSongDTO) {
     const prisma = getPrisma()
     const { lyrics, ...songData } = data
+    const fullText = lyrics.map((lyric) => lyric.content).join('\n')
+
+    // Eliminar letras existentes
+    await prisma.lyrics.deleteMany({
+      where: { songId: id }
+    })
 
     // Actualizar la canción y las letras si existen
     const song = await prisma.song.update({
       where: { id },
       data: {
         ...songData,
-        lyrics:
-          lyrics !== undefined
-            ? {
-                upsert: {
-                  create: { content: lyrics },
-                  update: { content: lyrics }
-                }
-              }
-            : undefined
+        fullText,
+        lyrics: {
+          createMany: {
+            data: lyrics.map((content) => ({
+              content: content.content,
+              tagSongsId: content.tagSongsId
+            }))
+          }
+        }
       },
       include: {
         lyrics: true
       }
     })
 
-    return {
-      ...song,
-      lyrics: song.lyrics[0] || null
-    }
+    return song
   }
 
   // Eliminar canción

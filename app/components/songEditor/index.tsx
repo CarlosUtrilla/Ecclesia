@@ -5,13 +5,14 @@ import { Themes } from '@prisma/client'
 import { useForm, Controller } from 'react-hook-form'
 import { Button } from '@/ui/button'
 import { PresentationView } from '../PresentationView'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ThemeSelector from './themeSelector'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useParams } from 'react-router'
 import { CreateSongSchema } from './songsSchemas'
 import { CreateSongDTO } from 'database/controllers/songs/songs.dto'
 import { Tags } from 'lucide-react'
+import { BlockEditor } from './richEditor/utils'
 
 const BlankTheme: Themes = {
   id: -1,
@@ -36,12 +37,14 @@ const BlankTheme: Themes = {
 export default function SongEditor() {
   const { id } = useParams()
   const [selectedTheme, setSelectedTheme] = useState<Themes>(BlankTheme)
+  const [editorKeyRender, setEditorKeyRender] = useState(0)
 
   const {
     control,
     watch,
     handleSubmit,
-    formState: { errors }
+    formState: { errors },
+    reset
   } = useForm({
     defaultValues: {
       title: '',
@@ -52,14 +55,56 @@ export default function SongEditor() {
     resolver: zodResolver(CreateSongSchema)
   })
 
+  useEffect(() => {
+    if (id === undefined) {
+      return
+    }
+
+    const fetchSong = async () => {
+      const song = await window.api.songs.getSongById(Number(id))
+      if (song) {
+        reset({
+          title: song.title,
+          author: song.author || '',
+          copyright: song.copyright || '',
+          lyrics: song.lyrics.reduce((prev, curr) => {
+            prev.push({
+              content: curr.content,
+              tagSongsId: curr.tagSongsId
+            })
+            // preguntar si la siguiente letra pertenece a una etiqueta diferente para agregar un bloque vacío
+            const nextLyric = song.lyrics[song.lyrics.indexOf(curr) + 1]
+            if (nextLyric && nextLyric.tagSongsId === curr.tagSongsId) {
+              prev.push({
+                content: '',
+                tagSongsId: curr.tagSongsId
+              })
+            }
+
+            return prev
+          }, [] as BlockEditor[])
+        })
+        setEditorKeyRender((prev) => prev + 1)
+      }
+    }
+    fetchSong()
+  }, [id])
+
   const values = watch()
 
   const onSubmit = async (data: CreateSongDTO) => {
-    data.lyrics = data.lyrics.filter((l) => l.content !== '')
-    if (id !== undefined) {
-      await window.api.songs.updateSong(Number(id), data)
-    } else {
-      await window.api.songs.createSong(data)
+    try {
+      data.lyrics = data.lyrics.filter((l) => l.content !== '')
+      if (id !== undefined) {
+        await window.api.songs.updateSong(Number(id), data)
+      } else {
+        await window.api.songs.createSong(data)
+      }
+      window.electron.ipcRenderer.send('song-saved')
+      window.windowAPI.closeCurrentWindow()
+    } catch (e) {
+      console.error('Error saving song:', e)
+      window.alert('Error al guardar la canción. Por favor, inténtalo de nuevo.')
     }
   }
 
@@ -106,6 +151,7 @@ export default function SongEditor() {
               className="flex-1"
               lyrics={field.value}
               onChange={field.onChange}
+              key={editorKeyRender}
             />
           )}
         />

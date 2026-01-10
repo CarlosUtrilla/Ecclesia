@@ -5,9 +5,15 @@ import t from '@locales'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { SongsListResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useEffect, useRef, useState } from 'react'
-import { Search, Music, Plus } from 'lucide-react'
+import { Search, Music, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from '@/ui/context-menu'
 
 export default function SongsPanelLibrary() {
   const [search, setSearch] = useState('')
@@ -22,21 +28,28 @@ export default function SongsPanelLibrary() {
     return () => clearTimeout(timer)
   }, [search])
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
-    queryKey: ['songs', 'libraryPanel', debouncedSearch],
-    queryFn: async ({ pageParam = 1 }) => {
-      return window.api.songs.getSongsInfiniteScroll({
-        page: pageParam,
-        limit: 20,
-        search: debouncedSearch || undefined
-      })
-    },
-    initialPageParam: 1,
-    getNextPageParam: (lastPage: SongsListResponseDTO) => {
-      return lastPage.totalPages > lastPage.page ? lastPage.page + 1 : undefined
-    }
-  })
-
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } =
+    useInfiniteQuery({
+      queryKey: ['songs', 'libraryPanel', debouncedSearch],
+      queryFn: async ({ pageParam = 1 }) => {
+        return window.api.songs.getSongsInfiniteScroll({
+          page: pageParam,
+          limit: 20,
+          search: debouncedSearch || undefined
+        })
+      },
+      initialPageParam: 1,
+      getNextPageParam: (lastPage: SongsListResponseDTO) => {
+        return lastPage.totalPages > lastPage.page ? lastPage.page + 1 : undefined
+      }
+    })
+  useEffect(() => {
+    // Refrescar la lista de canciones cuando se guarde una canción
+    const unsubscribe = window.electron.ipcRenderer.on('song-saved', () => {
+      refetch()
+    })
+    return unsubscribe
+  }, [])
   // Intersection Observer para scroll infinito
   useEffect(() => {
     if (!observerRef.current || !hasNextPage || isFetchingNextPage) return
@@ -55,6 +68,16 @@ export default function SongsPanelLibrary() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const allSongs = data?.pages.flatMap((page) => page.songs) ?? []
+
+  const handleDeleteSong = async (songId: number) => {
+    const song = allSongs.find((s) => s.id === songId)
+    // Primero preguntar al usuario
+    const confirm = window.confirm(
+      `¿Estás seguro de que deseas eliminar la canción "${song?.title}"?`
+    )
+    if (!confirm) return
+    await window.api.songs.deleteSong(songId)
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -80,7 +103,7 @@ export default function SongsPanelLibrary() {
       </div>
 
       {/* Lista de canciones */}
-      <div className="flex-1 overflow-auto p-4 space-y-2">
+      <div className="flex-1 overflow-auto p-2 space-y-2">
         {isLoading ? (
           // Loading skeleton
           Array.from({ length: 5 }).map((_, i) => (
@@ -106,18 +129,33 @@ export default function SongsPanelLibrary() {
           // Lista de canciones
           <>
             {allSongs.map((song) => (
-              <Card
-                key={song.id}
-                className="p-4 hover:bg-accent cursor-pointer transition-colors"
-                onClick={() => window.windowAPI.openSongWindow(song.id)}
-              >
-                <h3 className="font-semibold text-base">{song.title}</h3>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {song.artist && <span>{song.artist}</span>}
-                  {song.artist && song.author && <span className="mx-2">•</span>}
-                  {song.author && <span>{song.author}</span>}
-                </div>
-              </Card>
+              <ContextMenu key={song.id}>
+                <ContextMenuTrigger>
+                  <div
+                    className="p-1 px-4 hover:bg-muted/30 cursor-pointer transition-colors"
+                    onDoubleClick={() => window.windowAPI.openSongWindow(song.id)}
+                  >
+                    <h3 className="font-semibold text-base flex gap-2 items-center">
+                      {song.title}
+                      {song.artist ? (
+                        <div className="text-sm text-muted-foreground mt-1">
+                          ({song.artist && <span>{song.artist}</span>})
+                        </div>
+                      ) : null}
+                    </h3>
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onClick={() => window.windowAPI.openSongWindow(song.id)}>
+                    <Trash2 className="text-destructive" />
+                    Editar canción
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => handleDeleteSong(song.id)}>
+                    <Trash2 className="text-destructive" />
+                    Eliminar canción
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             ))}
 
             {/* Observer para scroll infinito */}

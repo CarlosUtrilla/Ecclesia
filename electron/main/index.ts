@@ -100,12 +100,22 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Notificar a ventana principal cuando se guarda un tema
+  // Notificar a ventana principal cuando se guarda un tag
   ipcMain.on('tags-saved', () => {
     const mainWindow = BrowserWindow.getAllWindows()
     if (mainWindow && mainWindow.length > 0) {
       mainWindow.forEach((win) => {
         win.webContents.send('tags-saved')
+      })
+    }
+  })
+
+  // Notificar a ventana principal cuando se guarda una canción
+  ipcMain.on('song-saved', () => {
+    const mainWindow = BrowserWindow.getAllWindows()
+    if (mainWindow && mainWindow.length > 0) {
+      mainWindow.forEach((win) => {
+        win.webContents.send('song-saved')
       })
     }
   })
