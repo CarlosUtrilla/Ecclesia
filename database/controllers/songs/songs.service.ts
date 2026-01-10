@@ -42,16 +42,17 @@ class SongsService {
   // Crear canción
   async createSong(data: CreateSongDTO) {
     const prisma = getPrisma()
-    const { fullText, ...songData } = data
-
-    const lyrics = this.separateFullTextOnLyrics(fullText)
+    const { lyrics, ...songData } = data
 
     const song = await prisma.song.create({
       data: {
         ...songData,
         lyrics: {
           createMany: {
-            data: lyrics.map((content) => ({ content }))
+            data: lyrics.map((content) => ({
+              content: content.content,
+              tagSongsId: content.tagSongsId
+            }))
           }
         }
       },

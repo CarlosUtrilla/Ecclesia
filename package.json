@@ -22,7 +22,10 @@
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
     "sync": "git pull && npx prisma migrate dev && yarn seed && yarn",
-    "seed": "npx ts-node prisma/seed.ts"
+    "seed": "npx ts-node prisma/seed.ts",
+    "db:reset": "rm -f ~/Library/Application\\ Support/ecclesia/dev.db && echo '✅ Base de datos local borrada. Arranca la app para recrear.'",
+    "db:backup": "cp ~/Library/Application\\ Support/ecclesia/dev.db ~/Library/Application\\ Support/ecclesia/backups/manual-$(date +%Y%m%d-%H%M%S).db && echo '✅ Backup manual creado'",
+    "db:inspect": "sqlite3 ~/Library/Application\\ Support/ecclesia/dev.db"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
@@ -55,6 +58,7 @@
     "clsx": "^2.1.1",
     "decimal.js": "^10.6.0",
     "dompurify": "^3.3.1",
+    "electron-log": "^5.4.3",
     "electron-updater": "^6.3.9",
     "eslint-config-prettier": "^10.1.5",
     "eslint-config-standard": "^17.1.0",

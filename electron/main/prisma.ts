@@ -4,35 +4,75 @@ import fs from 'fs-extra'
 import { app } from 'electron'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import log from 'electron-log'
 
 const execAsync = promisify(exec)
-
 let prisma: PrismaClient | null = null
 
-async function runMigrations(dbPath: string) {
+/**
+ * Hace un backup de la base de datos actual usando SQLite backup API
+ * Esto es más confiable que fs.copy() para archivos SQLite en uso
+ */
+async function backupDatabase(dbPath: string): Promise<string | null> {
   try {
-    console.log('🔄 Ejecutando migraciones en la base de datos local...')
+    const backupDir = path.join(app.getPath('userData'), 'backups')
+    await fs.ensureDir(backupDir)
 
-    // Establecer la variable de entorno para la URL de la base de datos
-    const databaseUrl = `file:${dbPath}`
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const backupPath = path.join(backupDir, `dev-${timestamp}.db`)
 
-    // Determinar si estamos en desarrollo o producción
-    const isDev = !app.isPackaged
+    if (await fs.pathExists(dbPath)) {
+      // Usar SQLite backup API en lugar de fs.copy() para bases de datos en uso
+      const sqlite3 = await import('better-sqlite3')
+      const sourceDb = sqlite3.default(dbPath, { readonly: true })
 
-    // Obtener rutas correctas según el entorno
+      try {
+        // Crear backup usando el comando SQLite VACUUM INTO
+        const backupDb = sourceDb.prepare(`VACUUM INTO ?`).run(backupPath)
+        sourceDb.close()
+
+        log.info(`💾 Backup de base de datos creado en: ${backupPath}`)
+        return backupPath
+      } catch (error) {
+        sourceDb.close()
+        // Fallback a fs.copy si VACUUM falla
+        await fs.copy(dbPath, backupPath)
+        log.info(`💾 Backup de base de datos creado (fallback) en: ${backupPath}`)
+        return backupPath
+      }
+    } else {
+      log.warn('⚠️ No se encontró base de datos para hacer backup')
+      return null
+    }
+  } catch (error) {
+    log.error('❌ Error al hacer backup de la base de datos:', error)
+    return null
+  }
+}
+
+/**
+ * Ejecuta las migraciones en la DB de Electron
+ */
+async function runMigrations(dbPath: string, isDev: boolean) {
+  try {
+    log.info('🔄 Ejecutando migraciones en la base de datos local...')
+    log.info('📁 DB Path:', dbPath)
+
+    const databaseUrl = `file:${dbPath.replace(/\\/g, '/')}`
+
+    // Hacer backup antes de migrar
+    await backupDatabase(dbPath)
+
     let prismaPath: string
     let migrationsPath: string
 
     if (isDev) {
-      // En desarrollo
       prismaPath = path.join(process.cwd(), 'node_modules', '.bin', 'prisma')
       migrationsPath = path.join(process.cwd(), 'prisma')
     } else {
-      // En producción (app empaquetada)
       prismaPath = path.join(process.resourcesPath, 'node_modules', '.bin', 'prisma')
       migrationsPath = path.join(process.resourcesPath, 'prisma')
 
-      // Verificar si existe, si no, usar rutas alternativas
       if (!fs.existsSync(prismaPath)) {
         prismaPath = path.join(
           process.resourcesPath,
@@ -47,27 +87,22 @@ async function runMigrations(dbPath: string) {
       }
     }
 
+    log.info('🔧 Prisma binary:', prismaPath)
+    log.info('📂 Migrations path:', migrationsPath)
+    log.info('🗄️ DATABASE_URL:', databaseUrl)
+
     const schemaPath = path.join(migrationsPath, 'schema.prisma')
-
-    console.log('📁 Rutas de migración:')
-    console.log('  - Prisma CLI:', prismaPath)
-    console.log('  - Migraciones:', migrationsPath)
-    console.log('  - Schema:', schemaPath)
-
-    // Verificar que existen los archivos necesarios
     if (!fs.existsSync(schemaPath)) {
-      console.error('❌ No se encontró schema.prisma en:', schemaPath)
+      log.error('❌ No se encontró schema.prisma en:', schemaPath)
       return false
     }
 
-    // Ejecutar prisma migrate deploy
-    const command =
-      process.platform === 'win32'
-        ? `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
-        : `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
+    // Usar 'migrate deploy' en todos los casos (dev y producción)
+    // Es no-interactivo y aplica migraciones pendientes automáticamente
+    const command = `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
 
-    console.log('🚀 Ejecutando comando:', command)
-    console.log('🎯 Base de datos destino:', databaseUrl)
+    log.info('🚀 Ejecutando comando:', command)
+    log.info('🎯 Base de datos destino:', databaseUrl)
 
     const { stdout, stderr } = await execAsync(command, {
       env: {
@@ -78,115 +113,376 @@ async function runMigrations(dbPath: string) {
       cwd: migrationsPath
     })
 
-    if (stdout) console.log('✅ Migraciones aplicadas:', stdout)
-    if (stderr && !stderr.includes('Datasource')) console.error('⚠️ Advertencias:', stderr)
+    log.info('📤 STDOUT completo:', stdout)
+    if (stderr) log.info('📤 STDERR completo:', stderr)
+
+    if (stdout) log.info('✅ Migraciones aplicadas:', stdout)
+    if (stderr && !stderr.includes('Datasource')) log.warn('⚠️ Advertencias:', stderr)
 
     return true
   } catch (error: any) {
-    console.error('❌ Error al ejecutar migraciones:', error.message)
-    if (error.stdout) console.log('stdout:', error.stdout)
-    if (error.stderr) console.error('stderr:', error.stderr)
-    // No lanzar error para que la app pueda continuar
+    log.error('❌ Error al ejecutar migraciones:', error.message)
+    if (error.stdout) log.info('stdout:', error.stdout)
+    if (error.stderr) log.error('stderr:', error.stderr)
     return false
   }
 }
 
-async function hasUserData(dbPath: string): Promise<boolean> {
+/**
+ * Verifica que el esquema de la base de datos coincida con el esperado
+ */
+async function validateDatabaseSchema(dbPath: string): Promise<boolean> {
   try {
-    // Crear cliente temporal para verificar si hay datos
-    const tempPrisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: `file:${dbPath}`
-        }
+    const sqlite3 = await import('better-sqlite3')
+    const db = sqlite3.default(dbPath)
+
+    try {
+      // Obtener info de la tabla Lyrics
+      const tableInfo = db.prepare('PRAGMA table_info(Lyrics)').all() as any[]
+
+      // Verificar que exista tagSongsId (columna nueva) y NO exista songsTagsId (columna vieja)
+      const hasNewColumn = tableInfo.some((col: any) => col.name === 'tagSongsId')
+      const hasOldColumn = tableInfo.some((col: any) => col.name === 'songsTagsId')
+
+      db.close()
+
+      if (hasOldColumn) {
+        log.warn('⚠️ Columna antigua "songsTagsId" detectada - esquema desactualizado')
+        return false
       }
-    })
 
-    await tempPrisma.$connect()
+      if (!hasNewColumn) {
+        log.warn('⚠️ Columna nueva "tagSongsId" no encontrada - esquema desactualizado')
+        return false
+      }
 
-    // Verificar si hay datos en tablas principales
-    const [songsCount, themesCount, settingsCount] = await Promise.all([
-      tempPrisma.songs.count(),
-      tempPrisma.themes.count(),
-      tempPrisma.settings.count()
-    ])
-
-    await tempPrisma.$disconnect()
-
-    // Si hay datos personalizados del usuario, no eliminar
-    return songsCount > 0 || themesCount > 0 || settingsCount > 0
+      log.info('✅ Esquema de base de datos validado correctamente')
+      return true
+    } catch (error) {
+      db.close()
+      throw error
+    }
   } catch (error) {
-    console.error('Error verificando datos de usuario:', error)
-    // En caso de error, asumir que hay datos para no eliminar
+    log.error('Error validando esquema:', error)
+    // Si no podemos validar, asumir que está bien para no romper nada
     return true
   }
 }
 
+/**
+ * Mapeo de columnas renombradas entre esquemas antiguos y nuevos
+ */
+const COLUMN_MAPPINGS: Record<string, Record<string, string>> = {
+  Lyrics: {
+    songsTagsId: 'tagSongsId'
+  },
+  Media: {
+    path: 'filePath'
+  }
+}
+
+/**
+ * Obtiene el esquema de una tabla
+ */
+function getTableSchema(db: any, tableName: string): Map<string, any> {
+  const schema = new Map()
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as any[]
+  columns.forEach((col: any) => {
+    schema.set(col.name, col)
+  })
+  return schema
+}
+
+/**
+ * Obtiene todas las tablas de la base de datos (excluyendo tablas de sistema)
+ */
+function getAllTables(db: any): string[] {
+  const tables = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%'"
+    )
+    .all() as any[]
+  return tables.map((t: any) => t.name)
+}
+
+/**
+ * Migra datos desde un backup al nuevo esquema DINÁMICAMENTE
+ * Detecta todas las tablas y sus esquemas automáticamente
+ */
+async function migrateDataFromBackup(backupPath: string, newDbPath: string) {
+  try {
+    log.info('🔄 Migrando datos desde backup al nuevo esquema...')
+    const sqlite3 = await import('better-sqlite3')
+
+    const backupDb = sqlite3.default(backupPath, { readonly: true })
+    const newDb = sqlite3.default(newDbPath)
+
+    try {
+      // Obtener todas las tablas de la BD de destino (nueva)
+      const destTables = getAllTables(newDb)
+      log.info(`📊 Tablas a migrar: ${destTables.join(', ')}`)
+
+      let totalMigrated = 0
+
+      // Migrar cada tabla dinámicamente
+      for (const tableName of destTables) {
+        try {
+          // Verificar si la tabla existe en el backup
+          const backupTables = getAllTables(backupDb)
+          if (!backupTables.includes(tableName)) {
+            log.info(`ℹ️ Tabla ${tableName} no existe en backup, omitiendo...`)
+            continue
+          }
+
+          log.info(`📋 Migrando tabla: ${tableName}...`)
+
+          // Obtener esquemas de ambas BDs
+          const backupSchema = getTableSchema(backupDb, tableName)
+          const destSchema = getTableSchema(newDb, tableName)
+
+          // Obtener todos los datos de la tabla en el backup
+          const rows = backupDb.prepare(`SELECT * FROM ${tableName}`).all()
+
+          if (rows.length === 0) {
+            log.info(`ℹ️ Tabla ${tableName} vacía en backup`)
+            continue
+          }
+
+          // Construir mapeo de columnas
+          const columnMap = new Map<string, string>()
+          const destColumns: string[] = []
+          const destColumnNames = Array.from(destSchema.keys())
+
+          // Para cada columna en destino, buscar la columna correspondiente en backup
+          for (const destCol of destColumnNames) {
+            let backupCol = destCol
+
+            // Verificar si hay un mapeo explícito para esta tabla/columna
+            if (COLUMN_MAPPINGS[tableName]?.[destCol]) {
+              // Mapeo inverso: buscar columna vieja que mapea a esta nueva
+              const mapping = COLUMN_MAPPINGS[tableName]
+              const oldCol = Object.keys(mapping).find((k) => mapping[k] === destCol)
+              if (oldCol && backupSchema.has(oldCol)) {
+                backupCol = oldCol
+              }
+            } else {
+              // Verificar mapeo directo (columna cambió de nombre)
+              const newColName = COLUMN_MAPPINGS[tableName]?.[destCol]
+              if (newColName && destSchema.has(newColName)) {
+                backupCol = destCol
+              }
+            }
+
+            // Verificar si la columna existe en backup
+            if (backupSchema.has(backupCol)) {
+              columnMap.set(destCol, backupCol)
+              destColumns.push(destCol)
+            } else if (
+              destSchema.get(destCol)?.dflt_value !== null ||
+              !destSchema.get(destCol)?.notnull
+            ) {
+              // Columna no existe en backup pero acepta NULL o tiene default
+              destColumns.push(destCol)
+            }
+          }
+
+          // Construir y ejecutar INSERT para cada fila
+          const placeholders = destColumns.map(() => '?').join(', ')
+          const insertSql = `INSERT INTO ${tableName} (${destColumns.join(', ')}) VALUES (${placeholders})`
+          const insertStmt = newDb.prepare(insertSql)
+
+          for (const row of rows as any[]) {
+            const values: any[] = []
+
+            for (const destCol of destColumns) {
+              const backupCol = columnMap.get(destCol)
+
+              if (backupCol) {
+                let value = (row as any)[backupCol]
+
+                // Transformaciones especiales por tabla/columna
+                if (tableName === 'Media' && destCol === 'format' && !value) {
+                  // Inferir format desde type si no existe
+                  value = row.type === 'VIDEO' ? 'mp4' : 'jpg'
+                } else if (tableName === 'Media' && destCol === 'fileSize' && !value) {
+                  value = 0
+                } else if (tableName === 'Media' && destCol === 'folder' && value === null) {
+                  value = ''
+                }
+
+                values.push(value)
+              } else {
+                // Columna no existe en backup, usar NULL o default
+                values.push(null)
+              }
+            }
+
+            insertStmt.run(...values)
+          }
+
+          log.info(`✅ ${rows.length} registros migrados en ${tableName}`)
+          totalMigrated += rows.length
+        } catch (error: any) {
+          log.error(`❌ Error migrando tabla ${tableName}:`, error.message)
+          // Continuar con las demás tablas
+        }
+      }
+
+      log.info(`✅ ¡Migración completada! ${totalMigrated} registros totales migrados`)
+    } finally {
+      backupDb.close()
+      newDb.close()
+    }
+  } catch (error) {
+    log.error('❌ Error migrando datos desde backup:', error)
+    throw error
+  }
+}
+
+/**
+ * Detecta si hay datos en tablas importantes
+ */
+async function hasUserData(dbPath: string): Promise<boolean> {
+  try {
+    const tempPrisma = new PrismaClient({
+      datasources: { db: { url: `file:${dbPath.replace(/\\/g, '/')}` } }
+    })
+    await tempPrisma.$connect()
+
+    const tablesToCheck = ['songs', 'themes', 'settings']
+    const counts = await Promise.all(
+      tablesToCheck.map((table) => (tempPrisma as any)[table].count().catch(() => 0))
+    )
+
+    await tempPrisma.$disconnect()
+    return counts.some((c) => c > 0)
+  } catch (error) {
+    log.error('Error verificando datos de usuario:', error)
+    return true
+  }
+}
+
+/**
+ * Inicializa Prisma, copia DB si no existe, hace backup y ejecuta migraciones
+ */
 async function initPrisma() {
   try {
     const userDataPath = app.getPath('userData')
     const destDbPath = path.join(userDataPath, 'dev.db')
 
-    // Determinar ruta de la base de datos fuente según el entorno
     const isDev = !app.isPackaged
-    const srcDbPath = isDev
-      ? path.resolve(process.cwd(), 'prisma', 'dev.db')
-      : path.join(process.resourcesPath, 'prisma', 'dev.db')
 
-    // Copiar base solo si no existe
-    const exists = await fs.pathExists(destDbPath)
-    if (!exists) {
-      console.log('📦 Copiando base de datos inicial...')
+    // Solo copiar base de datos inicial si NO existe (primera vez)
+    if (!(await fs.pathExists(destDbPath))) {
+      log.info('📦 Primera vez: creando base de datos inicial...')
+
+      const srcDbPath = isDev
+        ? path.resolve(process.cwd(), 'prisma', 'dev.db')
+        : path.join(process.resourcesPath, 'prisma', 'dev.db')
+
       if (await fs.pathExists(srcDbPath)) {
         await fs.copy(srcDbPath, destDbPath)
-        console.log('✅ Base de datos copiada a userData:', destDbPath)
+        log.info('✅ Base de datos inicial copiada a userData:', destDbPath)
       } else {
-        console.log('⚠️ No se encontró base de datos inicial, se creará una nueva')
+        log.info('🆕 No hay DB inicial, se creará con las migraciones')
       }
     } else {
-      console.log('💾 Usando base de datos existente:', destDbPath)
+      log.info('💾 Usando base de datos existente (preservando datos):', destDbPath)
     }
 
-    // Siempre ejecutar migraciones para mantener la DB actualizada
-    const migrationSuccess = await runMigrations(destDbPath)
+    // Validar que el esquema sea correcto ANTES de migrar
+    log.info('🔍 Validando esquema de base de datos...')
+    const isSchemaValid = await validateDatabaseSchema(destDbPath)
 
-    // Si las migraciones fallan y la DB existe
-    if (!migrationSuccess && exists) {
+    if (!isSchemaValid) {
+      log.warn('⚠️ Esquema desactualizado detectado. Recreando base de datos...')
       const hasData = await hasUserData(destDbPath)
 
+      let backupPathForMigration: string | null = null
+
       if (hasData) {
-        // TIENE DATOS: NUNCA eliminar, mostrar error
-        console.error(
-          '❌ ERROR CRÍTICO: La base de datos no puede migrarse y contiene datos del usuario.'
-        )
-        console.error('   Las migraciones fallaron pero tus datos están seguros.')
-        console.error('   La aplicación continuará con la versión actual de la base de datos.')
-        console.warn('⚠️  IMPORTANTE: Algunas funciones nuevas pueden no estar disponibles.')
-        // NO lanzar error, permitir que la app continúe con la DB actual
+        log.info('💾 Creando backup antes de recrear...')
+        const backupDir = path.join(app.getPath('userData'), 'backups')
+        await fs.ensureDir(backupDir)
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        backupPathForMigration = path.join(backupDir, `migration-${timestamp}.db`)
+        await fs.copy(destDbPath, backupPathForMigration)
+        log.warn('⚠️ DATOS IMPORTANTES: Backup guardado en:', backupPathForMigration)
+      }
+
+      // Borrar DB corrupta
+      await fs.remove(destDbPath)
+      log.info('🗑️ Base de datos antigua eliminada')
+
+      // Intentar copiar DB limpia del proyecto (si existe)
+      const srcDbPath = isDev
+        ? path.resolve(process.cwd(), 'prisma', 'dev.db')
+        : path.join(process.resourcesPath, 'prisma', 'dev.db')
+
+      if (await fs.pathExists(srcDbPath)) {
+        await fs.copy(srcDbPath, destDbPath)
+        log.info('✅ Base de datos limpia copiada desde el proyecto')
       } else {
-        // SIN DATOS: seguro eliminar y recrear
-        console.log('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
-        await fs.remove(destDbPath)
-        if (await fs.pathExists(srcDbPath)) {
-          await fs.copy(srcDbPath, destDbPath)
-          await runMigrations(destDbPath)
+        // Crear DB vacía aplicando migraciones
+        log.info('🆕 Creando nueva base de datos desde cero...')
+        await runMigrations(destDbPath, isDev)
+      }
+
+      // Migrar datos del backup si teníamos datos
+      if (backupPathForMigration && hasData) {
+        try {
+          await migrateDataFromBackup(backupPathForMigration, destDbPath)
+          log.info('🎉 ¡Tus datos han sido migrados exitosamente al nuevo esquema!')
+        } catch (error) {
+          log.error(
+            '❌ Error al migrar datos. El backup está disponible en:',
+            backupPathForMigration
+          )
+          log.error('Puedes restaurarlo manualmente si es necesario')
         }
       }
+    }
+
+    // SIEMPRE ejecutar migraciones (en dev y prod)
+    log.info('🔄 Aplicando migraciones pendientes...')
+    const migrationSuccess = await runMigrations(destDbPath, isDev)
+
+    if (!migrationSuccess) {
+      const hasData = await hasUserData(destDbPath)
+      if (hasData) {
+        log.error('❌ ERROR: La migración falló pero hay datos de usuario. Se usará la DB actual.')
+        log.warn('⚠️ Revisa los logs y considera aplicar la migración manualmente.')
+      } else {
+        log.info('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
+        await fs.remove(destDbPath)
+
+        const srcDbPath = isDev
+          ? path.resolve(process.cwd(), 'prisma', 'dev.db')
+          : path.join(process.resourcesPath, 'prisma', 'dev.db')
+
+        if (await fs.pathExists(srcDbPath)) {
+          await fs.copy(srcDbPath, destDbPath)
+          await runMigrations(destDbPath, isDev)
+        } else {
+          // Crear DB vacía y aplicar migraciones
+          await runMigrations(destDbPath, isDev)
+        }
+      }
+    }
+
+    if (prisma) {
+      await prisma.$disconnect()
+      prisma = null
     }
 
     prisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: `file:${destDbPath}`
-        }
-      }
+      datasources: { db: { url: `file:${destDbPath.replace(/\\/g, '/')}` } }
     })
-
     await prisma.$connect()
-    console.log('✅ Prisma conectado a la base de datos')
+    log.info('✅ Prisma conectado a la base de datos')
     return prisma
   } catch (error) {
-    console.error('❌ Error al inicializar Prisma:', error)
+    log.error('❌ Error al inicializar Prisma:', error)
     throw error
   }
 }

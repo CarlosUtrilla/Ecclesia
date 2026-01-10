@@ -24,16 +24,17 @@ model Song {
 }
 
 model Lyrics {
-  id          Int      @id @default(autoincrement())
-  content     String
-  tag         TagSongs @relation(fields: [tagSongsId], references: [id])
-  //Relations
-  song        Song     @relation(fields: [songId], references: [id])
-  songId      Int      @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  songsTagsId Int
-  tagSongsId  Int
+  id         Int       @id @default(autoincrement())
+  content    String
+  tagSongs   TagSongs? @relation(fields: [tagSongsId], references: [id])
+  tagSongsId Int?
+
+  // Relaciones
+  song   Song @relation(fields: [songId], references: [id])
+  songId Int // Solo si cada canción tiene UNA letra, si puede tener muchas letras, quitar @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TagSongs {
@@ -44,7 +45,8 @@ model TagSongs {
   color     String // Color en formato HEX o nombre de color CSS
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  lyrics    Lyrics[]
+
+  lyrics Lyrics[]
 }
 
 model Themes {

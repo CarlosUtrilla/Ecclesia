@@ -11,7 +11,7 @@ export function blocksToContent(blocks: BlockEditor[], extensions: any[]) {
       ? (generateJSON(block.content, extensions).content ?? [])
       : [{ type: 'paragraph' }]
 
-    const tagId = block.songsTagsId
+    const tagId = block.tagSongsId
 
     // Si cambia el tag, cerrar el grupo actual
     if (currentGroup.paragraphs.length > 0 && currentGroup.tagId !== tagId) {
@@ -63,7 +63,7 @@ export function contentToBlocks(editor: Editor): BlockEditor[] {
       const paragraphs = node.content ?? []
 
       return paragraphs.map((paragraph: any) => ({
-        songsTagsId: tagId,
+        tagSongsId: tagId,
         content: generateHTML(
           {
             type: 'doc',
@@ -77,7 +77,7 @@ export function contentToBlocks(editor: Editor): BlockEditor[] {
     // Caso 2: párrafo libre (sin tag)
     if (node.type === 'paragraph') {
       return {
-        songsTagsId: null,
+        tagSongsId: null,
         content: generateHTML(
           {
             type: 'doc',
@@ -96,13 +96,13 @@ export function contentToBlocks(editor: Editor): BlockEditor[] {
     if (curr.content.trim() === '<p></p>') {
       prev.push({
         content: '',
-        songsTagsId: curr.songsTagsId
+        tagSongsId: curr.tagSongsId
       })
     } else {
-      if (prev.length === 0 || prev[prev.length - 1].songsTagsId !== curr.songsTagsId) {
+      if (prev.length === 0 || prev[prev.length - 1].tagSongsId !== curr.tagSongsId) {
         prev.push({
           content: '',
-          songsTagsId: curr.songsTagsId
+          tagSongsId: curr.tagSongsId
         })
       }
       const last = prev[prev.length - 1]
@@ -118,5 +118,17 @@ export function contentToBlocks(editor: Editor): BlockEditor[] {
 
 export type BlockEditor = {
   content: string
-  songsTagsId: number
+  tagSongsId: number | null
 }
+
+export const fontSizes = [
+  { label: '80%', value: '0.8em' },
+  { label: '90%', value: '0.9em' },
+  { label: '100%', value: '1em' },
+  { label: '110%', value: '1.1em' },
+  { label: '120%', value: '1.2em' },
+  { label: '140%', value: '1.4em' },
+  { label: '160%', value: '1.6em' },
+  { label: '180%', value: '1.8em' },
+  { label: '200%', value: '2em' }
+]

@@ -12,7 +12,7 @@ export type PresentationViewProps = {
   items: PresentationViewItems[]
   onClick?: () => void
   selected?: boolean
-  tagSongId?: number | undefined
+  tagSongId?: number | null
 }
 
 export type PresentationViewItems = {

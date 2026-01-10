@@ -12,7 +12,6 @@ import { useParams } from 'react-router'
 import { CreateSongSchema } from './songsSchemas'
 import { CreateSongDTO } from 'database/controllers/songs/songs.dto'
 import { Tags } from 'lucide-react'
-import { BlockEditor } from './richEditor/utils'
 
 const BlankTheme: Themes = {
   id: -1,
@@ -48,7 +47,6 @@ export default function SongEditor() {
       title: '',
       copyright: '',
       author: '',
-      fullText: '',
       lyrics: []
     },
     resolver: zodResolver(CreateSongSchema)
@@ -57,6 +55,7 @@ export default function SongEditor() {
   const values = watch()
 
   const onSubmit = async (data: CreateSongDTO) => {
+    data.lyrics = data.lyrics.filter((l) => l.content !== '')
     if (id !== undefined) {
       await window.api.songs.updateSong(Number(id), data)
     } else {
@@ -65,10 +64,8 @@ export default function SongEditor() {
   }
 
   const cleanesLyrics = useMemo(() => {
-    console.log(values.lyrics)
-    return values.lyrics.filter((l) => l.content !== '') as BlockEditor[]
+    return values.lyrics.filter((l) => l.content !== '')
   }, [values.lyrics])
-
   return (
     <div className="grid grid-cols-12 h-svh">
       <div className="p-3 gap-2 col-span-4 xl:col-span-3 bg-sidebar border-r flex flex-col overflow-hidden">
@@ -104,7 +101,12 @@ export default function SongEditor() {
           name="lyrics"
           control={control}
           render={({ field }) => (
-            <RichTextEditor className="flex-1" lyrics={field.value} onChange={field.onChange} />
+            <RichTextEditor
+              error={errors.lyrics?.message}
+              className="flex-1"
+              lyrics={field.value}
+              onChange={field.onChange}
+            />
           )}
         />
       </div>
@@ -131,7 +133,7 @@ export default function SongEditor() {
                 ]}
                 theme={selectedTheme!}
                 maxHeight={160}
-                tagSongId={lyric.songsTagsId}
+                tagSongId={lyric.tagSongsId}
               />
             ))}
           </div>
