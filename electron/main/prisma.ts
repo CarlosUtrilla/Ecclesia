@@ -552,10 +552,13 @@ async function hasUserData(dbPath: string): Promise<boolean> {
  */
 async function initPrisma() {
   try {
-    const userDataPath = app.getPath('userData')
-    const destDbPath = path.join(userDataPath, 'dev.db')
-
     const isDev = !app.isPackaged
+
+    // En desarrollo: usar prisma/dev.db del proyecto
+    // En producción: usar ~/Library/Application Support/ecclesia/dev.db
+    const destDbPath = isDev
+      ? path.resolve(process.cwd(), 'prisma', 'dev.db')
+      : path.join(app.getPath('userData'), 'dev.db')
 
     // Solo copiar base de datos inicial si NO existe (primera vez)
     if (!(await fs.pathExists(destDbPath))) {

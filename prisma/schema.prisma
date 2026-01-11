@@ -111,6 +111,7 @@ model Media {
 model BibleSchema {
   id      Int           @id @default(autoincrement())
   book    String
+  book_id String
   chapter BibleVerses[]
 }
 

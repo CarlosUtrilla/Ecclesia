@@ -11,6 +11,10 @@ class BibleController {
   async getBibleSchema() {
     return this.BibleService.getBibleSchema()
   }
+
+  async getCompleteChapter(version: string, book: string, chapter: number) {
+    return this.BibleService.getCompleteChapter(version, book, chapter)
+  }
 }
 
 // Exportar clase

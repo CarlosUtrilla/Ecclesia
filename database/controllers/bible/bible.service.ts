@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import type { BibleDTO, GetVersesDTO } from './bible.dto'
+import type { BibleDTO, BibleSchemaDTO, GetVersesDTO } from './bible.dto'
 import { getBiblesResourcesPath } from '../../../electron/main/bibleManager'
 import { getPrisma } from '../../../electron/main/prisma'
 
@@ -59,8 +59,31 @@ class BibleService {
     }
   }
 
+  async getCompleteChapter(version: string, book: string, chapter: number) {
+    const db = await this.openBible(version)
+
+    try {
+      const results = db
+        .prepare(
+          `
+            SELECT *
+            FROM verses
+            WHERE book_id = ?
+              AND chapter = ?
+            ORDER BY verse
+          `
+        )
+        .all(book, chapter) as BibleDTO[]
+      return results
+    } finally {
+      db.close()
+    }
+  }
+
   async generateBibleSchema() {
     // Comprobar si el schema ya existe
+    await this.prisma.bibleSchema.deleteMany({})
+    await this.prisma.bibleVerses.deleteMany({})
     const existing = await this.prisma.bibleSchema.findFirst()
     if (existing) {
       console.log('ℹ️ Esquema de biblia ya existe, omitiendo generación')
@@ -76,6 +99,7 @@ class BibleService {
     SELECT
       book,
       chapter,
+      book_id,
       MAX(verse) AS verses
     FROM verses
     GROUP BY book, chapter
@@ -84,6 +108,7 @@ class BibleService {
       )
       .all() as {
       book: string
+      book_id: string
       chapter: number
       verses: number
     }[]
@@ -92,6 +117,7 @@ class BibleService {
 
     const map = [] as {
       book: string
+      book_id: string
       chapter: {
         chapter: number
         verses: number
@@ -103,6 +129,7 @@ class BibleService {
       if (!bookEntry) {
         bookEntry = {
           book: row.book,
+          book_id: row.book_id,
           chapter: []
         }
         map.push(bookEntry)
@@ -118,6 +145,7 @@ class BibleService {
       await this.prisma.bibleSchema.create({
         data: {
           book: bookData.book,
+          book_id: bookData.book_id,
           chapter: {
             create: bookData.chapter.map((ch) => ({
               chapter: ch.chapter,
@@ -131,7 +159,7 @@ class BibleService {
     console.log('✅ Esquema de biblia generado correctamente')
   }
 
-  getBibleSchema() {
+  getBibleSchema(): Promise<BibleSchemaDTO[]> {
     return this.prisma.bibleSchema.findMany({
       include: {
         chapter: true
