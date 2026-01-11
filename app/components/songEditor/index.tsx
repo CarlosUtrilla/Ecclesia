@@ -113,6 +113,7 @@ export default function SongEditor() {
   }, [values.lyrics])
   return (
     <div className="grid grid-cols-12 h-svh">
+      <title>Editor de canciones</title>
       <div className="p-3 gap-2 col-span-4 xl:col-span-3 bg-sidebar border-r flex flex-col overflow-hidden">
         <div className="flex items-center justify-center mb-2 gap-2">
           <Button onClick={handleSubmit(onSubmit)}>{t('songEditor.save')}</Button>

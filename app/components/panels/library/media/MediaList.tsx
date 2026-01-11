@@ -57,14 +57,13 @@ export function MediaList({
           const isFolder = typeof item === 'string'
           const selected = isSelected(item)
           const filePath = isFolder ? '' : item.thumbnail || item.filePath
-          const encodedPath = encodeURIComponent(filePath)
-          const mediaUrl = buildMediaUrl(encodedPath)
+          const mediaUrl = buildMediaUrl(filePath)
 
           return (
             <ContextMenu key={isFolder ? `folder:${item}` : `file:${item.id}`}>
               <ContextMenuTrigger asChild>
                 <div
-                  className={`grid grid-cols-[auto_1fr_120px_120px] gap-4 px-2 py-1 hover:bg-muted/50 cursor-pointer transition-colors ${
+                  className={`flex items-center h-11 gap-4 px-2 py-1 hover:bg-muted/50 cursor-pointer transition-colors ${
                     selected ? 'bg-blue-100 ' : ''
                   }`}
                   onClick={(e) => onItemClick(item, e)}
@@ -75,22 +74,17 @@ export function MediaList({
                   }}
                 >
                   {/* Icono */}
-                  <div className="h-6 w-6 flex items-center justify-center">
+                  <div className="flex items-center justify-center">
                     {isFolder ? (
-                      <Folder className="h-5 w-5 text-primary fill-primary" />
+                      <Folder className="h-8 w-10 text-primary fill-primary" />
                     ) : (
-                      <img className="h-6 w-6 aspect-square" src={mediaUrl} />
+                      <img className="max-h-10 max-w-10" src={mediaUrl} />
                     )}
                   </div>
 
                   {/* Nombre */}
-                  <div className="flex items-center min-w-0">
+                  <div className="flex flex-1 items-center min-w-0">
                     <span className="truncate font-medium">{isFolder ? item : item.name}</span>
-                  </div>
-
-                  {/* Tipo */}
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    {isFolder ? 'Carpeta' : item.type === 'IMAGE' ? 'Imagen' : 'Video'}
                   </div>
 
                   {/* Tamaño */}

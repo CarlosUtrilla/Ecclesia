@@ -307,8 +307,8 @@ export default function MediaLibrary() {
   return (
     <div className="h-full flex flex-col relative">
       {/* Header - Solo búsqueda y acciones */}
-      <div className="p-3 border-b">
-        <div className="flex items-center gap-2">
+      <div className="p-3 border-b ">
+        <div>
           <div className="flex-1 relative">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -318,34 +318,38 @@ export default function MediaLibrary() {
               className="pl-8"
             />
           </div>
-          <div className="flex border rounded-md">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              className="rounded-r-none"
-              onClick={() => setViewMode('grid')}
-              title="Vista de cuadrícula"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              className="rounded-l-none"
-              onClick={() => setViewMode('list')}
-              title="Vista de lista"
-            >
-              <List className="h-4 w-4" />
-            </Button>
+          <div className="flex justify-between items-center mt-2">
+            <div className="flex border rounded-md">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                className="rounded-r-none"
+                onClick={() => setViewMode('grid')}
+                title="Vista de cuadrícula"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                className="rounded-l-none"
+                onClick={() => setViewMode('list')}
+                title="Vista de lista"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button onClick={() => setShowNewFolderDialog(true)} size="sm" disabled={loading}>
+                <FolderPlus className="h-4 w-4 mr-1" />
+                Carpeta
+              </Button>
+              <Button onClick={handleImport} size="sm" disabled={loading}>
+                <Plus className="h-4 w-4 mr-1" />
+                Importar
+              </Button>
+            </div>
           </div>
-          <Button onClick={() => setShowNewFolderDialog(true)} size="sm" disabled={loading}>
-            <FolderPlus className="h-4 w-4 mr-1" />
-            Carpeta
-          </Button>
-          <Button onClick={handleImport} size="sm" disabled={loading}>
-            <Plus className="h-4 w-4 mr-1" />
-            Importar
-          </Button>
         </div>
       </div>
 

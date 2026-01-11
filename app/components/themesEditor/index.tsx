@@ -87,9 +87,20 @@ export default function ThemesEditor() {
       const loadTheme = async () => {
         try {
           const theme = await window.api.themes.getThemeById(Number(id))
+          if (!theme) {
+            console.error('Theme not found with id:', id)
+            return
+          }
           reset({
             ...theme
           })
+          setBackgroundType(
+            theme.backgroundMediaId !== null
+              ? theme?.backgroundMedia?.type === 'VIDEO'
+                ? 'video'
+                : 'image'
+              : 'color'
+          )
         } catch (error) {
           console.error('Error loading theme:', error)
         }
@@ -169,6 +180,7 @@ export default function ThemesEditor() {
 
   return (
     <div className="h-full flex flex-col">
+      <title>Editor de temas</title>
       <div>
         <div className="p-2  flex items-center gap-1 border-b flex-wrap">
           <div className="">

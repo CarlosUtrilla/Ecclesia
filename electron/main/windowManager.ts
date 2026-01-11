@@ -6,6 +6,7 @@ import icon from '../../resources/icon.png?asset'
 export function createMainWindow(): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
+    title: 'Ecclesia',
     width: 1200,
     height: 800,
     show: false,
@@ -68,6 +69,7 @@ export function createMainWindow(): BrowserWindow {
 export function createSongWindow(songId?: number): BrowserWindow {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   const songWindow = new BrowserWindow({
+    title: 'Editor de canciones',
     width: Math.round(width * 0.8),
     height: Math.round(height * 0.8),
     show: false,

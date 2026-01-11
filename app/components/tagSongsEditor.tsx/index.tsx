@@ -57,6 +57,7 @@ export default function TagSongsEditor() {
       toast.success('Tags guardadas correctamente')
       setHasChanges(false)
       window.electron.ipcRenderer.send('tags-saved')
+      window.windowAPI.closeCurrentWindow()
     },
     onError: (error: Error) => {
       toast.error('Error al guardar las tags: ' + error.message)
@@ -146,6 +147,7 @@ export default function TagSongsEditor() {
 
   return (
     <div className="h-screen flex flex-col">
+      <title>Etiquetas de canciones</title>
       <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-background p-4 border-b shadow-sm flex items-center justify-between gap-4">
         <div>
           <h1 className="text-lg font-bold tracking-tight">Etiquetas de Canciones</h1>
