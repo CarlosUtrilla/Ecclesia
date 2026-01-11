@@ -7,7 +7,7 @@ export default function PreviewPanel() {
       <div className="flex-1">
         <Button
           onClick={async () => {
-            const schema = await window.api.bible.getBibleSchema()
+            const schema = await window.api.bible.getAvailableBibles()
             console.log(schema)
           }}
         >

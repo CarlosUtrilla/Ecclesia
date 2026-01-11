@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import type { BibleDTO, BibleSchemaDTO, GetVersesDTO } from './bible.dto'
 import { getBiblesResourcesPath } from '../../../electron/main/bibleManager'
 import { getPrisma } from '../../../electron/main/prisma'
+import fs from 'fs'
 
 class BibleService {
   prisma = getPrisma()
@@ -157,6 +158,36 @@ class BibleService {
     }
 
     console.log('✅ Esquema de biblia generado correctamente')
+  }
+
+  async getAvalableBibles() {
+    const path = this.biblesFolder
+
+    const files = fs.readdirSync(path)
+    const availableBibles = files.filter((file: string) => file.endsWith('.ebbl'))
+    // conectarse a la bd de casa biblia y obtener su nombre
+    const bibles = await Promise.all(
+      availableBibles.map(async (file: string) => {
+        const version = file.replace('.ebbl', '')
+        const db = await this.openBible(version)
+
+        // obtener name, language y version de la biblia
+        const info = db
+          .prepare(
+            `
+              SELECT value, key
+              FROM meta
+              WHERE key in ('name', 'language')
+            `
+          )
+          .all() as { value: string; key: string }[] | undefined
+        db.close()
+        const obj = Object.fromEntries(info!.map((i) => [i.key, i.value]))
+        obj.version = version
+        return obj as { name: string; language: string; version: string }
+      })
+    )
+    return bibles
   }
 
   getBibleSchema(): Promise<BibleSchemaDTO[]> {

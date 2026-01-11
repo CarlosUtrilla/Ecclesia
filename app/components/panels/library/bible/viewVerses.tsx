@@ -114,22 +114,29 @@ export default function ViewVerses({
 
   useEffect(() => {
     // Scroll automático al verso seleccionado solo si viene del panel superior
-    if (verse.length > 0 && containerRef.current && !internalSelectionRef.current) {
+    if (
+      verse.length > 0 &&
+      containerRef.current &&
+      !internalSelectionRef.current &&
+      completeChapter.length > 0
+    ) {
       const firstSelectedVerse = verse[0]
       const verseElement = verseRefs.current.get(firstSelectedVerse)
 
       if (verseElement) {
-        verseElement.scrollIntoView({
-          behavior: 'instant',
-          block: 'center',
-          inline: 'center'
-        })
+        // Pequeño delay para asegurar que el DOM está actualizado
+        setTimeout(() => {
+          verseElement.scrollIntoView({
+            behavior: 'instant',
+            block: 'center'
+          })
+        }, 50)
       }
     }
 
     // Reset del flag después de procesar el cambio
     internalSelectionRef.current = false
-  }, [verse])
+  }, [verse, completeChapter])
 
   return (
     <div className="row-span-1 overflow-hidden flex flex-col h-full">
@@ -157,7 +164,7 @@ export default function ViewVerses({
             <div className="font-semibold text-muted-foreground w-7 text-center text-sm">
               {v.verse}
             </div>
-            <div className="flex-1 pr-1.5">{v.text}</div>
+            <div className="flex-1 pr-1.5 text-sm">{v.text}</div>
           </div>
         ))}
       </div>

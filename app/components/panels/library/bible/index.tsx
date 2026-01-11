@@ -2,11 +2,15 @@ import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import ViewVerses from './viewVerses'
+import BibleVersions from './bibleVersions'
+import VerseSearch from './verseSearch'
 
 export default function BiblePanel() {
+  const [selectedVersion, setSelectedVersion] = useState('RVR1960')
   const [selectedBook, setSelectedBook] = useState('GEN')
   const [selectedChapter, setSelectedChapter] = useState(1)
   const [selectedVerse, setSelectedVerse] = useState([1])
+
   const { data: bibleSchema = [] } = useQuery({
     queryKey: ['bibleSchema'],
     queryFn: async () => await window.api.bible.getBibleSchema(),
@@ -14,14 +18,14 @@ export default function BiblePanel() {
   })
   const chapters = useMemo(() => {
     const book = bibleSchema.find((b) => b.book_id === selectedBook)
-    return book ? Array.from({ length: book.chapter.length + 1 }, (_, i) => i + 1) : []
+    return book ? Array.from({ length: book.chapter.length }, (_, i) => i + 1) : []
   }, [selectedBook, bibleSchema])
 
   const verses = useMemo(() => {
     const book = bibleSchema.find((b) => b.book_id === selectedBook)
     if (!book) return []
     const chapter = book.chapter.find((c) => c.chapter === selectedChapter)
-    return chapter ? Array.from({ length: chapter.verses + 1 }, (_, i) => i + 1) : []
+    return chapter ? Array.from({ length: chapter.verses }, (_, i) => i + 1) : []
   }, [selectedBook, selectedChapter, bibleSchema])
 
   const selectedBookData = useMemo(
@@ -42,13 +46,33 @@ export default function BiblePanel() {
 
   return (
     <div className="grid grid-rows-2 h-full">
-      <div className="overflow-hidden border-b row-span-1">
-        <div className="grid grid-cols-12 text-center text-sm bg-muted/40">
-          <div className="p-2 col-span-8">Libro</div>
-          <div className="p-2 border-x col-span-2">Cap.</div>
-          <div className="p-2 col-span-2">Vers.</div>
+      <div className="overflow-hidden border-b row-span-1 flex flex-col">
+        <div className="bg-muted/40">
+          <div className="p-2">
+            <div className="mb-1 flex items-center gap-1">
+              <VerseSearch
+                book={selectedBook}
+                cap={selectedChapter.toString()}
+                vers={selectedVerse[0].toString()}
+                onChaneVerseSearch={(book, cap, vers) => {
+                  setSelectedBook(book)
+                  setSelectedChapter(parseInt(cap))
+                  setSelectedVerse([parseInt(vers)])
+                }}
+              />
+            </div>
+            <BibleVersions
+              selectedVersion={selectedVersion}
+              setSelectedVersion={setSelectedVersion}
+            />
+          </div>
+          <div className="grid border-t grid-cols-12 text-center text-sm">
+            <div className="p-2 py-1 col-span-8">Libro</div>
+            <div className="p-2 py-1 border-x col-span-2">Cap.</div>
+            <div className="p-2 py-1 col-span-2">Vers.</div>
+          </div>
         </div>
-        <div className="grid grid-cols-12 h-full">
+        <div className="grid grid-cols-12 text-sm flex-1 min-h-0">
           <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent col-span-8">
             {bibleSchema.map((book) => (
               <div

@@ -15,6 +15,9 @@ class BibleController {
   async getCompleteChapter(version: string, book: string, chapter: number) {
     return this.BibleService.getCompleteChapter(version, book, chapter)
   }
+  async getAvailableBibles() {
+    return this.BibleService.getAvalableBibles()
+  }
 }
 
 // Exportar clase
