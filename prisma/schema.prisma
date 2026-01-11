@@ -107,3 +107,17 @@ model Media {
   // Relación inversa con Themes
   themesUsingAsBackground Themes[]
 }
+
+model BibleSchema {
+  id      Int           @id @default(autoincrement())
+  book    String
+  chapter BibleVerses[]
+}
+
+model BibleVerses {
+  id            Int          @id @default(autoincrement())
+  chapter       Int
+  verses        Int
+  bibleSchema   BibleSchema? @relation(fields: [bibleSchemaId], references: [id])
+  bibleSchemaId Int?
+}

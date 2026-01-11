@@ -10,6 +10,8 @@ import {
 } from './windowManager'
 import { registerMediaHandlers } from './mediaHandlers'
 import { startMediaServer, stopMediaServer, getMediaServerPort } from './mediaServer'
+import { initializeDefaultBibles } from './bibleManager'
+import { initializeBibleSchema } from './bibleInitializer'
 
 import 'reflect-metadata'
 import { authStore } from '../../database/stores/authStore'
@@ -21,6 +23,11 @@ import fontList from 'font-list'
 app.whenReady().then(async () => {
   await initPrisma()
 
+  // Inicializar biblias por defecto
+  initializeDefaultBibles()
+  await initializeBibleSchema()
+
+  // Inicia
   // Iniciar servidor de medios
   startMediaServer()
 

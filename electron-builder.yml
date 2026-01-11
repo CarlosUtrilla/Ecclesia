@@ -16,6 +16,10 @@ extraResources:
       - '**/*'
       - '!dev.db'
       - '!dev.db-journal'
+  - from: resources/bibles
+    to: bibles
+    filter:
+      - '**/*.ebbl'
 asarUnpack:
   - resources/**
   - node_modules/.prisma/**

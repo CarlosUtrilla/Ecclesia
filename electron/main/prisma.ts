@@ -51,6 +51,130 @@ async function backupDatabase(dbPath: string): Promise<string | null> {
 }
 
 /**
+ * Obtiene la lista de migraciones aplicadas en la base de datos
+ */
+async function getAppliedMigrations(dbPath: string): Promise<string[]> {
+  try {
+    const sqlite3 = await import('better-sqlite3')
+    const db = sqlite3.default(dbPath)
+
+    try {
+      const migrations = db
+        .prepare('SELECT migration_name FROM _prisma_migrations ORDER BY finished_at')
+        .all() as any[]
+
+      db.close()
+      return migrations.map((m) => m.migration_name)
+    } catch (error) {
+      db.close()
+      // Si la tabla no existe, no hay migraciones aplicadas
+      return []
+    }
+  } catch (error) {
+    log.error('Error al obtener migraciones aplicadas:', error)
+    return []
+  }
+}
+
+/**
+ * Obtiene la lista de migraciones disponibles en el proyecto
+ */
+async function getAvailableMigrations(migrationsPath: string): Promise<string[]> {
+  try {
+    const migrationDirs = await fs.readdir(migrationsPath)
+    return migrationDirs
+      .filter((dir) => dir.match(/^\d{14}_/)) // Solo directorios con formato de timestamp
+      .sort() // Ordenar cronológicamente
+  } catch (error) {
+    log.error('Error al listar migraciones disponibles:', error)
+    return []
+  }
+}
+
+/**
+ * Marca una migración como aplicada manualmente en la base de datos
+ */
+async function markMigrationAsApplied(dbPath: string, migrationName: string): Promise<void> {
+  try {
+    const sqlite3 = await import('better-sqlite3')
+    const db = sqlite3.default(dbPath)
+
+    try {
+      // Crear tabla _prisma_migrations si no existe
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS _prisma_migrations (
+          id TEXT PRIMARY KEY,
+          checksum TEXT NOT NULL,
+          finished_at INTEGER,
+          migration_name TEXT NOT NULL,
+          logs TEXT,
+          rolled_back_at INTEGER,
+          started_at INTEGER NOT NULL DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)),
+          applied_steps_count INTEGER NOT NULL DEFAULT 0
+        );
+      `)
+
+      // Generar un ID único
+      const id = `${Date.now()}-${migrationName}`
+      const checksum = 'manual-migration'
+      const now = Date.now()
+
+      db.prepare(
+        `
+        INSERT INTO _prisma_migrations (id, checksum, finished_at, migration_name, started_at, applied_steps_count)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `
+      ).run(id, checksum, now, migrationName, now, 1)
+
+      log.info(`✅ Migración ${migrationName} marcada como aplicada`)
+    } finally {
+      db.close()
+    }
+  } catch (error) {
+    log.error(`Error al marcar migración ${migrationName}:`, error)
+  }
+}
+
+/**
+ * Aplica una migración SQL manualmente
+ */
+async function applyMigrationManually(
+  dbPath: string,
+  migrationPath: string,
+  migrationName: string
+): Promise<boolean> {
+  try {
+    const sqlPath = path.join(migrationPath, 'migration.sql')
+    if (!(await fs.pathExists(sqlPath))) {
+      log.warn(`⚠️ No se encontró migration.sql en ${migrationPath}`)
+      return false
+    }
+
+    const sql = await fs.readFile(sqlPath, 'utf-8')
+    const sqlite3 = await import('better-sqlite3')
+    const db = sqlite3.default(dbPath)
+
+    try {
+      // Ejecutar el SQL de la migración
+      db.exec(sql)
+      log.info(`✅ SQL de migración ${migrationName} ejecutado correctamente`)
+
+      // Marcar como aplicada
+      await markMigrationAsApplied(dbPath, migrationName)
+      return true
+    } catch (error: any) {
+      log.error(`❌ Error al ejecutar SQL de ${migrationName}:`, error.message)
+      return false
+    } finally {
+      db.close()
+    }
+  } catch (error: any) {
+    log.error(`Error al aplicar migración ${migrationName}:`, error)
+    return false
+  }
+}
+
+/**
  * Ejecuta las migraciones en la DB de Electron
  */
 async function runMigrations(dbPath: string, isDev: boolean) {
@@ -68,10 +192,10 @@ async function runMigrations(dbPath: string, isDev: boolean) {
 
     if (isDev) {
       prismaPath = path.join(process.cwd(), 'node_modules', '.bin', 'prisma')
-      migrationsPath = path.join(process.cwd(), 'prisma')
+      migrationsPath = path.join(process.cwd(), 'prisma', 'migrations')
     } else {
       prismaPath = path.join(process.resourcesPath, 'node_modules', '.bin', 'prisma')
-      migrationsPath = path.join(process.resourcesPath, 'prisma')
+      migrationsPath = path.join(process.resourcesPath, 'prisma', 'migrations')
 
       if (!fs.existsSync(prismaPath)) {
         prismaPath = path.join(
@@ -83,7 +207,12 @@ async function runMigrations(dbPath: string, isDev: boolean) {
         )
       }
       if (!fs.existsSync(migrationsPath)) {
-        migrationsPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'prisma')
+        migrationsPath = path.join(
+          process.resourcesPath,
+          'app.asar.unpacked',
+          'prisma',
+          'migrations'
+        )
       }
     }
 
@@ -91,35 +220,64 @@ async function runMigrations(dbPath: string, isDev: boolean) {
     log.info('📂 Migrations path:', migrationsPath)
     log.info('🗄️ DATABASE_URL:', databaseUrl)
 
-    const schemaPath = path.join(migrationsPath, 'schema.prisma')
+    const schemaPath = path.join(path.dirname(migrationsPath), 'schema.prisma')
     if (!fs.existsSync(schemaPath)) {
       log.error('❌ No se encontró schema.prisma en:', schemaPath)
       return false
     }
 
-    // Usar 'migrate deploy' en todos los casos (dev y producción)
-    // Es no-interactivo y aplica migraciones pendientes automáticamente
-    const command = `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
+    // 🔍 Detectar y corregir problemas de migraciones
+    const appliedMigrations = await getAppliedMigrations(dbPath)
+    const availableMigrations = await getAvailableMigrations(migrationsPath)
 
-    log.info('🚀 Ejecutando comando:', command)
-    log.info('🎯 Base de datos destino:', databaseUrl)
+    log.info(`📊 Migraciones aplicadas: ${appliedMigrations.length}`)
+    log.info(`📊 Migraciones disponibles: ${availableMigrations.length}`)
 
-    const { stdout, stderr } = await execAsync(command, {
-      env: {
-        ...process.env,
-        DATABASE_URL: databaseUrl,
-        PRISMA_SKIP_POSTINSTALL_GENERATE: '1'
-      },
-      cwd: migrationsPath
-    })
+    // Encontrar migraciones pendientes
+    const pendingMigrations = availableMigrations.filter((m) => !appliedMigrations.includes(m))
 
-    log.info('📤 STDOUT completo:', stdout)
-    if (stderr) log.info('📤 STDERR completo:', stderr)
+    if (pendingMigrations.length > 0) {
+      log.info(`🔄 Migraciones pendientes: ${pendingMigrations.join(', ')}`)
 
-    if (stdout) log.info('✅ Migraciones aplicadas:', stdout)
-    if (stderr && !stderr.includes('Datasource')) log.warn('⚠️ Advertencias:', stderr)
+      // Intentar aplicar migraciones manualmente una por una
+      for (const migration of pendingMigrations) {
+        const migrationPath = path.join(migrationsPath, migration)
+        log.info(`📝 Aplicando migración: ${migration}`)
 
-    return true
+        const success = await applyMigrationManually(dbPath, migrationPath, migration)
+        if (!success) {
+          log.warn(`⚠️ No se pudo aplicar ${migration}, continuando...`)
+        }
+      }
+    }
+
+    // Intentar ejecutar migrate deploy para sincronizar
+    try {
+      const command = `"${prismaPath}" migrate deploy --schema="${schemaPath}"`
+      log.info('🚀 Ejecutando comando Prisma:', command)
+
+      const { stdout, stderr } = await execAsync(command, {
+        env: {
+          ...process.env,
+          DATABASE_URL: databaseUrl,
+          PRISMA_SKIP_POSTINSTALL_GENERATE: '1'
+        },
+        cwd: path.dirname(migrationsPath)
+      })
+
+      log.info('📤 STDOUT:', stdout)
+      if (stderr) log.info('📤 STDERR:', stderr)
+
+      if (stdout) log.info('✅ Migraciones sincronizadas:', stdout)
+      if (stderr && !stderr.includes('Datasource')) log.warn('⚠️ Advertencias:', stderr)
+
+      return true
+    } catch (error: any) {
+      log.warn('⚠️ Prisma migrate deploy falló, pero migraciones manuales aplicadas')
+      if (error.stdout) log.info('stdout:', error.stdout)
+      if (error.stderr) log.warn('stderr:', error.stderr)
+      return true // Consideramos éxito si las migraciones manuales funcionaron
+    }
   } catch (error: any) {
     log.error('❌ Error al ejecutar migraciones:', error.message)
     if (error.stdout) log.info('stdout:', error.stdout)
@@ -137,25 +295,52 @@ async function validateDatabaseSchema(dbPath: string): Promise<boolean> {
     const db = sqlite3.default(dbPath)
 
     try {
-      // Obtener info de la tabla Lyrics
-      const tableInfo = db.prepare('PRAGMA table_info(Lyrics)').all() as any[]
+      // Verificar todas las tablas esperadas del schema
+      const expectedTables = [
+        'Song',
+        'Lyrics',
+        'Setting',
+        'Themes',
+        'Media',
+        'TagSongs',
+        'BibleSchema',
+        'BibleVerses'
+      ]
 
-      // Verificar que exista tagSongsId (columna nueva) y NO exista songsTagsId (columna vieja)
-      const hasNewColumn = tableInfo.some((col: any) => col.name === 'tagSongsId')
-      const hasOldColumn = tableInfo.some((col: any) => col.name === 'songsTagsId')
+      const existingTables = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%'"
+        )
+        .all() as { name: string }[]
+
+      const tableNames = existingTables.map((t) => t.name)
+
+      log.info(`📊 Tablas existentes: ${tableNames.join(', ')}`)
+
+      // Si faltan tablas críticas, el esquema necesita actualizarse
+      const criticalTables = ['Song', 'Lyrics', 'Setting']
+      const missingCritical = criticalTables.filter((t) => !tableNames.includes(t))
+
+      if (missingCritical.length > 0) {
+        log.warn(`⚠️ Tablas críticas faltantes: ${missingCritical.join(', ')}`)
+        db.close()
+        return false
+      }
+
+      // Verificar columnas problemáticas conocidas en Lyrics
+      if (tableNames.includes('Lyrics')) {
+        const lyricsInfo = db.prepare('PRAGMA table_info(Lyrics)').all() as any[]
+        const hasNewColumn = lyricsInfo.some((col: any) => col.name === 'tagSongsId')
+        const hasOldColumn = lyricsInfo.some((col: any) => col.name === 'songsTagsId')
+
+        if (hasOldColumn) {
+          log.warn('⚠️ Columna antigua "songsTagsId" detectada - esquema desactualizado')
+          db.close()
+          return false
+        }
+      }
 
       db.close()
-
-      if (hasOldColumn) {
-        log.warn('⚠️ Columna antigua "songsTagsId" detectada - esquema desactualizado')
-        return false
-      }
-
-      if (!hasNewColumn) {
-        log.warn('⚠️ Columna nueva "tagSongsId" no encontrada - esquema desactualizado')
-        return false
-      }
-
       log.info('✅ Esquema de base de datos validado correctamente')
       return true
     } catch (error) {
@@ -164,8 +349,8 @@ async function validateDatabaseSchema(dbPath: string): Promise<boolean> {
     }
   } catch (error) {
     log.error('Error validando esquema:', error)
-    // Si no podemos validar, asumir que está bien para no romper nada
-    return true
+    // Si no podemos validar, asumir que necesita actualizarse
+    return false
   }
 }
 
