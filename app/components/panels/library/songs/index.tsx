@@ -3,7 +3,7 @@ import { Card } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
 import t from '@locales'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { SongsListResponseDTO } from 'database/controllers/songs/songs.dto'
+import { SongResponseDTO, SongsListResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useEffect, useRef, useState } from 'react'
 import { Search, Music, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/ui/button'
@@ -14,8 +14,11 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/ui/context-menu'
+import PreviewSong from './previewSong'
+import { cn } from '@/lib/utils'
 
 export default function SongsPanelLibrary() {
+  const [selectedSong, setSelectedSong] = useState<SongResponseDTO | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const observerRef = useRef<HTMLDivElement>(null)
@@ -45,11 +48,17 @@ export default function SongsPanelLibrary() {
     })
   useEffect(() => {
     // Refrescar la lista de canciones cuando se guarde una canción
-    const unsubscribe = window.electron.ipcRenderer.on('song-saved', () => {
-      refetch()
+    const unsubscribe = window.electron.ipcRenderer.on('song-saved', async () => {
+      const songs = await refetch()
+      if (selectedSong) {
+        const updatedSong = songs.data?.pages
+          .flatMap((page) => page.songs)
+          .find((s) => s.id === selectedSong.id)
+        setSelectedSong(updatedSong || null)
+      }
     })
     return unsubscribe
-  }, [])
+  }, [selectedSong])
   // Intersection Observer para scroll infinito
   useEffect(() => {
     if (!observerRef.current || !hasNextPage || isFetchingNextPage) return
@@ -76,7 +85,11 @@ export default function SongsPanelLibrary() {
       `¿Estás seguro de que deseas eliminar la canción "${song?.title}"?`
     )
     if (!confirm) return
+    if (selectedSong?.id === songId) {
+      setSelectedSong(null)
+    }
     await window.api.songs.deleteSong(songId)
+    await refetch()
   }
 
   return (
@@ -132,14 +145,21 @@ export default function SongsPanelLibrary() {
               <ContextMenu key={song.id}>
                 <ContextMenuTrigger>
                   <div
-                    className="p-1 px-4 hover:bg-muted/30 cursor-pointer transition-colors"
+                    className={cn(
+                      'p-1 px-4 hover:bg-muted/30',
+                      'cursor-pointer transition-colors',
+                      {
+                        'bg-accent/90': selectedSong?.id === song.id
+                      }
+                    )}
+                    onClick={() => setSelectedSong(song)}
                     onDoubleClick={() => window.windowAPI.openSongWindow(song.id)}
                   >
                     <h3 className="font-semibold text-base flex gap-2 items-center">
                       {song.title}
-                      {song.artist ? (
+                      {song.author ? (
                         <div className="text-sm text-muted-foreground mt-1">
-                          ({song.artist && <span>{song.artist}</span>})
+                          ({song.author && <span>{song.author}</span>})
                         </div>
                       ) : null}
                     </h3>
@@ -171,6 +191,7 @@ export default function SongsPanelLibrary() {
           </>
         )}
       </div>
+      {selectedSong && <PreviewSong song={selectedSong} onDelete={handleDeleteSong} />}
     </div>
   )
 }

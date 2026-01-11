@@ -19,6 +19,10 @@ export type GetSongsDTO = {
   search?: string
 }
 
+export type SongResponseDTO = Song & {
+  lyrics: Lyrics[]
+}
+
 export type SongsListResponseDTO = {
   songs: SongResponseDTO[]
   total: number
