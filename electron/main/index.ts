@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerRoutes } from '../../database'
 import { initPrisma } from './prisma'
@@ -8,14 +8,13 @@ import {
   createTagsSongWindow,
   createThemeWindow
 } from './windowManager'
-import { registerMediaHandlers } from './mediaHandlers'
-import { startMediaServer, stopMediaServer, getMediaServerPort } from './mediaServer'
-import { initializeDefaultBibles } from './bibleManager'
-import { initializeBibleSchema } from './bibleInitializer'
-
 import 'reflect-metadata'
 import { authStore } from '../../database/stores/authStore'
 import fontList from 'font-list'
+import { initializeBibleManager } from './bibleManager'
+import { initializeMediaManager } from './mediaManager'
+import { stopMediaServer } from './mediaManager/mediaServer'
+import { initializeDisplayManager } from './displayManager'
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -23,13 +22,7 @@ import fontList from 'font-list'
 app.whenReady().then(async () => {
   await initPrisma()
 
-  // Inicializar biblias por defecto
-  initializeDefaultBibles()
-  await initializeBibleSchema()
-
   // Inicia
-  // Iniciar servidor de medios
-  startMediaServer()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.ecclesia.app')
@@ -42,13 +35,15 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Registrar handlers de medios
-  registerMediaHandlers()
+  // Inicializar gestor de medios
+  initializeMediaManager()
+  // Registrar rutas de la base de datos
   registerRoutes()
-  // Obtener puerto del servidor de medios
-  ipcMain.handle('get-media-server-port', () => {
-    return getMediaServerPort()
-  })
+  // Inicializar gestor de biblias
+  initializeBibleManager()
+
+  //inicalizar gestor de pantallas
+  initializeDisplayManager()
 
   // Obtener fuentes del sistema
   ipcMain.handle('get-system-fonts', async () => {
@@ -59,21 +54,6 @@ app.whenReady().then(async () => {
       console.error('Error al obtener fuentes del sistema:', error)
       return []
     }
-  })
-
-  // Obtener todas las pantallas disponibles
-  ipcMain.handle('get-displays', () => {
-    const displays = screen.getAllDisplays()
-    return displays.map((display) => ({
-      id: display.id,
-      label: display.label || `Display ${display.id}`,
-      bounds: display.bounds,
-      workArea: display.workArea,
-      scaleFactor: display.scaleFactor,
-      rotation: display.rotation,
-      internal: display.internal,
-      aspectRatio: display.bounds.width / display.bounds.height
-    }))
   })
 
   // Abrir ventana para crear/editar canción

@@ -1,4 +1,4 @@
-import BibleService from '../../database/controllers/bible/bible.service'
+import BibleService from '../../../database/controllers/bible/bible.service'
 import { getUserBiblesPath, listAvailableBibles } from './bibleManager'
 import * as fs from 'fs'
 import * as path from 'path'

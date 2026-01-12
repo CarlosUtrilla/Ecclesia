@@ -29,7 +29,7 @@ export default function BibleVersions({ selectedVersion, setSelectedVersion }: P
     {}
   )
   return (
-    <div>
+    <div className="flex-1">
       <Combobox
         data={availableBibles.map((b) => ({
           label: `${b.name}`,

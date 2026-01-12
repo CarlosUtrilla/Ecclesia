@@ -51,6 +51,20 @@ export function useMediaOperations(currentFolder: string | null) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
   })
 
+   // Importar biblias
+  const importBibleMutation = useMutation({
+    mutationFn: async (filePaths: string[]) => {
+      const results: MediaDto[] = []
+      for (const filePath of filePaths) {
+        const fileData = await window.mediaAPI.importFile(filePath, currentFolder ?? undefined)
+        const media = await window.api.media.create(fileData)
+        results.push(media)
+      }
+      return results
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
+  })
+
   // Crear carpeta
   const createFolderMutation = useMutation({
     mutationFn: (folderName: string) =>
@@ -194,6 +208,7 @@ export function useMediaOperations(currentFolder: string | null) {
     copyMutation,
     stripFilesPrefix,
     buildFolderPath,
-    normalizeFolder
+    normalizeFolder,
+    importBibleMutation
   }
 }

@@ -244,6 +244,24 @@ export function registerMediaHandlers() {
     return result.filePaths
   })
 
+  ipcMain.handle('media:select-bible-file', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Archivos de Biblia',
+          extensions: ['ebbl']
+        }
+      ]
+    })
+
+    if (result.canceled) {
+      return []
+    }
+
+    return result.filePaths
+  })
+
   // Importar archivo al directorio de la aplicación
   ipcMain.handle('media:import-file', async (event, sourcePath: string, folder?: string) => {
     try {

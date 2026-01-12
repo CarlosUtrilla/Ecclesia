@@ -5,6 +5,7 @@ import BibleVersions from './bibleVersions'
 import VerseSearch from './verseSearch'
 import TextFragmentSearch from './textFragmentSearch'
 import useBibleSchema from '@/hooks/useBibleSchema'
+import ImportBibleButton from './importBible'
 
 export default function BiblePanel() {
   const [selectedVersion, setSelectedVersion] = useState('RVR1960')
@@ -46,7 +47,7 @@ export default function BiblePanel() {
       <div className="overflow-hidden border-b row-span-1 flex flex-col">
         <div className="bg-muted/40">
           <div className="p-2">
-            <div className="mb-1 flex items-center gap-1">
+            <div className="mb-2 flex items-center gap-1">
               <VerseSearch
                 book={selectedBook}
                 cap={selectedChapter.toString()}
@@ -59,11 +60,12 @@ export default function BiblePanel() {
               />
             </div>
             <div className="flex gap-1 items-center">
-              <TextFragmentSearch defaultVersion={selectedVersion} />
               <BibleVersions
                 selectedVersion={selectedVersion}
                 setSelectedVersion={setSelectedVersion}
               />
+              <TextFragmentSearch defaultVersion={selectedVersion} />
+              <ImportBibleButton />
             </div>
           </div>
           <div className="grid border-t grid-cols-12 text-center text-sm">

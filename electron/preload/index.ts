@@ -17,9 +17,19 @@ const systemAPI = {
   getDisplays: () => ipcRenderer.invoke('get-displays')
 }
 
+// API para gestionar biblias
+const bibleAPI = {
+  selectFiles: () => ipcRenderer.invoke('media:select-bible-file'),
+  importFiles: (sourcePaths: string | string[]) =>
+    ipcRenderer.invoke('bible:import-files', sourcePaths),
+  listAvailable: () => ipcRenderer.invoke('bible:list-available'),
+  delete: (filename: string) => ipcRenderer.invoke('bible:delete', filename)
+}
+
 // API para gestionar archivos de medios
 const mediaAPI = {
   selectFiles: (type: MediaType | 'all') => ipcRenderer.invoke('media:select-files', type),
+  selectBibleFile: () => ipcRenderer.invoke('media:select-bible-file'),
   importFile: (sourcePath: string, folder?: string) =>
     ipcRenderer.invoke('media:import-file', sourcePath, folder),
   getFullPath: (fileName: string) => ipcRenderer.invoke('media:get-full-path', fileName),
@@ -49,16 +59,22 @@ const mediaAPI = {
   }
 }
 
+export const HandleManagers = {
+  bibleAPI,
+  electron: electronAPI,
+  mediaAPI,
+  systemAPI,
+  windowAPI,
+  api: exposeRoutes()
+}
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', exposeRoutes())
-    contextBridge.exposeInMainWorld('windowAPI', windowAPI)
-    contextBridge.exposeInMainWorld('systemAPI', systemAPI)
-    contextBridge.exposeInMainWorld('mediaAPI', mediaAPI)
+    Object.entries(HandleManagers).forEach(([key, value]) => {
+      contextBridge.exposeInMainWorld(key, value)
+    })
   } catch (error) {
     console.error(error)
   }
@@ -70,8 +86,9 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.windowAPI = windowAPI
   // @ts-ignore (define in dts)
+  window.systemAPI = systemAPI
+  // @ts-ignore (define in dts)
+  window.bibleAPI = bibleAPI
   // @ts-ignore (define in dts)
   window.mediaAPI = mediaAPI
-  // @ts-ignore (define in dts)
-  window.systemAPI = systemAPI
 }

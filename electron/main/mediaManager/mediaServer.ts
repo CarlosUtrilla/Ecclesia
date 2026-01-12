@@ -1,5 +1,5 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http'
-import { app } from 'electron'
+import { app, ipcMain } from 'electron'
 import path from 'path'
 import fs from 'fs'
 
@@ -87,6 +87,10 @@ export function startMediaServer(): number {
     }
   })
 
+  // Obtener puerto del servidor de medios
+  ipcMain.handle('get-media-server-port', () => {
+    return getMediaServerPort()
+  })
   return serverPort
 }
 

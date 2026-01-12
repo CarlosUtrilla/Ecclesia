@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import type { BibleDTO, BibleSchemaDTO, GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
-import { getBiblesResourcesPath } from '../../../electron/main/bibleManager'
+import { getBiblesResourcesPath } from '../../../electron/main/bibleManager/bibleManager'
 import { getPrisma } from '../../../electron/main/prisma'
 import fs from 'fs'
 import { TestamentEnum } from '@prisma/client'

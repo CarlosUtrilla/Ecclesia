@@ -166,3 +166,51 @@ export function importBible(sourcePath: string, newFilename?: string): string {
 
   return path.basename(finalPath)
 }
+
+type ImportBibleResult = { name: string; fileName: string; filePath: string; fileSize: number }
+/**
+ * Importa múltiples biblias desde rutas externas
+ * Retorna información detallada de cada biblia importada
+ */
+export function importBibles(sourcePaths: string | string[]): Array<ImportBibleResult> {
+  // Normalizar a array
+  const paths = Array.isArray(sourcePaths) ? sourcePaths : [sourcePaths]
+  const results: ImportBibleResult[] = []
+
+  for (const sourcePath of paths) {
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`Archivo no encontrado: ${sourcePath}`)
+    }
+
+    if (!sourcePath.endsWith('.ebbl')) {
+      throw new Error(`El archivo debe tener extensión .ebbl: ${sourcePath}`)
+    }
+
+    const filename = path.basename(sourcePath)
+    const targetPath = path.join(getUserBiblesPath(), filename)
+
+    // Si ya existe, añadir un sufijo
+    let finalPath = targetPath
+    let counter = 1
+    while (fs.existsSync(finalPath)) {
+      const nameWithoutExt = filename.replace('.ebbl', '')
+      finalPath = path.join(getUserBiblesPath(), `${nameWithoutExt}-${counter}.ebbl`)
+      counter++
+    }
+
+    fs.copyFileSync(sourcePath, finalPath)
+    const stats = fs.statSync(finalPath)
+    const finalFileName = path.basename(finalPath)
+
+    console.log(`📥 Biblia importada: ${finalFileName}`)
+
+    results.push({
+      name: finalFileName.replace('.ebbl', ''),
+      fileName: finalFileName,
+      filePath: finalPath,
+      fileSize: stats.size
+    })
+  }
+
+  return results
+}
