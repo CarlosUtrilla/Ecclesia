@@ -1,4 +1,4 @@
-import { GetVersesDTO } from './bible.dto'
+import { GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
 import BibleService from './bible.service'
 
 class BibleController {
@@ -17,6 +17,10 @@ class BibleController {
   }
   async getAvailableBibles() {
     return this.BibleService.getAvalableBibles()
+  }
+
+  async searchTextFragment(params: TextFragmentSearchDTO) {
+    return this.BibleService.searchTextFragment(params)
   }
 }
 

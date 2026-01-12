@@ -1,9 +1,10 @@
 import { cn } from '@/lib/utils'
-import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import ViewVerses from './viewVerses'
 import BibleVersions from './bibleVersions'
 import VerseSearch from './verseSearch'
+import TextFragmentSearch from './textFragmentSearch'
+import useBibleSchema from '@/hooks/useBibleSchema'
 
 export default function BiblePanel() {
   const [selectedVersion, setSelectedVersion] = useState('RVR1960')
@@ -11,11 +12,7 @@ export default function BiblePanel() {
   const [selectedChapter, setSelectedChapter] = useState(1)
   const [selectedVerse, setSelectedVerse] = useState([1])
 
-  const { data: bibleSchema = [] } = useQuery({
-    queryKey: ['bibleSchema'],
-    queryFn: async () => await window.api.bible.getBibleSchema(),
-    staleTime: Infinity
-  })
+  const { bibleSchema } = useBibleSchema()
   const chapters = useMemo(() => {
     const book = bibleSchema.find((b) => b.book_id === selectedBook)
     return book ? Array.from({ length: book.chapter.length }, (_, i) => i + 1) : []
@@ -61,10 +58,13 @@ export default function BiblePanel() {
                 }}
               />
             </div>
-            <BibleVersions
-              selectedVersion={selectedVersion}
-              setSelectedVersion={setSelectedVersion}
-            />
+            <div className="flex gap-1 items-center">
+              <TextFragmentSearch defaultVersion={selectedVersion} />
+              <BibleVersions
+                selectedVersion={selectedVersion}
+                setSelectedVersion={setSelectedVersion}
+              />
+            </div>
           </div>
           <div className="grid border-t grid-cols-12 text-center text-sm">
             <div className="p-2 py-1 col-span-8">Libro</div>

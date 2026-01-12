@@ -1,6 +1,6 @@
+import useBibleSchema from '@/hooks/useBibleSchema'
 import { cn } from '@/lib/utils'
-import { useQuery } from '@tanstack/react-query'
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 
 type Props = {
   book: string
@@ -20,105 +20,154 @@ export default function VerseSearch({
   const inputCapRef = React.useRef<HTMLInputElement>(null)
   const inputVersRef = React.useRef<HTMLInputElement>(null)
 
-  const { data: bibleSchema = [] } = useQuery({
-    queryKey: ['bibleSchema'],
-    queryFn: async () => await window.api.bible.getBibleSchema(),
-    staleTime: Infinity
-  })
-  const [isFocused, setIsFocused] = useState(false)
+  const { bibleSchema = [] } = useBibleSchema()
 
+  const [isFocused, setIsFocused] = useState(false)
   const [book, setBook] = useState(
     initialBook ? bibleSchema.find((b) => b.book_id === initialBook)?.book || '' : ''
   )
   const [cap, setCap] = useState(initialCap)
   const [vers, setVers] = useState(initialVers)
 
+  const showShakeAnimation = useCallback(() => {
+    inputContainerRef.current?.classList.add('animate-shake')
+    setTimeout(() => inputContainerRef.current?.classList.remove('animate-shake'), 500)
+  }, [])
+
   const handleBookChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const coincidences = bibleSchema.filter((b) =>
       b.book.toLowerCase().startsWith(e.target.value.toLowerCase())
     )
-    if (coincidences.length > 0) {
-      if (coincidences.length === 1) {
-        setBook(coincidences[0].book)
-        setCap('') //resetear capitulo y versiculo
-        setVers('')
-        inputCapRef.current?.focus()
-      } else {
-        setBook(e.target.value)
-      }
-    } else {
-      inputContainerRef.current!.classList.add('animate-shake')
-      setTimeout(() => {
-        inputContainerRef.current!.classList.remove('animate-shake')
-      }, 500)
+
+    if (coincidences.length === 0) {
+      showShakeAnimation()
       setBook('')
+    } else if (coincidences.length === 1) {
+      setBook(coincidences[0].book)
+      setCap('')
+      setVers('')
+      inputCapRef.current?.focus()
+    } else {
+      setBook(e.target.value)
     }
   }
 
   const handleCapChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedBook = bibleSchema.find((b) => b.book === book)
+    if (!selectedBook) return
 
-    if (selectedBook) {
-      //buscar si el numero ingesado corresponde con algun capitulo del libro seleccionado
-      const capNumber = parseInt(e.target.value)
-      if (!isNaN(capNumber) && selectedBook.chapter.some((c) => c.chapter === capNumber)) {
-        //Comprobar si es unico, caso el usuario ingresa 1 pero hay mas de un capitulo que inicia con 1 como 10, 11, 12, etc
-        const coincidences = selectedBook.chapter.filter((c) =>
-          c.chapter.toString().startsWith(e.target.value)
-        )
-        if (coincidences.length === 1) {
-          setCap(coincidences[0].chapter.toString())
-          setVers('') //resetear versiculo
-          inputVersRef.current?.focus()
-        } else {
-          setCap(e.target.value)
-        }
-      } else {
-        inputContainerRef.current!.classList.add('animate-shake')
-        setTimeout(() => {
-          inputContainerRef.current!.classList.remove('animate-shake')
-        }, 500)
-        setCap('')
-      }
+    const capNumber = parseInt(e.target.value)
+    if (isNaN(capNumber) || !selectedBook.chapter.some((c) => c.chapter === capNumber)) {
+      showShakeAnimation()
+      setCap('')
+      return
+    }
+
+    const coincidences = selectedBook.chapter.filter((c) =>
+      c.chapter.toString().startsWith(e.target.value)
+    )
+
+    if (coincidences.length === 1) {
+      setCap(coincidences[0].chapter.toString())
+      setVers('')
+      inputVersRef.current?.focus()
+    } else {
+      setCap(e.target.value)
     }
   }
 
   const handleVersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Similar al capitulo, pero buscando en los versiculos
     const selectedBook = bibleSchema.find((b) => b.book === book)
-    if (selectedBook) {
-      const capNumber = parseInt(cap)
-      const selectedChapter = selectedBook.chapter.find((c) => c.chapter === capNumber)
-      if (selectedChapter) {
-        const versNumber = parseInt(e.target.value)
-        if (!isNaN(versNumber) && versNumber >= 1 && versNumber <= selectedChapter.verses) {
-          //Comprobar si es unico, caso el usuario ingresa 1 pero hay mas de un capitulo que inicia con 1 como 10, 11, 12, etc
-          const coincidences = Array.from(
-            { length: selectedChapter.verses },
-            (_, i) => i + 1
-          ).filter((v) => v.toString().startsWith(e.target.value))
-          if (coincidences.length === 1) {
-            setVers(coincidences[0].toString())
-            //Llamar al callback de cambio
-            onChaneVerseSearch(
-              selectedBook.book_id,
-              selectedChapter.chapter.toString(),
-              coincidences[0].toString()
-            )
-            inputVersRef.current?.blur()
-          } else {
-            setVers(e.target.value)
-          }
-        } else {
-          inputContainerRef.current!.classList.add('animate-shake')
-          setTimeout(() => {
-            inputContainerRef.current!.classList.remove('animate-shake')
-          }, 500)
-          setVers('')
-        }
+    if (!selectedBook) return
+
+    const selectedChapter = selectedBook.chapter.find((c) => c.chapter === parseInt(cap))
+    if (!selectedChapter) return
+
+    const versNumber = parseInt(e.target.value)
+    if (isNaN(versNumber) || versNumber < 1 || versNumber > selectedChapter.verses) {
+      showShakeAnimation()
+      setVers('')
+      return
+    }
+
+    const coincidences = Array.from({ length: selectedChapter.verses }, (_, i) => i + 1).filter(
+      (v) => v.toString().startsWith(e.target.value)
+    )
+
+    if (coincidences.length === 1) {
+      setVers(coincidences[0].toString())
+      onChaneVerseSearch(selectedBook.book_id, cap, coincidences[0].toString())
+      inputVersRef.current?.blur()
+    } else {
+      setVers(e.target.value)
+    }
+  }
+
+  const handleBookKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.code === 'Backspace') {
+      e.stopPropagation()
+      setBook('')
+    } else if (e.code === 'Enter') {
+      const match = bibleSchema.find((b) => b.book.toLowerCase().startsWith(book.toLowerCase()))
+      if (match) {
+        setBook(match.book)
+        setCap('')
+        setVers('')
+        inputCapRef.current?.focus()
       }
     }
   }
+
+  const handleCapKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.code === 'Backspace') {
+      e.stopPropagation()
+      setCap('')
+      inputBookRef.current?.focus()
+    } else if (e.code === 'Enter') {
+      const selectedBook = bibleSchema.find((b) => b.book === book)
+      const capNumber = parseInt(cap)
+      if (
+        selectedBook &&
+        !isNaN(capNumber) &&
+        selectedBook.chapter.some((c) => c.chapter === capNumber)
+      ) {
+        onChaneVerseSearch(selectedBook.book_id, capNumber.toString(), '')
+        inputVersRef.current?.focus()
+      }
+    } else if (e.key < '0' || e.key > '9') {
+      e.preventDefault()
+    }
+  }
+
+  const handleVersKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.code === 'Backspace') {
+      e.stopPropagation()
+      setVers('')
+    } else if (e.code === 'Enter') {
+      const selectedBook = bibleSchema.find((b) => b.book === book)
+      const selectedChapter = selectedBook?.chapter.find((c) => c.chapter === parseInt(cap))
+      const versNumber = parseInt(vers)
+
+      if (
+        selectedBook &&
+        selectedChapter &&
+        !isNaN(versNumber) &&
+        versNumber >= 1 &&
+        versNumber <= selectedChapter.verses
+      ) {
+        onChaneVerseSearch(selectedBook.book_id, cap, versNumber.toString())
+        inputVersRef.current?.blur()
+      }
+    } else if (e.key < '0' || e.key > '9') {
+      e.preventDefault()
+    }
+  }
+
+  const createFocusHandler = (ref: React.RefObject<HTMLInputElement | null>) => () => {
+    setIsFocused(true)
+    ref.current?.select()
+  }
+
   return (
     <div
       ref={inputContainerRef}
@@ -137,114 +186,33 @@ export default function VerseSearch({
         type="text"
         placeholder="Libro"
         className="flex-1 max-w-3/5 bg-transparent outline-none"
-        onFocus={() => {
-          setIsFocused(true)
-          inputBookRef.current?.select()
-        }}
+        onFocus={createFocusHandler(inputBookRef)}
         onBlur={() => setIsFocused(false)}
         onChange={handleBookChange}
         value={book}
-        onKeyDown={(e) => {
-          console.log(e)
-          if (e.code === 'Backspace') {
-            e.stopPropagation()
-            setBook('')
-          } else if (e.code === 'Enter') {
-            // aplicar el texto ingresado como libro solo si encuentra una coincidencia y luego ir al capitulo
-            const coincidences = bibleSchema.filter((b) =>
-              b.book.toLowerCase().startsWith(book.toLowerCase())
-            )
-            if (coincidences.length === 1) {
-              setBook(coincidences[0].book)
-              setCap('') //resetear capitulo y versiculo
-              setVers('')
-              inputCapRef.current?.focus()
-            }
-          }
-        }}
+        onKeyDown={handleBookKeyDown}
       />
       <input
         ref={inputCapRef}
         type="text"
         placeholder="Cap."
         className="w-full bg-transparent outline-none"
-        onFocus={() => {
-          setIsFocused(true)
-          inputCapRef.current?.select()
-        }}
+        onFocus={createFocusHandler(inputCapRef)}
         onBlur={() => setIsFocused(false)}
         onChange={handleCapChange}
         value={cap}
-        onKeyDown={(e) => {
-          if (e.code === 'Backspace') {
-            e.stopPropagation()
-            setCap('')
-            inputBookRef.current?.focus()
-          }
-          if (e.code === 'Enter') {
-            // aplicar el texto ingresado como capitulo y luego ir al versiculo
-            const selectedBook = bibleSchema.find((b) => b.book === book)
-            if (selectedBook) {
-              const capNumber = parseInt(cap)
-              if (!isNaN(capNumber) && selectedBook.chapter.some((c) => c.chapter === capNumber)) {
-                onChaneVerseSearch(
-                  selectedBook.book_id,
-                  capNumber.toString(),
-                  '' // versiculo vacio
-                )
-                inputVersRef.current?.focus()
-              }
-            }
-          } else {
-            //Solo permitir numeros
-            if (e.key < '0' || e.key > '9') {
-              e.preventDefault()
-            }
-          }
-        }}
+        onKeyDown={handleCapKeyDown}
       />
       <input
         ref={inputVersRef}
         type="text"
         placeholder="Vers."
         className="w-full bg-transparent outline-none"
-        onFocus={() => {
-          setIsFocused(true)
-          inputVersRef.current?.select()
-        }}
+        onFocus={createFocusHandler(inputVersRef)}
         onBlur={() => setIsFocused(false)}
         onChange={handleVersChange}
         value={vers}
-        onKeyDown={(e) => {
-          if (e.code === 'Backspace') {
-            e.stopPropagation()
-            setVers('')
-          }
-          if (e.code === 'Enter') {
-            // aplicar el texto ingresado como versiculo
-            const selectedBook = bibleSchema.find((b) => b.book === book)
-            if (selectedBook) {
-              const capNumber = parseInt(cap)
-              const selectedChapter = selectedBook.chapter.find((c) => c.chapter === capNumber)
-              if (selectedChapter) {
-                const versNumber = parseInt(vers)
-                if (!isNaN(versNumber) && versNumber >= 1 && versNumber <= selectedChapter.verses) {
-                  onChaneVerseSearch(
-                    selectedBook.book_id,
-                    selectedChapter.chapter.toString(),
-                    versNumber.toString()
-                  )
-                  inputVersRef.current?.blur()
-                }
-              }
-            }
-          } else {
-            //Solo permitir numeros
-            if (e.key < '0' || e.key > '9') {
-              e.preventDefault()
-            }
-          }
-        }}
+        onKeyDown={handleVersKeyDown}
       />
     </div>
   )

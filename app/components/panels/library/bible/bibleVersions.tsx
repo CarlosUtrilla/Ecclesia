@@ -1,3 +1,4 @@
+import useBibleVersions from '@/hooks/useBibleVersions'
 import {
   Combobox,
   ComboboxContent,
@@ -8,7 +9,6 @@ import {
   ComboboxList,
   ComboboxTrigger
 } from '@/ui/combobox'
-import { useQuery } from '@tanstack/react-query'
 
 type Props = {
   selectedVersion: string
@@ -16,11 +16,7 @@ type Props = {
 }
 
 export default function BibleVersions({ selectedVersion, setSelectedVersion }: Props) {
-  const { data: availableBibles = [] } = useQuery({
-    queryKey: ['availableBibles'],
-    queryFn: async () => await window.api.bible.getAvailableBibles()
-  })
-
+  const { data: availableBibles = [] } = useBibleVersions()
   const groupedBibles = availableBibles.reduce(
     (groups: Record<string, typeof availableBibles>, bible) => {
       const language = bible.language || 'Unknown'

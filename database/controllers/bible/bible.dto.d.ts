@@ -21,3 +21,9 @@ export type BibleDTO = {
   text: string
   text_normalized: string
 }
+
+export type TextFragmentSearchDTO = {
+  text: string
+  version: string
+  book?: string
+}

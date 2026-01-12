@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3'
-import type { BibleDTO, BibleSchemaDTO, GetVersesDTO } from './bible.dto'
+import type { BibleDTO, BibleSchemaDTO, GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
 import { getBiblesResourcesPath } from '../../../electron/main/bibleManager'
 import { getPrisma } from '../../../electron/main/prisma'
 import fs from 'fs'
+import { TestamentEnum } from '@prisma/client'
 
 class BibleService {
   prisma = getPrisma()
@@ -101,6 +102,7 @@ class BibleService {
       book,
       chapter,
       book_id,
+      testament,
       MAX(verse) AS verses
     FROM verses
     GROUP BY book, chapter
@@ -112,6 +114,7 @@ class BibleService {
       book_id: string
       chapter: number
       verses: number
+      testament: TestamentEnum
     }[]
 
     db.close()
@@ -119,6 +122,7 @@ class BibleService {
     const map = [] as {
       book: string
       book_id: string
+      testament: TestamentEnum
       chapter: {
         chapter: number
         verses: number
@@ -131,6 +135,7 @@ class BibleService {
         bookEntry = {
           book: row.book,
           book_id: row.book_id,
+          testament: row.testament,
           chapter: []
         }
         map.push(bookEntry)
@@ -147,6 +152,7 @@ class BibleService {
         data: {
           book: bookData.book,
           book_id: bookData.book_id,
+          testament: bookData.testament,
           chapter: {
             create: bookData.chapter.map((ch) => ({
               chapter: ch.chapter,
@@ -199,6 +205,32 @@ class BibleService {
         id: 'asc'
       }
     })
+  }
+
+  async searchTextFragment(params: TextFragmentSearchDTO) {
+    const { text, version, book } = params
+    const db = await this.openBible(version)
+
+    try {
+      let query = `
+        SELECT *
+        FROM verses
+        WHERE text_normalized LIKE ?
+      `
+      const queryParams: (string | number)[] = [`%${text.toLowerCase()}%`]
+
+      if (book) {
+        query += ' AND book_id = ?'
+        queryParams.push(book)
+      }
+
+      query += ' ORDER BY book_id, chapter, verse'
+
+      const results = db.prepare(query).all(...queryParams) as BibleDTO[]
+      return results
+    } finally {
+      db.close()
+    }
   }
 }
 
