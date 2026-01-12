@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { dialog, ipcMain } from 'electron'
 import {
   deleteBible,
   importBibles,
@@ -20,6 +20,24 @@ export async function initializeBibleManager() {
       console.error('Error al importar biblias:', error)
       throw error
     }
+  })
+
+  ipcMain.handle('bible:select-bible-file', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Archivos de Biblia',
+          extensions: ['ebbl']
+        }
+      ]
+    })
+
+    if (result.canceled) {
+      return []
+    }
+
+    return result.filePaths
   })
 
   ipcMain.handle('bible:list-available', async () => {

@@ -167,7 +167,12 @@ export function importBible(sourcePath: string, newFilename?: string): string {
   return path.basename(finalPath)
 }
 
-type ImportBibleResult = { name: string; fileName: string; filePath: string; fileSize: number }
+export type ImportBibleResult = {
+  name: string
+  fileName: string
+  filePath: string
+  fileSize: number
+}
 /**
  * Importa múltiples biblias desde rutas externas
  * Retorna información detallada de cada biblia importada

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Media } from '../types'
 import { MediaType } from '@prisma/client'
+import { ImportBibleResult } from '../../../../../../electron/main/bibleManager/bibleManager'
 
 // Tipo para el DTO de Media
 interface MediaDto {
@@ -51,14 +52,13 @@ export function useMediaOperations(currentFolder: string | null) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
   })
 
-   // Importar biblias
+  // Importar biblias
   const importBibleMutation = useMutation({
     mutationFn: async (filePaths: string[]) => {
-      const results: MediaDto[] = []
+      const results: ImportBibleResult[] = []
       for (const filePath of filePaths) {
-        const fileData = await window.mediaAPI.importFile(filePath, currentFolder ?? undefined)
-        const media = await window.api.media.create(fileData)
-        results.push(media)
+        const fileData = await window.bibleAPI.importFiles(filePath)
+        results.push(fileData[0])
       }
       return results
     },

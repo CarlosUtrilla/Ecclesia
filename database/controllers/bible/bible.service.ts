@@ -171,6 +171,7 @@ class BibleService {
 
     const files = fs.readdirSync(path)
     const availableBibles = files.filter((file: string) => file.endsWith('.ebbl'))
+    console.log(availableBibles, files)
     // conectarse a la bd de casa biblia y obtener su nombre
     const bibles = await Promise.all(
       availableBibles.map(async (file: string) => {

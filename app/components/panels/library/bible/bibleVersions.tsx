@@ -29,7 +29,7 @@ export default function BibleVersions({ selectedVersion, setSelectedVersion }: P
     {}
   )
   return (
-    <div className="flex-1">
+    <div className="col-span-8">
       <Combobox
         data={availableBibles.map((b) => ({
           label: `${b.name}`,
@@ -39,7 +39,7 @@ export default function BibleVersions({ selectedVersion, setSelectedVersion }: P
         onValueChange={(newValue) => setSelectedVersion(newValue)}
         type="una biblia"
       >
-        <ComboboxTrigger className="w-full" />
+        <ComboboxTrigger className="w-full max-w-[300px]" />
         <ComboboxContent>
           <ComboboxInput />
           <ComboboxEmpty />

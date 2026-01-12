@@ -21,7 +21,7 @@ export default function ViewVerses({
   setSelectedVerse
 }: Props) {
   const { data: completeChapter = [] } = useQuery({
-    queryKey: ['completeChapter', book, chapter],
+    queryKey: ['completeChapter', book, chapter, version],
     queryFn: async () => await window.api.bible.getCompleteChapter(version, book, chapter),
     staleTime: Infinity
   })

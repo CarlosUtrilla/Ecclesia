@@ -41,7 +41,7 @@ export default function BiblePanel() {
     setSelectedChapter(chapter)
     setSelectedVerse([1])
   }
-
+  console.log({ selectedVersion })
   return (
     <div className="grid grid-rows-2 h-full">
       <div className="overflow-hidden border-b row-span-1 flex flex-col">
@@ -58,14 +58,15 @@ export default function BiblePanel() {
                   setSelectedVerse([parseInt(vers)])
                 }}
               />
+
+              <ImportBibleButton />
             </div>
-            <div className="flex gap-1 items-center">
+            <div className="grid grid-cols-12 gap-1">
               <BibleVersions
                 selectedVersion={selectedVersion}
                 setSelectedVersion={setSelectedVersion}
               />
               <TextFragmentSearch defaultVersion={selectedVersion} />
-              <ImportBibleButton />
             </div>
           </div>
           <div className="grid border-t grid-cols-12 text-center text-sm">
@@ -118,7 +119,7 @@ export default function BiblePanel() {
       </div>
       <ViewVerses
         bookData={selectedBookData}
-        version="RVR1960"
+        version={selectedVersion}
         book={selectedBook}
         chapter={selectedChapter}
         verse={selectedVerse}
