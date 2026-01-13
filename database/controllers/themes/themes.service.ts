@@ -3,8 +3,16 @@ import { CreateThemeDto, UpdateThemeDto } from './themes.dto'
 import { Prisma } from '@prisma/client'
 
 export class ThemesService {
-  async createTheme(data: CreateThemeDto) {
+  async createTheme(rawData: CreateThemeDto) {
     const prisma = getPrisma()
+    const { biblePresentationSettings, ...data } = rawData
+
+    if (biblePresentationSettings) {
+      const createdSettings = await prisma.biblePresentationSettings.create({
+        data: biblePresentationSettings
+      })
+      data.biblePresentationSettingsId = createdSettings.id
+    }
     try {
       return await prisma.themes.create({
         data
@@ -34,7 +42,8 @@ export class ThemesService {
     return await prisma.themes.findUnique({
       where: { id },
       include: {
-        backgroundMedia: true
+        backgroundMedia: true,
+        biblePresentationSettings: true
       }
     })
   }
@@ -44,13 +53,31 @@ export class ThemesService {
     return await prisma.themes.findUnique({
       where: { name },
       include: {
-        backgroundMedia: true
+        backgroundMedia: true,
+        biblePresentationSettings: true
       }
     })
   }
 
-  async updateTheme(id: number, data: UpdateThemeDto) {
+  async updateTheme(id: number, rawData: UpdateThemeDto) {
     const prisma = getPrisma()
+    const { biblePresentationSettings, ...data } = rawData
+
+    if (biblePresentationSettings) {
+      if (data.biblePresentationSettingsId) {
+        // Actualizar configuración existente
+        await prisma.biblePresentationSettings.update({
+          where: { id: data.biblePresentationSettingsId },
+          data: biblePresentationSettings
+        })
+      } else {
+        // Crear nueva configuración
+        const createdSettings = await prisma.biblePresentationSettings.create({
+          data: biblePresentationSettings
+        })
+        data.biblePresentationSettingsId = createdSettings.id
+      }
+    }
     try {
       return await prisma.themes.update({
         where: { id },

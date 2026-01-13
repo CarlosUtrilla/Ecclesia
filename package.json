@@ -24,7 +24,7 @@
     "build:linux": "electron-vite build && electron-builder --linux",
     "sync": "git pull && npx prisma migrate dev && yarn seed && yarn",
     "seed": "npx ts-node prisma/seed.ts",
-    "bible:reset-schema": "sqlite3 prisma/dev.db \"DELETE FROM BibleVerses; DELETE FROM BibleSchema;\" && rm -f ~/Library/Application\\ Support/ecclesia/bibles/.schema-initialized && echo '✅ Tablas de biblia vaciadas y marcador eliminado'",
+    "bible:reset-schema": "sqlite3 prisma/dev.db \"DELETE FROM BibleVerses; DELETE FROM BibleSchema; DELETE FROM sqlite_sequence WHERE name='BibleVerses' OR name='BibleSchema';\" && rm -f ~/Library/Application\\ Support/ecclesia/bibles/.schema-initialized && echo '✅ Tablas de biblia vaciadas, IDs reiniciados y marcador eliminado'",
     "db:reset": "rm -f ~/Library/Application\\ Support/ecclesia/dev.db && echo '✅ Base de datos local borrada. Arranca la app para recrear.'",
     "db:backup": "cp ~/Library/Application\\ Support/ecclesia/dev.db ~/Library/Application\\ Support/ecclesia/backups/manual-$(date +%Y%m%d-%H%M%S).db && echo '✅ Backup manual creado'",
     "db:inspect": "sqlite3 ~/Library/Application\\ Support/ecclesia/dev.db"

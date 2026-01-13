@@ -26,7 +26,7 @@ import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSett
 import { fontSizes, lineHeights, letterSpacings } from '@/lib/themeConstants'
 import { ColorPicker } from '@/ui/colorPicker'
 import { useResizeObserver } from 'usehooks-ts'
-import { PresentationViewItems } from '../PresentationView/types'
+import { PresentationViewItems, ThemeWithMedia } from '../PresentationView/types'
 import { useParams } from 'react-router'
 import { CreateThemeSchema, UpdateThemeSchema } from './schema'
 import { z } from 'zod'
@@ -74,7 +74,9 @@ export default function ThemesEditor() {
       italic: false,
       underline: false,
       animationSettings: JSON.stringify(defaultAnimationSettings),
-      ...(id ? { id: Number(id) } : {})
+      biblePresentationSettings: undefined,
+      useDefaultBibleSettings: true,
+      biblePresentationSettingsId: null
     },
     mode: 'onChange',
     shouldUnregister: false,
@@ -418,7 +420,7 @@ export default function ThemesEditor() {
       <div className="flex-1 bg-muted flex items-center justify-center p-4" ref={previewRef}>
         <PresentationView
           key={animationKey}
-          theme={previewData}
+          theme={previewData as ThemeWithMedia}
           items={PreviewsItems}
           live
           maxHeight={height - 32}
@@ -430,7 +432,7 @@ export default function ThemesEditor() {
           <PresentationView
             onClick={() => setSelectedPreview(index)}
             key={index}
-            theme={previewData}
+            theme={previewData as ThemeWithMedia}
             items={[item]}
             maxHeight={120}
             selected={selectedPreview === index}
@@ -449,6 +451,12 @@ const PreviewsItems: PresentationViewItems[] = [
           <br>Àà Èè Ìì Òò Ùù`
   },
   {
-    text: 'Second Slide Preview'
+    text: 'Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.',
+    verse: {
+      bookId: 43,
+      chapter: 3,
+      verse: 16,
+      version: 'RVR1960'
+    }
   }
 ]

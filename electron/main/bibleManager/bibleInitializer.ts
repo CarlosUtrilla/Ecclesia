@@ -1,7 +1,7 @@
-import BibleService from '../../../database/controllers/bible/bible.service'
 import { getUserBiblesPath, listAvailableBibles } from './bibleManager'
 import * as fs from 'fs'
 import * as path from 'path'
+import { BibleManagmentService } from '../../../database/controllers/bible/bibleManagment.service'
 
 /**
  * Verifica si ya se ha inicializado el esquema de biblias
@@ -40,8 +40,9 @@ export async function initializeBibleSchema(): Promise<void> {
 
     console.log('📖 Inicializando esquema de biblias...')
 
-    const bibleService = new BibleService()
+    const bibleService = new BibleManagmentService()
     await bibleService.generateBibleSchema()
+    await bibleService.checkInitialBibleSettings()
 
     // Marcar como inicializado
     markBibleSchemaAsInitialized()

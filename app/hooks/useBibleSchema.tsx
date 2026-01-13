@@ -7,7 +7,19 @@ export default function useBibleSchema() {
     staleTime: Infinity
   })
 
+  const getShortNameById = (bookId: number) => {
+    const book = bibleSchema.find((b) => b.id === bookId)
+    return book ? book.book_id : null
+  }
+
+  const getCompleteNameById = (bookId: number) => {
+    const book = bibleSchema.find((b) => b.id === bookId)
+    return book ? book.book : null
+  }
+
   return {
-    bibleSchema
+    bibleSchema,
+    getShortNameById,
+    getCompleteNameById
   }
 }

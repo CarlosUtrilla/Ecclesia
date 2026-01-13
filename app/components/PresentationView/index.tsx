@@ -194,11 +194,12 @@ export function PresentationView({
       {/* Texto con animaciones */}
       <AnimatePresence mode="wait">
         <AnimatedText
-          text={currentItem.text}
+          item={currentItem}
           animationType={animationType}
           variants={variants}
           textStyle={textStyle}
           isPreview={!live}
+          theme={theme}
         />
       </AnimatePresence>
       {tagSong !== null ? (

@@ -20,7 +20,7 @@ export function BackgroundVideoLive({
   return (
     <>
       {/* Imagen de fallback mientras carga el video */}
-      {fallbackUrl && !isVideoLoaded && !hasError && (
+      {fallbackUrl && (
         <motion.img
           key={`fallback-${fallbackUrl}`}
           src={fallbackUrl}

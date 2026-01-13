@@ -50,24 +50,27 @@ model TagSongs {
 }
 
 model Themes {
-  id                Int      @id @default(autoincrement())
-  name              String   @unique
-  background        String // Color, gradient, o "media" si usa backgroundMedia
-  backgroundMediaId Int? // ID del medio (imagen/video) usado como fondo
-  backgroundMedia   Media?   @relation(fields: [backgroundMediaId], references: [id])
-  textColor         String
-  textSize          Int
-  lineHeight        Float
-  letterSpacing     Float
-  fontFamily        String
-  textAlign         String
-  bold              Boolean  @default(false)
-  italic            Boolean  @default(false)
-  underline         Boolean  @default(false)
-  animationSettings String   @default("{\"type\":\"fade\",\"duration\":0.4,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con configuración completa
-  previewImage      String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                          Int                        @id @default(autoincrement())
+  name                        String                     @unique
+  background                  String // Color, gradient, o "media" si usa backgroundMedia
+  backgroundMediaId           Int? // ID del medio (imagen/video) usado como fondo
+  backgroundMedia             Media?                     @relation(fields: [backgroundMediaId], references: [id])
+  textColor                   String
+  textSize                    Int
+  lineHeight                  Float
+  letterSpacing               Float
+  fontFamily                  String
+  textAlign                   String
+  bold                        Boolean                    @default(false)
+  italic                      Boolean                    @default(false)
+  underline                   Boolean                    @default(false)
+  animationSettings           String                     @default("{\"type\":\"fade\",\"duration\":0.4,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con configuración completa
+  previewImage                String
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  biblePresentationSettings   BiblePresentationSettings? @relation(fields: [biblePresentationSettingsId], references: [id])
+  useDefaultBibleSettings     Boolean                    @default(true)
+  biblePresentationSettingsId Int?
 }
 
 enum SettingOptions {
@@ -127,4 +130,57 @@ model BibleVerses {
   verses        Int
   bibleSchema   BibleSchema? @relation(fields: [bibleSchemaId], references: [id])
   bibleSchemaId Int?
+}
+
+enum BibleDescriptionMode {
+  short
+  complete
+}
+
+enum BibleDescriptionPosition {
+  beforeText
+  afterText
+  underText
+  overText
+  upScreen
+  downScreen
+}
+
+model BiblePresentationSettings {
+  id              Int                      @id @default(autoincrement())
+  description     BibleDescriptionMode     @default(complete)
+  position        BibleDescriptionPosition @default(underText)
+  showVersion     Boolean                  @default(true)
+  showVerseNumber Boolean                  @default(false)
+  isGlobal        Boolean                  @default(false)
+  positionStyle   String?
+  defaultTheme    Int?
+  themes          Themes[]
+}
+
+model Schedule {
+  id        Int            @id @default(autoincrement())
+  title     String
+  date      DateTime
+  items     ScheduleItem[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model ScheduleGroup {
+  id    Int            @id @default(autoincrement())
+  name  String
+  color String
+  order Int
+  items ScheduleItem[]
+}
+
+model ScheduleItem {
+  id              Int           @id @default(autoincrement())
+  order           Int
+  data            String // Pendiente por definir mejor el tipo de dato
+  scheduleId      Int
+  scheduleGroupId Int
+  schedule        Schedule      @relation(fields: [scheduleId], references: [id])
+  group           ScheduleGroup @relation(fields: [scheduleGroupId], references: [id])
 }
