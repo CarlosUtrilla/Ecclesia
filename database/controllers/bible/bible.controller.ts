@@ -24,8 +24,8 @@ class BibleController {
     return this.BibleService.searchTextFragment(params)
   }
 
-  async getBibleSettings() {
-    return this.BibleService.getBibleSettings()
+  async getDefaultBibleSettings() {
+    return this.BibleService.getDefaultBibleSettings()
   }
 }
 

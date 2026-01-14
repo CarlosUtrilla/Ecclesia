@@ -1,10 +1,6 @@
-import { Themes, Media, BiblePresentationSettings } from '@prisma/client'
+import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 
-export type ThemeWithMedia = Themes & {
-  backgroundMedia?: Media | null
-  biblePresentationSettings: BiblePresentationSettings | null
-}
-
+export { ThemeWithMedia }
 export type PresentationViewProps = {
   maxHeight?: number
   theme: ThemeWithMedia

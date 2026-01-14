@@ -1,5 +1,5 @@
 import { Button } from '@/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
+import { Tooltip } from '@/ui/tooltip'
 import { Import } from 'lucide-react'
 import { useMediaOperations } from '../media/hooks/useMediaOperations'
 import useBibleVersions from '@/hooks/useBibleVersions'
@@ -19,13 +19,10 @@ export default function ImportBibleButton() {
     }
   }
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button onClick={handleImportBible}>
-          <Import className="w-4 h-4" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Importar biblia</TooltipContent>
+    <Tooltip content="Importar Biblia">
+      <Button onClick={handleImportBible}>
+        <Import className="w-4 h-4" />
+      </Button>
     </Tooltip>
   )
 }

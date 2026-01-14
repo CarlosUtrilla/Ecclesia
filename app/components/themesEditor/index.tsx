@@ -63,16 +63,15 @@ export default function ThemesEditor() {
       name: '',
       background: '',
       backgroundMediaId: null,
-      letterSpacing: 0,
-      lineHeight: 1.5,
-      textSize: 28,
-      textColor: '#000000',
-      fontFamily: 'Arial',
       previewImage: '',
-      textAlign: 'center',
-      bold: false,
-      italic: false,
-      underline: false,
+      textStyle: {
+        color: '#000000',
+        fontSize: 24,
+        lineHeight: 1.2,
+        letterSpacing: 0,
+        fontFamily: 'Arial',
+        textAlign: 'center'
+      },
       animationSettings: JSON.stringify(defaultAnimationSettings),
       biblePresentationSettings: undefined,
       useDefaultBibleSettings: true,
@@ -118,7 +117,7 @@ export default function ThemesEditor() {
     id: watchedData.id || 0,
     createdAt: watchedData.createdAt || new Date(),
     updatedAt: watchedData.updatedAt || new Date()
-  }
+  } as ThemeWithMedia
 
   // Parse animation settings - memoizado para evitar re-parseos
   const animationSettings = useMemo<AnimationSettings>(() => {
@@ -233,17 +232,20 @@ export default function ThemesEditor() {
         <div className="p-2 flex items-center gap-1 border-b flex-wrap">
           {/* Font Size */}
           <Controller
-            name="fontFamily"
+            name="textStyle.fontFamily"
             control={control}
             render={({ field }) => (
-              <FontFamilySelector value={field.value} onChange={field.onChange} />
+              <FontFamilySelector value={field.value || 'Arial'} onChange={field.onChange} />
             )}
           />
           <Controller
-            name="textSize"
+            name="textStyle.fontSize"
             control={control}
             render={({ field }) => (
-              <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+              <Select
+                value={String(field.value || 24)}
+                onValueChange={(v) => field.onChange(Number(v))}
+              >
                 <SelectTrigger size="sm">
                   <Type className="h-4 w-4" />
                   <SelectValue />
@@ -261,10 +263,14 @@ export default function ThemesEditor() {
 
           {/* Text Color */}
           <Controller
-            name="textColor"
+            name="textStyle.color"
             control={control}
             render={({ field }) => (
-              <ColorPicker value={field.value} onChange={field.onChange} className="h-8 w-10" />
+              <ColorPicker
+                value={field.value || '#000000'}
+                onChange={field.onChange}
+                className="h-8 w-10"
+              />
             )}
           />
 
@@ -272,13 +278,13 @@ export default function ThemesEditor() {
 
           {/* Bold */}
           <Controller
-            name="bold"
+            name="textStyle.fontWeight"
             control={control}
             render={({ field }) => (
               <Button
                 type="button"
                 size="icon"
-                variant={field.value ? 'default' : 'ghost'}
+                variant={field.value === 'bold' ? 'default' : 'ghost'}
                 onClick={() => field.onChange(!field.value)}
                 className="h-8 w-8"
               >
@@ -289,13 +295,13 @@ export default function ThemesEditor() {
 
           {/* Italic */}
           <Controller
-            name="italic"
+            name="textStyle.fontStyle"
             control={control}
             render={({ field }) => (
               <Button
                 type="button"
                 size="icon"
-                variant={field.value ? 'default' : 'ghost'}
+                variant={field.value === 'italic' ? 'default' : 'ghost'}
                 onClick={() => field.onChange(!field.value)}
                 className="h-8 w-8"
               >
@@ -306,13 +312,13 @@ export default function ThemesEditor() {
 
           {/* Underline */}
           <Controller
-            name="underline"
+            name="textStyle.textDecoration"
             control={control}
             render={({ field }) => (
               <Button
                 type="button"
                 size="icon"
-                variant={field.value ? 'default' : 'ghost'}
+                variant={field.value === 'underline' ? 'default' : 'ghost'}
                 onClick={() => field.onChange(!field.value)}
                 className="h-8 w-8"
               >
@@ -325,10 +331,13 @@ export default function ThemesEditor() {
 
           {/* Line Height */}
           <Controller
-            name="lineHeight"
+            name="textStyle.lineHeight"
             control={control}
             render={({ field }) => (
-              <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+              <Select
+                value={String(field.value || 1.2)}
+                onValueChange={(v) => field.onChange(Number(v))}
+              >
                 <SelectTrigger size="sm" className="w-[95px]">
                   <FormatLineSpacingIcon className="h-5 w-5" />
                   <SelectValue placeholder="Line height" />
@@ -346,10 +355,13 @@ export default function ThemesEditor() {
 
           {/* Letter Spacing */}
           <Controller
-            name="letterSpacing"
+            name="textStyle.letterSpacing"
             control={control}
             render={({ field }) => (
-              <Select value={String(field.value)} onValueChange={(v) => field.onChange(Number(v))}>
+              <Select
+                value={String(field.value || 0)}
+                onValueChange={(v) => field.onChange(Number(v))}
+              >
                 <SelectTrigger size="sm" className="w-[120px]">
                   <LetterSpacingIcon className="h-4 w-4" />
                   <SelectValue placeholder="Letter spacing" />
@@ -369,7 +381,7 @@ export default function ThemesEditor() {
 
           {/* Text Align */}
           <Controller
-            name="textAlign"
+            name="textStyle.textAlign"
             control={control}
             render={({ field }) => (
               <>
@@ -420,7 +432,7 @@ export default function ThemesEditor() {
       <div className="flex-1 bg-muted flex items-center justify-center p-4" ref={previewRef}>
         <PresentationView
           key={animationKey}
-          theme={previewData as ThemeWithMedia}
+          theme={previewData}
           items={PreviewsItems}
           live
           maxHeight={height - 32}
@@ -432,7 +444,7 @@ export default function ThemesEditor() {
           <PresentationView
             onClick={() => setSelectedPreview(index)}
             key={index}
-            theme={previewData as ThemeWithMedia}
+            theme={previewData}
             items={[item]}
             maxHeight={120}
             selected={selectedPreview === index}

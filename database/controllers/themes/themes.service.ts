@@ -1,5 +1,5 @@
 import { getPrisma } from '../../../electron/main/prisma'
-import { CreateThemeDto, UpdateThemeDto } from './themes.dto'
+import { CreateThemeDto, ThemeWithMedia, UpdateThemeDto } from './themes.dto'
 import { Prisma } from '@prisma/client'
 
 export class ThemesService {
@@ -15,7 +15,10 @@ export class ThemesService {
     }
     try {
       return await prisma.themes.create({
-        data
+        data: {
+          ...data,
+          textStyle: JSON.stringify(data.textStyle)
+        }
       })
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -27,36 +30,57 @@ export class ThemesService {
     }
   }
 
-  async getAllThemes() {
+  async getAllThemes(): Promise<ThemeWithMedia[]> {
     const prisma = getPrisma()
-    return await prisma.themes.findMany({
+    const themes = await prisma.themes.findMany({
       include: {
-        backgroundMedia: true
+        backgroundMedia: true,
+        biblePresentationSettings: true
       },
       orderBy: { createdAt: 'desc' }
     })
+
+    return themes.map((theme) => ({
+      ...theme,
+      textStyle: theme.textStyle ? JSON.parse(theme.textStyle) : {}
+    }))
   }
 
-  async getThemeById(id: number) {
+  async getThemeById(id: number): Promise<ThemeWithMedia> {
     const prisma = getPrisma()
-    return await prisma.themes.findUnique({
+    const theme = await prisma.themes.findUnique({
       where: { id },
       include: {
         backgroundMedia: true,
         biblePresentationSettings: true
       }
     })
+    if (!theme) {
+      throw new Error(`Tema con id ${id} no encontrado`)
+    }
+    return {
+      ...theme,
+      textStyle: theme?.textStyle ? JSON.parse(theme.textStyle) : {}
+    }
   }
 
-  async getThemeByName(name: string) {
+  async getThemeByName(name: string): Promise<ThemeWithMedia> {
     const prisma = getPrisma()
-    return await prisma.themes.findUnique({
+    const theme = await prisma.themes.findUnique({
       where: { name },
       include: {
         backgroundMedia: true,
         biblePresentationSettings: true
       }
     })
+
+    if (!theme) {
+      throw new Error(`Tema con nombre ${name} no encontrado`)
+    }
+    return {
+      ...theme,
+      textStyle: theme?.textStyle ? JSON.parse(theme.textStyle) : {}
+    }
   }
 
   async updateTheme(id: number, rawData: UpdateThemeDto) {
@@ -81,7 +105,10 @@ export class ThemesService {
     try {
       return await prisma.themes.update({
         where: { id },
-        data
+        data: {
+          ...data,
+          textStyle: JSON.stringify(data.textStyle)
+        }
       })
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {

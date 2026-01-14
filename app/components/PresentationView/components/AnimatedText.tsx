@@ -16,6 +16,7 @@ interface AnimatedTextProps {
   textStyle: React.CSSProperties // Estilos CSS para el texto
   isPreview?: boolean // Modo preview (sin animaciones)
   theme: ThemeWithMedia // Tema con configuración de presentación
+  smallFontSize: string // Indica si se debe usar un tamaño de fuente más pequeño
 }
 
 /**
@@ -28,14 +29,14 @@ export function AnimatedText({
   variants,
   textStyle,
   isPreview,
-  theme
+  theme,
+  smallFontSize
 }: AnimatedTextProps) {
   const { text: rawText, verse } = item
   const { biblePresentationSettings } = useBiblePresentationSetting()
   const { getCompleteNameById, getShortNameById } = useBibleSchema()
-
   // Determina qué configuración de biblia usar (del tema o la predeterminada)
-  const bibleShowSetting = useMemo(
+  const selectedBiblePresentationSettings = useMemo(
     () =>
       theme.useDefaultBibleSettings ? biblePresentationSettings : theme.biblePresentationSettings!,
     [theme.useDefaultBibleSettings, theme.biblePresentationSettings, biblePresentationSettings]
@@ -45,14 +46,15 @@ export function AnimatedText({
   const isScreenModeVerse = useMemo(
     () =>
       verse &&
-      (bibleShowSetting?.position === 'upScreen' || bibleShowSetting?.position === 'downScreen'),
-    [verse, bibleShowSetting?.position]
+      (selectedBiblePresentationSettings?.position === 'upScreen' ||
+        selectedBiblePresentationSettings?.position === 'downScreen'),
+    [verse, selectedBiblePresentationSettings?.position]
   )
 
   // Construye el texto de la referencia bíblica (ej: "Juan 3:16 (RVR1960)")
   const verseText = useMemo(() => {
-    if (!verse || !biblePresentationSettings) return ''
-    const { showVersion, description } = biblePresentationSettings
+    if (!verse || !selectedBiblePresentationSettings) return ''
+    const { showVersion, description } = selectedBiblePresentationSettings
 
     const bookName =
       description === 'complete'
@@ -62,48 +64,52 @@ export function AnimatedText({
     const versionText = showVersion ? ` (${verse.version})` : ''
 
     return `${bookName} ${verse.chapter}:${verse.verse}${versionText}`
-  }, [verse, biblePresentationSettings, getCompleteNameById, getShortNameById])
+  }, [verse, selectedBiblePresentationSettings, getCompleteNameById, getShortNameById])
 
   // Construye el texto final combinando el contenido con la referencia bíblica según la configuración
   // Construye el texto final combinando el contenido con la referencia bíblica según la configuración
   const text = useMemo(() => {
+    let finalText = rawText || ''
     // Solo número de versículo antes del texto
-    if (verse && biblePresentationSettings?.showVerseNumber) {
-      return `${verse.verse} ${rawText}`
+    if (verse && selectedBiblePresentationSettings?.showVerseNumber) {
+      finalText = `${verse.verse} ${finalText}`
     }
 
     // Si es modo pantalla (arriba/abajo), no incluir referencia en el texto principal
-    if (verse && !isScreenModeVerse && biblePresentationSettings) {
-      const position = biblePresentationSettings.position
+    if (verse && !isScreenModeVerse && selectedBiblePresentationSettings) {
+      const position = selectedBiblePresentationSettings.position
 
       // Referencia después del texto
       if (position === 'afterText') {
-        return `${rawText} ${verseText}`
+        finalText = `${finalText} ${verseText}`
       }
       // Referencia antes del texto
       if (position === 'beforeText') {
-        return `${verseText} ${rawText}`
+        finalText = `${verseText} ${finalText}`
       }
       // Referencia debajo del texto
       if (position === 'underText') {
-        return `${rawText} <br/> ${verseText}`
+        finalText = `${finalText} <br/> ${verseText}`
       }
       // Referencia encima del texto
       if (position === 'overText') {
-        return `${verseText} <br/> ${rawText}`
+        finalText = `${verseText} <br/> ${finalText}`
       }
     }
 
-    return rawText
-  }, [rawText, isScreenModeVerse, verse, verseText, biblePresentationSettings])
+    return finalText
+  }, [rawText, isScreenModeVerse, verse, verseText, selectedBiblePresentationSettings])
 
   /**
    * Renderiza el contenido del texto con o sin animaciones
    * @param textContext - El texto a renderizar
    */
   const content = useCallback(
-    (textContext: string) => {
+    (textContext: string, isVerse?: boolean) => {
       // Modo preview: sin animaciones
+      if (isVerse) {
+        textStyle.fontSize = smallFontSize
+      }
       if (isPreview) {
         return (
           <div style={textStyle} dangerouslySetInnerHTML={{ __html: sanitizeHTML(textContext) }} />
@@ -178,8 +184,14 @@ export function AnimatedText({
             position: 'absolute',
             left: '50%',
             transform: 'translateX(-50%)',
-            bottom: bibleShowSetting?.position === 'downScreen' ? '1rem' : 'auto',
-            top: bibleShowSetting?.position === 'upScreen' ? '1rem' : 'auto'
+            bottom:
+              selectedBiblePresentationSettings?.position === 'downScreen'
+                ? `${selectedBiblePresentationSettings.positionStyle || 0}px`
+                : 'auto',
+            top:
+              selectedBiblePresentationSettings?.position === 'upScreen'
+                ? `${selectedBiblePresentationSettings.positionStyle || 0}px`
+                : 'auto'
           }}
         >
           {content(verseText)}

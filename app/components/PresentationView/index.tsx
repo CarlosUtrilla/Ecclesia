@@ -94,10 +94,12 @@ export function PresentationView({
   const animationType = (animationSettings.type || 'fade') as AnimationType
 
   // Calcular font size proporcional
-  const calculatedFontSize = theme.textSize
-    ? `${(screenSize.height * theme.textSize) / 320}px`
+  const calculatedFontSize = theme.textStyle?.fontSize
+    ? `${(screenSize.height * Number(theme.textStyle.fontSize)) / 320}px`
     : 'inherit'
-
+  const calculatedSmallFontSize = theme.textStyle?.fontSize
+    ? `${(screenSize.height * (Number(theme.textStyle.fontSize) * 0.6)) / 320}px`
+    : 'inherit'
   // Memoizar variants
   const variants = useMemo(
     () =>
@@ -113,27 +115,10 @@ export function PresentationView({
   // Memoizar estilos
   const textStyle = useMemo(
     () => ({
-      color: theme.textColor,
-      fontFamily: theme.fontFamily,
-      fontStyle: theme.italic ? 'italic' : 'normal',
-      fontWeight: theme.bold ? 'bold' : 'normal',
-      textDecoration: theme.underline ? 'underline' : 'none',
-      lineHeight: theme.lineHeight,
-      letterSpacing: theme.letterSpacing,
-      textAlign: theme.textAlign as 'left' | 'center' | 'right',
+      ...theme.textStyle,
       fontSize: calculatedFontSize
     }),
-    [
-      theme.textColor,
-      theme.fontFamily,
-      theme.italic,
-      theme.bold,
-      theme.underline,
-      theme.lineHeight,
-      theme.letterSpacing,
-      theme.textAlign,
-      calculatedFontSize
-    ]
+    [theme, calculatedFontSize]
   )
 
   const containerStyle = useMemo(
@@ -163,7 +148,7 @@ export function PresentationView({
     <div
       onClick={onClick}
       style={containerStyle}
-      className={cn('border bg-background relative', {
+      className={cn('border bg-background relative select-none', {
         'outline-2 outline-primary transition-colors': selected,
         'cursor-pointer': onClick !== undefined,
         'border-0': live,
@@ -200,6 +185,7 @@ export function PresentationView({
           textStyle={textStyle}
           isPreview={!live}
           theme={theme}
+          smallFontSize={calculatedSmallFontSize}
         />
       </AnimatePresence>
       {tagSong !== null ? (

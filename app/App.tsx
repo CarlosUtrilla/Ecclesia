@@ -8,6 +8,7 @@ import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
 import { SplashScreen } from './components/SplashScreen'
 import { useMediaServer } from './contexts/MediaServerContext'
 import TagSongsEditor from './components/tagSongsEditor.tsx'
+import { ScheduleProvider } from './contexts/ScheduleContext'
 
 function AppContent() {
   const { isReady } = useMediaServer()
@@ -54,7 +55,9 @@ function App() {
   return (
     <MediaServerProvider>
       <ScreenSizeProvider>
-        <AppContent />
+        <ScheduleProvider>
+          <AppContent />
+        </ScheduleProvider>
       </ScreenSizeProvider>
     </MediaServerProvider>
   )

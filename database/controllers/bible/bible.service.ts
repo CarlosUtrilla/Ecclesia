@@ -99,7 +99,7 @@ class BibleService {
     }
   }
 
-  async getBibleSettings() {
+  async getDefaultBibleSettings() {
     const settings = await this.prisma.biblePresentationSettings.findFirst({
       where: { isGlobal: true }
     })

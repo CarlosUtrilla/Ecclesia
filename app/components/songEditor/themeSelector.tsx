@@ -2,11 +2,11 @@ import { cn } from '@/lib/utils'
 import React, { useState } from 'react'
 import { PresentationView } from '../PresentationView'
 import { useQuery } from '@tanstack/react-query'
-import { Themes } from '@prisma/client'
 import { Input } from '@/ui/input'
+import { ThemeWithMedia } from '../PresentationView/types'
 type Props = {
-  selectedTheme: Themes
-  setSelectedTheme: React.Dispatch<React.SetStateAction<Themes>>
+  selectedTheme: ThemeWithMedia
+  setSelectedTheme: React.Dispatch<React.SetStateAction<ThemeWithMedia>>
 }
 
 export default function ThemeSelector({ selectedTheme, setSelectedTheme }: Props) {

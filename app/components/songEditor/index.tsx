@@ -1,7 +1,6 @@
 import { Input } from '@/ui/input'
 import RichTextEditor from '@/components/songEditor/richEditor/richTextEditor'
 import t from '@locales'
-import { Themes } from '@prisma/client'
 import { useForm, Controller } from 'react-hook-form'
 import { Button } from '@/ui/button'
 import { PresentationView } from '../PresentationView'
@@ -13,30 +12,12 @@ import { CreateSongSchema } from './songsSchemas'
 import { CreateSongDTO } from 'database/controllers/songs/songs.dto'
 import { Tags } from 'lucide-react'
 import { BlockEditor } from './richEditor/utils'
-
-const BlankTheme: Themes = {
-  id: -1,
-  name: 'Blank',
-  background: '#ffffff',
-  backgroundMediaId: null,
-  letterSpacing: 0,
-  lineHeight: 1.5,
-  textSize: 16,
-  textColor: '#000000',
-  fontFamily: 'Arial',
-  previewImage: '',
-  textAlign: 'center',
-  bold: false,
-  italic: false,
-  underline: false,
-  animationSettings: '{"type":"fade","duration":0.4,"delay":0,"easing":"easeInOut"}',
-  createdAt: new Date(),
-  updatedAt: new Date()
-}
+import { ThemeWithMedia } from '../PresentationView/types'
+import { BlankTheme } from '@/hooks/useThemes'
 
 export default function SongEditor() {
   const { id } = useParams()
-  const [selectedTheme, setSelectedTheme] = useState<Themes>(BlankTheme)
+  const [selectedTheme, setSelectedTheme] = useState<ThemeWithMedia>(BlankTheme)
   const [editorKeyRender, setEditorKeyRender] = useState(0)
 
   const {

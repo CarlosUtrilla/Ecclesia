@@ -1,4 +1,5 @@
 import { PresentationView } from '@/components/PresentationView'
+import { useThemes } from '@/hooks/useThemes'
 import { Button } from '@/ui/button'
 import {
   ContextMenu,
@@ -6,25 +7,10 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/ui/context-menu'
-import { useQuery } from '@tanstack/react-query'
 import { Edit, Plus, Trash2 } from 'lucide-react'
-import { useEffect } from 'react'
 
 export default function ThemesPanel() {
-  const { data = [], refetch } = useQuery({
-    queryKey: ['themes'],
-    queryFn: async () => {
-      return window.api.themes.getAllThemes()
-    }
-  })
-
-  useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('theme-saved', () => {
-      console.log('invalidando query')
-      refetch()
-    })
-    return unsubscribe
-  }, [])
+  const { themes, refetchThemes } = useThemes()
 
   const handleEditarTema = (themeId: number) => {
     window.windowAPI.openThemeWindow(themeId)
@@ -36,7 +22,7 @@ export default function ThemesPanel() {
     if (!confirmed) return
 
     window.api.themes.deleteTheme(themeId).then(() => {
-      refetch()
+      refetchThemes()
     })
   }
   return (
@@ -54,7 +40,7 @@ export default function ThemesPanel() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 flex-wrap overflow-y-auto p-3 max-h-max">
-        {data.map((theme) => (
+        {themes.map((theme) => (
           <ContextMenu key={theme.id}>
             <ContextMenuTrigger className="rounded-md overflow-hidden">
               <PresentationView

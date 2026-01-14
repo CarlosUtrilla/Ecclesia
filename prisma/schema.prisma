@@ -55,15 +55,7 @@ model Themes {
   background                  String // Color, gradient, o "media" si usa backgroundMedia
   backgroundMediaId           Int? // ID del medio (imagen/video) usado como fondo
   backgroundMedia             Media?                     @relation(fields: [backgroundMediaId], references: [id])
-  textColor                   String
-  textSize                    Int
-  lineHeight                  Float
-  letterSpacing               Float
-  fontFamily                  String
-  textAlign                   String
-  bold                        Boolean                    @default(false)
-  italic                      Boolean                    @default(false)
-  underline                   Boolean                    @default(false)
+  textStyle                   String // JSON con StyleSheet para el texto
   animationSettings           String                     @default("{\"type\":\"fade\",\"duration\":0.4,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con configuración completa
   previewImage                String
   createdAt                   DateTime                   @default(now())
@@ -153,7 +145,7 @@ model BiblePresentationSettings {
   showVersion     Boolean                  @default(true)
   showVerseNumber Boolean                  @default(false)
   isGlobal        Boolean                  @default(false)
-  positionStyle   String?
+  positionStyle   Float?
   defaultTheme    Int?
   themes          Themes[]
 }

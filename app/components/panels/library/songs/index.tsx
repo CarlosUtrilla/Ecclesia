@@ -7,7 +7,7 @@ import { SongResponseDTO, SongsListResponseDTO } from 'database/controllers/song
 import { useEffect, useRef, useState } from 'react'
 import { Search, Music, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
+import { Tooltip } from '@/ui/tooltip'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -105,13 +105,10 @@ export default function SongsPanelLibrary() {
             className="pl-10 !bg-background"
           />
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="icon" onClick={() => window.windowAPI.openSongWindow()}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t('songsPanelLibrary.addSong')}</TooltipContent>
+        <Tooltip content={t('songsPanelLibrary.addSong')}>
+          <Button size="icon" onClick={() => window.windowAPI.openSongWindow()}>
+            <Plus className="h-4 w-4" />
+          </Button>
         </Tooltip>
       </div>
 

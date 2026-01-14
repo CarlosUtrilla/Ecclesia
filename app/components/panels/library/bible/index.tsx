@@ -6,10 +6,13 @@ import VerseSearch from './verseSearch'
 import TextFragmentSearch from './textFragmentSearch'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import ImportBibleButton from './importBible'
+import BiblePresentationConfiguration from '@/components/biblePresentationConfiguration'
+import { Button } from '@/ui/button'
+import { Settings } from 'lucide-react'
 
 export default function BiblePanel() {
   const [selectedVersion, setSelectedVersion] = useState('RVR1960')
-  const [selectedBook, setSelectedBook] = useState('GEN')
+  const [selectedBook, setSelectedBook] = useState('Gén')
   const [selectedChapter, setSelectedChapter] = useState(1)
   const [selectedVerse, setSelectedVerse] = useState([1])
 
@@ -58,8 +61,12 @@ export default function BiblePanel() {
                   setSelectedVerse([parseInt(vers)])
                 }}
               />
-
               <ImportBibleButton />
+              <BiblePresentationConfiguration>
+                <Button>
+                  <Settings />
+                </Button>
+              </BiblePresentationConfiguration>
             </div>
             <div className="grid grid-cols-12 gap-1">
               <BibleVersions

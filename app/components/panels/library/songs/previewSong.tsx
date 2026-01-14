@@ -1,7 +1,7 @@
 import useTagSongs from '@/hooks/useTagSongs'
 import { getContrastTextColor, sanitizeHTML } from '@/lib/utils'
 import { Button } from '@/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip'
+import { Tooltip } from '@/ui/tooltip'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { Edit2, Trash2 } from 'lucide-react'
 import { useMemo } from 'react'
@@ -40,30 +40,24 @@ export default function PreviewSong({ song, onDelete }: Props) {
         <h2 className="font-semibold">Vista previa:</h2>{' '}
         <div className="text-muted-foreground italic">{song.title}</div>
         <div className="ml-auto flex gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                className="size-8"
-                onClick={() => window.windowAPI.openSongWindow(song.id)}
-              >
-                <Edit2 className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Editar canción</TooltipContent>
+          <Tooltip content="Editar canción">
+            <Button
+              size="icon"
+              className="size-8"
+              onClick={() => window.windowAPI.openSongWindow(song.id)}
+            >
+              <Edit2 className="size-3.5" />
+            </Button>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="destructive"
-                className="size-8"
-                onClick={() => onDelete && onDelete(song.id)}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Eliminar canción</TooltipContent>
+          <Tooltip content="Eliminar canción">
+            <Button
+              size="icon"
+              variant="destructive"
+              className="size-8"
+              onClick={() => onDelete && onDelete(song.id)}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
           </Tooltip>
         </div>
       </div>
