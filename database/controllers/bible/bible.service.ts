@@ -1,6 +1,7 @@
 import type { BibleDTO, GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
 import { getPrisma } from '../../../electron/main/prisma'
 import { openBible } from './utils'
+import { BiblePresentationSettings } from '@prisma/client'
 
 class BibleService {
   prisma = getPrisma()
@@ -20,7 +21,7 @@ class BibleService {
             `
           SELECT text
           FROM verses
-          WHERE book = ?
+          WHERE id = ?
             AND chapter = ?
             AND verse = ?
         `
@@ -104,6 +105,20 @@ class BibleService {
       where: { isGlobal: true }
     })
     return settings!
+  }
+
+  async updateDefaultBibleSettings(data: BiblePresentationSettings) {
+    return await this.prisma.biblePresentationSettings.update({
+      where: { id: data.id, isGlobal: true },
+      data: {
+        description: data.description,
+        position: data.position,
+        showVerseNumber: data.showVerseNumber,
+        showVersion: data.showVersion,
+        positionStyle: data.positionStyle,
+        defaultTheme: data.defaultTheme
+      }
+    })
   }
 }
 

@@ -66,7 +66,12 @@ export function AnimatedText({
     return `${bookName} ${verse.chapter}:${verse.verse}${versionText}`
   }, [verse, selectedBiblePresentationSettings, getCompleteNameById, getShortNameById])
 
-  // Construye el texto final combinando el contenido con la referencia bíblica según la configuración
+  // Envuelve el verseText en un span con el tamaño de fuente pequeño
+  const formattedVerseText = useMemo(() => {
+    if (!verseText) return ''
+    return `<span style="font-size: ${smallFontSize}">${verseText}</span>`
+  }, [verseText, smallFontSize])
+
   // Construye el texto final combinando el contenido con la referencia bíblica según la configuración
   const text = useMemo(() => {
     let finalText = rawText || ''
@@ -81,35 +86,31 @@ export function AnimatedText({
 
       // Referencia después del texto
       if (position === 'afterText') {
-        finalText = `${finalText} ${verseText}`
+        finalText = `${finalText} ${formattedVerseText}`
       }
       // Referencia antes del texto
       if (position === 'beforeText') {
-        finalText = `${verseText} ${finalText}`
+        finalText = `${formattedVerseText} ${finalText}`
       }
       // Referencia debajo del texto
       if (position === 'underText') {
-        finalText = `${finalText} <br/> ${verseText}`
+        finalText = `${finalText} <br/> ${formattedVerseText}`
       }
       // Referencia encima del texto
       if (position === 'overText') {
-        finalText = `${verseText} <br/> ${finalText}`
+        finalText = `${formattedVerseText} <br/> ${finalText}`
       }
     }
 
     return finalText
-  }, [rawText, isScreenModeVerse, verse, verseText, selectedBiblePresentationSettings])
+  }, [rawText, isScreenModeVerse, verse, formattedVerseText, selectedBiblePresentationSettings])
 
   /**
    * Renderiza el contenido del texto con o sin animaciones
    * @param textContext - El texto a renderizar
    */
   const content = useCallback(
-    (textContext: string, isVerse?: boolean) => {
-      // Modo preview: sin animaciones
-      if (isVerse) {
-        textStyle.fontSize = smallFontSize
-      }
+    (textContext: string) => {
       if (isPreview) {
         return (
           <div style={textStyle} dangerouslySetInnerHTML={{ __html: sanitizeHTML(textContext) }} />
@@ -184,6 +185,7 @@ export function AnimatedText({
             position: 'absolute',
             left: '50%',
             transform: 'translateX(-50%)',
+            fontSize: smallFontSize,
             bottom:
               selectedBiblePresentationSettings?.position === 'downScreen'
                 ? `${selectedBiblePresentationSettings.positionStyle || 0}px`
@@ -194,7 +196,7 @@ export function AnimatedText({
                 : 'auto'
           }}
         >
-          {content(verseText)}
+          {content(formattedVerseText)}
         </div>
       )}
     </>

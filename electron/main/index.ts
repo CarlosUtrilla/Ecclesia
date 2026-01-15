@@ -41,7 +41,6 @@ app.whenReady().then(async () => {
   registerRoutes()
   // Inicializar gestor de biblias
   initializeBibleManager()
-
   //inicalizar gestor de pantallas
   initializeDisplayManager()
 

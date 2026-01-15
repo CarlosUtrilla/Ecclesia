@@ -1,3 +1,4 @@
+import { BiblePresentationSettings } from '@prisma/client'
 import { GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
 import BibleService from './bible.service'
 import { BibleManagmentService } from './bibleManagment.service'
@@ -26,6 +27,10 @@ class BibleController {
 
   async getDefaultBibleSettings() {
     return this.BibleService.getDefaultBibleSettings()
+  }
+
+  async updateDefaultBibleSettings(data: BiblePresentationSettings) {
+    return this.BibleService.updateDefaultBibleSettings(data)
   }
 }
 

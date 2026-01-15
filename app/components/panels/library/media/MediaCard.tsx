@@ -38,7 +38,10 @@ export function MediaCard({
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('application/json', JSON.stringify({ item: media, isFolder: false }))
+    e.dataTransfer.setData(
+      'application/json',
+      JSON.stringify({ item: media, isFolder: false, type: 'media', accessData: media.id })
+    )
   }
 
   const handleClick = (e: React.MouseEvent) => {

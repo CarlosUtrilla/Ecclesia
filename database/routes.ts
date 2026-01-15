@@ -4,6 +4,7 @@ import { ThemesController } from './controllers/themes/themes.controller'
 import { MediaController } from './controllers/media/media.controller'
 import { TagSongsController } from './controllers/tagSongs/tagSongs.controller'
 import BibleController from './controllers/bible/bible.controller'
+import { ScheduleController } from './controllers/schedule/schedule.controller'
 
 export const routes = {
   setttings: SettingsController,
@@ -11,5 +12,6 @@ export const routes = {
   themes: ThemesController,
   media: MediaController,
   tagSongs: TagSongsController,
-  bible: BibleController
+  bible: BibleController,
+  schedule: ScheduleController
 }

@@ -1,7 +1,7 @@
 import { BibleSchema, BibleVerses } from '@prisma/client'
 
 export type GetVersesDTO = {
-  book: string
+  book: number
   chapter: number
   verses?: number[]
   version: string

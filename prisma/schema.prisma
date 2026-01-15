@@ -151,28 +151,41 @@ model BiblePresentationSettings {
 }
 
 model Schedule {
-  id        Int            @id @default(autoincrement())
-  title     String
-  date      DateTime
-  items     ScheduleItem[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id       Int            @id @default(autoincrement())
+  title    String
+  dateFrom DateTime?
+  dateTo   DateTime?
+  items    ScheduleItem[]
 }
 
 model ScheduleGroup {
-  id    Int            @id @default(autoincrement())
-  name  String
-  color String
-  order Int
-  items ScheduleItem[]
+  id            Int            @id @default(autoincrement())
+  name          String
+  color         String
+  order         Int
+  scheduleItems ScheduleItem[]
+}
+
+enum ScheduleItemType {
+  BIBLE
+  SONG
+  MEDIA
+  PRESENTATION
 }
 
 model ScheduleItem {
-  id              Int           @id @default(autoincrement())
+  id              Int              @id @default(autoincrement())
   order           Int
-  data            String // Pendiente por definir mejor el tipo de dato
+  type            ScheduleItemType
+  /**
+   * Este campo almacena el id del recurso (por ejemplo, id de la canción, id del medio)
+   * Si el recurso es una biblia, puede almacenar el libro, capítulo y versículo
+   * Ej. Biblia: formato: "1,13,16-18,RVR1960" (Génesis 1:16-18, versión RVR1960)
+   * Ej. Biblia: formato: "1,13,16" (Génesis 1:16, versión por defecto seleccionada)
+   */
+  accessData      String
   scheduleId      Int
-  scheduleGroupId Int
-  schedule        Schedule      @relation(fields: [scheduleId], references: [id])
-  group           ScheduleGroup @relation(fields: [scheduleGroupId], references: [id])
+  scheduleGroupId Int? /*Id del grupo al que pertenece el ítem, puede no pertenecer a ningún grupo*/
+  scheduleGroup   ScheduleGroup?   @relation(fields: [scheduleGroupId], references: [id])
+  schedule        Schedule         @relation(fields: [scheduleId], references: [id])
 }

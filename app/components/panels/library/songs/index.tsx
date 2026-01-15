@@ -142,17 +142,29 @@ export default function SongsPanelLibrary() {
               <ContextMenu key={song.id}>
                 <ContextMenuTrigger>
                   <div
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        'application/json',
+                        JSON.stringify({
+                          type: 'song',
+                          accessData: song.id
+                        })
+                      )
+                      e.dataTransfer.effectAllowed = 'copy'
+                    }}
                     className={cn(
-                      'p-1 px-4 hover:bg-muted/30',
+                      'p-1 px-4 pl-3 hover:bg-muted/30',
                       'cursor-pointer transition-colors',
                       {
-                        'bg-accent/90': selectedSong?.id === song.id
+                        'bg-secondary/20 hover:bg-secondary/10': selectedSong?.id === song.id
                       }
                     )}
                     onClick={() => setSelectedSong(song)}
                     onDoubleClick={() => window.windowAPI.openSongWindow(song.id)}
                   >
                     <h3 className="font-semibold text-base flex gap-2 items-center">
+                      <Music className="h-4 w-4 text-muted-foreground" />
                       {song.title}
                       {song.author ? (
                         <div className="text-sm text-muted-foreground mt-1">

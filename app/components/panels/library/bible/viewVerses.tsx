@@ -138,6 +138,18 @@ export default function ViewVerses({
     internalSelectionRef.current = false
   }, [verse, completeChapter])
 
+  const hanldeDragStart = (e: React.DragEvent) => {
+    const verseRange = verse.length === 1 ? verse[0] : `${Math.min(...verse)}-${Math.max(...verse)}`
+    e.dataTransfer.setData(
+      'application/json',
+      JSON.stringify({
+        type: 'bible',
+        accessData: `${bookData?.id},${chapter},${verseRange},${version}`
+      })
+    )
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+
   return (
     <div className="row-span-1 overflow-hidden flex flex-col h-full">
       <div className="p-2 bg-muted/50 font-semibold">{bookData?.book}</div>
@@ -150,21 +162,20 @@ export default function ViewVerses({
         {completeChapter.map((v, index) => (
           <div
             key={index}
+            draggable
             ref={(el) => {
               if (el) verseRefs.current.set(v.verse, el)
             }}
-            className={cn(
-              'flex border-b items-baseline hover:bg-muted/40 cursor-pointer select-none',
-              {
-                'bg-secondary/20 hover:bg-secondary/10': verse.includes(v.verse)
-              }
-            )}
+            className={cn('flex border-b items-baseline hover:bg-muted/40 cursor-pointer ', {
+              'bg-secondary/20 hover:bg-secondary/10': verse.includes(v.verse)
+            })}
             onClick={(e) => handleVerseClick(v.verse, index, e)}
+            onDragStart={hanldeDragStart}
           >
-            <div className="font-semibold text-muted-foreground w-7 text-center text-sm">
+            <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">
               {v.verse}
             </div>
-            <div className="flex-1 pr-1.5 text-sm">{v.text}</div>
+            <div className="flex-1 pr-1.5 text-sm select-none">{v.text}</div>
           </div>
         ))}
       </div>

@@ -98,7 +98,7 @@ export function PresentationView({
     ? `${(screenSize.height * Number(theme.textStyle.fontSize)) / 320}px`
     : 'inherit'
   const calculatedSmallFontSize = theme.textStyle?.fontSize
-    ? `${(screenSize.height * (Number(theme.textStyle.fontSize) * 0.6)) / 320}px`
+    ? `${(screenSize.height * (Number(theme.textStyle.fontSize) * 0.85)) / 320}px`
     : 'inherit'
   // Memoizar variants
   const variants = useMemo(

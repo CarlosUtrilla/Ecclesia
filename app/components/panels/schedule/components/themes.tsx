@@ -1,4 +1,5 @@
 import { PresentationView } from '@/components/PresentationView'
+import { useSchedule } from '@/contexts/ScheduleContext'
 import { useThemes } from '@/hooks/useThemes'
 import { Button } from '@/ui/button'
 import {
@@ -11,6 +12,7 @@ import { Edit, Plus, Trash2 } from 'lucide-react'
 
 export default function ThemesPanel() {
   const { themes, refetchThemes } = useThemes()
+  const { selectedTheme, setSelectedTheme } = useSchedule()
 
   const handleEditarTema = (themeId: number) => {
     window.windowAPI.openThemeWindow(themeId)
@@ -26,7 +28,7 @@ export default function ThemesPanel() {
     })
   }
   return (
-    <div className="flex-1 border-t">
+    <div className="flex-1 border-t max-h-5/12">
       <div className="bg-muted/40 px-3 py-1 border-b flex justify-between items-center">
         <h2 className="text-lg font-semibold">Themes</h2>
         <div>
@@ -44,6 +46,8 @@ export default function ThemesPanel() {
           <ContextMenu key={theme.id}>
             <ContextMenuTrigger className="rounded-md overflow-hidden">
               <PresentationView
+                onClick={() => setSelectedTheme(theme)}
+                selected={selectedTheme?.id === theme.id}
                 theme={theme}
                 items={[
                   {

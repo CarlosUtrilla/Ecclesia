@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, RefObject } from 'react'
 import { Plus, Search, FolderPlus, ChevronRight, Home, LayoutGrid, List } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
@@ -15,8 +15,11 @@ import { useSelection, SelectableItem } from './hooks/useSelection'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useDragAndDrop } from './hooks/useDragAndDrop'
 import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } from './utils'
+import { useOnClickOutside } from 'usehooks-ts'
 
 export default function MediaLibrary() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [userFocused, setUserFocused] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [currentFolder, setCurrentFolder] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -36,6 +39,11 @@ export default function MediaLibrary() {
   const operations = useMediaOperations(currentFolder)
   const { clipboard, copy, cut, clear, getSourcePath } = useClipboard(currentFolder)
   const selection = useSelection()
+
+  useOnClickOutside(containerRef as RefObject<HTMLDivElement>, () => {
+    setUserFocused(false)
+    containerRef.current?.blur()
+  })
 
   // Drag and drop para importar archivos
   const dragAndDrop = useDragAndDrop({
@@ -79,7 +87,9 @@ export default function MediaLibrary() {
       }
     })
 
-    return unsubscribe
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   // Limpiar selección cuando cambie de carpeta
@@ -89,6 +99,7 @@ export default function MediaLibrary() {
 
   // Handlers de selección
   const handleItemClick = (item: SelectableItem, e: React.MouseEvent) => {
+    containerRef.current?.focus()
     if (e.shiftKey) {
       selection.selectRange(item, allSelectableItems)
     } else if (e.ctrlKey || e.metaKey) {
@@ -298,6 +309,7 @@ export default function MediaLibrary() {
     onDelete: handleDeleteSelection,
     onSelectAll: () => selection.selectAll(allSelectableItems),
     onNavigate: (direction, extendSelection = false) => {
+      if (!userFocused) return
       // En vista de lista: 1 columna, en vista de cuadrícula: 2 columnas
       const columnsPerRow = viewMode === 'list' ? 1 : 2
       selection.navigateSelection(direction, allSelectableItems, columnsPerRow, extendSelection)
@@ -305,7 +317,13 @@ export default function MediaLibrary() {
   })
 
   return (
-    <div className="h-full flex flex-col relative">
+    <div
+      onFocus={() => setUserFocused(true)}
+      onBlur={() => setUserFocused(false)}
+      ref={containerRef}
+      tabIndex={-1}
+      className="h-full flex flex-col relative outline-none"
+    >
       {/* Header - Solo búsqueda y acciones */}
       <div className="p-3 border-b ">
         <div>

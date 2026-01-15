@@ -9,7 +9,11 @@ export const CreateThemeSchema = z.object({
   previewImage: z.string(),
   useDefaultBibleSettings: z.boolean(),
   biblePresentationSettingsId: z.number().nullable().optional(),
-  biblePresentationSettings: BiblePresentationSchema.optional().nullable()
+  biblePresentationSettings: BiblePresentationSchema.extend({
+    id: z.number().optional()
+  })
+    .optional()
+    .nullable()
 })
 
 export const UpdateThemeSchema = CreateThemeSchema.extend({

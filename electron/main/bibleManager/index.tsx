@@ -1,6 +1,7 @@
-import { dialog, ipcMain } from 'electron'
+import { dialog, ipcMain, ipcRenderer } from 'electron'
 import {
   deleteBible,
+  ImportBibleResult,
   importBibles,
   initializeDefaultBibles,
   listAvailableBibles
@@ -58,4 +59,14 @@ export async function initializeBibleManager() {
       throw error
     }
   })
+}
+
+// API para gestionar biblias
+export const bibleAPI = {
+  selectFiles: (): Promise<string[]> => ipcRenderer.invoke('bible:select-bible-file'),
+  importFiles: (sourcePaths: string | string[]): Promise<ImportBibleResult[]> =>
+    ipcRenderer.invoke('bible:import-files', sourcePaths),
+  listAvailable: (): Promise<string[]> => ipcRenderer.invoke('bible:list-available'),
+  delete: (filename: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('bible:delete', filename)
 }

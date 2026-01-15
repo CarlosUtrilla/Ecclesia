@@ -15,17 +15,33 @@ import { PropsWithChildren, useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { BiblePresentationSchema } from './schema'
 import { Tooltip } from '@/ui/tooltip'
-import { BibleDescriptionMode, BibleDescriptionPosition } from '@prisma/client'
+import {
+  BibleDescriptionMode,
+  BibleDescriptionPosition,
+  BiblePresentationSettings
+} from '@prisma/client'
 import { PresentationView } from '../PresentationView'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { Slider } from '@/ui/slider'
+import { ThemeWithMedia } from '../PresentationView/types'
 
 type Props = {
   hideTooltip?: boolean
+  customTheme?: ThemeWithMedia
+  customBibleSettings?: Omit<BiblePresentationSettings, 'id' | 'isGlobal' | 'defaultTheme'> & {
+    id?: number
+  }
+  setCustomBibleSettings?: (value: BiblePresentationSettings) => void
 } & PropsWithChildren
 
-export default function BiblePresentationConfiguration({ children, hideTooltip }: Props) {
+export default function BiblePresentationConfiguration({
+  children,
+  hideTooltip,
+  customTheme,
+  customBibleSettings,
+  setCustomBibleSettings
+}: Props) {
   const { selectedTheme } = useSchedule()
   const [open, setOpen] = useState(false)
   const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
@@ -35,7 +51,8 @@ export default function BiblePresentationConfiguration({ children, hideTooltip }
       position: 'afterText' as BibleDescriptionPosition,
       showVersion: true,
       showVerseNumber: false,
-      positionStyle: null
+      positionStyle: null,
+      ...customBibleSettings
     },
     resolver: zodResolver(BiblePresentationSchema)
   })
@@ -43,6 +60,11 @@ export default function BiblePresentationConfiguration({ children, hideTooltip }
   const values = watch()
 
   const onSubmit = (data: any) => {
+    if (customBibleSettings && setCustomBibleSettings) {
+      setCustomBibleSettings(data)
+      setOpen(false)
+      return
+    }
     console.log('Guardar configuración:', data)
     // Aquí implementar la lógica para guardar
   }
@@ -177,7 +199,7 @@ export default function BiblePresentationConfiguration({ children, hideTooltip }
                         value={[field.value || 0]}
                         max={16}
                         min={0}
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => field.onChange(value[0])}
                       />
                       <div className="w-10 text-sm text-right">{field.value || 0} px</div>
                     </div>
@@ -189,7 +211,7 @@ export default function BiblePresentationConfiguration({ children, hideTooltip }
             <div className="p-4 flex items-center justify-center bg-muted rounded-md border">
               <PresentationView
                 theme={{
-                  ...selectedTheme,
+                  ...(customTheme || selectedTheme),
                   biblePresentationSettings: {
                     ...values,
                     id: -1,

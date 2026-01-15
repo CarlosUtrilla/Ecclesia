@@ -11,7 +11,8 @@ import {
   AlignJustify,
   Bold,
   Italic,
-  Underline as UnderlineIcon
+  Underline as UnderlineIcon,
+  Settings
 } from 'lucide-react'
 import { useRef, useMemo, useCallback, useState, useEffect } from 'react'
 import { Separator } from '@/ui/separator'
@@ -30,6 +31,9 @@ import { PresentationViewItems, ThemeWithMedia } from '../PresentationView/types
 import { useParams } from 'react-router'
 import { CreateThemeSchema, UpdateThemeSchema } from './schema'
 import { z } from 'zod'
+import { Switch } from '@/ui/switch'
+import BiblePresentationConfiguration from '../biblePresentationConfiguration'
+import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -43,6 +47,7 @@ type FormData = z.infer<typeof CreateThemeSchema> & {
 export default function ThemesEditor() {
   const { id } = useParams()
   const previewRef = useRef<HTMLDivElement>(null)
+  const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
   const { height = 0 } = useResizeObserver({
     ref: previewRef as React.RefObject<HTMLDivElement>
   })
@@ -179,6 +184,20 @@ export default function ThemesEditor() {
     }
   })
 
+  const handleSwitchBibleSetting = (value: boolean) => {
+    setValue('useDefaultBibleSettings', value, { shouldDirty: true })
+    if (!watchedData.biblePresentationSettings) {
+      setValue(
+        'biblePresentationSettings',
+        {
+          ...defaultBiblePresentationSettings,
+          id: undefined
+        } as any,
+        { shouldDirty: true }
+      )
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       <title>Editor de temas</title>
@@ -203,7 +222,12 @@ export default function ThemesEditor() {
                 <Save />
                 Save
               </Button>
-              <Button size="sm" className="flex-1" variant="destructive">
+              <Button
+                onClick={() => window.windowAPI.closeCurrentWindow()}
+                size="sm"
+                className="flex-1"
+                variant="destructive"
+              >
                 Cancel
               </Button>
             </div>
@@ -226,6 +250,46 @@ export default function ThemesEditor() {
             onChange={handleAnimationChange}
             onPreview={handlePreviewAnimation}
           />
+
+          <Separator orientation="vertical" className="!h-16 mx-1" />
+
+          {/* Configuración de Biblia */}
+          <div className="flex items-center gap-2 px-2 py-1.5 border rounded-md bg-background/50">
+            <div className="flex flex-col gap-1 min-w-[160px]">
+              <span className="text-xs font-medium">Presentación Biblia</span>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="useDefaultBibleSettings"
+                  checked={watchedData.useDefaultBibleSettings}
+                  onCheckedChange={handleSwitchBibleSetting}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {watchedData.useDefaultBibleSettings ? 'Por defecto' : 'Personalizado'}
+                </span>
+              </div>
+            </div>
+            <BiblePresentationConfiguration
+              customTheme={previewData}
+              customBibleSettings={
+                watchedData.biblePresentationSettings
+                  ? {
+                      ...watchedData.biblePresentationSettings
+                    }
+                  : undefined
+              }
+              setCustomBibleSettings={(settings) =>
+                setValue('biblePresentationSettings', settings, { shouldDirty: true })
+              }
+            >
+              <Button
+                disabled={watchedData.useDefaultBibleSettings}
+                size="icon"
+                className="h-8 w-8"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </BiblePresentationConfiguration>
+          </div>
         </div>
 
         {/* Barra de herramientas de estilo */}
