@@ -1,7 +1,9 @@
 import { Button } from '@/ui/button'
 import { useSchedule } from '@/contexts/ScheduleContext'
-import { Save, CalendarSearch, Upload } from 'lucide-react'
+import { Save, CalendarSearch, Upload, Music, Video, BookPlusIcon, Image } from 'lucide-react'
 import { useState } from 'react'
+import useBibleSchema from '@/hooks/useBibleSchema'
+import { useQuery } from '@tanstack/react-query'
 
 type ScheduleContentProps = {
   onBack: () => void
@@ -9,7 +11,36 @@ type ScheduleContentProps = {
 
 export default function ScheduleContent({ onBack }: ScheduleContentProps) {
   const { currentSchedule, form } = useSchedule()
+  const { getCompleteVerseText } = useBibleSchema()
   const [isDraggingOver, setIsDraggingOver] = useState(false)
+
+  const accessDataKey = currentSchedule?.items.map((item) => parseInt(item.accessData))
+  const { data: songs = [] } = useQuery({
+    queryKey: ['songsByIds', accessDataKey],
+    queryFn: async () => {
+      if (!currentSchedule) return []
+      const songIds = currentSchedule.items
+        .filter((item) => item.type === 'SONG')
+        .map((item) => parseInt(item.accessData))
+      if (songIds.length === 0) return []
+      return await window.api.songs.getSongsByIds(songIds)
+    },
+    enabled: !!currentSchedule
+  })
+
+  const { data: media = [] } = useQuery({
+    queryKey: ['mediaByIds', accessDataKey],
+    queryFn: async () => {
+      if (!currentSchedule) return []
+      const mediaIds = currentSchedule.items
+        .filter((item) => item.type === 'MEDIA')
+        .map((item) => parseInt(item.accessData))
+      if (mediaIds.length === 0) return []
+      return await window.api.media.getMediaByIds(mediaIds)
+    },
+    enabled: !!currentSchedule
+  })
+
   if (!currentSchedule) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -71,6 +102,70 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
     }
   }
 
+  const getIconForType = (id: number, type: string) => {
+    switch (type) {
+      case 'SONG':
+        return <Music className="h-4 w-4" />
+      case 'MEDIA': {
+        const med = media.find((m) => m.id === Number(id))
+        /*  if (med && med.type === 'AUDIO') {
+          return <Music className="h-4 w-4" />
+        } */
+        if (med && med.type === 'VIDEO') {
+          return <Video className="h-4 w-4" />
+        }
+        if (med && med.type === 'IMAGE') {
+          return <Image className="h-4 w-4" />
+        }
+        return <Video className="h-4 w-4" />
+      }
+      case 'BIBLE':
+        return <BookPlusIcon className="h-4 w-4" />
+      default:
+        return '❓'
+    }
+  }
+
+  const getItemLabel = (accessData: string, type: string) => {
+    switch (type) {
+      case 'SONG': {
+        const song = songs.find((s) => s.id === parseInt(accessData))
+        if (song) {
+          return song.title
+        }
+        return 'loading...'
+      }
+      case 'MEDIA': {
+        const med = media.find((m) => m.id === parseInt(accessData))
+        if (med) {
+          return med.name
+        }
+        return `Medio ID: ${accessData}`
+      }
+      case 'BIBLE': {
+        const splited = accessData.split(',')
+        const versesRange = splited[2].split('-')
+        const text =
+          getCompleteVerseText(
+            parseInt(splited[0]),
+            parseInt(splited[1]),
+            parseInt(versesRange[0]),
+            versesRange[1] ? parseInt(versesRange[1]) : undefined
+          ) || accessData
+        return (
+          <div>
+            {text}{' '}
+            {splited[3] ? (
+              <span className="text-muted-foreground text-xs">({splited[3]})</span>
+            ) : null}
+          </div>
+        )
+      }
+      default:
+        return accessData
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col w-full">
       {/* Header con info del schedule */}
@@ -124,17 +219,18 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
                 : ''
             }`}
           >
-            <div className="space-y-2">
+            <div className="space-y-1">
               {currentSchedule.items.map((item, index) => (
                 <div
                   key={index}
-                  className="p-3 bg-background border rounded-md hover:bg-muted/50 transition-colors"
+                  className="p-3 py-1.5 bg-background border rounded-md hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground w-6">{index + 1}</span>
-                    <span className="text-sm font-medium">{item.type}</span>
-                    <span className="text-xs text-muted-foreground flex-1 truncate">
-                      {item.accessData}
+                    <span className="text-xs text-primary">
+                      {getIconForType(item.accessData, item.type)}
+                    </span>
+                    <span className="text-sm font-medium">
+                      {getItemLabel(item.accessData, item.type)}
                     </span>
                   </div>
                 </div>

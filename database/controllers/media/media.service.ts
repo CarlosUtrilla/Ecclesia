@@ -69,4 +69,15 @@ export class MediaService {
       where: { id }
     })
   }
+
+  async getMediaByIds(ids: number[]): Promise<MediaDto[]> {
+    const prisma = getPrisma()
+    return await prisma.media.findMany({
+      where: {
+        id: {
+          in: ids
+        }
+      }
+    })
+  }
 }

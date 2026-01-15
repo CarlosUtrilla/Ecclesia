@@ -8,6 +8,10 @@ class SongsController {
     return this.songsService.createSong(data)
   }
 
+  async getSongsByIds(ids: number[]) {
+    return this.songsService.getSongsByIds(ids)
+  }
+
   async getSongsInfiniteScroll(params: GetSongsDTO): Promise<SongsListResponseDTO> {
     return this.songsService.getSongsInfiniteScroll(params)
   }

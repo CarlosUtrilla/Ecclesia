@@ -1,4 +1,4 @@
-import { MediaType } from '@prisma/client'
+import { Media, MediaType } from '@prisma/client'
 
 export interface CreateMediaDto {
   name: string
@@ -20,22 +20,7 @@ export interface UpdateMediaDto {
   folder?: string | null
 }
 
-export interface MediaDto {
-  id: number
-  name: string
-  type: MediaType
-  format: string
-  filePath: string
-  fileSize: number
-  width?: number | null
-  height?: number | null
-  duration?: number | null
-  thumbnail?: string | null
-  fallback?: string | null
-  folder?: string | null
-  createdAt: Date
-  updatedAt: Date
-}
+export type MediaDto = Media
 
 export interface MediaListDto {
   items: MediaDto[]

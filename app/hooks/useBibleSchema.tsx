@@ -17,9 +17,21 @@ export default function useBibleSchema() {
     return book ? book.book : null
   }
 
+  const getCompleteVerseText = (
+    bookId: number,
+    chapter: number,
+    verseStart: number,
+    verseEnd?: number
+  ) => {
+    const book = bibleSchema.find((b) => b.id === bookId)
+    if (!book) return null
+    return `${book.book} ${chapter}:${verseStart}${verseEnd && verseEnd !== verseStart ? `-${verseEnd}` : ''}`
+  }
+
   return {
     bibleSchema,
     getShortNameById,
-    getCompleteNameById
+    getCompleteNameById,
+    getCompleteVerseText
   }
 }

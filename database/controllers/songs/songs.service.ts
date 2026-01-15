@@ -1,5 +1,5 @@
 import { getPrisma } from '../../../electron/main/prisma'
-import type { CreateSongDTO, GetSongsDTO, SongsListResponseDTO } from './songs.dto'
+import type { CreateSongDTO, GetSongsDTO, SongResponseDTO, SongsListResponseDTO } from './songs.dto'
 
 class SongsService {
   prisma = getPrisma()
@@ -168,6 +168,19 @@ class SongsService {
       ...song,
       lyrics: song.lyrics[0] || null
     }))
+  }
+
+  getSongsByIds(ids: number[]): Promise<SongResponseDTO[]> {
+    return this.prisma.song.findMany({
+      where: {
+        id: {
+          in: ids
+        }
+      },
+      include: {
+        lyrics: true
+      }
+    })
   }
 }
 

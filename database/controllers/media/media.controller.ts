@@ -27,4 +27,8 @@ export class MediaController {
   async delete(id: string) {
     return await this.mediaService.delete(parseInt(id))
   }
+
+  async getMediaByIds(data: number[]) {
+    return await this.mediaService.getMediaByIds(data)
+  }
 }
