@@ -7,6 +7,7 @@ import { MediaServerProvider } from './contexts/MediaServerContext'
 import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
 import TagSongsEditor from './components/tagSongsEditor.tsx'
 import { ScheduleProvider } from './contexts/ScheduleContext'
+import LivePanels from './components/panels/live'
 
 function AppContent() {
   return (
@@ -17,6 +18,7 @@ function AppContent() {
           <div className="grid grid-rows-1 grid-cols-4 h-dvh max-h-svh">
             <LibraryPanel />
             <SchedulePanel />
+            <LivePanels />
           </div>
         }
       />

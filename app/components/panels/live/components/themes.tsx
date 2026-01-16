@@ -29,7 +29,7 @@ export default function ThemesPanel() {
   }
   return (
     <div className="flex-1 border-t max-h-5/12">
-      <div className="bg-muted/40 px-3 py-1 border-b flex justify-between items-center">
+      <div className="bg-muted/40 px-3 py-2 border-b flex justify-between items-center">
         <h2 className="text-lg font-semibold">Themes</h2>
         <div>
           <Button

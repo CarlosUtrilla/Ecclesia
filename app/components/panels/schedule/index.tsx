@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { ScheduleProvider } from '@/contexts/ScheduleContext'
 import ScheduleList from './components/scheduleList'
 import ScheduleContent from './components/scheduleContent'
 
@@ -17,14 +16,12 @@ export default function SchedulePanelContent() {
   }
 
   return (
-    <ScheduleProvider>
-      <div className="border-r h-full">
-        {showList ? (
-          <ScheduleList onScheduleSelect={handleScheduleSelect} />
-        ) : (
-          <ScheduleContent onBack={handleBackToList} />
-        )}
-      </div>
-    </ScheduleProvider>
+    <div className="border-r h-full">
+      {showList ? (
+        <ScheduleList onScheduleSelect={handleScheduleSelect} />
+      ) : (
+        <ScheduleContent onBack={handleBackToList} />
+      )}
+    </div>
   )
 }

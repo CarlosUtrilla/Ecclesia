@@ -1,6 +1,6 @@
 import { Button } from '@/ui/button'
 import { useSchedule } from '@/contexts/ScheduleContext'
-import { Save, CalendarSearch, Upload } from 'lucide-react'
+import { Save, CalendarSearch, Upload, Radio } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ScheduleItem } from '@prisma/client'
@@ -18,7 +18,8 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
     getScheduleItemContentScreen,
     getScheduleItemIcon,
     getScheduleItemLabel,
-    selectedTheme
+    selectedTheme,
+    setItemOnLive
   } = useSchedule()
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
@@ -98,7 +99,6 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
     }
   }
 
-  console.log(itemContent)
   return (
     <>
       <div
@@ -170,6 +170,10 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
                       }
                     )}
                     onClick={() => setSelectedItem(item)}
+                    onDoubleClick={() => {
+                      setSelectedItem(item)
+                      setItemOnLive(item)
+                    }}
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
@@ -190,7 +194,12 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
       </div>
       {itemContent && itemContent.length && selectedItem ? (
         <div className="flex flex-col h-5/12">
-          <h3 className="font-medium px-2 py-2 border-y bg-muted/20">Vista previa</h3>
+          <div className="flex justify-between items-center px-2 py-2 border-y bg-muted/20">
+            <h3 className="font-medium">Vista previa</h3>
+            <Button size="sm" onClick={() => setItemOnLive(selectedItem)}>
+              Presentar en vivo <Radio className="h-4 w-4" />
+            </Button>
+          </div>
           <div className="grid flex-1 p-2 grid-cols-2 auto-rows-min gap-2 h-full overflow-y-auto">
             {itemContent.map((content, index) => (
               <PresentationView key={index} items={[content]} theme={selectedTheme} />

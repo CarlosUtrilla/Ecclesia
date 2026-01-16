@@ -9,6 +9,8 @@ import { ScheduleItem } from '@prisma/client'
 import { useIndexDataItems } from './indexDataItems'
 
 type IScheduleContext = {
+  itemOnLive: ScheduleItem | null
+  setItemOnLive: (item: ScheduleItem | null) => void
   selectedTheme: ThemeWithMedia
   setSelectedTheme: (theme: ThemeWithMedia) => void
   currentSchedule: ScheduleSchemaType | null
@@ -23,6 +25,7 @@ const ScheduleContext = createContext({} as IScheduleContext)
 export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   const { themes } = useThemes()
   const [selectedTheme, setSelectedTheme] = useState<ThemeWithMedia>(BlankTheme)
+  const [itemOnLive, setItemOnLive] = useState<ScheduleItem | null>(null)
   const form = useForm({
     defaultValues: {
       id: null,
@@ -54,9 +57,13 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     actualSchedule()
   }, [])
 
+  console.log(itemOnLive)
+
   return (
     <ScheduleContext.Provider
       value={{
+        itemOnLive,
+        setItemOnLive,
         selectedTheme,
         setSelectedTheme,
         currentSchedule,
