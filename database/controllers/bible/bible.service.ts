@@ -19,9 +19,9 @@ class BibleService {
         const verse = db
           .prepare(
             `
-          SELECT text
+          SELECT *
           FROM verses
-          WHERE id = ?
+          WHERE book_id = ?
             AND chapter = ?
             AND verse = ?
         `
@@ -37,23 +37,25 @@ class BibleService {
       const results = db
         .prepare(
           `
-        SELECT text
+        SELECT *
         FROM verses
-        WHERE book = ?
+        WHERE book_id = ?
           AND chapter = ?
-          AND verse IN (${placeholders})
+          AND verse IN(${placeholders})
         ORDER BY verse
       `
         )
         .all(book, chapter, ...verses) as BibleDTO[]
-      console.log(results)
       return results
+    } catch (error) {
+      console.error('Error fetching verses:', error)
+      throw error
     } finally {
       db.close()
     }
   }
 
-  async getCompleteChapter(version: string, book: string, chapter: number) {
+  async getCompleteChapter(version: string, book: number, chapter: number) {
     const db = await openBible(version)
 
     try {

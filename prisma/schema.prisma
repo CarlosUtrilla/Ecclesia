@@ -109,11 +109,12 @@ enum TestamentEnum {
 }
 
 model BibleSchema {
-  id        Int           @id @default(autoincrement())
-  book      String
-  book_id   String
-  testament TestamentEnum
-  chapter   BibleVerses[]
+  id         Int           @id @default(autoincrement())
+  book       String
+  book_id    Int
+  book_short String
+  testament  TestamentEnum
+  chapter    BibleVerses[]
 }
 
 model BibleVerses {

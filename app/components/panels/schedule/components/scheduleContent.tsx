@@ -1,45 +1,41 @@
 import { Button } from '@/ui/button'
 import { useSchedule } from '@/contexts/ScheduleContext'
-import { Save, CalendarSearch, Upload, Music, Video, BookPlusIcon, Image } from 'lucide-react'
-import { useState } from 'react'
-import useBibleSchema from '@/hooks/useBibleSchema'
-import { useQuery } from '@tanstack/react-query'
+import { Save, CalendarSearch, Upload } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { cn } from '@/lib/utils'
+import { ScheduleItem } from '@prisma/client'
+import { PresentationViewItems } from '@/components/PresentationView/types'
+import { PresentationView } from '@/components/PresentationView'
 
 type ScheduleContentProps = {
   onBack: () => void
 }
 
 export default function ScheduleContent({ onBack }: ScheduleContentProps) {
-  const { currentSchedule, form } = useSchedule()
-  const { getCompleteVerseText } = useBibleSchema()
+  const {
+    currentSchedule,
+    form,
+    getScheduleItemContentScreen,
+    getScheduleItemIcon,
+    getScheduleItemLabel,
+    selectedTheme
+  } = useSchedule()
+  const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
 
-  const accessDataKey = currentSchedule?.items.map((item) => parseInt(item.accessData))
-  const { data: songs = [] } = useQuery({
-    queryKey: ['songsByIds', accessDataKey],
-    queryFn: async () => {
-      if (!currentSchedule) return []
-      const songIds = currentSchedule.items
-        .filter((item) => item.type === 'SONG')
-        .map((item) => parseInt(item.accessData))
-      if (songIds.length === 0) return []
-      return await window.api.songs.getSongsByIds(songIds)
-    },
-    enabled: !!currentSchedule
-  })
+  const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
 
-  const { data: media = [] } = useQuery({
-    queryKey: ['mediaByIds', accessDataKey],
-    queryFn: async () => {
-      if (!currentSchedule) return []
-      const mediaIds = currentSchedule.items
-        .filter((item) => item.type === 'MEDIA')
-        .map((item) => parseInt(item.accessData))
-      if (mediaIds.length === 0) return []
-      return await window.api.media.getMediaByIds(mediaIds)
-    },
-    enabled: !!currentSchedule
-  })
+  useEffect(() => {
+    if (selectedItem) {
+      const fetchContent = async () => {
+        const content = await getScheduleItemContentScreen(selectedItem)
+        setItemContent(content)
+      }
+      fetchContent()
+    } else {
+      setItemContent(null)
+    }
+  }, [selectedItem])
 
   if (!currentSchedule) {
     return (
@@ -102,70 +98,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
     }
   }
 
-  const getIconForType = (id: number, type: string) => {
-    switch (type) {
-      case 'SONG':
-        return <Music className="h-4 w-4" />
-      case 'MEDIA': {
-        const med = media.find((m) => m.id === Number(id))
-        /*  if (med && med.type === 'AUDIO') {
-          return <Music className="h-4 w-4" />
-        } */
-        if (med && med.type === 'VIDEO') {
-          return <Video className="h-4 w-4" />
-        }
-        if (med && med.type === 'IMAGE') {
-          return <Image className="h-4 w-4" />
-        }
-        return <Video className="h-4 w-4" />
-      }
-      case 'BIBLE':
-        return <BookPlusIcon className="h-4 w-4" />
-      default:
-        return '❓'
-    }
-  }
-
-  const getItemLabel = (accessData: string, type: string) => {
-    switch (type) {
-      case 'SONG': {
-        const song = songs.find((s) => s.id === parseInt(accessData))
-        if (song) {
-          return song.title
-        }
-        return 'loading...'
-      }
-      case 'MEDIA': {
-        const med = media.find((m) => m.id === parseInt(accessData))
-        if (med) {
-          return med.name
-        }
-        return `Medio ID: ${accessData}`
-      }
-      case 'BIBLE': {
-        const splited = accessData.split(',')
-        const versesRange = splited[2].split('-')
-        const text =
-          getCompleteVerseText(
-            parseInt(splited[0]),
-            parseInt(splited[1]),
-            parseInt(versesRange[0]),
-            versesRange[1] ? parseInt(versesRange[1]) : undefined
-          ) || accessData
-        return (
-          <div>
-            {text}{' '}
-            {splited[3] ? (
-              <span className="text-muted-foreground text-xs">({splited[3]})</span>
-            ) : null}
-          </div>
-        )
-      }
-      default:
-        return accessData
-    }
-  }
-
+  console.log(itemContent)
   return (
     <div className="flex-1 flex flex-col w-full">
       {/* Header con info del schedule */}
@@ -223,15 +156,17 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
               {currentSchedule.items.map((item, index) => (
                 <div
                   key={index}
-                  className="p-3 py-1.5 bg-background border rounded-md hover:bg-muted/50 transition-colors"
+                  className={cn(
+                    'p-3 py-1.5 bg-background border rounded-md hover:bg-muted/50 transition-colors',
+                    {
+                      'border-secondary bg-secondary/10': selectedItem?.order === item.order
+                    }
+                  )}
+                  onClick={() => setSelectedItem(item)}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-primary">
-                      {getIconForType(item.accessData, item.type)}
-                    </span>
-                    <span className="text-sm font-medium">
-                      {getItemLabel(item.accessData, item.type)}
-                    </span>
+                    <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
+                    <span className="text-sm font-medium">{getScheduleItemLabel(item)}</span>
                   </div>
                 </div>
               ))}
@@ -245,6 +180,21 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
           </div>
         )}
       </div>
+      {itemContent && itemContent.length && selectedItem ? (
+        <div className="p-4 border-t bg-muted/20 flex-1 max-h-5/12">
+          <h3 className="font-medium mb-2">Vista previa</h3>
+          <div className="flex items-center gap-2">
+            {itemContent.map((content, index) => (
+              <PresentationView
+                key={index}
+                maxHeight={100}
+                items={[content]}
+                theme={selectedTheme}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

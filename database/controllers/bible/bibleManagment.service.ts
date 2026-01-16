@@ -46,6 +46,7 @@ export class BibleManagmentService {
       SELECT
         book,
         chapter,
+        book_short,
         book_id,
         testament,
         MAX(verse) AS verses
@@ -56,7 +57,8 @@ export class BibleManagmentService {
       )
       .all() as {
       book: string
-      book_id: string
+      book_short: string
+      book_id: number
       chapter: number
       verses: number
       testament: TestamentEnum
@@ -66,7 +68,8 @@ export class BibleManagmentService {
 
     const map = [] as {
       book: string
-      book_id: string
+      book_id: number
+      book_short: string
       testament: TestamentEnum
       chapter: {
         chapter: number
@@ -80,6 +83,7 @@ export class BibleManagmentService {
         bookEntry = {
           book: row.book,
           book_id: row.book_id,
+          book_short: row.book_short,
           testament: row.testament,
           chapter: []
         }
@@ -98,6 +102,7 @@ export class BibleManagmentService {
           book: bookData.book,
           book_id: bookData.book_id,
           testament: bookData.testament,
+          book_short: bookData.book_short,
           chapter: {
             create: bookData.chapter.map((ch) => ({
               chapter: ch.chapter,

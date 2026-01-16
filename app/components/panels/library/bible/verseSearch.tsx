@@ -3,10 +3,10 @@ import { cn } from '@/lib/utils'
 import React, { useState, useCallback } from 'react'
 
 type Props = {
-  book: string
+  book: number
   cap: string
   vers: string
-  onChaneVerseSearch: (book: string, cap: string, vers: string) => void
+  onChaneVerseSearch: (book: number, cap: string, vers: string) => void
 }
 
 export default function VerseSearch({
@@ -29,14 +29,22 @@ export default function VerseSearch({
   const [cap, setCap] = useState(initialCap)
   const [vers, setVers] = useState(initialVers)
 
+  const normalizeString = (str: string) => {
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+  }
+
   const showShakeAnimation = useCallback(() => {
     inputContainerRef.current?.classList.add('animate-shake')
     setTimeout(() => inputContainerRef.current?.classList.remove('animate-shake'), 500)
   }, [])
 
   const handleBookChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const normalizedInput = normalizeString(e.target.value)
     const coincidences = bibleSchema.filter((b) =>
-      b.book.toLowerCase().startsWith(e.target.value.toLowerCase())
+      normalizeString(b.book).startsWith(normalizedInput)
     )
 
     if (coincidences.length === 0) {
@@ -108,7 +116,8 @@ export default function VerseSearch({
       e.stopPropagation()
       setBook('')
     } else if (e.code === 'Enter') {
-      const match = bibleSchema.find((b) => b.book.toLowerCase().startsWith(book.toLowerCase()))
+      const normalizedBook = normalizeString(book)
+      const match = bibleSchema.find((b) => normalizeString(b.book).startsWith(normalizedBook))
       if (match) {
         setBook(match.book)
         setCap('')
@@ -121,8 +130,9 @@ export default function VerseSearch({
   const handleCapKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.code === 'Backspace') {
       e.stopPropagation()
-      setCap('')
-      inputBookRef.current?.focus()
+      if (cap.length === 1) {
+        setCap('')
+      }
     } else if (e.code === 'Enter') {
       const selectedBook = bibleSchema.find((b) => b.book === book)
       const capNumber = parseInt(cap)
@@ -142,7 +152,9 @@ export default function VerseSearch({
   const handleVersKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.code === 'Backspace') {
       e.stopPropagation()
-      setVers('')
+      if (vers.length === 1) {
+        setVers('')
+      }
     } else if (e.code === 'Enter') {
       const selectedBook = bibleSchema.find((b) => b.book === book)
       const selectedChapter = selectedBook?.chapter.find((c) => c.chapter === parseInt(cap))

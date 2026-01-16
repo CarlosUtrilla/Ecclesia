@@ -19,16 +19,11 @@ function SchedulePanelContent() {
 
   return (
     <div className="flex flex-col border-r h-full">
-      <div className="flex flex-1 overflow-hidden">
-        {showList ? (
-          <ScheduleList onScheduleSelect={handleScheduleSelect} />
-        ) : (
-          <ScheduleContent onBack={handleBackToList} />
-        )}
-      </div>
-
-      {/* Panel de temas en la parte inferior */}
-      <ThemesPanel />
+      {showList ? (
+        <ScheduleList onScheduleSelect={handleScheduleSelect} />
+      ) : (
+        <ScheduleContent onBack={handleBackToList} />
+      )}
     </div>
   )
 }

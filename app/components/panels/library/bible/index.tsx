@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import ViewVerses from './viewVerses'
 import BibleVersions from './bibleVersions'
 import VerseSearch from './verseSearch'
@@ -12,9 +12,17 @@ import { Settings } from 'lucide-react'
 
 export default function BiblePanel() {
   const [selectedVersion, setSelectedVersion] = useState('RVR1960')
-  const [selectedBook, setSelectedBook] = useState('Gén')
+  const [selectedBook, setSelectedBook] = useState(1)
   const [selectedChapter, setSelectedChapter] = useState(1)
   const [selectedVerse, setSelectedVerse] = useState([1])
+
+  const bookRefs = useRef<{ [key: number]: HTMLDivElement | null }>({})
+  const chapterRefs = useRef<{ [key: number]: HTMLDivElement | null }>({})
+  const verseRefs = useRef<{ [key: number]: HTMLDivElement | null }>({})
+
+  const bookContainerRef = useRef<HTMLDivElement>(null)
+  const chapterContainerRef = useRef<HTMLDivElement>(null)
+  const verseContainerRef = useRef<HTMLDivElement>(null)
 
   const { bibleSchema } = useBibleSchema()
   const chapters = useMemo(() => {
@@ -34,7 +42,7 @@ export default function BiblePanel() {
     [selectedBook, bibleSchema]
   )
 
-  const handleChangeBook = (bookId: string) => {
+  const handleChangeBook = (bookId: number) => {
     setSelectedBook(bookId)
     setSelectedChapter(1)
     setSelectedVerse([1])
@@ -44,7 +52,43 @@ export default function BiblePanel() {
     setSelectedChapter(chapter)
     setSelectedVerse([1])
   }
-  console.log({ selectedVersion })
+
+  useEffect(() => {
+    const element = bookRefs.current[selectedBook]
+    const container = bookContainerRef.current
+    if (element && container) {
+      const elementTop = element.offsetTop
+      const elementHeight = element.offsetHeight
+      const containerHeight = container.offsetHeight
+      const scrollTo = elementTop - containerHeight / 2 + elementHeight / 2
+      container.scrollTo({ top: scrollTo, behavior: 'instant' })
+    }
+  }, [selectedBook])
+
+  useEffect(() => {
+    const element = chapterRefs.current[selectedChapter]
+    const container = chapterContainerRef.current
+    if (element && container) {
+      const elementTop = element.offsetTop
+      const elementHeight = element.offsetHeight
+      const containerHeight = container.offsetHeight
+      const scrollTo = elementTop - containerHeight / 2 + elementHeight / 2
+      container.scrollTo({ top: scrollTo, behavior: 'instant' })
+    }
+  }, [selectedChapter])
+
+  useEffect(() => {
+    const element = verseRefs.current[selectedVerse[0]]
+    const container = verseContainerRef.current
+    if (element && container) {
+      const elementTop = element.offsetTop
+      const elementHeight = element.offsetHeight
+      const containerHeight = container.offsetHeight
+      const scrollTo = elementTop - containerHeight / 2 + elementHeight / 2
+      container.scrollTo({ top: scrollTo, behavior: 'instant' })
+    }
+  }, [selectedVerse])
+
   return (
     <div className="grid grid-rows-2 h-full">
       <div className="overflow-hidden border-b row-span-1 flex flex-col">
@@ -83,10 +127,16 @@ export default function BiblePanel() {
           </div>
         </div>
         <div className="grid grid-cols-12 text-sm flex-1 min-h-0">
-          <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent col-span-8">
+          <div
+            ref={bookContainerRef}
+            className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent col-span-8"
+          >
             {bibleSchema.map((book) => (
               <div
                 key={book.id}
+                ref={(el) => {
+                  bookRefs.current[book.book_id] = el
+                }}
                 className={cn('p-2 py-1 border-b cursor-pointer hover:bg-muted/40', {
                   'bg-secondary/20 hover:bg-secondary/10': selectedBook === book.book_id
                 })}
@@ -96,9 +146,15 @@ export default function BiblePanel() {
               </div>
             ))}
           </div>
-          <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent text-center border-x col-span-2">
+          <div
+            ref={chapterContainerRef}
+            className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent text-center border-x col-span-2"
+          >
             {chapters.map((chapter) => (
               <div
+                ref={(el) => {
+                  chapterRefs.current[chapter] = el
+                }}
                 key={chapter}
                 className={cn('p-2 py-1 border-b hover:bg-muted/40 cursor-default', {
                   'bg-secondary/20 hover:bg-secondary/10': selectedChapter === chapter
@@ -109,9 +165,15 @@ export default function BiblePanel() {
               </div>
             ))}
           </div>
-          <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent text-center col-span-2">
+          <div
+            ref={verseContainerRef}
+            className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent text-center col-span-2"
+          >
             {verses.map((verse) => (
               <div
+                ref={(el) => {
+                  verseRefs.current[verse] = el
+                }}
                 key={verse}
                 className={cn('p-2 py-1 border-b hover:bg-muted/40 cursor-default', {
                   'bg-secondary/20 hover:bg-secondary/10': selectedVerse.includes(verse)

@@ -14,7 +14,7 @@ class BibleController {
     return this.BibleManagmentService.getBibleSchema()
   }
 
-  async getCompleteChapter(version: string, book: string, chapter: number) {
+  async getCompleteChapter(version: string, book: number, chapter: number) {
     return this.BibleService.getCompleteChapter(version, book, chapter)
   }
   async getAvailableBibles() {

@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
 type Props = {
   bookData?: BibleSchemaDTO
   version: string
-  book: string
+  book: number
   chapter: number
   verse: number[]
   setSelectedVerse: (verses: number[]) => void
