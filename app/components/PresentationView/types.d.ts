@@ -10,6 +10,7 @@ export type PresentationViewProps = {
   onClick?: () => void
   selected?: boolean
   tagSongId?: number | null
+  className?: string
 }
 
 export type PresentationViewItems = {

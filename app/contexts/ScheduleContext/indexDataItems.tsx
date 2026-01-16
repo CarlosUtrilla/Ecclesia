@@ -137,6 +137,14 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         }
       }))
     }
+    if (type === 'SONG') {
+      const songId = parseInt(accessData)
+      const song = songs.find((s) => s.id === songId)
+      if (!song) return []
+      return song.lyrics.map((lyric) => ({
+        text: lyric.content
+      }))
+    }
   }
 
   return { songs, media, getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen }

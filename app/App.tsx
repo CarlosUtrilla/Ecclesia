@@ -14,7 +14,7 @@ function AppContent() {
       <Route
         path="/"
         element={
-          <div className="grid grid-cols-4 h-svh">
+          <div className="grid grid-rows-1 grid-cols-4 h-dvh max-h-svh">
             <LibraryPanel />
             <SchedulePanel />
           </div>

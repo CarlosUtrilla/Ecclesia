@@ -100,101 +100,104 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
 
   console.log(itemContent)
   return (
-    <div className="flex-1 flex flex-col w-full">
-      {/* Header con info del schedule */}
-      <div className="px-4 py-3 border-b bg-muted/20 flex items-center gap-2">
-        <div>
-          <h2 className="font-medium">{currentSchedule.title || 'Sin título'}</h2>
+    <>
+      <div
+        className={cn('h-svh', {
+          'h-7/12': itemContent && itemContent.length && selectedItem
+        })}
+      >
+        {/* Header con info del schedule */}
+        <div className="px-4 py-3 border-b bg-muted/20 flex items-center gap-2">
+          <div>
+            <h2 className="font-medium">{currentSchedule.title || 'Sin título'}</h2>
+          </div>
+
+          <Button className="ml-auto" size="sm" disabled={!pendingSave}>
+            <Save className="h-4 w-4" />
+            Guardar
+          </Button>
+          <Button size="sm" onClick={onBack}>
+            <CalendarSearch className="h-4 w-4" />
+            Cronogramas
+          </Button>
         </div>
 
-        <Button className="ml-auto" size="sm" disabled={!pendingSave}>
-          <Save className="h-4 w-4" />
-          Guardar
-        </Button>
-        <Button size="sm" onClick={onBack}>
-          <CalendarSearch className="h-4 w-4" />
-          Cronogramas
-        </Button>
-      </div>
-
-      {/* Contenido del schedule - Drop Area */}
-      <div
-        className="flex-1 overflow-y-auto p-4"
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        {currentSchedule.items.length === 0 ? (
-          <div
-            className={`flex items-center justify-center flex-col text-center p-8 border-2 border-dashed rounded-lg h-full transition-colors ${
-              isDraggingOver ? 'border-primary bg-primary/5' : 'border-border text-muted-foreground'
-            }`}
-          >
-            <Upload
-              className={`size-16 mb-4 transition-colors ${
-                isDraggingOver ? 'text-primary' : 'text-muted'
+        {/* Contenido del schedule - Drop Area */}
+        <div
+          className="flex-1 h-full overflow-y-auto p-4"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {currentSchedule.items.length === 0 ? (
+            <div
+              className={`flex items-center justify-center flex-col text-center p-8 border-2 border-dashed rounded-lg h-full transition-colors ${
+                isDraggingOver
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border text-muted-foreground'
               }`}
-            />
-            <p className={isDraggingOver ? 'text-primary font-medium' : ''}>
-              {isDraggingOver ? 'Suelta aquí' : 'Este cronograma no tiene items'}
-            </p>
-            <p className="text-xs mt-2">
-              {isDraggingOver
-                ? 'Agregar al cronograma'
-                : 'Arrastra canciones, medios o versículos desde la biblioteca'}
-            </p>
-          </div>
-        ) : (
-          <div
-            className={`min-h-full transition-colors ${
-              isDraggingOver
-                ? 'bg-primary/5 border-2 border-dashed border-primary rounded-lg p-2'
-                : ''
-            }`}
-          >
-            <div className="space-y-1">
-              {currentSchedule.items.map((item, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    'p-3 py-1.5 bg-background border rounded-md hover:bg-muted/50 transition-colors',
-                    {
-                      'border-secondary bg-secondary/10': selectedItem?.order === item.order
-                    }
-                  )}
-                  onClick={() => setSelectedItem(item)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
-                    <span className="text-sm font-medium">{getScheduleItemLabel(item)}</span>
-                  </div>
-                </div>
-              ))}
+            >
+              <Upload
+                className={`size-16 mb-4 transition-colors ${
+                  isDraggingOver ? 'text-primary' : 'text-muted'
+                }`}
+              />
+              <p className={isDraggingOver ? 'text-primary font-medium' : ''}>
+                {isDraggingOver ? 'Suelta aquí' : 'Este cronograma no tiene items'}
+              </p>
+              <p className="text-xs mt-2">
+                {isDraggingOver
+                  ? 'Agregar al cronograma'
+                  : 'Arrastra canciones, medios o versículos desde la biblioteca'}
+              </p>
             </div>
-            {isDraggingOver && (
-              <div className="mt-4 p-8 border-2 border-dashed border-primary rounded-lg bg-primary/5 text-center">
-                <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
-                <p className="text-sm text-primary font-medium">Soltar para agregar al final</p>
+          ) : (
+            <div
+              className={`min-h-full transition-colors ${
+                isDraggingOver
+                  ? 'bg-primary/5 border-2 border-dashed border-primary rounded-lg p-2'
+                  : ''
+              }`}
+            >
+              <div className="space-y-1">
+                {currentSchedule.items.map((item, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      'p-3 py-1.5 bg-background border rounded-md hover:bg-muted/50 transition-colors',
+                      {
+                        'border-secondary bg-secondary/10': selectedItem?.order === item.order
+                      }
+                    )}
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
+                      <span className="text-sm font-medium">{getScheduleItemLabel(item)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-        )}
+              {isDraggingOver && (
+                <div className="mt-4 p-8 border-2 border-dashed border-primary rounded-lg bg-primary/5 text-center">
+                  <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
+                  <p className="text-sm text-primary font-medium">Soltar para agregar al final</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       {itemContent && itemContent.length && selectedItem ? (
-        <div className="p-4 border-t bg-muted/20 flex-1 max-h-5/12">
-          <h3 className="font-medium mb-2">Vista previa</h3>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col h-5/12">
+          <h3 className="font-medium px-2 py-2 border-y bg-muted/20">Vista previa</h3>
+          <div className="grid flex-1 p-2 grid-cols-2 auto-rows-min gap-2 h-full overflow-y-auto">
             {itemContent.map((content, index) => (
-              <PresentationView
-                key={index}
-                maxHeight={100}
-                items={[content]}
-                theme={selectedTheme}
-              />
+              <PresentationView key={index} items={[content]} theme={selectedTheme} />
             ))}
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   )
 }

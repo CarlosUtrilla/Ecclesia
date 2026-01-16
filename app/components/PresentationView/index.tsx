@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { cn, getContrastTextColor } from '../../lib/utils'
 import { PresentationViewProps } from './types'
@@ -12,6 +12,7 @@ import { BackgroundVideoLive } from './components/BackgroundVideoLive'
 import { AnimatedText } from './components/AnimatedText'
 
 import useTagSongs from '@/hooks/useTagSongs'
+import { useResizeObserver } from 'usehooks-ts'
 
 // Tipos para backgrounds
 type MediaType = 'image' | 'video' | 'color' | 'gradient'
@@ -23,19 +24,23 @@ function getMediaType(background: string): MediaType {
 }
 
 export function PresentationView({
-  maxHeight = 150,
   items,
   theme,
   live = false,
   currentIndex = 0,
   onClick,
   selected,
-  tagSongId
+  tagSongId,
+  className
 }: PresentationViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const { tagSongs } = useTagSongs()
 
   const { buildMediaUrl } = useMediaServer()
-  const screenSize = useScreenSize(maxHeight)
+  const { height } = useResizeObserver({
+    ref: containerRef as React.RefObject<HTMLDivElement>
+  })
+  const screenSize = useScreenSize(height || 0)
 
   // Estados para manejar el background
   const [mediaType, setMediaType] = useState<MediaType>('color')
@@ -97,6 +102,7 @@ export function PresentationView({
   const calculatedFontSize = theme.textStyle?.fontSize
     ? `${(screenSize.height * Number(theme.textStyle.fontSize)) / 320}px`
     : 'inherit'
+
   const calculatedSmallFontSize = theme.textStyle?.fontSize
     ? `${(screenSize.height * (Number(theme.textStyle.fontSize) * 0.85)) / 320}px`
     : 'inherit'
@@ -123,10 +129,8 @@ export function PresentationView({
 
   const containerStyle = useMemo(
     () => ({
-      width: `${screenSize.width}px`,
-      maxWidth: '100%',
+      width: '100%',
       aspectRatio: screenSize.aspectRatio,
-      maxHeight: '100%',
       overflow: 'hidden',
       display: 'flex',
       alignItems: 'center',
@@ -134,7 +138,7 @@ export function PresentationView({
       position: 'relative' as const,
       background: mediaType === 'color' || mediaType === 'gradient' ? background : 'transparent'
     }),
-    [screenSize.width, screenSize.aspectRatio, background, mediaType]
+    [screenSize.aspectRatio, background, mediaType]
   )
 
   const tagSong = useMemo(() => {
@@ -146,9 +150,10 @@ export function PresentationView({
 
   return (
     <div
+      ref={containerRef as React.RefObject<HTMLDivElement>}
       onClick={onClick}
       style={containerStyle}
-      className={cn('border bg-background relative select-none', {
+      className={cn('border bg-background relative select-none', className, {
         'outline-2 outline-primary transition-colors': selected,
         'cursor-pointer': onClick !== undefined,
         'border-0': live,
