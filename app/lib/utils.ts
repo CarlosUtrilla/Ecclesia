@@ -1,3 +1,4 @@
+import { Lyrics } from '@prisma/client'
 import { clsx, type ClassValue } from 'clsx'
 import DOMPurify from 'dompurify'
 import { twMerge } from 'tailwind-merge'
@@ -46,4 +47,24 @@ export function getContrastTextColor(hex: string): '#000000' | '#ffffff' {
   const luminance = 0.299 * r + 0.587 * g + 0.114 * b
 
   return luminance > 186 ? '#000000' : '#ffffff'
+}
+
+export type GroupsTags = {
+  tagSongsId: number | null
+  contents: string[]
+}
+export const getGrupedLyrics = (lyrics: Lyrics[]): GroupsTags[] => {
+  let currentGroup: number | null = null
+  return lyrics.reduce((prev, curr) => {
+    if (curr.tagSongsId !== currentGroup || curr.tagSongsId === null) {
+      prev.push({
+        tagSongsId: curr.tagSongsId || null,
+        contents: [curr.content]
+      })
+      currentGroup = curr.tagSongsId || null
+    } else {
+      prev[prev.length - 1].contents.push(curr.content)
+    }
+    return prev
+  }, [] as GroupsTags[])
 }

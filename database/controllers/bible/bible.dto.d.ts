@@ -15,6 +15,7 @@ export type BibleDTO = {
   id: number
   book: string
   book_id: string
+  book_short: string
   testament: 'Old' | 'New'
   chapter: number
   verse: number

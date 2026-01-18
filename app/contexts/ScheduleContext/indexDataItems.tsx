@@ -5,6 +5,11 @@ import { BookPlusIcon, Image, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { PresentationViewItems } from '@/components/PresentationView/types'
 
+export type ContentScreen = {
+  title: string
+  content: PresentationViewItems[]
+}
+
 export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteVerseText } = useBibleSchema()
   const accessDataKey = currentSchedule?.items.map((item) => parseInt(item.accessData))
@@ -101,9 +106,7 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
     }
   }
 
-  const getScheduleItemContentScreen = async (
-    item: ScheduleItem
-  ): Promise<PresentationViewItems[]> => {
+  const getScheduleItemContentScreen = async (item: ScheduleItem): Promise<ContentScreen> => {
     const { accessData, type } = item
     if (type === 'BIBLE') {
       const splited = accessData.split(',')
@@ -127,7 +130,7 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         version: version //Actualizar para obtener version seleccionada en la app
       })
 
-      return texts.map((text) => ({
+      const content = texts.map((text) => ({
         text: text.text,
         verse: {
           bookId: book_id,
@@ -136,14 +139,25 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
           version: version
         }
       }))
+      return {
+        title: `${texts[0]?.book || ''} ${chapter}:${versesSplited[0]}${
+          versesSplited[1] ? `-${versesSplited[1]}` : ''
+        }`,
+        content
+      }
     }
     if (type === 'SONG') {
       const songId = parseInt(accessData)
       const song = songs.find((s) => s.id === songId)
-      if (!song) return []
-      return song.lyrics.map((lyric) => ({
+      if (!song) return { title: 'Canción no encontrada', content: [] }
+      const content = song.lyrics.map((lyric) => ({
         text: lyric.content
       }))
+
+      return {
+        title: song.title,
+        content
+      }
     }
   }
 

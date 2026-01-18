@@ -30,7 +30,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
     if (selectedItem) {
       const fetchContent = async () => {
         const content = await getScheduleItemContentScreen(selectedItem)
-        setItemContent(content)
+        setItemContent(content.content)
       }
       fetchContent()
     } else {
@@ -170,10 +170,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
                       }
                     )}
                     onClick={() => setSelectedItem(item)}
-                    onDoubleClick={() => {
-                      setSelectedItem(item)
-                      setItemOnLive(item)
-                    }}
+                    onDoubleClick={() => setItemOnLive(item)}
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
@@ -196,7 +193,13 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
         <div className="flex flex-col h-5/12">
           <div className="flex justify-between items-center px-2 py-2 border-y bg-muted/20">
             <h3 className="font-medium">Vista previa</h3>
-            <Button size="sm" onClick={() => setItemOnLive(selectedItem)}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setItemOnLive(selectedItem)
+                setSelectedItem(null)
+              }}
+            >
               Presentar en vivo <Radio className="h-4 w-4" />
             </Button>
           </div>

@@ -1,5 +1,5 @@
 import useTagSongs from '@/hooks/useTagSongs'
-import { getContrastTextColor, sanitizeHTML } from '@/lib/utils'
+import { getContrastTextColor, getGrupedLyrics, sanitizeHTML } from '@/lib/utils'
 import { Button } from '@/ui/button'
 import { Tooltip } from '@/ui/tooltip'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
@@ -11,28 +11,9 @@ type Props = {
   onDelete: (id: number) => void
 }
 
-type GroupsTags = {
-  tagSongsId: number | null
-  contents: string[]
-}
-
 export default function PreviewSong({ song, onDelete }: Props) {
   const { tagSongs } = useTagSongs()
-  const groups = useMemo(() => {
-    let currentGroup: number | null = null
-    return song.lyrics.reduce((prev, curr) => {
-      if (curr.tagSongsId !== currentGroup || curr.tagSongsId === null) {
-        prev.push({
-          tagSongsId: curr.tagSongsId || null,
-          contents: [curr.content]
-        })
-        currentGroup = curr.tagSongsId || null
-      } else {
-        prev[prev.length - 1].contents.push(curr.content)
-      }
-      return prev
-    }, [] as GroupsTags[])
-  }, [song])
+  const groups = useMemo(() => getGrupedLyrics(song.lyrics), [song])
 
   return (
     <div className="h-2/5 border-y flex flex-col">
