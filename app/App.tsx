@@ -8,6 +8,7 @@ import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
 import TagSongsEditor from './components/tagSongsEditor.tsx'
 import { ScheduleProvider } from './contexts/ScheduleContext'
 import LivePanels from './components/panels/live'
+import LiveScreens from './components/panels/live-screens'
 
 function AppContent() {
   return (
@@ -19,6 +20,7 @@ function AppContent() {
             <LibraryPanel />
             <SchedulePanel />
             <LivePanels />
+            <LiveScreens />
           </div>
         }
       />

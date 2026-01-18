@@ -3,12 +3,7 @@ import { ScheduleSchemaType } from './schema'
 import { ScheduleItem } from '@prisma/client'
 import { BookPlusIcon, Image, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
-import { PresentationViewItems } from '@/components/PresentationView/types'
-
-export type ContentScreen = {
-  title: string
-  content: PresentationViewItems[]
-}
+import { ContentScreen } from './types'
 
 export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteVerseText } = useBibleSchema()
@@ -151,7 +146,8 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
       const song = songs.find((s) => s.id === songId)
       if (!song) return { title: 'Canción no encontrada', content: [] }
       const content = song.lyrics.map((lyric) => ({
-        text: lyric.content
+        text: lyric.content,
+        tagSongId: lyric.tagSongsId
       }))
 
       return {

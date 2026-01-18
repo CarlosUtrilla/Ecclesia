@@ -2,26 +2,13 @@ import { ThemeWithMedia } from '@/components/PresentationView/types'
 import { BlankTheme, useThemes } from '@/hooks/useThemes'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react'
-import { useForm, UseFormReturn } from 'react-hook-form'
-import { ScheduleSchema, ScheduleSchemaType } from './schema'
+import { useForm } from 'react-hook-form'
+import { ScheduleSchema } from './schema'
 
-import { Media, ScheduleItem } from '@prisma/client'
-import { ContentScreen, useIndexDataItems } from './indexDataItems'
-import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
-
-type IScheduleContext = {
-  itemOnLive: ScheduleItem | null
-  setItemOnLive: (item: ScheduleItem | null) => void
-  selectedTheme: ThemeWithMedia
-  setSelectedTheme: (theme: ThemeWithMedia) => void
-  currentSchedule: ScheduleSchemaType | null
-  form: UseFormReturn<ScheduleSchemaType>
-  getScheduleItemIcon: (item: ScheduleItem) => React.ReactNode
-  getScheduleItemLabel: (item: ScheduleItem) => React.ReactNode
-  getScheduleItemContentScreen: (item: ScheduleItem) => Promise<ContentScreen>
-  songs: SongResponseDTO[]
-  media: Media[]
-}
+import { ScheduleItem } from '@prisma/client'
+import { useIndexDataItems } from './indexDataItems'
+import { LiveProvider } from './liveContext'
+import { IScheduleContext } from './types'
 
 const ScheduleContext = createContext({} as IScheduleContext)
 
@@ -60,26 +47,26 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     actualSchedule()
   }, [])
 
-  console.log(itemOnLive)
-
   return (
-    <ScheduleContext.Provider
-      value={{
-        itemOnLive,
-        setItemOnLive,
-        selectedTheme,
-        setSelectedTheme,
-        currentSchedule,
-        form,
-        getScheduleItemIcon,
-        getScheduleItemLabel,
-        getScheduleItemContentScreen,
-        songs,
-        media
-      }}
-    >
-      {children}
-    </ScheduleContext.Provider>
+    <LiveProvider selectedItemOnLive={itemOnLive} setSelectedItemOnLive={setItemOnLive}>
+      <ScheduleContext.Provider
+        value={{
+          itemOnLive,
+          setItemOnLive,
+          selectedTheme,
+          setSelectedTheme,
+          currentSchedule,
+          form,
+          getScheduleItemIcon,
+          getScheduleItemLabel,
+          getScheduleItemContentScreen,
+          songs,
+          media
+        }}
+      >
+        {children}
+      </ScheduleContext.Provider>
+    </LiveProvider>
   )
 }
 

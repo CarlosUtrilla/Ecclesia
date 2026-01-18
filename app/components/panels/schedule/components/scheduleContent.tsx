@@ -205,7 +205,12 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
           </div>
           <div className="grid flex-1 p-2 grid-cols-2 auto-rows-min gap-2 h-full overflow-y-auto">
             {itemContent.map((content, index) => (
-              <PresentationView key={index} items={[content]} theme={selectedTheme} />
+              <PresentationView
+                tagSongId={(content as any).tagSongId}
+                key={index}
+                items={[content]}
+                theme={selectedTheme}
+              />
             ))}
           </div>
         </div>

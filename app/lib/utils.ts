@@ -27,26 +27,61 @@ export function sanitizeHTML(html: string): string {
 }
 
 export function getContrastTextColor(hex: string): '#000000' | '#ffffff' {
+  if (hex.toLowerCase() === 'transparent') return '#000000'
   // Limpieza básica del #
   const cleanHex = hex.replace('#', '')
 
-  // Soporte para hex corto (#fff)
-  const fullHex =
-    cleanHex.length === 3
-      ? cleanHex
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : cleanHex
+  let rgbHex: string
+  let alpha: number = 1 // Opacidad por defecto
 
-  const r = parseInt(fullHex.substring(0, 2), 16)
-  const g = parseInt(fullHex.substring(2, 4), 16)
-  const b = parseInt(fullHex.substring(4, 6), 16)
+  // Soporte para diferentes formatos hex
+  if (cleanHex.length === 3) {
+    // #rgb -> #rrggbb
+    rgbHex = cleanHex
+      .split('')
+      .map((c) => c + c)
+      .join('')
+  } else if (cleanHex.length === 4) {
+    // #rgba -> #rrggbb y extraer alpha
+    rgbHex = cleanHex
+      .substring(0, 3)
+      .split('')
+      .map((c) => c + c)
+      .join('')
+    alpha = parseInt(cleanHex[3] + cleanHex[3], 16) / 255
+  } else if (cleanHex.length === 6) {
+    // #rrggbb
+    rgbHex = cleanHex
+  } else if (cleanHex.length === 8) {
+    // #rrggbbaa -> #rrggbb y extraer alpha
+    rgbHex = cleanHex.substring(0, 6)
+    alpha = parseInt(cleanHex.substring(6, 8), 16) / 255
+  } else {
+    // Formato no válido, usar negro por defecto
+    return '#ffffff'
+  }
 
-  // Fórmula estándar de luminancia (WCAG)
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b
+  let r = parseInt(rgbHex.substring(0, 2), 16)
+  let g = parseInt(rgbHex.substring(2, 4), 16)
+  let b = parseInt(rgbHex.substring(4, 6), 16)
 
-  return luminance > 186 ? '#000000' : '#ffffff'
+  // Si hay opacidad, mezclar con fondo blanco (255, 255, 255)
+  if (alpha < 1) {
+    r = Math.round(r * alpha + 255 * (1 - alpha))
+    g = Math.round(g * alpha + 255 * (1 - alpha))
+    b = Math.round(b * alpha + 255 * (1 - alpha))
+  }
+
+  // Fórmula WCAG para luminancia relativa
+  const toLinear = (c: number) => {
+    c = c / 255
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  }
+
+  const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+
+  // Umbral WCAG: 0.179 para AA normal (equivale a ~128 en escala 0-255)
+  return luminance > 0.179 ? '#000000' : '#ffffff'
 }
 
 export type GroupsTags = {

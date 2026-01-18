@@ -1,0 +1,34 @@
+import { Media, ScheduleItem } from '@prisma/client'
+import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
+import { ScheduleSchemaType } from './schema'
+import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
+import { PresentationViewItems } from '@/components/PresentationView/types'
+
+export type ILiveContext = {
+  itemIndex: number
+  setItemIndex: (index: number) => void
+}
+
+export type ILiveProps = {
+  selectedItemOnLive: ScheduleItem | null
+  setSelectedItemOnLive: (item: ScheduleItem | null) => void
+}
+
+type IScheduleContext = {
+  itemOnLive: ScheduleItem | null
+  setItemOnLive: (item: ScheduleItem | null) => void
+  selectedTheme: ThemeWithMedia
+  setSelectedTheme: (theme: ThemeWithMedia) => void
+  currentSchedule: ScheduleSchemaType | null
+  form: UseFormReturn<ScheduleSchemaType>
+  getScheduleItemIcon: (item: ScheduleItem) => React.ReactNode
+  getScheduleItemLabel: (item: ScheduleItem) => React.ReactNode
+  getScheduleItemContentScreen: (item: ScheduleItem) => Promise<ContentScreen>
+  songs: SongResponseDTO[]
+  media: Media[]
+}
+
+export type ContentScreen = {
+  title: string
+  content: PresentationViewItems[]
+}
