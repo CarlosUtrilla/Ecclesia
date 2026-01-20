@@ -2,9 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { exposeRoutes } from '../../database'
 import { RoutesTypes } from '../../database/routeTypes'
-import { DisplayInfo } from '../main/displayManager/displayType'
 import { bibleAPI } from '../main/bibleManager'
 import { mediaAPI } from '../main/mediaManager'
+import { displayAPI } from '../main/displayManager/displaysMethods'
 
 // Funciones adicionales para ventanas
 const windowAPI = {
@@ -16,8 +16,7 @@ const windowAPI = {
 
 // API para obtener fuentes del sistema
 const systemAPI = {
-  getSystemFonts: (): Promise<string[]> => ipcRenderer.invoke('get-system-fonts'),
-  getDisplays: (): Promise<DisplayInfo[]> => ipcRenderer.invoke('get-displays')
+  getSystemFonts: (): Promise<string[]> => ipcRenderer.invoke('get-system-fonts')
 }
 
 export const HandleManagers = {
@@ -26,6 +25,7 @@ export const HandleManagers = {
   mediaAPI,
   systemAPI,
   windowAPI,
+  displayAPI,
   api: exposeRoutes() as RoutesTypes
 }
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -52,4 +52,6 @@ if (process.contextIsolated) {
   window.bibleAPI = bibleAPI
   // @ts-ignore (define in dts)
   window.mediaAPI = mediaAPI
+  // @ts-ignore (define in dts)
+  window.displayAPI = displayAPI
 }

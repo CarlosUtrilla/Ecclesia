@@ -3,10 +3,16 @@ import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 import { ScheduleSchemaType } from './schema'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { PresentationViewItems } from '@/components/PresentationView/types'
+import { DisplayWithUsage } from '@/hooks/useDisplays'
 
 export type ILiveContext = {
   itemIndex: number
   setItemIndex: (index: number) => void
+  itemOnLive: ScheduleItem | null
+  liveScreens: DisplayWithUsage[]
+  showLiveScreen: boolean
+  setShowLiveScreen: (show: boolean) => void
+  contentScreen?: ContentScreen | null
 }
 
 export type ILiveProps = {

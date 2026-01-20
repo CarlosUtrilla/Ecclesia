@@ -17,4 +17,5 @@ export interface DisplayInfo {
   rotation: number
   internal: boolean
   aspectRatio: number
+  isMain: boolean
 }

@@ -4,6 +4,7 @@ import { ScheduleItem } from '@prisma/client'
 import { BookPlusIcon, Image, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from './types'
+import { useCallback } from 'react'
 
 export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteVerseText } = useBibleSchema()
@@ -101,61 +102,64 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
     }
   }
 
-  const getScheduleItemContentScreen = async (item: ScheduleItem): Promise<ContentScreen> => {
-    const { accessData, type } = item
-    if (type === 'BIBLE') {
-      const splited = accessData.split(',')
-      const versesSplited = splited[2].split('-')
-      const versesRange = Array.from(
-        {
-          length:
-            (versesSplited[1] ? parseInt(versesSplited[1]) : parseInt(versesSplited[0])) -
-            parseInt(versesSplited[0]) +
-            1
-        },
-        (_, i) => (i + parseInt(versesSplited[0])).toString()
-      )
-      const book_id = parseInt(splited[0])
-      const chapter = parseInt(splited[1])
-      const version = splited[3] || 'RVR1960'
-      const texts = await window.api.bible.getVerses({
-        book: book_id,
-        chapter: chapter,
-        verses: versesRange.map((v) => parseInt(v)),
-        version: version //Actualizar para obtener version seleccionada en la app
-      })
-
-      const content = texts.map((text) => ({
-        text: text.text,
-        verse: {
-          bookId: book_id,
+  const getScheduleItemContentScreen = useCallback(
+    async (item: ScheduleItem): Promise<ContentScreen> => {
+      const { accessData, type } = item
+      if (type === 'BIBLE') {
+        const splited = accessData.split(',')
+        const versesSplited = splited[2].split('-')
+        const versesRange = Array.from(
+          {
+            length:
+              (versesSplited[1] ? parseInt(versesSplited[1]) : parseInt(versesSplited[0])) -
+              parseInt(versesSplited[0]) +
+              1
+          },
+          (_, i) => (i + parseInt(versesSplited[0])).toString()
+        )
+        const book_id = parseInt(splited[0])
+        const chapter = parseInt(splited[1])
+        const version = splited[3] || 'RVR1960'
+        const texts = await window.api.bible.getVerses({
+          book: book_id,
           chapter: chapter,
-          verse: text.verse,
-          version: version
-        }
-      }))
-      return {
-        title: `${texts[0]?.book || ''} ${chapter}:${versesSplited[0]}${
-          versesSplited[1] ? `-${versesSplited[1]}` : ''
-        }`,
-        content
-      }
-    }
-    if (type === 'SONG') {
-      const songId = parseInt(accessData)
-      const song = songs.find((s) => s.id === songId)
-      if (!song) return { title: 'Canción no encontrada', content: [] }
-      const content = song.lyrics.map((lyric) => ({
-        text: lyric.content,
-        tagSongId: lyric.tagSongsId
-      }))
+          verses: versesRange.map((v) => parseInt(v)),
+          version: version //Actualizar para obtener version seleccionada en la app
+        })
 
-      return {
-        title: song.title,
-        content
+        const content = texts.map((text) => ({
+          text: text.text,
+          verse: {
+            bookId: book_id,
+            chapter: chapter,
+            verse: text.verse,
+            version: version
+          }
+        }))
+        return {
+          title: `${texts[0]?.book || ''} ${chapter}:${versesSplited[0]}${
+            versesSplited[1] ? `-${versesSplited[1]}` : ''
+          }`,
+          content
+        }
       }
-    }
-  }
+      if (type === 'SONG') {
+        const songId = parseInt(accessData)
+        const song = songs.find((s) => s.id === songId)
+        if (!song) return { title: 'Canción no encontrada', content: [] }
+        const content = song.lyrics.map((lyric) => ({
+          text: lyric.content,
+          tagSongId: lyric.tagSongsId
+        }))
+
+        return {
+          title: song.title,
+          content
+        }
+      }
+    },
+    [songs]
+  )
 
   return { songs, media, getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen }
 }

@@ -5,6 +5,7 @@ import { MediaController } from './controllers/media/media.controller'
 import { TagSongsController } from './controllers/tagSongs/tagSongs.controller'
 import BibleController from './controllers/bible/bible.controller'
 import { ScheduleController } from './controllers/schedule/schedule.controller'
+import SelectedScreensController from './controllers/selectedScreens/selectedScreens.controller'
 
 export const routes = {
   setttings: SettingsController,
@@ -13,5 +14,6 @@ export const routes = {
   media: MediaController,
   tagSongs: TagSongsController,
   bible: BibleController,
-  schedule: ScheduleController
+  schedule: ScheduleController,
+  selectedScreens: SelectedScreensController
 }

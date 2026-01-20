@@ -190,3 +190,15 @@ model ScheduleItem {
   scheduleGroup   ScheduleGroup?   @relation(fields: [scheduleGroupId], references: [id])
   schedule        Schedule         @relation(fields: [scheduleId], references: [id])
 }
+
+enum ScreenRol {
+  LIVE_SCREEN
+  STAGE_SCREEN
+}
+
+model SelectedScreens {
+  id         Int        @id @default(autoincrement())
+  screenId   Int        @unique
+  screenName String
+  rol        ScreenRol?
+}

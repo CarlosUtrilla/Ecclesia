@@ -48,25 +48,25 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   }, [])
 
   return (
-    <LiveProvider selectedItemOnLive={itemOnLive} setSelectedItemOnLive={setItemOnLive}>
-      <ScheduleContext.Provider
-        value={{
-          itemOnLive,
-          setItemOnLive,
-          selectedTheme,
-          setSelectedTheme,
-          currentSchedule,
-          form,
-          getScheduleItemIcon,
-          getScheduleItemLabel,
-          getScheduleItemContentScreen,
-          songs,
-          media
-        }}
-      >
+    <ScheduleContext.Provider
+      value={{
+        itemOnLive,
+        setItemOnLive,
+        selectedTheme,
+        setSelectedTheme,
+        currentSchedule,
+        form,
+        getScheduleItemIcon,
+        getScheduleItemLabel,
+        getScheduleItemContentScreen,
+        songs,
+        media
+      }}
+    >
+      <LiveProvider selectedItemOnLive={itemOnLive} setSelectedItemOnLive={setItemOnLive}>
         {children}
-      </ScheduleContext.Provider>
-    </LiveProvider>
+      </LiveProvider>
+    </ScheduleContext.Provider>
   )
 }
 

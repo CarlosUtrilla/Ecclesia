@@ -72,16 +72,10 @@ export function getContrastTextColor(hex: string): '#000000' | '#ffffff' {
     b = Math.round(b * alpha + 255 * (1 - alpha))
   }
 
-  // Fórmula WCAG para luminancia relativa
-  const toLinear = (c: number) => {
-    c = c / 255
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
-  }
+  // Fórmula estándar de luminancia (WCAG)
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b
 
-  const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
-
-  // Umbral WCAG: 0.179 para AA normal (equivale a ~128 en escala 0-255)
-  return luminance > 0.179 ? '#000000' : '#ffffff'
+  return luminance > 186 ? '#000000' : '#ffffff'
 }
 
 export type GroupsTags = {

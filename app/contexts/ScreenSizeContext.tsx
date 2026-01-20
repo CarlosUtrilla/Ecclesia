@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react'
-import { useDisplays } from '@/hooks/useDisplays'
 import { ScreenSize } from '@/components/PresentationView/types'
+import { useDisplays } from './displayContext'
 
 interface ScreenSizeContextType {
   getScreenSize: (maxHeight: number) => ScreenSize
@@ -34,7 +34,7 @@ export function ScreenSizeProvider({ children }: { children: ReactNode }) {
 
       // Encontrar el display público
       const publicDisplay =
-        displays.find((display) => display.usageType === 'public') || displays[0]
+        displays.find((display) => display.type === 'LIVE_SCREEN') || displays[0]
 
       if (!publicDisplay) {
         const defaultSize: ScreenSize = { width: 0, height: 0, aspectRatio: '16 / 9' }
