@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
+import { ThemeWithMedia } from '../../../database/controllers/themes/themes.dto'
 
 export function initializeDisplayManager() {
   // Obtener todas las pantallas disponibles
@@ -73,19 +74,30 @@ export function initializeDisplayManager() {
     // Mostrar la ventana después de cargar
     liveScreen.once('ready-to-show', () => {
       liveScreen.show()
+      liveScreen.focus()
       liveScreen.setAlwaysOnTop(true, 'screen-saver')
-      liveScreen.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
-      // macOS específico: Forzar fullscreen para ocultar menu bar
+      // macOS específico: Solo aplicar a la ventana de live screen
       if (process.platform === 'darwin') {
         liveScreen.setSimpleFullScreen(true)
-        liveScreen.setMenuBarVisibility(false)
+        // Solo ocultar menu bar en la ventana de live screen, no globalmente
+        liveScreen.setAutoHideMenuBar(true)
       }
 
-      mainWindow.focus()
+      // Devolver el foco a la ventana principal después de un delay
+      setTimeout(() => {
+        mainWindow.focus()
+        mainWindow.show()
+      }, 100)
     })
 
-    const route = '/live-screen'
+    // Notificar cuando la ventana esté completamente cargada
+    liveScreen.webContents.once('did-finish-load', () => {
+      // Enviar evento a la ventana principal indicando que esta live screen está lista
+      mainWindow.webContents.send('live-screen-ready', liveScreen.id)
+    })
+
+    const route = '/live-screen/' + displayId
 
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
       liveScreen.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
@@ -132,34 +144,17 @@ export function initializeDisplayManager() {
     }
   })
 
-  ipcMain.handle('show-new-display-connected', () => {
-    const newDisplayWindow = new BrowserWindow({
-      width: 600,
-      height: 400,
-      minimizable: false,
-      maximizable: false,
-      alwaysOnTop: true,
-      modal: true,
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        sandbox: false
-      }
+  ipcMain.handle('liveScreen-update', (_event, data) => {
+    const allWindows = BrowserWindow.getAllWindows()
+    allWindows.forEach((win) => {
+      win.webContents.send('liveScreen-update', data)
     })
+  })
 
-    // Mostrar la ventana después de cargar
-    newDisplayWindow.once('ready-to-show', () => {
-      newDisplayWindow.show()
-      newDisplayWindow.focus()
+  ipcMain.handle('liveScreen-update-theme', (_event, themeId: ThemeWithMedia) => {
+    const allWindows = BrowserWindow.getAllWindows()
+    allWindows.forEach((win) => {
+      win.webContents.send('liveScreen-update-theme', themeId)
     })
-
-    const route = '/newDisplayConnected'
-
-    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-      newDisplayWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-    } else {
-      newDisplayWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-        hash: route
-      })
-    }
   })
 }

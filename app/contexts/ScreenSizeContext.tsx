@@ -3,7 +3,7 @@ import { ScreenSize } from '@/components/PresentationView/types'
 import { useDisplays } from './displayContext'
 
 interface ScreenSizeContextType {
-  getScreenSize: (maxHeight: number) => ScreenSize
+  getScreenSize: (maxHeight: number, displayId?: number) => ScreenSize
 }
 
 const ScreenSizeContext = createContext<ScreenSizeContextType | null>(null)
@@ -27,14 +27,15 @@ export function ScreenSizeProvider({ children }: { children: ReactNode }) {
     // Cache para diferentes maxHeight values
     const cache = new Map<number, ScreenSize>()
 
-    return (maxHeight: number): ScreenSize => {
+    return (maxHeight: number, displayId?: number): ScreenSize => {
       // Verificar si ya calculamos este maxHeight
       const cached = cache.get(maxHeight)
       if (cached) return cached
 
       // Encontrar el display público
-      const publicDisplay =
-        displays.find((display) => display.type === 'LIVE_SCREEN') || displays[0]
+      const publicDisplay = displayId
+        ? displays.find((d) => d.id === displayId)
+        : displays.find((display) => display.type === 'LIVE_SCREEN') || displays[0]
 
       if (!publicDisplay) {
         const defaultSize: ScreenSize = { width: 0, height: 0, aspectRatio: '16 / 9' }
@@ -64,7 +65,7 @@ export function ScreenSizeProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function useScreenSize(maxHeight: number): ScreenSize {
+export function useScreenSize(maxHeight: number, displayId?: number): ScreenSize {
   const context = useContext(ScreenSizeContext)
 
   if (!context) {
@@ -72,5 +73,5 @@ export function useScreenSize(maxHeight: number): ScreenSize {
   }
 
   // Este hook se re-ejecutará cuando el contexto cambie (displays o resize)
-  return useMemo(() => context.getScreenSize(maxHeight), [context, maxHeight])
+  return useMemo(() => context.getScreenSize(maxHeight, displayId), [context, maxHeight, displayId])
 }

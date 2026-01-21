@@ -31,7 +31,8 @@ export function PresentationView({
   onClick,
   selected,
   tagSongId,
-  className
+  className,
+  displayId
 }: PresentationViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const { tagSongs } = useTagSongs()
@@ -40,8 +41,8 @@ export function PresentationView({
   const { height } = useResizeObserver({
     ref: containerRef as React.RefObject<HTMLDivElement>
   })
-  const screenSize = useScreenSize(height || 0)
-
+  const screenSize = useScreenSize(height || 0, displayId)
+  console.log('Screen size:', screenSize)
   // Estados para manejar el background
   const [mediaType, setMediaType] = useState<MediaType>('color')
   const [videoError, setVideoError] = useState(false)

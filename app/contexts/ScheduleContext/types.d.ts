@@ -15,11 +15,6 @@ export type ILiveContext = {
   contentScreen?: ContentScreen | null
 }
 
-export type ILiveProps = {
-  selectedItemOnLive: ScheduleItem | null
-  setSelectedItemOnLive: (item: ScheduleItem | null) => void
-}
-
 type IScheduleContext = {
   itemOnLive: ScheduleItem | null
   setItemOnLive: (item: ScheduleItem | null) => void

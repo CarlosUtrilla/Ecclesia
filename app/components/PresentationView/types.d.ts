@@ -11,6 +11,7 @@ export type PresentationViewProps = {
   selected?: boolean
   tagSongId?: number | null
   className?: string
+  displayId?: number
 }
 
 export type PresentationViewItems = {

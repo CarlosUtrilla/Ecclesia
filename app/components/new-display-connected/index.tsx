@@ -2,17 +2,23 @@ import { DisplayInfo } from 'electron/main/displayManager/displayType'
 import { useEffect, useState } from 'react'
 import { ScreenRol } from '@prisma/client'
 import { Button } from '../../ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Badge } from '../../ui/badge'
 import { CircleSlash, Monitor, Tv } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/dialog'
 
 interface DisplayConfig {
   display: DisplayInfo
   selectedRole?: ScreenRol | 'NO_USE'
 }
 
-export default function NewDisplayConected() {
+export default function NewDisplayConected({
+  open,
+  onOpenChange
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const [displayConfigs, setDisplayConfigs] = useState<DisplayConfig[]>([])
   const [saving, setSaving] = useState(false)
 
@@ -87,71 +93,73 @@ export default function NewDisplayConected() {
   }, [])
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Monitor className="w-5 h-5" />
-          Configurar Pantallas Nuevas
-          <Badge variant="secondary">{displayConfigs.length}</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {displayConfigs.map((config) => (
-          <div
-            key={config.display.id}
-            className="flex items-center justify-between p-4 border rounded-lg"
-          >
-            <div className="flex items-center gap-3">
-              {getRoleIcon(config.selectedRole)}
-              <div>
-                <h4 className="font-medium">{config.display.label}</h4>
-                <p className="text-sm text-muted-foreground">
-                  {config.display.bounds.width}x{config.display.bounds.height}
-                  {config.display.internal ? ' • Interna' : ' • Externa'}
-                </p>
-              </div>
-            </div>
-
-            <Select
-              value={config.selectedRole || ''}
-              onValueChange={(value) => handleRoleChange(config.display.id, value as ScreenRol)}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Monitor className="w-5 h-5" />
+            Configurar Pantallas Nuevas
+            <Badge variant="secondary">{displayConfigs.length}</Badge>
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {displayConfigs.map((config) => (
+            <div
+              key={config.display.id}
+              className="flex items-center justify-between p-4 border rounded-lg"
             >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Seleccionar uso..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="LIVE_SCREEN">
-                  <div className="flex items-center gap-2">
-                    <Tv className="w-4 h-4" />
-                    Pantalla en Vivo
-                  </div>
-                </SelectItem>
-                <SelectItem value="STAGE_SCREEN">
-                  <div className="flex items-center gap-2">
-                    <Monitor className="w-4 h-4" />
-                    Pantalla de Escenario
-                  </div>
-                </SelectItem>
-                <SelectItem value="NO_USE">
-                  <div className="flex items-center gap-2">
-                    <CircleSlash className="w-4 h-4" />
-                    Sin uso
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
+              <div className="flex items-center gap-3">
+                {getRoleIcon(config.selectedRole)}
+                <div>
+                  <h4 className="font-medium">{config.display.label}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {config.display.bounds.width}x{config.display.bounds.height}
+                    {config.display.internal ? ' • Interna' : ' • Externa'}
+                  </p>
+                </div>
+              </div>
 
-        <div className="flex justify-end pt-4">
-          <Button
-            onClick={handleSaveScreens}
-            disabled={saving || displayConfigs.every((config) => !config.selectedRole)}
-          >
-            {saving ? 'Guardando...' : 'Guardar Configuración'}
-          </Button>
+              <Select
+                value={config.selectedRole || ''}
+                onValueChange={(value) => handleRoleChange(config.display.id, value as ScreenRol)}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Seleccionar uso..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LIVE_SCREEN">
+                    <div className="flex items-center gap-2">
+                      <Tv className="w-4 h-4" />
+                      Pantalla en Vivo
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="STAGE_SCREEN">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="w-4 h-4" />
+                      Pantalla de Escenario
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="NO_USE">
+                    <div className="flex items-center gap-2">
+                      <CircleSlash className="w-4 h-4" />
+                      Sin uso
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+
+          <div className="flex justify-end pt-4">
+            <Button
+              onClick={handleSaveScreens}
+              disabled={saving || displayConfigs.every((config) => !config.selectedRole)}
+            >
+              {saving ? 'Guardando...' : 'Guardar Configuración'}
+            </Button>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -35,8 +35,9 @@ export default function LiveScreens() {
             liveScreens.map((_, idx) => (
               <PresentationView
                 key={idx}
-                items={[contentScreen.content[itemIndex]]}
+                items={contentScreen.content}
                 theme={selectedTheme}
+                currentIndex={itemIndex}
                 live
               />
             ))

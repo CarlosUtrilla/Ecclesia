@@ -19,3 +19,8 @@ export interface DisplayInfo {
   aspectRatio: number
   isMain: boolean
 }
+
+export type ScreenContentUpdate = {
+  itemIndex: number
+  contentScreen: ContentScreen | null
+}

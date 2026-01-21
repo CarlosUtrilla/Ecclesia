@@ -1,5 +1,5 @@
+import NewDisplayConected from '@/components/new-display-connected'
 import { ScreenRol } from '@prisma/client'
-import { useQuery } from '@tanstack/react-query'
 import { DisplayInfo } from 'electron/main/displayManager/displayType'
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react'
 
@@ -17,13 +17,7 @@ export type IDisplaysContext = {
 const DisplaysContext = createContext({} as IDisplaysContext)
 
 export const DisplaysProvider = ({ children }: PropsWithChildren) => {
-  const { refetch } = useQuery({
-    queryKey: ['saved-displays'],
-    queryFn: async () => {
-      return window.api.selectedScreens.getAllSelectedScreens()
-    },
-    staleTime: Infinity
-  })
+  const [openNewDisplay, setOpenNewDisplay] = useState(false)
   const [displays, setDisplays] = useState<DisplayWithUsage[]>([])
   const [mainDisplay, setMainDisplay] = useState<DisplayWithUsage | null>(null)
   const hasExecuted = useRef(false)
@@ -31,7 +25,7 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
   const fetchDisplays = async () => {
     try {
       const displayInfo = await window.displayAPI.getDisplays()
-      const savedDisplays = (await refetch().then((res) => res.data)) || []
+      const savedDisplays = (await window.api.selectedScreens.getAllSelectedScreens()) || []
 
       // Comprobar si alguna de las pantallas del sistema no esta guardada o configurada
       const screenInUse = displayInfo.filter((display) =>
@@ -39,7 +33,7 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
       )
       if (screenInUse.length !== displayInfo.length) {
         console.log('Some displays are not configured in selected screens')
-        await window.displayAPI.showNewDisplayConnected()
+        setOpenNewDisplay(true)
       }
       const liveScreens: DisplayWithUsage[] = screenInUse
         .map((display) => {
@@ -91,6 +85,7 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
   }
   return (
     <DisplaysContext.Provider value={{ displays, refresh, mainDisplay }}>
+      <NewDisplayConected open={openNewDisplay} onOpenChange={setOpenNewDisplay} />
       {children}
     </DisplaysContext.Provider>
   )

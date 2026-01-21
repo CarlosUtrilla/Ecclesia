@@ -63,9 +63,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         media
       }}
     >
-      <LiveProvider selectedItemOnLive={itemOnLive} setSelectedItemOnLive={setItemOnLive}>
-        {children}
-      </LiveProvider>
+      <LiveProvider>{children}</LiveProvider>
     </ScheduleContext.Provider>
   )
 }

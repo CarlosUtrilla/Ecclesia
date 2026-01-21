@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
-import { DisplayInfo } from './displayType'
+import { DisplayInfo, ScreenContentUpdate } from './displayType'
+import { ThemeWithMedia } from '../../../database/controllers/themes/themes.dto'
 
 export const displayAPI = {
   getDisplays: (): Promise<DisplayInfo[]> => ipcRenderer.invoke('get-displays'),
@@ -7,5 +8,9 @@ export const displayAPI = {
     ipcRenderer.invoke('show-live-screen', displayId),
   closeLiveScreen: (windowId: number): Promise<boolean> =>
     ipcRenderer.invoke('close-live-screen', windowId),
-  showNewDisplayConnected: (): Promise<void> => ipcRenderer.invoke('show-new-display-connected')
+  showNewDisplayConnected: (): Promise<void> => ipcRenderer.invoke('show-new-display-connected'),
+  updateLiveScreenContent: (data: ScreenContentUpdate) =>
+    ipcRenderer.invoke('liveScreen-update', data),
+  updateLiveScreenTheme: (theme: ThemeWithMedia) =>
+    ipcRenderer.invoke('liveScreen-update-theme', theme)
 }
