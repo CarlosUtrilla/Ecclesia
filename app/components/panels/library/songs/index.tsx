@@ -16,8 +16,10 @@ import {
 } from '@/ui/context-menu'
 import PreviewSong from './previewSong'
 import { cn } from '@/lib/utils'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 export default function SongsPanelLibrary() {
+  const containerRef = useRef<HTMLDivElement>(null)
   const [selectedSong, setSelectedSong] = useState<SongResponseDTO | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -92,6 +94,24 @@ export default function SongsPanelLibrary() {
     await refetch()
   }
 
+  useKeyboardShortcuts(containerRef, {
+    onNavigate(direction) {
+      console.log('navigating', direction)
+      if (direction === 'up' || direction === 'down') {
+        const currentIndex = allSongs.findIndex((s) => s.id === selectedSong?.id)
+        let newIndex = currentIndex
+        if (direction === 'down') {
+          newIndex = Math.min(currentIndex + 1, allSongs.length - 1)
+        } else if (direction === 'up') {
+          newIndex = Math.max(currentIndex - 1, 0)
+        }
+        const newSelectedSong = allSongs[newIndex]
+        if (newSelectedSong) {
+          setSelectedSong(newSelectedSong)
+        }
+      }
+    }
+  })
   return (
     <div className="flex flex-col h-full">
       {/* Buscador */}
@@ -113,7 +133,11 @@ export default function SongsPanelLibrary() {
       </div>
 
       {/* Lista de canciones */}
-      <div className="flex-1 overflow-auto p-2 space-y-2">
+      <div
+        className="flex-1 overflow-auto p-2 space-y-2 focus:outline-none"
+        ref={containerRef}
+        tabIndex={0}
+      >
         {isLoading ? (
           // Loading skeleton
           Array.from({ length: 5 }).map((_, i) => (

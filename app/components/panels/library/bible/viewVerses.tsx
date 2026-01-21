@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { BibleSchemaDTO } from 'database/controllers/bible/bible.dto'
 import { useEffect, useRef } from 'react'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 type Props = {
   bookData?: BibleSchemaDTO
@@ -32,41 +33,10 @@ export default function ViewVerses({
   const verseRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const internalSelectionRef = useRef(false)
 
-  const handleVerseClick = (verseNumber: number, index: number, event: React.MouseEvent) => {
-    const isMac = navigator.platform.toUpperCase().includes('MAC')
-    const isMultiSelect = isMac ? event.metaKey : event.ctrlKey
-    const isRangeSelect = event.shiftKey
-
-    // Marcar que la selección viene del componente interno
-    internalSelectionRef.current = true
-
-    if (isRangeSelect && anchorIndexRef.current !== null) {
-      // Shift + click: seleccionar rango desde el ancla
-      const start = Math.min(anchorIndexRef.current, index)
-      const end = Math.max(anchorIndexRef.current, index)
-      const rangeVerses = completeChapter.slice(start, end + 1).map((v) => v.verse)
-      setSelectedVerse(rangeVerses)
-      // No actualizar ancla en shift+click, mantener el punto de origen
-    } else if (isMultiSelect) {
-      // Ctrl/Cmd + click: toggle individual
-      if (verse.includes(verseNumber)) {
-        setSelectedVerse(verse.filter((v) => v !== verseNumber))
-      } else {
-        setSelectedVerse([...verse, verseNumber].sort((a, b) => a - b))
-      }
-      // Actualizar ancla al último elemento seleccionado
-      anchorIndexRef.current = index
-    } else {
-      // Click normal: selección única
-      setSelectedVerse([verseNumber])
-      // Actualizar ancla al nuevo elemento seleccionado
-      anchorIndexRef.current = index
-    }
-
-    lastClickedIndexRef.current = index
-  }
-
-  const handleKeyDown = (event: React.KeyboardEvent) => {
+  const handleNavigation = (
+    direction: 'up' | 'down' | 'left' | 'right',
+    extendSelection?: boolean
+  ) => {
     if (!completeChapter.length || verse.length === 0) return
 
     const currentIndex = completeChapter.findIndex((v) => v.verse === verse[verse.length - 1])
@@ -77,18 +47,17 @@ export default function ViewVerses({
     // Marcar que la selección viene del componente interno
     internalSelectionRef.current = true
 
-    if (event.key === 'ArrowDown') {
-      event.preventDefault()
+    if (direction === 'down') {
       newIndex = Math.min(currentIndex + 1, completeChapter.length - 1)
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
+    } else if (direction === 'up') {
       newIndex = Math.max(currentIndex - 1, 0)
     } else {
-      return
+      return // Solo soportamos up/down para versículos
     }
 
-    if (event.shiftKey) {
+    if (extendSelection) {
       // Shift + flechas: extender selección desde el ancla
+      // Solo establecer ancla si no existe (primera vez)
       if (anchorIndexRef.current === null) {
         anchorIndexRef.current = currentIndex
       }
@@ -96,8 +65,9 @@ export default function ViewVerses({
       const end = Math.max(anchorIndexRef.current, newIndex)
       const rangeVerses = completeChapter.slice(start, end + 1).map((v) => v.verse)
       setSelectedVerse(rangeVerses)
+      // NO actualizar ancla durante selección extendida
     } else {
-      // Flechas solas: mover selección y actualizar ancla
+      // Flechas solas: mover selección y actualizar/resetear ancla
       setSelectedVerse([completeChapter[newIndex].verse])
       anchorIndexRef.current = newIndex
     }
@@ -105,12 +75,43 @@ export default function ViewVerses({
     lastClickedIndexRef.current = newIndex
   }
 
-  useEffect(() => {
-    // Focus en el contenedor para capturar eventos de teclado
-    if (containerRef.current) {
-      containerRef.current.focus()
+  const { handleItemClick } = useKeyboardShortcuts(containerRef, {
+    onNavigate: handleNavigation,
+    onItemClick: (item: { verseNumber: number; index: number }, event: React.MouseEvent) => {
+      const { verseNumber, index } = item
+      const isMac = navigator.platform.toUpperCase().includes('MAC')
+      const isMultiSelect = isMac ? event.metaKey : event.ctrlKey
+      const isRangeSelect = event.shiftKey
+
+      // Marcar que la selección viene del componente interno
+      internalSelectionRef.current = true
+
+      if (isRangeSelect && anchorIndexRef.current !== null) {
+        // Shift + click: seleccionar rango desde el ancla
+        const start = Math.min(anchorIndexRef.current, index)
+        const end = Math.max(anchorIndexRef.current, index)
+        const rangeVerses = completeChapter.slice(start, end + 1).map((v) => v.verse)
+        setSelectedVerse(rangeVerses)
+        // No actualizar ancla en shift+click, mantener el punto de origen
+      } else if (isMultiSelect) {
+        // Ctrl/Cmd + click: toggle individual
+        if (verse.includes(verseNumber)) {
+          setSelectedVerse(verse.filter((v) => v !== verseNumber))
+        } else {
+          setSelectedVerse([...verse, verseNumber].sort((a, b) => a - b))
+        }
+        // Actualizar ancla al último elemento seleccionado
+        anchorIndexRef.current = index
+      } else {
+        // Click normal: selección única
+        setSelectedVerse([verseNumber])
+        // Actualizar ancla al nuevo elemento seleccionado
+        anchorIndexRef.current = index
+      }
+
+      lastClickedIndexRef.current = index
     }
-  }, [])
+  })
 
   useEffect(() => {
     // Scroll automático al verso seleccionado solo si viene del panel superior
@@ -157,7 +158,6 @@ export default function ViewVerses({
         ref={containerRef}
         className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent flex-1 outline-none"
         tabIndex={0}
-        onKeyDown={handleKeyDown}
       >
         {completeChapter.map((v, index) => (
           <div
@@ -169,7 +169,7 @@ export default function ViewVerses({
             className={cn('flex border-b items-baseline hover:bg-muted/40 cursor-pointer ', {
               'bg-secondary/20 hover:bg-secondary/10': verse.includes(v.verse)
             })}
-            onClick={(e) => handleVerseClick(v.verse, index, e)}
+            onClick={(e) => handleItemClick({ verseNumber: v.verse, index }, e)}
             onDragStart={hanldeDragStart}
           >
             <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">

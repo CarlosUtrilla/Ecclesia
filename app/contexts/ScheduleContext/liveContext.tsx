@@ -2,11 +2,12 @@ import { createContext, PropsWithChildren, useContext, useEffect, useState } fro
 import { ContentScreen, ILiveContext } from './types'
 import { useSchedule } from '.'
 import { DisplayWithUsage, useDisplays } from '../displayContext'
+import { ScheduleItem } from '@prisma/client'
 
 const LiveContext = createContext({} as ILiveContext)
 
 export const LiveProvider = ({ children }: PropsWithChildren) => {
-  const { getScheduleItemContentScreen, itemOnLive, selectedTheme } = useSchedule()
+  const { getScheduleItemContentScreen, itemOnLive, selectedTheme, setItemOnLive } = useSchedule()
   const { displays, mainDisplay } = useDisplays()
   const [itemIndex, setItemIndex] = useState(0)
   const [showLiveScreen, setShowLiveScreen] = useState(false)
@@ -17,7 +18,6 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const [readyScreensCount, setReadyScreensCount] = useState(0)
 
   useEffect(() => {
-    setItemIndex(0)
     if (!showLiveScreen && itemOnLive) {
       setShowLiveScreen(true)
     }
@@ -42,8 +42,12 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       handleLiveScreenReady(windowId)
     })
 
+    const unsuscribeHideLiveScreen = window.electron.ipcRenderer.on('liveScreen-hide', () => {
+      setShowLiveScreen(false)
+    })
     return () => {
       unsubscribe()
+      unsuscribeHideLiveScreen()
     }
   }, [windowsLiveScreenOpens.length])
 
@@ -143,6 +147,25 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     sendThemeToLiveScreens()
   }, [selectedTheme, showLiveScreen, windowsLiveScreenOpens, liveScreensReady])
 
+  useEffect(() => {
+    if (!showLiveScreen) return
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowLiveScreen(false)
+      }
+    }
+    addEventListener('keyup', handleKeyUp)
+    return () => {
+      removeEventListener('keyup', handleKeyUp)
+    }
+  }, [showLiveScreen])
+
+  const showItemOnLiveScreen = async (item: ScheduleItem, index?: number) => {
+    setItemOnLive(item)
+    if (typeof index === 'number') {
+      setItemIndex(index)
+    }
+  }
   return (
     <LiveContext.Provider
       value={{
@@ -152,7 +175,8 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
         liveScreens,
         showLiveScreen,
         setShowLiveScreen,
-        contentScreen
+        contentScreen,
+        showItemOnLiveScreen
       }}
     >
       {children}

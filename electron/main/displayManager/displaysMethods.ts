@@ -12,5 +12,6 @@ export const displayAPI = {
   updateLiveScreenContent: (data: ScreenContentUpdate) =>
     ipcRenderer.invoke('liveScreen-update', data),
   updateLiveScreenTheme: (theme: ThemeWithMedia) =>
-    ipcRenderer.invoke('liveScreen-update-theme', theme)
+    ipcRenderer.invoke('liveScreen-update-theme', theme),
+  handleHideLiveScreen: (): Promise<void> => ipcRenderer.invoke('hide-live-screen')
 }

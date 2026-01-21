@@ -5,6 +5,7 @@ import { BookPlusIcon, Image, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from './types'
 import { useCallback } from 'react'
+import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 
 export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteVerseText } = useBibleSchema()
@@ -145,8 +146,12 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
       }
       if (type === 'SONG') {
         const songId = parseInt(accessData)
-        const song = songs.find((s) => s.id === songId)
-        if (!song) return { title: 'Canción no encontrada', content: [] }
+        let song = songs.find((s) => s.id === songId)
+        if (!song) {
+          // si no esta en cache puede ser un item mandado a live directamente
+          song = (await window.api.songs.getSongById(songId)) as SongResponseDTO
+          songs.push(song)
+        }
         const content = song.lyrics.map((lyric) => ({
           text: lyric.content,
           tagSongId: lyric.tagSongsId

@@ -27,11 +27,19 @@ export default function LiveScreen() {
         setThemeKey((prev) => prev + 1)
       }
     )
+    const handleKeyUp = async (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        await window.displayAPI.handleHideLiveScreen()
+      }
+    }
+    addEventListener('keyup', handleKeyUp)
     return () => {
       unsuscribeItems()
       unsuscribeThemes()
+      removeEventListener('keyup', handleKeyUp)
     }
   }, [])
+
   return (
     <div className="overflow-hidden">
       <PresentationView

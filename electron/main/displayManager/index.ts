@@ -59,7 +59,6 @@ export function initializeDisplayManager() {
       frame: false,
       alwaysOnTop: true,
       resizable: false,
-      skipTaskbar: true,
       closable: false,
       minimizable: false,
       maximizable: false,
@@ -88,7 +87,7 @@ export function initializeDisplayManager() {
       setTimeout(() => {
         mainWindow.focus()
         mainWindow.show()
-      }, 100)
+      }, 250)
     })
 
     // Notificar cuando la ventana esté completamente cargada
@@ -155,6 +154,13 @@ export function initializeDisplayManager() {
     const allWindows = BrowserWindow.getAllWindows()
     allWindows.forEach((win) => {
       win.webContents.send('liveScreen-update-theme', themeId)
+    })
+  })
+
+  ipcMain.handle('hide-live-screen', () => {
+    const allWindows = BrowserWindow.getAllWindows()
+    allWindows.forEach((win) => {
+      win.webContents.send('liveScreen-hide')
     })
   })
 }

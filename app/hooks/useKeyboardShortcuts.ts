@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 interface KeyboardShortcuts {
   onCopy?: () => void
@@ -7,10 +7,57 @@ interface KeyboardShortcuts {
   onDelete?: () => void
   onSelectAll?: () => void
   onNavigate?: (direction: 'up' | 'down' | 'left' | 'right', extendSelection?: boolean) => void
+  onItemClick?: (item: any, event: React.MouseEvent) => void
 }
 
-export function useKeyboardShortcuts(shortcuts: KeyboardShortcuts) {
+export function useKeyboardShortcuts(
+  containerRef: React.RefObject<HTMLElement | null>,
+  shortcuts: KeyboardShortcuts
+) {
+  const [containerFocused, setContainerFocused] = useState(false)
+
+  // Función helper para manejar clicks con modificadores
+  const handleItemClick = (item: any, event: React.MouseEvent) => {
+    // Focus en el contenedor para habilitar atajos de teclado
+    containerRef.current?.focus()
+
+    if (shortcuts.onItemClick) {
+      shortcuts.onItemClick(item, event)
+    }
+  }
+
   useEffect(() => {
+    const handleBlur = () => setContainerFocused(false)
+    const current = containerRef.current
+    if (current) {
+      current.addEventListener('blur', handleBlur)
+    }
+    return () => {
+      if (current) {
+        current.removeEventListener('blur', handleBlur)
+      }
+    }
+  }, [containerRef])
+
+  useEffect(() => {
+    const handleFocus = () => setContainerFocused(true)
+    const current = containerRef.current
+    if (current) {
+      current.addEventListener('focus', handleFocus)
+    }
+    return () => {
+      if (current) {
+        current.removeEventListener('focus', handleFocus)
+      }
+    }
+  }, [containerRef])
+
+  useEffect(() => {
+    if (!containerFocused) {
+      console.log('Container not focused, skipping keyboard shortcuts')
+      return
+    }
+    console.log('Container focused, enabling keyboard shortcuts')
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey
@@ -69,5 +116,10 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcuts) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [shortcuts])
+  }, [shortcuts, containerFocused])
+
+  // Retornar la función de click para que el componente la use
+  return {
+    handleItemClick
+  }
 }

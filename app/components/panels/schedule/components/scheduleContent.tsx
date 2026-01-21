@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/components/PresentationView/types'
 import { PresentationView } from '@/components/PresentationView'
+import { useLive } from '@/contexts/ScheduleContext/liveContext'
 
 type ScheduleContentProps = {
   onBack: () => void
@@ -18,9 +19,9 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
     getScheduleItemContentScreen,
     getScheduleItemIcon,
     getScheduleItemLabel,
-    selectedTheme,
-    setItemOnLive
+    selectedTheme
   } = useSchedule()
+  const { showItemOnLiveScreen } = useLive()
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
 
@@ -102,7 +103,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
   return (
     <>
       <div
-        className={cn('h-svh', {
+        className={cn('h-svh flex flex-col', {
           'h-7/12': itemContent && itemContent.length && selectedItem
         })}
       >
@@ -124,7 +125,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
 
         {/* Contenido del schedule - Drop Area */}
         <div
-          className="flex-1 h-full overflow-y-auto p-4"
+          className="flex-1 overflow-y-auto p-4"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -170,7 +171,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
                       }
                     )}
                     onClick={() => setSelectedItem(item)}
-                    onDoubleClick={() => setItemOnLive(item)}
+                    onDoubleClick={() => showItemOnLiveScreen(item, 0)}
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
@@ -196,7 +197,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
             <Button
               size="sm"
               onClick={() => {
-                setItemOnLive(selectedItem)
+                showItemOnLiveScreen(selectedItem, 0)
                 setSelectedItem(null)
               }}
             >

@@ -9,7 +9,7 @@ interface ScreenSizeContextType {
 const ScreenSizeContext = createContext<ScreenSizeContextType | null>(null)
 
 export function ScreenSizeProvider({ children }: { children: ReactNode }) {
-  const { displays } = useDisplays()
+  const { displays, mainDisplay } = useDisplays()
   const [triggerUpdate, setTriggerUpdate] = useState(0)
 
   // Escuchar resize una sola vez para toda la aplicación
@@ -35,7 +35,7 @@ export function ScreenSizeProvider({ children }: { children: ReactNode }) {
       // Encontrar el display público
       const publicDisplay = displayId
         ? displays.find((d) => d.id === displayId)
-        : displays.find((display) => display.type === 'LIVE_SCREEN') || displays[0]
+        : displays.find((display) => display.type === 'LIVE_SCREEN') || mainDisplay
 
       if (!publicDisplay) {
         const defaultSize: ScreenSize = { width: 0, height: 0, aspectRatio: '16 / 9' }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, RefObject } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Search, FolderPlus, ChevronRight, Home, LayoutGrid, List } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
@@ -12,14 +12,12 @@ import { RenameDialog } from './RenameDialog'
 import { useMediaOperations } from './hooks/useMediaOperations'
 import { useClipboard } from './hooks/useClipboard'
 import { useSelection, SelectableItem } from './hooks/useSelection'
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useKeyboardShortcuts } from '../../../../hooks/useKeyboardShortcuts'
 import { useDragAndDrop } from './hooks/useDragAndDrop'
 import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } from './utils'
-import { useOnClickOutside } from 'usehooks-ts'
 
 export default function MediaLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [userFocused, setUserFocused] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [currentFolder, setCurrentFolder] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -39,11 +37,6 @@ export default function MediaLibrary() {
   const operations = useMediaOperations(currentFolder)
   const { clipboard, copy, cut, clear, getSourcePath } = useClipboard(currentFolder)
   const selection = useSelection()
-
-  useOnClickOutside(containerRef as RefObject<HTMLDivElement>, () => {
-    setUserFocused(false)
-    containerRef.current?.blur()
-  })
 
   // Drag and drop para importar archivos
   const dragAndDrop = useDragAndDrop({
@@ -96,18 +89,6 @@ export default function MediaLibrary() {
   useEffect(() => {
     selection.clearSelection()
   }, [currentFolder])
-
-  // Handlers de selección
-  const handleItemClick = (item: SelectableItem, e: React.MouseEvent) => {
-    containerRef.current?.focus()
-    if (e.shiftKey) {
-      selection.selectRange(item, allSelectableItems)
-    } else if (e.ctrlKey || e.metaKey) {
-      selection.toggleSelect(item)
-    } else {
-      selection.selectSingle(item)
-    }
-  }
 
   // Handlers de clipboard con selección múltiple
   const handleCopySelection = () => {
@@ -302,28 +283,31 @@ export default function MediaLibrary() {
     isLoading || operations.importMutation.isPending || operations.deleteMutation.isPending
 
   // Atajos de teclado - Debe estar después de todas las definiciones de handlers
-  useKeyboardShortcuts({
+  const { handleItemClick: handleKeyboardItemClick } = useKeyboardShortcuts(containerRef, {
     onCopy: handleCopySelection,
     onCut: handleCutSelection,
     onPaste: handlePaste,
     onDelete: handleDeleteSelection,
     onSelectAll: () => selection.selectAll(allSelectableItems),
     onNavigate: (direction, extendSelection = false) => {
-      if (!userFocused) return
       // En vista de lista: 1 columna, en vista de cuadrícula: 2 columnas
       const columnsPerRow = viewMode === 'list' ? 1 : 2
       selection.navigateSelection(direction, allSelectableItems, columnsPerRow, extendSelection)
+    },
+    onItemClick: (item: SelectableItem, e: React.MouseEvent) => {
+      containerRef.current?.focus()
+      if (e.shiftKey) {
+        selection.selectRange(item, allSelectableItems)
+      } else if (e.ctrlKey || e.metaKey) {
+        selection.toggleSelect(item)
+      } else {
+        selection.selectSingle(item)
+      }
     }
   })
 
   return (
-    <div
-      onFocus={() => setUserFocused(true)}
-      onBlur={() => setUserFocused(false)}
-      ref={containerRef}
-      tabIndex={-1}
-      className="h-full flex flex-col relative outline-none"
-    >
+    <div ref={containerRef} tabIndex={-1} className="h-full flex flex-col relative outline-none">
       {/* Header - Solo búsqueda y acciones */}
       <div className="p-3 border-b ">
         <div>
@@ -437,7 +421,7 @@ export default function MediaLibrary() {
               setShowRenameDialog(true)
             }}
             formatFileSize={formatFileSize}
-            onItemClick={handleItemClick}
+            onItemClick={handleKeyboardItemClick}
             isSelected={selection.isSelected}
             onClearSelection={selection.clearSelection}
           />
@@ -454,7 +438,7 @@ export default function MediaLibrary() {
               setRenameTarget({ item, isFolder, currentName })
               setShowRenameDialog(true)
             }}
-            onItemClick={handleItemClick}
+            onItemClick={handleKeyboardItemClick}
             isSelected={selection.isSelected}
           />
         )}

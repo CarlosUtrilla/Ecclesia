@@ -13,6 +13,7 @@ export type ILiveContext = {
   showLiveScreen: boolean
   setShowLiveScreen: (show: boolean) => void
   contentScreen?: ContentScreen | null
+  showItemOnLiveScreen: (item: ScheduleItem, index?: number) => Promise<void>
 }
 
 type IScheduleContext = {
