@@ -43,6 +43,15 @@ export function useKeyboardShortcuts(
     const handleFocus = () => setContainerFocused(true)
     const current = containerRef.current
     if (current) {
+      // Configurar automáticamente tabIndex para que pueda recibir focus
+      if (!current.hasAttribute('tabindex')) {
+        current.tabIndex = 0
+      }
+      // Añadir outline-none para mejor UX
+      if (!current.style.outline) {
+        current.style.outline = 'none'
+      }
+
       current.addEventListener('focus', handleFocus)
     }
     return () => {

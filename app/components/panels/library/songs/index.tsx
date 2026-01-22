@@ -133,11 +133,7 @@ export default function SongsPanelLibrary() {
       </div>
 
       {/* Lista de canciones */}
-      <div
-        className="flex-1 overflow-auto p-2 space-y-2 focus:outline-none"
-        ref={containerRef}
-        tabIndex={0}
-      >
+      <div className="flex-1 overflow-auto p-2 space-y-2 " ref={containerRef}>
         {isLoading ? (
           // Loading skeleton
           Array.from({ length: 5 }).map((_, i) => (

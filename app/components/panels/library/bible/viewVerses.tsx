@@ -156,8 +156,7 @@ export default function ViewVerses({
       <div className="p-2 bg-muted/50 font-semibold">{bookData?.book}</div>
       <div
         ref={containerRef}
-        className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent flex-1 outline-none"
-        tabIndex={0}
+        className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent flex-1"
       >
         {completeChapter.map((v, index) => (
           <div

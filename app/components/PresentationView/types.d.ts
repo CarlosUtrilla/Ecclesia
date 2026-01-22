@@ -7,7 +7,7 @@ export type PresentationViewProps = {
   live?: boolean
   currentIndex?: number
   items: PresentationViewItems[]
-  onClick?: () => void
+  onClick?: (e: React.MouseEvent) => void
   selected?: boolean
   tagSongId?: number | null
   className?: string

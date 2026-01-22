@@ -24,6 +24,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
   const { showItemOnLiveScreen } = useLive()
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(0)
 
   const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
 
@@ -193,7 +194,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
       {itemContent && itemContent.length && selectedItem ? (
         <div className="flex flex-col h-5/12">
           <div className="flex justify-between items-center px-2 py-2 border-y bg-muted/20">
-            <h3 className="font-medium">Vista previa</h3>
+            <h3 className="font-medium text-sm italic">Vista previa de pantallas en vivo</h3>
             <Button
               size="sm"
               onClick={() => {
@@ -211,6 +212,14 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
                 key={index}
                 items={[content]}
                 theme={selectedTheme}
+                onClick={(e) => {
+                  //Si es doble click, presentar en vivo
+                  if (e.detail === 2) {
+                    showItemOnLiveScreen(selectedItem, index)
+                  }
+                  setSelectedIndex(index)
+                }}
+                selected={selectedIndex === index}
               />
             ))}
           </div>

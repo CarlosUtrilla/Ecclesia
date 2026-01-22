@@ -307,7 +307,7 @@ export default function MediaLibrary() {
   })
 
   return (
-    <div ref={containerRef} tabIndex={-1} className="h-full flex flex-col relative outline-none">
+    <div ref={containerRef} className="h-full flex flex-col relative">
       {/* Header - Solo búsqueda y acciones */}
       <div className="p-3 border-b ">
         <div>

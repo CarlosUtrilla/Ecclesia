@@ -33,7 +33,7 @@ export default function RenderSongLyricList({
     return indexes
   }, [song, songGruoups])
 
-  const escapeHtml = (unsafe: string) => {
+  const simpleEscapeHtml = (unsafe: string) => {
     //eliminar todas las etiquetas HTML
     return unsafe.replace(/<\/?[^>]+(>|$)/g, '')
   }
@@ -85,7 +85,7 @@ export default function RenderSongLyricList({
                   if (onDoubleClick) onDoubleClick(e, index)
                 }}
               >
-                {escapeHtml(content)}
+                {simpleEscapeHtml(content)}
               </p>
             )
           })}
