@@ -8,7 +8,7 @@ import { ScheduleSchema } from './schema'
 import { ScheduleItem } from '@prisma/client'
 import { useIndexDataItems } from './indexDataItems'
 import { LiveProvider } from './liveContext'
-import { IScheduleContext } from './types'
+import { AddItemToSchedule, IScheduleContext } from './types'
 
 const ScheduleContext = createContext({} as IScheduleContext)
 
@@ -47,6 +47,31 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     actualSchedule()
   }, [])
 
+  const addItemToSchedule = (item: AddItemToSchedule) => {
+    // Determinar el tipo y crear el item apropiado
+    const newItem: any = {
+      order: (currentSchedule?.items.length || 0) + 1,
+      scheduleGroupId: null
+    }
+
+    if (item.type === 'SONG') {
+      newItem.type = 'SONG'
+      newItem.accessData = String(item.accessData)
+    } else if (item.type === 'MEDIA') {
+      newItem.type = 'MEDIA'
+      newItem.accessData = String(item.accessData)
+    } else if (item.type === 'BIBLE') {
+      // Formato: "bookId,chapter,verseStart-verseEnd,version"
+      newItem.type = 'BIBLE'
+      newItem.accessData = item.accessData
+    } else {
+      console.warn('Tipo de item desconocido:', item.type)
+      return
+    }
+
+    form.setValue('items', [...currentSchedule.items, newItem], { shouldDirty: true })
+  }
+
   return (
     <ScheduleContext.Provider
       value={{
@@ -60,7 +85,8 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         getScheduleItemLabel,
         getScheduleItemContentScreen,
         songs,
-        media
+        media,
+        addItemToSchedule
       }}
     >
       <LiveProvider>{children}</LiveProvider>

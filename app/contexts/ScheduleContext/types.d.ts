@@ -1,4 +1,4 @@
-import { Media, ScheduleItem } from '@prisma/client'
+import { Media, ScheduleItem, ScheduleItemType } from '@prisma/client'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 import { ScheduleSchemaType } from './schema'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
@@ -16,6 +16,8 @@ export type ILiveContext = {
   showItemOnLiveScreen: (item: ScheduleItem, index?: number) => Promise<void>
 }
 
+export type AddItemToSchedule = { type: ScheduleItemType; accessData: any }
+
 type IScheduleContext = {
   itemOnLive: ScheduleItem | null
   setItemOnLive: (item: ScheduleItem | null) => void
@@ -28,6 +30,7 @@ type IScheduleContext = {
   getScheduleItemContentScreen: (item: ScheduleItem) => Promise<ContentScreen>
   songs: SongResponseDTO[]
   media: Media[]
+  addItemToSchedule: (item: AddItemToSchedule) => void
 }
 
 export type ContentScreen = {

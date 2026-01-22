@@ -3,6 +3,15 @@ import { useQuery } from '@tanstack/react-query'
 import { BibleSchemaDTO } from 'database/controllers/bible/bible.dto'
 import { useEffect, useRef } from 'react'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from '@/ui/context-menu'
+import { CalendarPlus, Radio } from 'lucide-react'
+import { useSchedule } from '@/contexts/ScheduleContext'
+import { useLive } from '@/contexts/ScheduleContext/liveContext'
 
 type Props = {
   bookData?: BibleSchemaDTO
@@ -21,17 +30,20 @@ export default function ViewVerses({
   verse,
   setSelectedVerse
 }: Props) {
+  const internalSelectionRef = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const anchorIndexRef = useRef<number | null>(null)
+  const lastClickedIndexRef = useRef<number | null>(null)
+  const verseRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+
+  const { addItemToSchedule } = useSchedule()
+  const { showItemOnLiveScreen } = useLive()
+
   const { data: completeChapter = [] } = useQuery({
     queryKey: ['completeChapter', book, chapter, version],
     queryFn: async () => await window.api.bible.getCompleteChapter(version, book, chapter),
     staleTime: Infinity
   })
-
-  const lastClickedIndexRef = useRef<number | null>(null)
-  const anchorIndexRef = useRef<number | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const verseRefs = useRef<Map<number, HTMLDivElement>>(new Map())
-  const internalSelectionRef = useRef(false)
 
   const handleNavigation = (
     direction: 'up' | 'down' | 'left' | 'right',
@@ -151,6 +163,46 @@ export default function ViewVerses({
     e.dataTransfer.effectAllowed = 'copy'
   }
 
+  const handleAddToSchedule = (verseNumber: number) => {
+    if (verse.includes(verseNumber)) {
+      const verseRange =
+        verse.length === 1 ? verse[0] : `${Math.min(...verse)}-${Math.max(...verse)}`
+      addItemToSchedule({
+        type: 'BIBLE',
+        accessData: `${bookData?.id},${chapter},${verseRange},${version}`
+      })
+    } else {
+      addItemToSchedule({
+        type: 'BIBLE',
+        accessData: `${bookData?.id},${chapter},${verseNumber},${version}`
+      })
+    }
+  }
+
+  const handleShowOnLive = (verseNumber: number) => {
+    if (verse.includes(verseNumber)) {
+      const verseRange =
+        verse.length === 1 ? verse[0] : `${Math.min(...verse)}-${Math.max(...verse)}`
+      showItemOnLiveScreen({
+        type: 'BIBLE',
+        accessData: `${bookData?.id},${chapter},${verseRange},${version}`,
+        id: -1,
+        order: -1,
+        scheduleGroupId: null,
+        scheduleId: -1
+      })
+    } else {
+      showItemOnLiveScreen({
+        type: 'BIBLE',
+        accessData: `${bookData?.id},${chapter},${verseNumber},${version}`,
+        id: -1,
+        order: -1,
+        scheduleGroupId: null,
+        scheduleId: -1
+      })
+    }
+  }
+
   return (
     <div className="row-span-1 overflow-hidden flex flex-col h-full">
       <div className="p-2 bg-muted/50 font-semibold">{bookData?.book}</div>
@@ -159,23 +211,36 @@ export default function ViewVerses({
         className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent flex-1"
       >
         {completeChapter.map((v, index) => (
-          <div
-            key={index}
-            draggable
-            ref={(el) => {
-              if (el) verseRefs.current.set(v.verse, el)
-            }}
-            className={cn('flex border-b items-baseline hover:bg-muted/40 cursor-pointer ', {
-              'bg-secondary/20 hover:bg-secondary/10': verse.includes(v.verse)
-            })}
-            onClick={(e) => handleItemClick({ verseNumber: v.verse, index }, e)}
-            onDragStart={hanldeDragStart}
-          >
-            <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">
-              {v.verse}
-            </div>
-            <div className="flex-1 pr-1.5 text-sm select-none">{v.text}</div>
-          </div>
+          <ContextMenu key={index}>
+            <ContextMenuTrigger>
+              <div
+                draggable
+                ref={(el) => {
+                  if (el) verseRefs.current.set(v.verse, el)
+                }}
+                className={cn('flex border-b items-baseline hover:bg-muted/40 cursor-pointer ', {
+                  'bg-secondary/20 hover:bg-secondary/10': verse.includes(v.verse)
+                })}
+                onClick={(e) => handleItemClick({ verseNumber: v.verse, index }, e)}
+                onDragStart={hanldeDragStart}
+              >
+                <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">
+                  {v.verse}
+                </div>
+                <div className="flex-1 pr-1.5 text-sm select-none">{v.text}</div>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onClick={() => handleAddToSchedule(v.verse)}>
+                <CalendarPlus />
+                Añadir al cronograma
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => handleShowOnLive(v.verse)}>
+                <Radio className="text-green-600" />
+                Presentar en vivo
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         ))}
       </div>
     </div>

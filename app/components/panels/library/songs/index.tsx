@@ -5,7 +5,7 @@ import t from '@locales'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { SongResponseDTO, SongsListResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useEffect, useRef, useState } from 'react'
-import { Search, Music, Plus, Trash2 } from 'lucide-react'
+import { Search, Music, Plus, Trash2, Edit2, Radio, CalendarPlus } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Tooltip } from '@/ui/tooltip'
 import {
@@ -17,13 +17,19 @@ import {
 import PreviewSong from './previewSong'
 import { cn } from '@/lib/utils'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useSchedule } from '@/contexts/ScheduleContext'
+import { useLive } from '@/contexts/ScheduleContext/liveContext'
 
 export default function SongsPanelLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [selectedSong, setSelectedSong] = useState<SongResponseDTO | null>(null)
+  const observerRef = useRef<HTMLDivElement>(null)
+
+  const { addItemToSchedule } = useSchedule()
+  const { showItemOnLiveScreen } = useLive()
+
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const observerRef = useRef<HTMLDivElement>(null)
+  const [selectedSong, setSelectedSong] = useState<SongResponseDTO | null>(null)
 
   // Debounce para el buscador
   useEffect(() => {
@@ -181,7 +187,7 @@ export default function SongsPanelLibrary() {
                       }
                     )}
                     onClick={() => setSelectedSong(song)}
-                    onDoubleClick={() => window.windowAPI.openSongWindow(song.id)}
+                    onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
                   >
                     <h3 className="font-semibold text-base flex gap-2 items-center">
                       <Music className="h-4 w-4 text-muted-foreground" />
@@ -196,8 +202,32 @@ export default function SongsPanelLibrary() {
                 </ContextMenuTrigger>
                 <ContextMenuContent>
                   <ContextMenuItem onClick={() => window.windowAPI.openSongWindow(song.id)}>
-                    <Trash2 className="text-destructive" />
+                    <Edit2 />
                     Editar canción
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
+                  >
+                    <CalendarPlus />
+                    Añadir canción al cronograma
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onClick={() =>
+                      showItemOnLiveScreen(
+                        {
+                          accessData: song.id.toString(),
+                          type: 'SONG',
+                          id: -1,
+                          order: -1,
+                          scheduleGroupId: null,
+                          scheduleId: -1
+                        },
+                        0
+                      )
+                    }
+                  >
+                    <Radio className="text-green-600" />
+                    Presentar canción en vivo
                   </ContextMenuItem>
                   <ContextMenuItem onClick={() => handleDeleteSong(song.id)}>
                     <Trash2 className="text-destructive" />

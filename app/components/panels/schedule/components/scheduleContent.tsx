@@ -19,7 +19,8 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
     getScheduleItemContentScreen,
     getScheduleItemIcon,
     getScheduleItemLabel,
-    selectedTheme
+    selectedTheme,
+    addItemToSchedule
   } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
@@ -49,8 +50,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
   }
 
   const {
-    formState: { isDirty },
-    setValue
+    formState: { isDirty }
   } = form
   const pendingSave = isDirty
 
@@ -73,29 +73,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
       if (!data) return
 
       const droppedItem = JSON.parse(data)
-
-      // Determinar el tipo y crear el item apropiado
-      const newItem: any = {
-        order: (currentSchedule?.items.length || 0) + 1,
-        scheduleGroupId: null
-      }
-
-      if (droppedItem.type === 'song') {
-        newItem.type = 'SONG'
-        newItem.accessData = String(droppedItem.accessData)
-      } else if (droppedItem.type === 'media') {
-        newItem.type = 'MEDIA'
-        newItem.accessData = String(droppedItem.accessData)
-      } else if (droppedItem.type === 'bible') {
-        // Formato: "bookId,chapter,verseStart-verseEnd,version"
-        newItem.type = 'BIBLE'
-        newItem.accessData = droppedItem.accessData
-      } else {
-        console.warn('Tipo de item desconocido:', droppedItem.type)
-        return
-      }
-
-      setValue('items', [...currentSchedule.items, newItem], { shouldDirty: true })
+      addItemToSchedule(droppedItem)
     } catch (error) {
       console.error('Error al procesar drop:', error)
     }
