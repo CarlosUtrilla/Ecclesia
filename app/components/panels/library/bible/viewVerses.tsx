@@ -156,7 +156,7 @@ export default function ViewVerses({
     e.dataTransfer.setData(
       'application/json',
       JSON.stringify({
-        type: 'bible',
+        type: 'BIBLE',
         accessData: `${bookData?.id},${chapter},${verseRange},${version}`
       })
     )

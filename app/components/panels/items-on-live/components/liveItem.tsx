@@ -3,6 +3,7 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useQuery } from '@tanstack/react-query'
 import { Radio } from 'lucide-react'
 import { RenderSongLyrics } from './RenderSongLyrics'
+import RenderBibleVerses from './RenderBibleVerses'
 
 export default function LiveItem() {
   const { itemOnLive, getScheduleItemContentScreen } = useSchedule()
@@ -13,6 +14,18 @@ export default function LiveItem() {
     },
     enabled: !!itemOnLive
   })
+
+  const renderContent = () => {
+    const content = data!.content
+    switch (itemOnLive!.type) {
+      case 'SONG':
+        return <RenderSongLyrics />
+      case 'BIBLE':
+        return <RenderBibleVerses data={content} />
+      default:
+        return <div className="p-4 text-sm text-muted-foreground">Vista previa no disponible.</div>
+    }
+  }
 
   return (
     <div className="h-full border-r">
@@ -26,7 +39,9 @@ export default function LiveItem() {
                     ? 'Canción'
                     : itemOnLive.type === 'BIBLE'
                       ? 'Biblia'
-                      : 'Otro contenido'}
+                      : itemOnLive.type === 'MEDIA'
+                        ? 'Multimedia'
+                        : 'Otro contenido'}
                 </>
               ) : (
                 'Ningún elemento en vivo'
@@ -41,21 +56,7 @@ export default function LiveItem() {
           ) : null}
         </div>
       </div>
-      <div className="h-7/12">
-        {data?.content ? (
-          itemOnLive?.type === 'SONG' ? (
-            <RenderSongLyrics />
-          ) : (
-            <div>
-              {data.content.map(({ text }) => (
-                <div className="border-b py-1 px-2 text-sm" key={text}>
-                  {text}
-                </div>
-              ))}
-            </div>
-          )
-        ) : null}
-      </div>
+      <div className="h-7/12">{data?.content ? renderContent() : null}</div>
       <ThemesPanel />
     </div>
   )

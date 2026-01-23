@@ -173,7 +173,7 @@ export default function SongsPanelLibrary() {
                       e.dataTransfer.setData(
                         'application/json',
                         JSON.stringify({
-                          type: 'song',
+                          type: 'SONG',
                           accessData: song.id
                         })
                       )

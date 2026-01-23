@@ -6,9 +6,11 @@ import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from './types'
 import { useCallback } from 'react'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
+import { useMediaServer } from '../MediaServerContext'
 
 export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteVerseText } = useBibleSchema()
+  const { buildMediaUrl } = useMediaServer()
   const accessDataKey = currentSchedule?.items.map((item) => parseInt(item.accessData))
 
   const { data: songs = [] } = useQuery({
@@ -47,11 +49,15 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         /*  if (med && med.type === 'AUDIO') {
           return <Music className="h-4 w-4" />
         } */
-        if (med && med.type === 'VIDEO') {
-          return <Video className="h-4 w-4" />
-        }
-        if (med && med.type === 'IMAGE') {
-          return <Image className="h-4 w-4" />
+        //RETORNAR THUMBNAIL SI ES IMAGEN O VIDEO
+        if (med && (med.type === 'IMAGE' || med.type === 'VIDEO')) {
+          return (
+            <img
+              src={buildMediaUrl(med.thumbnail || med.filePath)}
+              alt={med.name}
+              className="size-8 object-contain"
+            />
+          )
         }
         return <Video className="h-4 w-4" />
       }

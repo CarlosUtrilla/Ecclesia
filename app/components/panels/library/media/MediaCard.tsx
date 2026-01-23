@@ -40,7 +40,7 @@ export function MediaCard({
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData(
       'application/json',
-      JSON.stringify({ item: media, isFolder: false, type: 'media', accessData: media.id })
+      JSON.stringify({ item: media, isFolder: false, type: 'MEDIA', accessData: media.id })
     )
   }
 
