@@ -82,7 +82,7 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
   return (
     <>
       <div
-        className={cn('h-svh flex flex-col', {
+        className={cn('h-full flex flex-col', {
           'h-7/12': itemContent && itemContent.length && selectedItem
         })}
       >

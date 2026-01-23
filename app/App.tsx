@@ -12,6 +12,7 @@ import LiveScreens from './components/panels/live-screens'
 import { DisplaysProvider } from './contexts/displayContext'
 import { PropsWithChildren } from 'react'
 import LiveScreen from './components/live-screen'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from './ui/resizable'
 
 function App() {
   return (
@@ -21,12 +22,27 @@ function App() {
           path="/"
           element={
             <ScheduleProvider>
-              <div className="grid grid-rows-1 grid-cols-4 h-dvh max-h-svh">
-                <LibraryPanel />
-                <SchedulePanel />
-                <LivePanels />
-                <LiveScreens />
-              </div>
+              <ResizablePanelGroup direction="vertical">
+                <ResizablePanel defaultSize={65} minSize={'50%'}>
+                  <ResizablePanelGroup direction="horizontal">
+                    <ResizablePanel defaultSize={20} minSize={'18%'} maxSize={'30%'}>
+                      <SchedulePanel />
+                    </ResizablePanel>
+                    <ResizableHandle />
+                    <ResizablePanel defaultSize={60} minSize={'30%'}>
+                      <LivePanels />
+                    </ResizablePanel>
+                    <ResizableHandle />
+                    <ResizablePanel defaultSize={20} minSize={'18%'} maxSize={'30%'}>
+                      <LiveScreens />
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
+                </ResizablePanel>
+                <ResizableHandle className="w-full" />
+                <ResizablePanel defaultSize={35} minSize={'25%'}>
+                  <LibraryPanel />
+                </ResizablePanel>
+              </ResizablePanelGroup>
             </ScheduleProvider>
           }
         />

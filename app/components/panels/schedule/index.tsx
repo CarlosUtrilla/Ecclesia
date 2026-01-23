@@ -16,7 +16,7 @@ export default function SchedulePanelContent() {
   }
 
   return (
-    <div className="border-r h-full">
+    <div className="h-full">
       {showList ? (
         <ScheduleList onScheduleSelect={handleScheduleSelect} />
       ) : (
