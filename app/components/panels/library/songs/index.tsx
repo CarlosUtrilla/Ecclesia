@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/liveContext'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
 
 export default function SongsPanelLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -119,138 +120,146 @@ export default function SongsPanelLibrary() {
     }
   })
   return (
-    <div className="flex flex-col h-full">
-      {/* Buscador */}
-      <div className="p-2 bg-muted/30 border-b flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder={t('songsPanelLibrary.searchSongs')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 !bg-background"
-          />
-        </div>
-        <Tooltip content={t('songsPanelLibrary.addSong')}>
-          <Button size="icon" onClick={() => window.windowAPI.openSongWindow()}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </Tooltip>
-      </div>
-
-      {/* Lista de canciones */}
-      <div className="flex-1 overflow-auto p-2 space-y-2 " ref={containerRef}>
-        {isLoading ? (
-          // Loading skeleton
-          Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i} className="p-4">
-              <Skeleton className="h-5 w-3/4 mb-2" />
-              <Skeleton className="h-4 w-1/2" />
-            </Card>
-          ))
-        ) : allSongs.length === 0 ? (
-          // Estado vacío
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <Music className="h-12 w-12 mb-4" />
-            <p className="text-lg font-medium">
-              {search ? t('songsPanelLibrary.noSongsFound') : t('songsPanelLibrary.noSongs')}
-            </p>
-            <p className="text-sm">
-              {search
-                ? t('songsPanelLibrary.tryAnotherSearch')
-                : t('songsPanelLibrary.addFirstSong')}
-            </p>
+    <ResizablePanelGroup direction="horizontal" className="panel-scrollable">
+      <ResizablePanel
+        className="border-r panel-scrollable"
+        defaultSize={'20%'}
+        minSize={'15%'}
+        maxSize={'35%'}
+      >
+        {/* Buscador */}
+        <div className="panel-header p-2 bg-muted/30 border-b flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder={t('songsPanelLibrary.searchSongs')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 !bg-background"
+            />
           </div>
-        ) : (
-          // Lista de canciones
-          <>
-            {allSongs.map((song) => (
-              <ContextMenu key={song.id}>
-                <ContextMenuTrigger>
-                  <div
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(
-                        'application/json',
-                        JSON.stringify({
-                          type: 'SONG',
-                          accessData: song.id
-                        })
-                      )
-                      e.dataTransfer.effectAllowed = 'copy'
-                    }}
-                    className={cn(
-                      'p-1 px-4 pl-3 hover:bg-muted/30',
-                      'cursor-pointer transition-colors',
-                      {
-                        'bg-secondary/20 hover:bg-secondary/10': selectedSong?.id === song.id
-                      }
-                    )}
-                    onClick={() => setSelectedSong(song)}
-                    onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
-                  >
-                    <h3 className="font-semibold text-base flex gap-2 items-center">
-                      <Music className="h-4 w-4 text-muted-foreground" />
-                      {song.title}
-                      {song.author ? (
-                        <div className="text-sm text-muted-foreground mt-1">
-                          ({song.author && <span>{song.author}</span>})
-                        </div>
-                      ) : null}
-                    </h3>
-                  </div>
-                </ContextMenuTrigger>
-                <ContextMenuContent>
-                  <ContextMenuItem onClick={() => window.windowAPI.openSongWindow(song.id)}>
-                    <Edit2 />
-                    Editar canción
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
-                  >
-                    <CalendarPlus />
-                    Añadir canción al cronograma
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onClick={() =>
-                      showItemOnLiveScreen(
-                        {
-                          accessData: song.id.toString(),
-                          type: 'SONG',
-                          id: -1,
-                          order: -1,
-                          scheduleGroupId: null,
-                          scheduleId: -1
-                        },
-                        0
-                      )
-                    }
-                  >
-                    <Radio className="text-green-600" />
-                    Presentar canción en vivo
-                  </ContextMenuItem>
-                  <ContextMenuItem onClick={() => handleDeleteSong(song.id)}>
-                    <Trash2 className="text-destructive" />
-                    Eliminar canción
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            ))}
+          <Tooltip content={t('songsPanelLibrary.addSong')}>
+            <Button size="icon" onClick={() => window.windowAPI.openSongWindow()}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </Tooltip>
+        </div>
 
-            {/* Observer para scroll infinito */}
-            <div ref={observerRef} className="h-4" />
-
-            {/* Loading más canciones */}
-            {isFetchingNextPage && (
-              <Card className="p-4">
+        {/* Lista de canciones */}
+        <div className="panel-scroll-content p-2 space-y-2" ref={containerRef}>
+          {isLoading ? (
+            // Loading skeleton
+            Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i} className="p-4">
                 <Skeleton className="h-5 w-3/4 mb-2" />
                 <Skeleton className="h-4 w-1/2" />
               </Card>
-            )}
-          </>
-        )}
-      </div>
-      {selectedSong && <PreviewSong song={selectedSong} onDelete={handleDeleteSong} />}
-    </div>
+            ))
+          ) : allSongs.length === 0 ? (
+            // Estado vacío
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <Music className="h-12 w-12 mb-4" />
+              <p className="text-lg font-medium">
+                {search ? t('songsPanelLibrary.noSongsFound') : t('songsPanelLibrary.noSongs')}
+              </p>
+              <p className="text-sm">
+                {search
+                  ? t('songsPanelLibrary.tryAnotherSearch')
+                  : t('songsPanelLibrary.addFirstSong')}
+              </p>
+            </div>
+          ) : (
+            // Lista de canciones
+            <>
+              {allSongs.map((song) => (
+                <ContextMenu key={song.id}>
+                  <ContextMenuTrigger>
+                    <div
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(
+                          'application/json',
+                          JSON.stringify({
+                            type: 'SONG',
+                            accessData: song.id
+                          })
+                        )
+                        e.dataTransfer.effectAllowed = 'copy'
+                      }}
+                      className={cn(
+                        'p-1 px-4 pl-3 hover:bg-muted/30',
+                        'cursor-pointer transition-colors',
+                        {
+                          'bg-secondary/20 hover:bg-secondary/10': selectedSong?.id === song.id
+                        }
+                      )}
+                      onClick={() => setSelectedSong(song)}
+                      onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
+                    >
+                      <h3 className="font-semibold text-base flex gap-2 items-center">
+                        <Music className="h-4 w-4 text-muted-foreground" />
+                        {song.title}
+                        {song.author ? (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            ({song.author && <span>{song.author}</span>})
+                          </div>
+                        ) : null}
+                      </h3>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => window.windowAPI.openSongWindow(song.id)}>
+                      <Edit2 />
+                      Editar canción
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
+                    >
+                      <CalendarPlus />
+                      Añadir canción al cronograma
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onClick={() =>
+                        showItemOnLiveScreen(
+                          {
+                            accessData: song.id.toString(),
+                            type: 'SONG',
+                            id: -1,
+                            order: -1,
+                            scheduleGroupId: null,
+                            scheduleId: -1
+                          },
+                          0
+                        )
+                      }
+                    >
+                      <Radio className="text-green-600" />
+                      Presentar canción en vivo
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handleDeleteSong(song.id)}>
+                      <Trash2 className="text-destructive" />
+                      Eliminar canción
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              ))}
+
+              {/* Observer para scroll infinito */}
+              <div ref={observerRef} className="h-4" />
+
+              {/* Loading más canciones */}
+              {isFetchingNextPage && (
+                <Card className="p-4">
+                  <Skeleton className="h-5 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2" />
+                </Card>
+              )}
+            </>
+          )}
+        </div>
+      </ResizablePanel>
+      <ResizableHandle />
+      <PreviewSong song={selectedSong} onDelete={handleDeleteSong} />
+    </ResizablePanelGroup>
   )
 }

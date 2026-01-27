@@ -2,14 +2,15 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/liveContext'
 import { Button } from '@/ui/button'
 import RenderSongLyricList from '@/ui/renderSongLyricList'
+import { ResizablePanel } from '@/ui/resizable'
 import { Tooltip } from '@/ui/tooltip'
 import { ScheduleItemType } from '@prisma/client'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
-import { CalendarPlus, Edit2, Radio, Trash2 } from 'lucide-react'
+import { CalendarPlus, Edit2, Music, Radio, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 type Props = {
-  song: SongResponseDTO
+  song?: SongResponseDTO | null
   onDelete: (id: number) => void
 }
 
@@ -19,7 +20,7 @@ export default function PreviewSong({ song, onDelete }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const dataForLive = {
     type: 'SONG' as ScheduleItemType,
-    accessData: song.id.toString(),
+    accessData: song?.id.toString() || '',
     id: -1,
     order: -1,
     scheduleGroupId: null,
@@ -28,9 +29,24 @@ export default function PreviewSong({ song, onDelete }: Props) {
   useEffect(() => {
     setSelectedIndex(0)
   }, [song])
+
+  if (!song) {
+    return (
+      <ResizablePanel>
+        <div className="panel-header bg-muted/50 px-4 py-2 border-b flex items-center gap-1 h-12">
+          <div className="italic text-sm text-muted-foreground">Ninguna canción seleccionada</div>
+        </div>
+
+        <div className="panel-scroll-content flex-col gap-2 text-muted-foreground text-sm bg-muted/10 flex items-center justify-center h-full">
+          <Music className="size-16 text-muted" />
+          Selecciona una canción para ver su vista previa
+        </div>
+      </ResizablePanel>
+    )
+  }
   return (
-    <div className="h-2/5 border-y flex flex-col">
-      <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-1">
+    <ResizablePanel>
+      <div className="panel-header bg-muted/50 px-4 py-2 border-b flex items-center gap-1 h-12">
         <div className="font-medium italic">{song.title}</div>
         <div className="ml-auto flex gap-1">
           <Tooltip content="Editar canción">
@@ -72,7 +88,7 @@ export default function PreviewSong({ song, onDelete }: Props) {
           </Tooltip>
         </div>
       </div>
-      <div className="overflow-y-auto flex-1 text-sm bg-muted/10">
+      <div className="panel-scroll-content text-sm bg-muted/10">
         <RenderSongLyricList
           song={song}
           selectedLyricIndex={selectedIndex}
@@ -80,6 +96,6 @@ export default function PreviewSong({ song, onDelete }: Props) {
           onDoubleClick={(_, index) => showItemOnLiveScreen(dataForLive, index)}
         />
       </div>
-    </div>
+    </ResizablePanel>
   )
 }

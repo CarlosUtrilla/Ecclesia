@@ -209,3 +209,23 @@
   }
   
 }
+
+/* Utility class for scrollable resizable panels */
+@layer utilities {
+  .panel-scrollable {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  
+  .panel-scroll-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+  
+  .panel-header {
+    flex-shrink: 0;
+  }
+}

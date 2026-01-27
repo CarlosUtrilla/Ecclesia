@@ -21,8 +21,10 @@ function ResizablePanelGroup({
   )
 }
 
-function ResizablePanel({ ...props }: React.ComponentProps<typeof Panel>) {
-  return <Panel data-slot="resizable-panel" {...props} />
+function ResizablePanel({ className, ...props }: React.ComponentProps<typeof Panel>) {
+  return (
+    <Panel data-slot="resizable-panel" {...props} className={cn('panel-scrollable', className)} />
+  )
 }
 
 function ResizableHandle({
