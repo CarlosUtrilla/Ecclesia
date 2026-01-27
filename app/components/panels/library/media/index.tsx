@@ -3,6 +3,7 @@ import { Plus, Search, FolderPlus, ChevronRight, Home, LayoutGrid, List } from '
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
+import { Tooltip } from '@/ui/tooltip'
 import { MediaFilterDto } from 'database/controllers/media/media.dto'
 import { Media } from './types'
 import { MediaGridWrapper } from './MediaGridWrapper'
@@ -15,6 +16,7 @@ import { useSelection, SelectableItem } from './hooks/useSelection'
 import { useKeyboardShortcuts } from '../../../../hooks/useKeyboardShortcuts'
 import { useDragAndDrop } from './hooks/useDragAndDrop'
 import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } from './utils'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
 
 export default function MediaLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -290,8 +292,14 @@ export default function MediaLibrary() {
     onDelete: handleDeleteSelection,
     onSelectAll: () => selection.selectAll(allSelectableItems),
     onNavigate: (direction, extendSelection = false) => {
-      // En vista de lista: 1 columna, en vista de cuadrícula: 2 columnas
-      const columnsPerRow = viewMode === 'list' ? 1 : 2
+      // En vista flexbox, calcular columnas basándose en el ancho disponible
+      // Aproximadamente 100px por item (24 * 4 + gaps)
+      const containerWidth = containerRef.current?.clientWidth || 400
+      const sidebarWidth = 192 // 48 * 4 = w-48
+      const availableWidth = containerWidth - sidebarWidth - 16 // padding
+      const itemWidth = 100 // ancho aproximado de cada item
+      const columnsPerRow =
+        viewMode === 'list' ? 1 : Math.max(1, Math.floor(availableWidth / itemWidth))
       selection.navigateSelection(direction, allSelectableItems, columnsPerRow, extendSelection)
     },
     onItemClick: (item: SelectableItem, e: React.MouseEvent) => {
@@ -307,142 +315,173 @@ export default function MediaLibrary() {
   })
 
   return (
-    <div ref={containerRef} className="h-full flex flex-col relative">
-      {/* Header - Solo búsqueda y acciones */}
-      <div className="p-3 border-b ">
-        <div>
-          <div className="flex-1 relative">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar medios..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          <div className="flex justify-between items-center mt-2">
-            <div className="flex border rounded-md">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                className="rounded-r-none"
-                onClick={() => setViewMode('grid')}
-                title="Vista de cuadrícula"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                className="rounded-l-none"
-                onClick={() => setViewMode('list')}
-                title="Vista de lista"
-              >
-                <List className="h-4 w-4" />
-              </Button>
+    <div ref={containerRef} className="panel-scrollable relative">
+      <ResizablePanelGroup className="flex h-full">
+        {/* Sidebar izquierdo - Controles */}
+        <ResizablePanel
+          defaultSize={'20%'}
+          minSize={'15%'}
+          maxSize={'35%'}
+          className="w-48 border-r bg-muted/10 panel-scrollable"
+        >
+          <div className="panel-header p-2">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-medium">Biblioteca de Medios</h3>
+              <div className="flex gap-1">
+                <Tooltip content="Crear nueva carpeta">
+                  <Button
+                    onClick={() => setShowNewFolderDialog(true)}
+                    size="sm"
+                    className="text-xs"
+                    disabled={loading}
+                  >
+                    <FolderPlus />
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Importar medios">
+                  <Button onClick={handleImport} size="sm" className="text-xs" disabled={loading}>
+                    <Plus />
+                  </Button>
+                </Tooltip>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Button onClick={() => setShowNewFolderDialog(true)} size="sm" disabled={loading}>
-                <FolderPlus className="h-4 w-4 mr-1" />
-                Carpeta
-              </Button>
-              <Button onClick={handleImport} size="sm" disabled={loading}>
-                <Plus className="h-4 w-4 mr-1" />
-                Importar
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Contenido con breadcrumbs y grid */}
-      <div
-        className="flex-1 overflow-auto p-3 flex flex-col relative"
-        onDragEnter={dragAndDrop.handleDragEnter}
-        onDragOver={dragAndDrop.handleDragOver}
-        onDragLeave={dragAndDrop.handleDragLeave}
-        onDrop={dragAndDrop.handleDrop}
-      >
-        {/* Overlay cuando se está arrastrando */}
-        {dragAndDrop.isDragging && (
-          <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50">
-            <div className="bg-background rounded-lg p-8 shadow-lg pointer-events-none">
-              <p className="text-lg font-semibold">Suelta los archivos aquí</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Se importarán a {currentFolder || 'la raíz'}
-              </p>
+            {/* Búsqueda */}
+            <div className="relative mb-2">
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-7 h-8 text-xs"
+              />
+            </div>
+
+            {/* Controles de vista */}
+            <div className="mb-3">
+              <div className="text-xs text-muted-foreground mb-1">Vista</div>
+              <div className="flex border rounded-md">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="rounded-r-none h-7 flex-1 text-xs"
+                  onClick={() => setViewMode('grid')}
+                  title="Vista de cuadrícula"
+                >
+                  <LayoutGrid className="h-3 w-3 mr-1" />
+                  Grid
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="rounded-l-none h-7 flex-1 text-xs"
+                  onClick={() => setViewMode('list')}
+                  title="Vista de lista"
+                >
+                  <List className="h-3 w-3 mr-1" />
+                  Lista
+                </Button>
+              </div>
+            </div>
+
+            {/* Breadcrumbs compactos */}
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Ubicación</div>
+              <div className="flex flex-col gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 justify-start text-xs"
+                  onClick={() => navigateToFolder(null)}
+                >
+                  <Home className="h-2.5 w-2.5 mr-1" />
+                  Raíz
+                </Button>
+                {breadcrumbs.map((crumb, index) => (
+                  <Button
+                    key={index}
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 justify-start text-xs ml-2"
+                    onClick={() => {
+                      const path = breadcrumbs.slice(0, index + 1).join('/')
+                      setCurrentFolder(path)
+                    }}
+                  >
+                    <ChevronRight className="h-2.5 w-2.5 mr-1" />
+                    {crumb}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
-        )}
-
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-1 text-sm mb-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={() => navigateToFolder(null)}
+        </ResizablePanel>
+        <ResizableHandle />
+        {/* Área de contenido principal */}
+        <ResizablePanel className="flex-1 panel-scrollable">
+          <div
+            className="panel-scroll-content p-2 relative"
+            onDragEnter={dragAndDrop.handleDragEnter}
+            onDragOver={dragAndDrop.handleDragOver}
+            onDragLeave={dragAndDrop.handleDragLeave}
+            onDrop={dragAndDrop.handleDrop}
           >
-            <Home className="h-3 w-3" />
-          </Button>
-          {breadcrumbs.map((crumb, index) => (
-            <div key={index} className="flex items-center gap-1">
-              <ChevronRight className="h-3 w-3 text-muted-foreground" />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => {
-                  const path = breadcrumbs.slice(0, index + 1).join('/')
-                  setCurrentFolder(path)
-                }}
-              >
-                {crumb}
-              </Button>
-            </div>
-          ))}
-        </div>
+            {/* Overlay cuando se está arrastrando */}
+            {dragAndDrop.isDragging && (
+              <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50">
+                <div className="bg-background rounded-lg p-4 shadow-lg pointer-events-none">
+                  <p className="text-sm font-semibold">Suelta los archivos aquí</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Se importarán a {currentFolder || 'la raíz'}
+                  </p>
+                </div>
+              </div>
+            )}
 
-        {/* Grid o Lista de medios */}
-        {viewMode === 'grid' ? (
-          <MediaGridWrapper
-            items={mediaItems}
-            folders={folders}
-            currentFolder={currentFolder}
-            onDelete={handleDelete}
-            onDeleteFolder={handleDeleteFolder}
-            onNavigateToFolder={navigateToFolder}
-            onCopy={handleCopySingle}
-            onCut={handleCutSingle}
-            onPaste={handlePaste}
-            onDrop={handleDrop}
-            onRename={(item, isFolder, currentName) => {
-              setRenameTarget({ item, isFolder, currentName })
-              setShowRenameDialog(true)
-            }}
-            formatFileSize={formatFileSize}
-            onItemClick={handleKeyboardItemClick}
-            isSelected={selection.isSelected}
-            onClearSelection={selection.clearSelection}
-          />
-        ) : (
-          <MediaList
-            items={mediaItems}
-            folders={folders}
-            onDelete={handleDelete}
-            onDeleteFolder={handleDeleteFolder}
-            onNavigateToFolder={navigateToFolder}
-            onCopy={handleCopySingle}
-            onCut={handleCutSingle}
-            onRename={(item, isFolder, currentName) => {
-              setRenameTarget({ item, isFolder, currentName })
-              setShowRenameDialog(true)
-            }}
-            onItemClick={handleKeyboardItemClick}
-            isSelected={selection.isSelected}
-          />
-        )}
-      </div>
+            {/* Grid o Lista de medios */}
+            <div className="h-full">
+              {viewMode === 'grid' ? (
+                <MediaGridWrapper
+                  items={mediaItems}
+                  folders={folders}
+                  currentFolder={currentFolder}
+                  onDelete={handleDelete}
+                  onDeleteFolder={handleDeleteFolder}
+                  onNavigateToFolder={navigateToFolder}
+                  onCopy={handleCopySingle}
+                  onCut={handleCutSingle}
+                  onPaste={handlePaste}
+                  onDrop={handleDrop}
+                  onRename={(item, isFolder, currentName) => {
+                    setRenameTarget({ item, isFolder, currentName })
+                    setShowRenameDialog(true)
+                  }}
+                  formatFileSize={formatFileSize}
+                  onItemClick={handleKeyboardItemClick}
+                  isSelected={selection.isSelected}
+                  onClearSelection={selection.clearSelection}
+                />
+              ) : (
+                <MediaList
+                  items={mediaItems}
+                  folders={folders}
+                  onDelete={handleDelete}
+                  onDeleteFolder={handleDeleteFolder}
+                  onNavigateToFolder={navigateToFolder}
+                  onCopy={handleCopySingle}
+                  onCut={handleCutSingle}
+                  onRename={(item, isFolder, currentName) => {
+                    setRenameTarget({ item, isFolder, currentName })
+                    setShowRenameDialog(true)
+                  }}
+                  onItemClick={handleKeyboardItemClick}
+                  isSelected={selection.isSelected}
+                />
+              )}
+            </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {loading && (
         <div className="absolute inset-0 bg-background/80 flex items-center justify-center">

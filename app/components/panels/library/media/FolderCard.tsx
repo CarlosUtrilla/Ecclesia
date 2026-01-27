@@ -9,6 +9,7 @@ import {
 } from '@/ui/context-menu'
 import { Media } from './types'
 import { SelectableItem } from './hooks/useSelection'
+import { cn } from '@/lib/utils'
 
 interface FolderCardProps {
   folderName: string
@@ -123,9 +124,18 @@ export function FolderCard({
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className={`group relative border rounded-lg overflow-hidden bg-muted/30 hover:shadow-md transition-shadow cursor-pointer ${
-            isDragOver ? 'ring-2 ring-primary bg-primary/10' : ''
-          } ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950 dark:text-white' : ''}`}
+          className={cn(
+            'group relative border border-border/50 rounded-lg overflow-hidden',
+            'bg-card/30 backdrop-blur-sm hover:bg-card/60 transition-all duration-200',
+            'hover:shadow-lg hover:shadow-black/5 hover:border-border',
+            'hover:-translate-y-0.5 cursor-pointer w-32 aspect-square',
+            'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+            {
+              'ring-2 ring-primary bg-primary/10 border-primary shadow-md shadow-primary/20':
+                isDragOver,
+              'ring-2 ring-accent border-accent shadow-md shadow-accent/20 bg-accent/5': isSelected
+            }
+          )}
           draggable
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
@@ -133,18 +143,43 @@ export function FolderCard({
           onDrop={handleDrop}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              if (e.shiftKey) {
+                handleDoubleClick()
+              } else {
+                handleClick(e as any)
+              }
+            }
+          }}
         >
           {/* Preview */}
-          <div className="aspect-video bg-muted flex items-center justify-center">
-            <Folder className="h-12 w-12 text-primary fill-primary" />
+          <div className="aspect-square bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center relative">
+            {/* Decorative background pattern */}
+            <div className="absolute inset-0 opacity-30">
+              <div className="absolute top-2 left-2 w-1 h-1 bg-primary/20 rounded-full" />
+              <div className="absolute top-4 right-3 w-1 h-1 bg-primary/20 rounded-full" />
+              <div className="absolute bottom-3 left-3 w-1 h-1 bg-primary/20 rounded-full" />
+            </div>
+            <Folder
+              className="h-10 w-10 text-primary group-hover:text-primary/80 transition-colors duration-200 drop-shadow-sm"
+              fill="currentColor"
+              fillOpacity={0.1}
+            />
+            {/* Hover overlay */}
+            <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors duration-200 rounded-md" />
           </div>
 
           {/* Info */}
-          <div className="flex items-center gap-1 p-2">
-            <Folder className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-medium truncate" title={folderName}>
-              {folderName}
-            </p>
+          <div className="absolute bottom-0 left-0 right-0 p-2 bg-card/90 backdrop-blur-md border-t border-border/50">
+            <div className="flex items-center gap-1.5">
+              <Folder className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              <p className="text-xs font-medium text-foreground truncate flex-1" title={folderName}>
+                {folderName}
+              </p>
+            </div>
           </div>
         </div>
       </ContextMenuTrigger>

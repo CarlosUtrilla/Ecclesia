@@ -239,7 +239,7 @@ export default function VerseSearch({
         onFocus={createFocusHandler(inputVersRef)}
         onBlur={() => setIsFocused(false)}
         onChange={handleVersChange}
-        value={vers}
+        value={vers !== 'NaN' ? vers : ''}
         onKeyDown={handleVersKeyDown}
       />
     </div>

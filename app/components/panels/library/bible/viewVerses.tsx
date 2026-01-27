@@ -204,7 +204,7 @@ export default function ViewVerses({
   }
 
   return (
-    <div className="row-span-1 overflow-hidden flex flex-col h-full">
+    <div className="flex-1 overflow-hidden flex flex-col h-full">
       <div className="p-2 bg-muted/50 font-semibold">{bookData?.book}</div>
       <div
         ref={containerRef}
@@ -218,9 +218,12 @@ export default function ViewVerses({
                 ref={(el) => {
                   if (el) verseRefs.current.set(v.verse, el)
                 }}
-                className={cn('flex border-b items-baseline hover:bg-muted/40 cursor-pointer ', {
-                  'bg-secondary/20 hover:bg-secondary/10': verse.includes(v.verse)
-                })}
+                className={cn(
+                  'flex border-b py-0.5 items-baseline hover:bg-muted/40 cursor-pointer ',
+                  {
+                    'bg-secondary/20 hover:bg-secondary/10': verse.includes(v.verse)
+                  }
+                )}
                 onClick={(e) => handleItemClick({ verseNumber: v.verse, index }, e)}
                 onDragStart={hanldeDragStart}
               >
