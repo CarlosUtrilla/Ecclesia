@@ -83,7 +83,7 @@ export function MediaCard({
             <img
               src={mediaUrl}
               alt={media.name}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
               width={128}
               height={128}
               loading="lazy"

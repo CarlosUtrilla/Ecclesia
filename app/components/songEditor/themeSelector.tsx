@@ -53,23 +53,14 @@ export default function ThemeSelector({ selectedTheme, setSelectedTheme }: Props
           <div className="text-sm text-muted-foreground mt-4">No se encontraron temas.</div>
         )}
         {filteredThemes.map((theme) => (
-          <div
+          <PresentationView
+            className="max-w-48"
+            theme={theme}
+            items={[{ text: theme.name }]}
+            onClick={() => setSelectedTheme(theme)}
+            selected={selectedTheme?.id === theme.id}
             key={theme.id}
-            className={cn(
-              'flex-shrink-0 transition-all duration-200',
-              selectedTheme?.id === theme.id
-                ? 'ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg scale-105'
-                : 'opacity-70 hover:opacity-100 hover:scale-102'
-            )}
-          >
-            <PresentationView
-              maxHeight={90}
-              theme={theme}
-              items={[{ text: theme.name }]}
-              onClick={() => setSelectedTheme(theme)}
-              selected={selectedTheme?.id === theme.id}
-            />
-          </div>
+          />
         ))}
       </div>
     </div>

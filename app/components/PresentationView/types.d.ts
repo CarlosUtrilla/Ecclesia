@@ -12,6 +12,7 @@ export type PresentationViewProps = {
   tagSongId?: number | null
   className?: string
   displayId?: number
+  style?: React.CSSProperties
 }
 
 export type PresentationViewItems = {

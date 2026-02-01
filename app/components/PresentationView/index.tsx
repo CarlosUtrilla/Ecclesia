@@ -32,6 +32,7 @@ export function PresentationView({
   selected,
   tagSongId,
   className,
+  style,
   displayId
 }: PresentationViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -137,7 +138,8 @@ export function PresentationView({
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative' as const,
-      background: mediaType === 'color' || mediaType === 'gradient' ? background : 'transparent'
+      background: mediaType === 'color' || mediaType === 'gradient' ? background : 'transparent',
+      ...style
     }),
     [screenSize.aspectRatio, background, mediaType]
   )

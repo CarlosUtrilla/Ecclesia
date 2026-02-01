@@ -34,6 +34,7 @@ import { z } from 'zod'
 import { Switch } from '@/ui/switch'
 import BiblePresentationConfiguration from '../biblePresentationConfiguration'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
+import { useScreenSize } from '@/contexts/ScreenSizeContext'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -51,6 +52,7 @@ export default function ThemesEditor() {
   const { height = 0 } = useResizeObserver({
     ref: previewRef as React.RefObject<HTMLDivElement>
   })
+  const screenSize = useScreenSize(height || 0)
 
   const [selectedPreview, setSelectedPreview] = useState(0)
   const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
@@ -199,9 +201,9 @@ export default function ThemesEditor() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <title>Editor de temas</title>
-      <div>
+    <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
+      <div className="flex-shrink-0">
+        <title>Editor de temas</title>
         <div className="p-2  flex items-center gap-1 border-b flex-wrap">
           <div className="">
             {/* Theme Name */}
@@ -493,24 +495,33 @@ export default function ThemesEditor() {
           />
         </div>
       </div>
-      <div className="flex-1 bg-muted flex items-center justify-center p-4" ref={previewRef}>
-        <PresentationView
-          key={animationKey}
-          theme={previewData}
-          items={PreviewsItems}
-          live
-          maxHeight={height - 32}
-          currentIndex={selectedPreview}
-        />
+      <div
+        className="flex-1 min-h-0 bg-muted flex items-center justify-center p-4 overflow-auto"
+        ref={previewRef}
+      >
+        <div
+          style={{
+            height: screenSize.height,
+            width: screenSize.width
+          }}
+        >
+          <PresentationView
+            key={animationKey}
+            theme={previewData}
+            items={PreviewsItems}
+            live
+            currentIndex={selectedPreview}
+          />
+        </div>
       </div>
-      <div className="p-3 bg-muted/50 flex items-center gap-1 justify-center">
+      <div className="flex-shrink-0 p-3 bg-muted/50 flex items-center gap-1 justify-center overflow-x-auto">
         {PreviewsItems.map((item, index) => (
           <PresentationView
             onClick={() => setSelectedPreview(index)}
             key={index}
             theme={previewData}
             items={[item]}
-            maxHeight={120}
+            className="max-w-48"
             selected={selectedPreview === index}
           />
         ))}

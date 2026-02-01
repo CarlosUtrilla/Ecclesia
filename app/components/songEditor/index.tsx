@@ -149,7 +149,7 @@ export default function SongEditor() {
                 }
               ]}
               theme={selectedTheme!}
-              maxHeight={160}
+              className="max-w-xs"
             />
             {cleanesLyrics.map((lyric, index) => (
               <PresentationView
@@ -160,7 +160,7 @@ export default function SongEditor() {
                   }
                 ]}
                 theme={selectedTheme!}
-                maxHeight={160}
+                className="max-w-xs"
                 tagSongId={lyric.tagSongsId}
               />
             ))}
