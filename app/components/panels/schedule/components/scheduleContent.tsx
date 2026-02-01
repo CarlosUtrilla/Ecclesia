@@ -7,6 +7,7 @@ import { ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/components/PresentationView/types'
 import { PresentationView } from '@/components/PresentationView'
 import { useLive } from '@/contexts/ScheduleContext/liveContext'
+import GroupTemplateManager from './GroupTemplateManagerDialog'
 
 type ScheduleContentProps = {
   onBack: () => void
@@ -73,6 +74,17 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
       if (!data) return
 
       const droppedItem = JSON.parse(data)
+
+      // Check if it's a group template
+      if (droppedItem.type === 'group-template') {
+        // Handle group template drop - TODO: implement group creation in schedule
+        console.log('Dropped group template:', droppedItem.data)
+        // For now, we'll just log it - later we'll create a schedule group
+        alert(`Funcionalidad de grupos en desarrollo. Template: "${droppedItem.data.name}"`)
+        return
+      }
+
+      // Handle regular items
       addItemToSchedule(droppedItem)
     } catch (error) {
       console.error('Error al procesar drop:', error)
@@ -91,8 +103,13 @@ export default function ScheduleContent({ onBack }: ScheduleContentProps) {
           <div>
             <h2 className="font-medium">{currentSchedule.title || 'Sin título'}</h2>
           </div>
+          <GroupTemplateManager>
+            <Button size="sm" className="ml-auto">
+              Grupos
+            </Button>
+          </GroupTemplateManager>
 
-          <Button className="ml-auto" size="sm" disabled={!pendingSave}>
+          <Button size="sm" disabled={!pendingSave}>
             <Save className="h-4 w-4" />
             Guardar
           </Button>

@@ -1,8 +1,10 @@
+import { ScheduleGroupTemplateService } from './schedule-group.service'
 import { AddScheduleItemDto } from './schedule.dto'
 import { ScheduleService } from './schedule.service'
 
 export class ScheduleController {
   private scheduleService = new ScheduleService()
+  private scheduleTemplateService = new ScheduleGroupTemplateService()
 
   getActualSchedule() {
     return this.scheduleService.getActualSchedule()
@@ -34,5 +36,29 @@ export class ScheduleController {
 
   deleteItemFromSchedule(scheduleId: number, itemId: number[]) {
     return this.scheduleService.deleteItemFromSchedule(scheduleId, itemId)
+  }
+
+  async createGroupTemplate(data: { name: string; color: string }) {
+    return await this.scheduleTemplateService.createGroupTemplate(data)
+  }
+
+  // Obtener todos los templates de grupos
+  async getAllGroupTemplates() {
+    return await this.scheduleTemplateService.getAllGroupTemplates()
+  }
+
+  // Obtener un template por ID
+  async getGroupTemplateById(id: number) {
+    return await this.scheduleTemplateService.getGroupTemplateById(id)
+  }
+
+  // Actualizar un template de grupo
+  async updateGroupTemplate(id: number, data: { name?: string; color?: string }) {
+    return await this.scheduleTemplateService.updateGroupTemplate(id, data)
+  }
+
+  // Eliminar un template de grupo
+  async deleteGroupTemplate(id: number) {
+    return await this.scheduleTemplateService.deleteGroupTemplate(id)
   }
 }

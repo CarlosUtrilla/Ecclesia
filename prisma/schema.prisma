@@ -159,12 +159,21 @@ model Schedule {
   items    ScheduleItem[]
 }
 
+model ScheduleGroupTemplate {
+  id             Int             @id @default(autoincrement())
+  name           String
+  color          String
+  scheduleGroups ScheduleGroup[]
+}
+
 model ScheduleGroup {
-  id            Int            @id @default(autoincrement())
-  name          String
-  color         String
-  order         Int
-  scheduleItems ScheduleItem[]
+  id              Int                     @id @default(autoincrement())
+  name            String
+  color           String
+  order           Int
+  scheduleItems   ScheduleItem[]
+  groupTemplate   ScheduleGroupTemplate @relation(fields: [groupTemplateId], references: [id])
+  groupTemplateId Int
 }
 
 enum ScheduleItemType {
