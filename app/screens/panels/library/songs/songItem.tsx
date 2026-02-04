@@ -26,6 +26,7 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
       accessData: song.id
     }
   })
+
   const { addItemToSchedule } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
 
@@ -37,11 +38,11 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
             'bg-secondary/20 hover:bg-secondary/10': selectedSong?.id === song.id,
             'opacity-50 bg-muted ': isDragging
           })}
-          onClick={() => setSelectedSong(song)}
-          onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
           ref={setNodeRef}
           {...listeners}
           {...attributes}
+          onClick={() => setSelectedSong(song)}
+          onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
         >
           <h3 className="font-semibold text-base flex gap-2 items-center">
             <Music className="h-4 w-4 text-muted-foreground" />

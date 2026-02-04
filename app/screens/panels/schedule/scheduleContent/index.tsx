@@ -1,7 +1,7 @@
 import { Button } from '@/ui/button'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { Save, CalendarSearch, Upload } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
@@ -10,25 +10,31 @@ import GroupTemplateManager from './GroupTemplateManagerDialog'
 import { DragEndEvent, useDndMonitor, useDroppable } from '@dnd-kit/core'
 import EmptyShcedule from './emptyShcedule'
 import PreviewSchedule from './previewSchedule'
-import ScheduleItemComponent from './scheduleItem'
 import { AddItemToSchedule } from '@/contexts/ScheduleContext/types'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import ScheduleGroupItem from './scheduleGroupItem'
 
 type ScheduleContentProps = {
   onBack: () => void
 }
 
 function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
-  const { currentSchedule, form, getScheduleItemContentScreen, selectedTheme, addItemToSchedule } =
-    useSchedule()
-  const { showItemOnLiveScreen } = useLive()
-  const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
-
-  const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
-
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const { isOver, setNodeRef } = useDroppable({
     id: 'schedule-drop-area'
   })
-  console.log('isOver on schedule', isOver)
+  const {
+    currentSchedule,
+    form,
+    getScheduleItemContentScreen,
+    selectedTheme,
+    addItemToSchedule,
+    deleteItemFromSchedule
+  } = useSchedule()
+  const { showItemOnLiveScreen } = useLive()
+
+  const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
+  const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
 
   useEffect(() => {
     if (selectedItem) {
@@ -42,30 +48,43 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     }
   }, [selectedItem])
 
-  const handleDrop = (e: DragEndEvent) => {
-    try {
-      console.log('droped')
-      const data = e.active.data.current
-      if (!data) return
-
-      // Check if it's a group template
-      if (data.type === 'group-template') {
-        // Handle group template drop - TODO: implement group creation in schedule
-        console.log('Dropped group template:', data)
-        // For now, we'll just log it - later we'll create a schedule group
-        alert(`Funcionalidad de grupos en desarrollo. Template: "${data.name}"`)
-        return
+  useKeyboardShortcuts(containerRef, {
+    onDelete: () => {
+      if (selectedItem) {
+        /* const index = currentSchedule?.items.findIndex((i) => i.order === selectedItem.order)
+        if (index !== undefined && index >= 0) {
+          deleteItemFromSchedule(index)
+          setSelectedItem(null)
+        } */
       }
-
-      // Handle regular items
-      addItemToSchedule(data as AddItemToSchedule)
-    } catch (error) {
-      console.error('Error al procesar drop:', error)
+    },
+    onClickOutside: () => {
+      setSelectedItem(null)
     }
-  }
+  })
 
   useDndMonitor({
-    onDragEnd: handleDrop
+    onDragEnd: (e: DragEndEvent) => {
+      try {
+        console.log('droped')
+        const data = e.active.data.current
+        if (!data || !e.over) return
+
+        // Check if it's a group template
+        if (data.type === 'group-template') {
+          // Handle group template drop - TODO: implement group creation in schedule
+          console.log('Dropped group template:', data)
+          // For now, we'll just log it - later we'll create a schedule group
+          alert(`Funcionalidad de grupos en desarrollo. Template: "${data.name}"`)
+          return
+        }
+
+        // Handle regular items
+        addItemToSchedule(data as AddItemToSchedule)
+      } catch (error) {
+        console.error('Error al procesar drop:', error)
+      }
+    }
   })
 
   if (!currentSchedule) {
@@ -87,11 +106,12 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
         className={cn('h-full flex flex-col', {
           'h-7/12': itemContent && itemContent.length && selectedItem
         })}
+        ref={containerRef}
       >
         {/* Header con info del schedule */}
         <div className="px-4 py-3 border-b bg-muted/20 flex items-center gap-2">
           <div>
-            <h2 className="font-medium">{currentSchedule.title || 'Sin título'}</h2>
+            <h2 className="font-medium">{form.getValues('title') || 'Sin título'}</h2>
           </div>
           <GroupTemplateManager>
             <Button size="sm" className="ml-auto">
@@ -110,22 +130,21 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4" ref={setNodeRef}>
-          {currentSchedule.items.length === 0 ? (
-            <EmptyShcedule />
+          {currentSchedule.length === 0 ? (
+            <EmptyShcedule isOver={isOver} />
           ) : (
             <div
               className={`min-h-full transition-colors ${
                 isOver ? 'bg-primary/5 border-2 border-dashed border-primary rounded-lg p-2' : ''
               }`}
-              onClick={() => setSelectedItem(null)}
             >
-              <div className="space-y-1">
-                {currentSchedule.items.map((item, index) => (
-                  <ScheduleItemComponent
-                    key={index}
-                    item={item}
+              <div className="flex flex-col gap-1">
+                {currentSchedule.map((group, index) => (
+                  <ScheduleGroupItem
+                    key={index + (group.group?.id || 'ungrouped').toString() + group.items.length}
+                    group={group}
                     setSelectedItem={setSelectedItem}
-                    isSelected={selectedItem?.order === item.order}
+                    selectedItem={selectedItem}
                   />
                 ))}
               </div>

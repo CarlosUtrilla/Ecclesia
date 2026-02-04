@@ -1,15 +1,22 @@
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { BlankTheme, useThemes } from '@/hooks/useThemes'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react'
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { ScheduleSchema } from './schema'
 
 import { ScheduleItem } from '@prisma/client'
 import { useIndexDataItems } from './utils/indexDataItems'
 import { LiveProvider } from './utils/liveContext'
-import { AddItemToSchedule, IScheduleContext } from './types'
-import { DndContext, DragOverlay, DragStartEvent } from '@dnd-kit/core'
+import { AddItemToSchedule, IScheduleContext, ScheduleItemData } from './types'
+import {
+  DndContext,
+  DragOverlay,
+  DragStartEvent,
+  MouseSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core'
 import ScheduleItemComponent from '@/screens/panels/schedule/scheduleContent/scheduleItem'
 
 const ScheduleContext = createContext({} as IScheduleContext)
@@ -30,10 +37,10 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     resolver: zodResolver(ScheduleSchema)
   })
 
-  const currentSchedule = form.watch()
+  const formData = form.watch()
 
   const { getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen, songs, media } =
-    useIndexDataItems(currentSchedule)
+    useIndexDataItems(formData)
   useEffect(() => {
     if (themes.length > 0 && selectedTheme.name === 'Blank') {
       setSelectedTheme(themes[0])
@@ -53,7 +60,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   const addItemToSchedule = (item: AddItemToSchedule) => {
     // Determinar el tipo y crear el item apropiado
     const newItem: any = {
-      order: (currentSchedule?.items.length || 0) + 1,
+      order: (formData?.items.length || 0) + 1,
       scheduleGroupId: null
     }
 
@@ -72,7 +79,13 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       return
     }
 
-    form.setValue('items', [...currentSchedule.items, newItem], { shouldDirty: true })
+    form.setValue('items', [...formData.items, newItem], { shouldDirty: true })
+  }
+
+  const deleteItemFromSchedule = (index: number) => {
+    const updatedItems = [...formData.items]
+    updatedItems.splice(index, 1)
+    form.setValue('items', updatedItems, { shouldDirty: true })
   }
 
   const [draggingItem, setDraggingItem] = useState<ScheduleItem | null>(null)
@@ -86,7 +99,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         id: -1,
         type: current.type,
         accessData: String(current.accessData),
-        order: (currentSchedule?.items.length || 0) + 1,
+        order: (formData?.items.length || 0) + 1,
         scheduleGroupId: null,
         scheduleId: -1
       }
@@ -94,11 +107,35 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     }
   }
 
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      onActivation: (event) => console.log('onActivation', event), // Here!
+      activationConstraint: { distance: 5 }
+    })
+  )
+
+  const currentSchedule = useMemo(() => {
+    const { groups, items } = formData
+    const ungrupedItems = items
+      .filter((i) => i.scheduleGroupId === null)
+      .map<ScheduleItemData>((i) => ({
+        group: null,
+        items: [i],
+        order: i.order
+      }))
+    const groupsWithItems = groups.map<ScheduleItemData>((g) => ({
+      group: g,
+      items: items.filter((i) => i.scheduleGroupId === g.id).sort((a, b) => a.order - b.order),
+      order: g.order
+    }))
+    return [...ungrupedItems, ...groupsWithItems].sort((a, b) => a.order - b.order)
+  }, [formData])
   return (
     <DndContext
       onDragStart={handleOnDragStart}
       onDragEnd={() => setDraggingItem(null)}
       onDragCancel={() => setDraggingItem(null)}
+      sensors={sensors}
     >
       <ScheduleContext.Provider
         value={{
@@ -113,7 +150,8 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
           getScheduleItemContentScreen,
           songs,
           media,
-          addItemToSchedule
+          addItemToSchedule,
+          deleteItemFromSchedule
         }}
       >
         <LiveProvider>{children}</LiveProvider>

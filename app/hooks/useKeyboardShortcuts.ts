@@ -8,6 +8,7 @@ interface KeyboardShortcuts {
   onSelectAll?: () => void
   onNavigate?: (direction: 'up' | 'down' | 'left' | 'right', extendSelection?: boolean) => void
   onItemClick?: (item: any, event: React.MouseEvent) => void
+  onClickOutside?: () => void
 }
 
 export function useKeyboardShortcuts(
@@ -27,7 +28,12 @@ export function useKeyboardShortcuts(
   }
 
   useEffect(() => {
-    const handleBlur = () => setContainerFocused(false)
+    const handleBlur = () => {
+      setContainerFocused(false)
+      if (shortcuts.onClickOutside) {
+        shortcuts.onClickOutside()
+      }
+    }
     const current = containerRef.current
     if (current) {
       current.addEventListener('blur', handleBlur)
@@ -127,8 +133,12 @@ export function useKeyboardShortcuts(
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [shortcuts, containerFocused])
 
+  const handleSetContainerRef = (element: HTMLElement | null) => {
+    containerRef.current = element
+  }
   // Retornar la función de click para que el componente la use
   return {
-    handleItemClick
+    handleItemClick,
+    setContainerRef: handleSetContainerRef
   }
 }

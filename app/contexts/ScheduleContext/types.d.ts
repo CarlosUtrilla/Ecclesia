@@ -1,4 +1,4 @@
-import { Media, ScheduleItem, ScheduleItemType } from '@prisma/client'
+import { Media, ScheduleGroup, ScheduleItem, ScheduleItemType } from '@prisma/client'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 import { ScheduleSchemaType } from './schema'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
@@ -23,7 +23,7 @@ type IScheduleContext = {
   setItemOnLive: (item: ScheduleItem | null) => void
   selectedTheme: ThemeWithMedia
   setSelectedTheme: (theme: ThemeWithMedia) => void
-  currentSchedule: ScheduleSchemaType | null
+  currentSchedule: ScheduleItemData[]
   form: UseFormReturn<ScheduleSchemaType>
   getScheduleItemIcon: (item: ScheduleItem) => React.ReactNode
   getScheduleItemLabel: (item: ScheduleItem) => Promise<string | JSX.Element>
@@ -31,9 +31,16 @@ type IScheduleContext = {
   songs: SongResponseDTO[]
   media: Media[]
   addItemToSchedule: (item: AddItemToSchedule) => void
+  deleteItemFromSchedule: (index: number) => void
 }
 
 export type ContentScreen = {
   title: string
   content: PresentationViewItems[]
+}
+
+export type ScheduleItemData = {
+  group: ScheduleGroup | null
+  items: ScheduleItem[]
+  order: number
 }
