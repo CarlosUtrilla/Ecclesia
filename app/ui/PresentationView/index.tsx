@@ -43,7 +43,6 @@ export function PresentationView({
     ref: containerRef as React.RefObject<HTMLDivElement>
   })
   const screenSize = useScreenSize(height || 0, displayId)
-  console.log('Screen size:', screenSize)
   // Estados para manejar el background
   const [mediaType, setMediaType] = useState<MediaType>('color')
   const [videoError, setVideoError] = useState(false)

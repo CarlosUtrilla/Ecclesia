@@ -1,6 +1,6 @@
 import { PresentationView } from '@/ui/PresentationView'
 import { useSchedule } from '@/contexts/ScheduleContext'
-import { useLive } from '@/contexts/ScheduleContext/liveContext'
+import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { cn } from '@/lib/utils'
 import { Button } from '@/ui/button'
 import { Radio } from 'lucide-react'

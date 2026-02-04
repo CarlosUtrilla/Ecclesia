@@ -5,28 +5,18 @@ import t from '@locales'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { SongResponseDTO, SongsListResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useEffect, useRef, useState } from 'react'
-import { Search, Music, Plus, Trash2, Edit2, Radio, CalendarPlus } from 'lucide-react'
+import { Search, Music, Plus } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Tooltip } from '@/ui/tooltip'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger
-} from '@/ui/context-menu'
+
 import PreviewSong from './previewSong'
-import { cn } from '@/lib/utils'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-import { useSchedule } from '@/contexts/ScheduleContext'
-import { useLive } from '@/contexts/ScheduleContext/liveContext'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
+import SongItem from './songItem'
 
 export default function SongsPanelLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<HTMLDivElement>(null)
-
-  const { addItemToSchedule } = useSchedule()
-  const { showItemOnLiveScreen } = useLive()
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -119,10 +109,11 @@ export default function SongsPanelLibrary() {
       }
     }
   })
+
   return (
     <ResizablePanelGroup direction="horizontal" className="panel-scrollable">
       <ResizablePanel
-        className="border-r panel-scrollable"
+        className="border-r panel-scrollable overflow-x-hidden!"
         defaultSize={'20%'}
         minSize={'15%'}
         maxSize={'35%'}
@@ -146,7 +137,11 @@ export default function SongsPanelLibrary() {
         </div>
 
         {/* Lista de canciones */}
-        <div className="panel-scroll-content p-2 space-y-2" ref={containerRef}>
+        <div
+          className="panel-scroll-content  p-2 space-y-2"
+          ref={containerRef}
+          style={{ position: 'relative' }}
+        >
           {isLoading ? (
             // Loading skeleton
             Array.from({ length: 5 }).map((_, i) => (
@@ -172,76 +167,13 @@ export default function SongsPanelLibrary() {
             // Lista de canciones
             <>
               {allSongs.map((song) => (
-                <ContextMenu key={song.id}>
-                  <ContextMenuTrigger>
-                    <div
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData(
-                          'application/json',
-                          JSON.stringify({
-                            type: 'SONG',
-                            accessData: song.id
-                          })
-                        )
-                        e.dataTransfer.effectAllowed = 'copy'
-                      }}
-                      className={cn(
-                        'p-1 px-4 pl-3 hover:bg-muted/30',
-                        'cursor-pointer transition-colors',
-                        {
-                          'bg-secondary/20 hover:bg-secondary/10': selectedSong?.id === song.id
-                        }
-                      )}
-                      onClick={() => setSelectedSong(song)}
-                      onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
-                    >
-                      <h3 className="font-semibold text-base flex gap-2 items-center">
-                        <Music className="h-4 w-4 text-muted-foreground" />
-                        {song.title}
-                        {song.author ? (
-                          <div className="text-sm text-muted-foreground mt-1">
-                            ({song.author && <span>{song.author}</span>})
-                          </div>
-                        ) : null}
-                      </h3>
-                    </div>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    <ContextMenuItem onClick={() => window.windowAPI.openSongWindow(song.id)}>
-                      <Edit2 />
-                      Editar canción
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      onClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
-                    >
-                      <CalendarPlus />
-                      Añadir canción al cronograma
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      onClick={() =>
-                        showItemOnLiveScreen(
-                          {
-                            accessData: song.id.toString(),
-                            type: 'SONG',
-                            id: -1,
-                            order: -1,
-                            scheduleGroupId: null,
-                            scheduleId: -1
-                          },
-                          0
-                        )
-                      }
-                    >
-                      <Radio className="text-green-600" />
-                      Presentar canción en vivo
-                    </ContextMenuItem>
-                    <ContextMenuItem onClick={() => handleDeleteSong(song.id)}>
-                      <Trash2 className="text-destructive" />
-                      Eliminar canción
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
+                <SongItem
+                  key={song.id}
+                  song={song}
+                  selectedSong={selectedSong}
+                  setSelectedSong={setSelectedSong}
+                  handleDeleteSong={handleDeleteSong}
+                />
               ))}
 
               {/* Observer para scroll infinito */}

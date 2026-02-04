@@ -26,7 +26,7 @@ type IScheduleContext = {
   currentSchedule: ScheduleSchemaType | null
   form: UseFormReturn<ScheduleSchemaType>
   getScheduleItemIcon: (item: ScheduleItem) => React.ReactNode
-  getScheduleItemLabel: (item: ScheduleItem) => React.ReactNode
+  getScheduleItemLabel: (item: ScheduleItem) => Promise<string | JSX.Element>
   getScheduleItemContentScreen: (item: ScheduleItem) => Promise<ContentScreen>
   songs: SongResponseDTO[]
   media: Media[]

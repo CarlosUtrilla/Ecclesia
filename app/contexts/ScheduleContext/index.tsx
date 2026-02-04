@@ -6,9 +6,11 @@ import { useForm } from 'react-hook-form'
 import { ScheduleSchema } from './schema'
 
 import { ScheduleItem } from '@prisma/client'
-import { useIndexDataItems } from './indexDataItems'
-import { LiveProvider } from './liveContext'
+import { useIndexDataItems } from './utils/indexDataItems'
+import { LiveProvider } from './utils/liveContext'
 import { AddItemToSchedule, IScheduleContext } from './types'
+import { DndContext, DragOverlay, DragStartEvent } from '@dnd-kit/core'
+import ScheduleItemComponent from '@/screens/panels/schedule/scheduleContent/scheduleItem'
 
 const ScheduleContext = createContext({} as IScheduleContext)
 
@@ -73,25 +75,53 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     form.setValue('items', [...currentSchedule.items, newItem], { shouldDirty: true })
   }
 
+  const [draggingItem, setDraggingItem] = useState<ScheduleItem | null>(null)
+
+  const handleOnDragStart = (event: DragStartEvent) => {
+    //Comprobamos si el item que se esta arrastrando es uno compatible con el schedule
+    const current = event.active.data.current as AddItemToSchedule
+    if (current.type !== undefined) {
+      // convertimos el dato en item y lo seteamos como dragging item
+      const item: ScheduleItem = {
+        id: -1,
+        type: current.type,
+        accessData: String(current.accessData),
+        order: (currentSchedule?.items.length || 0) + 1,
+        scheduleGroupId: null,
+        scheduleId: -1
+      }
+      setDraggingItem(item)
+    }
+  }
+
   return (
-    <ScheduleContext.Provider
-      value={{
-        itemOnLive,
-        setItemOnLive,
-        selectedTheme,
-        setSelectedTheme,
-        currentSchedule,
-        form,
-        getScheduleItemIcon,
-        getScheduleItemLabel,
-        getScheduleItemContentScreen,
-        songs,
-        media,
-        addItemToSchedule
-      }}
+    <DndContext
+      onDragStart={handleOnDragStart}
+      onDragEnd={() => setDraggingItem(null)}
+      onDragCancel={() => setDraggingItem(null)}
     >
-      <LiveProvider>{children}</LiveProvider>
-    </ScheduleContext.Provider>
+      <ScheduleContext.Provider
+        value={{
+          itemOnLive,
+          setItemOnLive,
+          selectedTheme,
+          setSelectedTheme,
+          currentSchedule,
+          form,
+          getScheduleItemIcon,
+          getScheduleItemLabel,
+          getScheduleItemContentScreen,
+          songs,
+          media,
+          addItemToSchedule
+        }}
+      >
+        <LiveProvider>{children}</LiveProvider>
+        <DragOverlay>
+          {draggingItem ? <ScheduleItemComponent item={draggingItem} /> : null}
+        </DragOverlay>
+      </ScheduleContext.Provider>
+    </DndContext>
   )
 }
 

@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { ScheduleSchemaType } from './schema'
+import { ScheduleSchemaType } from '../schema'
 import { ScheduleItem } from '@prisma/client'
-import { BookPlusIcon, Image, Music, Video } from 'lucide-react'
+import { BookPlusIcon, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
-import { ContentScreen } from './types'
+import { ContentScreen } from '../types'
 import { useCallback } from 'react'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
-import { useMediaServer } from '../MediaServerContext'
+import { useMediaServer } from '../../MediaServerContext'
 
 export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteVerseText } = useBibleSchema()
@@ -68,7 +68,7 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
     }
   }
 
-  const getScheduleItemLabel = (item: ScheduleItem) => {
+  const getScheduleItemLabel = async (item: ScheduleItem) => {
     const { accessData, type } = item
     switch (type) {
       case 'SONG': {
@@ -76,14 +76,19 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         if (song) {
           return song.title
         }
-        return 'loading...'
+        const loadSong = await window.api.songs.getSongById(parseInt(accessData))
+        return loadSong?.title || `Canción desconocida`
       }
       case 'MEDIA': {
         const med = media.find((m) => m.id === parseInt(accessData))
         if (med) {
           return med.name
         }
-        return `Medio ID: ${accessData}`
+        const loadMedia = await window.api.media.getMediaByIds([parseInt(accessData)])
+        if (loadMedia) {
+          return loadMedia[0].name
+        }
+        return `Medio desconocido`
       }
       case 'BIBLE': {
         const splited = accessData.split(',')

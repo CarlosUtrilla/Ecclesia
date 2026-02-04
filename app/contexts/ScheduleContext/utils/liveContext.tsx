@@ -1,7 +1,7 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react'
-import { ContentScreen, ILiveContext } from './types'
-import { useSchedule } from '.'
-import { DisplayWithUsage, useDisplays } from '../displayContext'
+import { ContentScreen, ILiveContext } from '../types'
+import { useSchedule } from '..'
+import { DisplayWithUsage, useDisplays } from '../../displayContext'
 import { ScheduleItem } from '@prisma/client'
 
 const LiveContext = createContext({} as ILiveContext)

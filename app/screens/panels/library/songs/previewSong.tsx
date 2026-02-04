@@ -1,5 +1,5 @@
 import { useSchedule } from '@/contexts/ScheduleContext'
-import { useLive } from '@/contexts/ScheduleContext/liveContext'
+import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { Button } from '@/ui/button'
 import RenderSongLyricList from '@/ui/renderSongLyricList'
 import { ResizablePanel } from '@/ui/resizable'
