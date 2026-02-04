@@ -1,4 +1,4 @@
-import { ThemeWithMedia } from '@/components/PresentationView/types'
+import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { BlankTheme, useThemes } from '@/hooks/useThemes'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react'
@@ -22,7 +22,8 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       title: '',
       items: [],
       dateFrom: null,
-      dateTo: null
+      dateTo: null,
+      groups: []
     },
     resolver: zodResolver(ScheduleSchema)
   })

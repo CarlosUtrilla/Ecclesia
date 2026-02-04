@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react'
-import { ScreenSize } from '@/components/PresentationView/types'
+import { ScreenSize } from '@/ui/PresentationView/types'
 import { useDisplays } from './displayContext'
 
 interface ScreenSizeContextType {

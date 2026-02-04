@@ -6,7 +6,7 @@ import VerseSearch from './verseSearch'
 import TextFragmentSearch from './textFragmentSearch'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import ImportBibleButton from './importBible'
-import BiblePresentationConfiguration from '@/components/biblePresentationConfiguration'
+import BiblePresentationConfiguration from '@/screens/editors/biblePresentationConfiguration'
 import { Button } from '@/ui/button'
 import { Settings } from 'lucide-react'
 

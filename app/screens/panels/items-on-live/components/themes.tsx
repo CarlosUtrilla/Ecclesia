@@ -1,4 +1,4 @@
-import { PresentationView } from '@/components/PresentationView'
+import { PresentationView } from '@/ui/PresentationView'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useThemes } from '@/hooks/useThemes'
 import { Button } from '@/ui/button'

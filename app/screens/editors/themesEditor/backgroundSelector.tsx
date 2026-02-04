@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger
 } from '@/ui/dropdown-menu'
 import { ChevronDown, Palette, Image as ImageIcon, Video, Sparkles } from 'lucide-react'
-import { MediaPicker, Media, MediaType } from '@/components/panels/library/media/exports'
+import { MediaPicker, Media, MediaType } from '@/screens/panels/library/media/exports'
 import { ColorPicker } from '@/ui/colorPicker'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 

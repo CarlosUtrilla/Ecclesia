@@ -2,7 +2,7 @@ import { Media, ScheduleItem, ScheduleItemType } from '@prisma/client'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 import { ScheduleSchemaType } from './schema'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
-import { PresentationViewItems } from '@/components/PresentationView/types'
+import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { DisplayWithUsage } from '@/hooks/useDisplays'
 
 export type ILiveContext = {

@@ -1,4 +1,4 @@
-import { PresentationView } from '@/components/PresentationView'
+import { PresentationView } from '@/ui/PresentationView'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/liveContext'
 import { cn } from '@/lib/utils'

@@ -3,15 +3,15 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import { TextStyle } from '@tiptap/extension-text-style'
 
-import { Button } from '../../../ui/button'
+import { Button } from '../../../../ui/button'
 import { Bold, Italic, Underline as UnderlineIcon, Type, Tags } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger
-} from '../../../ui/dropdown-menu'
-import { Separator } from '../../../ui/separator'
+} from '../../../../ui/dropdown-menu'
+import { Separator } from '../../../../ui/separator'
 import { cn } from '@/lib/utils'
 import { useEffect } from 'react'
 

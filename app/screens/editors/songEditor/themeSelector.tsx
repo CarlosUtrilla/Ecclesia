@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
 import React, { useState } from 'react'
-import { PresentationView } from '../PresentationView'
+import { PresentationView } from '../../../ui/PresentationView'
 import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/ui/input'
-import { ThemeWithMedia } from '../PresentationView/types'
+import { ThemeWithMedia } from '../../../ui/PresentationView/types'
 type Props = {
   selectedTheme: ThemeWithMedia
   setSelectedTheme: React.Dispatch<React.SetStateAction<ThemeWithMedia>>

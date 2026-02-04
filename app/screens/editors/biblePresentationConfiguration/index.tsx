@@ -20,11 +20,11 @@ import {
   BibleDescriptionPosition,
   BiblePresentationSettings
 } from '@prisma/client'
-import { PresentationView } from '../PresentationView'
+import { PresentationView } from '../../../ui/PresentationView'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { Slider } from '@/ui/slider'
-import { ThemeWithMedia } from '../PresentationView/types'
+import { ThemeWithMedia } from '../../../ui/PresentationView/types'
 
 type Props = {
   hideTooltip?: boolean

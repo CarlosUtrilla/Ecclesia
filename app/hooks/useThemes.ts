@@ -1,4 +1,4 @@
-import { ThemeWithMedia } from '@/components/PresentationView/types'
+import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 

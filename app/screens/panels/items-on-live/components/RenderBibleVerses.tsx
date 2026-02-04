@@ -1,4 +1,4 @@
-import { PresentationViewItems } from '@/components/PresentationView/types'
+import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { useLive } from '@/contexts/ScheduleContext/liveContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { cn } from '@/lib/utils'

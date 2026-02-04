@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ThemeWithMedia } from '../PresentationView/types'
+import { ThemeWithMedia } from '../../ui/PresentationView/types'
 import { BlankTheme } from '@/hooks/useThemes'
 import { ContentScreen } from '@/contexts/ScheduleContext/types'
-import { PresentationView } from '../PresentationView'
+import { PresentationView } from '../../ui/PresentationView'
 import { useParams } from 'react-router'
 import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 

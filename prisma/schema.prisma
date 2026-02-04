@@ -152,11 +152,12 @@ model BiblePresentationSettings {
 }
 
 model Schedule {
-  id       Int            @id @default(autoincrement())
+  id       Int             @id @default(autoincrement())
   title    String
   dateFrom DateTime?
   dateTo   DateTime?
   items    ScheduleItem[]
+  groups   ScheduleGroup[]
 }
 
 model ScheduleGroupTemplate {
@@ -167,13 +168,15 @@ model ScheduleGroupTemplate {
 }
 
 model ScheduleGroup {
-  id              Int                     @id @default(autoincrement())
+  id              Int                   @id @default(autoincrement())
   name            String
   color           String
   order           Int
   scheduleItems   ScheduleItem[]
   groupTemplate   ScheduleGroupTemplate @relation(fields: [groupTemplateId], references: [id])
   groupTemplateId Int
+  schedule        Schedule?             @relation(fields: [scheduleId], references: [id])
+  scheduleId      Int?
 }
 
 enum ScheduleItemType {
