@@ -6,7 +6,10 @@ export class ScheduleGroupTemplateService {
   // Crear un nuevo template de grupo
   async createGroupTemplate(data: { name: string; color: string }) {
     return await this.prisma.scheduleGroupTemplate.create({
-      data
+      data,
+      include: {
+        scheduleGroups: true
+      }
     })
   }
 
@@ -36,7 +39,10 @@ export class ScheduleGroupTemplateService {
   async updateGroupTemplate(id: number, data: { name?: string; color?: string }) {
     return await this.prisma.scheduleGroupTemplate.update({
       where: { id },
-      data
+      data,
+      include: {
+        scheduleGroups: true
+      }
     })
   }
 

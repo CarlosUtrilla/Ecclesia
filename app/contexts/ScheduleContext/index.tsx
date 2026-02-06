@@ -5,19 +5,13 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 import { useForm } from 'react-hook-form'
 import { ScheduleSchema } from './schema'
 
-import { ScheduleItem } from '@prisma/client'
+import { ScheduleGroup, ScheduleItem } from '@prisma/client'
 import { useIndexDataItems } from './utils/indexDataItems'
 import { LiveProvider } from './utils/liveContext'
 import { AddItemToSchedule, IScheduleContext, ScheduleItemData } from './types'
-import {
-  DndContext,
-  DragOverlay,
-  DragStartEvent,
-  MouseSensor,
-  useSensor,
-  useSensors
-} from '@dnd-kit/core'
-import ScheduleItemComponent from '@/screens/panels/schedule/scheduleContent/scheduleItem'
+import DragAndDropSchedule from './utils/dragAndDropSchedule'
+import { generateUniqueId } from '@/lib/utils'
+import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
 
 const ScheduleContext = createContext({} as IScheduleContext)
 
@@ -58,25 +52,15 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   }, [])
 
   const addItemToSchedule = (item: AddItemToSchedule) => {
+    if (!item.type || !['BIBLE', 'SONG', 'MEDIA', 'PRESENTATION'].includes(item.type)) return
     // Determinar el tipo y crear el item apropiado
-    const newItem: any = {
+    const newItem: ScheduleItem = {
+      id: generateUniqueId(),
       order: (formData?.items.length || 0) + 1,
-      scheduleGroupId: null
-    }
-
-    if (item.type === 'SONG') {
-      newItem.type = 'SONG'
-      newItem.accessData = String(item.accessData)
-    } else if (item.type === 'MEDIA') {
-      newItem.type = 'MEDIA'
-      newItem.accessData = String(item.accessData)
-    } else if (item.type === 'BIBLE') {
-      // Formato: "bookId,chapter,verseStart-verseEnd,version"
-      newItem.type = 'BIBLE'
-      newItem.accessData = item.accessData
-    } else {
-      console.warn('Tipo de item desconocido:', item.type)
-      return
+      type: item.type,
+      accessData: String(item.accessData),
+      scheduleGroupId: null,
+      scheduleId: formData.id || -1
     }
 
     form.setValue('items', [...formData.items, newItem], { shouldDirty: true })
@@ -87,32 +71,6 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     updatedItems.splice(index, 1)
     form.setValue('items', updatedItems, { shouldDirty: true })
   }
-
-  const [draggingItem, setDraggingItem] = useState<ScheduleItem | null>(null)
-
-  const handleOnDragStart = (event: DragStartEvent) => {
-    //Comprobamos si el item que se esta arrastrando es uno compatible con el schedule
-    const current = event.active.data.current as AddItemToSchedule
-    if (current.type !== undefined) {
-      // convertimos el dato en item y lo seteamos como dragging item
-      const item: ScheduleItem = {
-        id: -1,
-        type: current.type,
-        accessData: String(current.accessData),
-        order: (formData?.items.length || 0) + 1,
-        scheduleGroupId: null,
-        scheduleId: -1
-      }
-      setDraggingItem(item)
-    }
-  }
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, {
-      onActivation: (event) => console.log('onActivation', event), // Here!
-      activationConstraint: { distance: 5 }
-    })
-  )
 
   const currentSchedule = useMemo(() => {
     const { groups, items } = formData
@@ -130,36 +88,41 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     }))
     return [...ungrupedItems, ...groupsWithItems].sort((a, b) => a.order - b.order)
   }, [formData])
+
+  const addGroupToSchedule = (template: ScheduleGroupTemplateDTO) => {
+    const newGroup: ScheduleGroup = {
+      id: generateUniqueId(),
+      name: template.name,
+      color: template.color,
+      order: (formData?.groups.length || 0) + 1,
+      groupTemplateId: template.id,
+      scheduleId: formData.id || null
+    }
+    form.setValue('groups', [...formData.groups, newGroup], { shouldDirty: true })
+  }
   return (
-    <DndContext
-      onDragStart={handleOnDragStart}
-      onDragEnd={() => setDraggingItem(null)}
-      onDragCancel={() => setDraggingItem(null)}
-      sensors={sensors}
+    <ScheduleContext.Provider
+      value={{
+        itemOnLive,
+        setItemOnLive,
+        selectedTheme,
+        setSelectedTheme,
+        currentSchedule,
+        form,
+        getScheduleItemIcon,
+        getScheduleItemLabel,
+        getScheduleItemContentScreen,
+        songs,
+        media,
+        addItemToSchedule,
+        deleteItemFromSchedule,
+        addGroupToSchedule
+      }}
     >
-      <ScheduleContext.Provider
-        value={{
-          itemOnLive,
-          setItemOnLive,
-          selectedTheme,
-          setSelectedTheme,
-          currentSchedule,
-          form,
-          getScheduleItemIcon,
-          getScheduleItemLabel,
-          getScheduleItemContentScreen,
-          songs,
-          media,
-          addItemToSchedule,
-          deleteItemFromSchedule
-        }}
-      >
-        <LiveProvider>{children}</LiveProvider>
-        <DragOverlay>
-          {draggingItem ? <ScheduleItemComponent item={draggingItem} /> : null}
-        </DragOverlay>
-      </ScheduleContext.Provider>
-    </DndContext>
+      <LiveProvider>
+        <DragAndDropSchedule>{children}</DragAndDropSchedule>
+      </LiveProvider>
+    </ScheduleContext.Provider>
   )
 }
 

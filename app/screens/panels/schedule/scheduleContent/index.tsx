@@ -6,13 +6,14 @@ import { cn } from '@/lib/utils'
 import { ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
-import GroupTemplateManager from './GroupTemplateManagerDialog'
+import GroupTemplateManager from '../components/scheduleGroups/GroupTemplateManagerDialog'
 import { DragEndEvent, useDndMonitor, useDroppable } from '@dnd-kit/core'
 import EmptyShcedule from './emptyShcedule'
 import PreviewSchedule from './previewSchedule'
 import { AddItemToSchedule } from '@/contexts/ScheduleContext/types'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import ScheduleGroupItem from './scheduleGroupItem'
+import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
 
 type ScheduleContentProps = {
   onBack: () => void
@@ -29,7 +30,7 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     getScheduleItemContentScreen,
     selectedTheme,
     addItemToSchedule,
-    deleteItemFromSchedule
+    addGroupToSchedule
   } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
 
@@ -66,16 +67,12 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
   useDndMonitor({
     onDragEnd: (e: DragEndEvent) => {
       try {
-        console.log('droped')
         const data = e.active.data.current
         if (!data || !e.over) return
 
         // Check if it's a group template
-        if (data.type === 'group-template') {
-          // Handle group template drop - TODO: implement group creation in schedule
-          console.log('Dropped group template:', data)
-          // For now, we'll just log it - later we'll create a schedule group
-          alert(`Funcionalidad de grupos en desarrollo. Template: "${data.name}"`)
+        if (data.type === 'schedule-group') {
+          addGroupToSchedule(data.template as ScheduleGroupTemplateDTO)
           return
         }
 

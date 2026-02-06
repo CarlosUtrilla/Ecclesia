@@ -3,15 +3,9 @@ import { Button } from '@/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover'
 import { Input } from '@/ui/input'
 import { ColorPicker } from '@/ui/colorPicker'
-import { Trash2, Plus, Edit2, Save, X, GripVertical } from 'lucide-react'
-import { cn } from '@/lib/utils'
-
-type GroupTemplate = {
-  id: number
-  name: string
-  color: string
-  scheduleGroups?: any[]
-}
+import { Plus, Save, X } from 'lucide-react'
+import ScheduleGruopItem from './scheduleGruopItem'
+import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
 
 type GroupTemplateManagerProps = {
   children: React.ReactNode
@@ -19,8 +13,8 @@ type GroupTemplateManagerProps = {
 
 export default function GroupTemplateManager({ children }: GroupTemplateManagerProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [templates, setTemplates] = useState<GroupTemplate[]>([])
-  const [editingTemplate, setEditingTemplate] = useState<GroupTemplate | null>(null)
+  const [templates, setTemplates] = useState<ScheduleGroupTemplateDTO[]>([])
+  const [editingTemplate, setEditingTemplate] = useState<ScheduleGroupTemplateDTO | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -85,7 +79,7 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
     }
   }
 
-  const handleDeleteTemplate = async (template: GroupTemplate) => {
+  const handleDeleteTemplate = async (template: ScheduleGroupTemplateDTO) => {
     if (template.scheduleGroups && template.scheduleGroups.length > 0) {
       alert('No se puede eliminar un template que tiene grupos asociados')
       return
@@ -104,7 +98,7 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
     }
   }
 
-  const startEdit = (template: GroupTemplate, e: React.MouseEvent) => {
+  const startEdit = (template: ScheduleGroupTemplateDTO, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingTemplate(template)
     setFormData({
@@ -120,17 +114,6 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
     })
     setEditingTemplate(null)
     setIsCreating(false)
-  }
-
-  const handleDragStart = (e: React.DragEvent, template: GroupTemplate) => {
-    e.dataTransfer.setData(
-      'application/json',
-      JSON.stringify({
-        type: 'group-template',
-        data: template
-      })
-    )
-    e.dataTransfer.effectAllowed = 'copy'
   }
 
   return (
@@ -211,51 +194,12 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
             ) : (
               <div className="space-y-1 p-2">
                 {templates.map((template) => (
-                  <div
+                  <ScheduleGruopItem
                     key={template.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, template)}
-                    className={cn(
-                      'flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors cursor-grab active:cursor-grabbing',
-                      'border border-transparent hover:border-muted-foreground/20'
-                    )}
-                  >
-                    <GripVertical className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    <div
-                      className="w-3 h-3 rounded-full border flex-shrink-0"
-                      style={{ backgroundColor: template.color }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{template.name}</div>
-                      {template.scheduleGroups && template.scheduleGroups.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          {template.scheduleGroups.length} uso(s)
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={(e) => startEdit(template, e)}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteTemplate(template)
-                        }}
-                        disabled={template.scheduleGroups && template.scheduleGroups.length > 0}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+                    template={template}
+                    startEdit={startEdit}
+                    handleDeleteTemplate={handleDeleteTemplate}
+                  />
                 ))}
               </div>
             )}

@@ -97,3 +97,12 @@ export const getGrupedLyrics = (lyrics: Lyrics[]): GroupsTags[] => {
     return prev
   }, [] as GroupsTags[])
 }
+
+export const generateUniqueId = (): string => {
+  // Generar una cadena aleatoria de 16 caracteres inrepetible basando en la fecha de creación y un número aleatorio
+  const timestamp = Date.now().toString(36) // Convertir la fecha actual a base36
+  const randomNum = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
+    .toString(36)
+    .padStart(10, '0') // Número aleatorio en base36, rellenado a 10 caracteres
+  return `${timestamp}-${randomNum}`
+}

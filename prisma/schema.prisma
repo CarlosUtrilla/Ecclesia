@@ -168,7 +168,7 @@ model ScheduleGroupTemplate {
 }
 
 model ScheduleGroup {
-  id              Int                   @id @default(autoincrement())
+  id              String                @unique
   name            String
   color           String
   order           Int
@@ -187,7 +187,7 @@ enum ScheduleItemType {
 }
 
 model ScheduleItem {
-  id              Int              @id @default(autoincrement())
+  id              String           @unique
   order           Int
   type            ScheduleItemType
   /**
@@ -198,7 +198,7 @@ model ScheduleItem {
    */
   accessData      String
   scheduleId      Int
-  scheduleGroupId Int? /*Id del grupo al que pertenece el ítem, puede no pertenecer a ningún grupo*/
+  scheduleGroupId String? /*Id del grupo al que pertenece el ítem, puede no pertenecer a ningún grupo*/
   scheduleGroup   ScheduleGroup?   @relation(fields: [scheduleGroupId], references: [id])
   schedule        Schedule         @relation(fields: [scheduleId], references: [id])
 }

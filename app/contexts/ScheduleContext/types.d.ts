@@ -4,6 +4,7 @@ import { ScheduleSchemaType } from './schema'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { DisplayWithUsage } from '@/hooks/useDisplays'
+import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
 
 export type ILiveContext = {
   itemIndex: number
@@ -32,6 +33,7 @@ type IScheduleContext = {
   media: Media[]
   addItemToSchedule: (item: AddItemToSchedule) => void
   deleteItemFromSchedule: (index: number) => void
+  addGroupToSchedule: (template: ScheduleGroupTemplateDTO) => void
 }
 
 export type ContentScreen = {
