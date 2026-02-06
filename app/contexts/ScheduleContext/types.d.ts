@@ -31,7 +31,7 @@ type IScheduleContext = {
   getScheduleItemContentScreen: (item: ScheduleItem) => Promise<ContentScreen>
   songs: SongResponseDTO[]
   media: Media[]
-  addItemToSchedule: (item: AddItemToSchedule) => void
+  addItemToSchedule: (item: AddItemToSchedule, groupId?: string) => void
   deleteItemFromSchedule: (index: number) => void
   addGroupToSchedule: (template: ScheduleGroupTemplateDTO) => void
 }

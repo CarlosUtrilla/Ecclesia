@@ -51,7 +51,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     actualSchedule()
   }, [])
 
-  const addItemToSchedule = (item: AddItemToSchedule) => {
+  const addItemToSchedule = (item: AddItemToSchedule, groupId?: string) => {
     if (!item.type || !['BIBLE', 'SONG', 'MEDIA', 'PRESENTATION'].includes(item.type)) return
     // Determinar el tipo y crear el item apropiado
     const newItem: ScheduleItem = {
@@ -59,7 +59,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       order: (formData?.items.length || 0) + 1,
       type: item.type,
       accessData: String(item.accessData),
-      scheduleGroupId: null,
+      scheduleGroupId: groupId || null,
       scheduleId: formData.id || -1
     }
 
@@ -100,6 +100,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     }
     form.setValue('groups', [...formData.groups, newGroup], { shouldDirty: true })
   }
+
   return (
     <ScheduleContext.Provider
       value={{

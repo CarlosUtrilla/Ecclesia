@@ -28,7 +28,6 @@ export default function ScheduleItemComponent({ selectedItem, setSelectedItem, i
     fetchLabel()
   }, [])
 
-  console.log(selectedItem?.id, item)
   return (
     <ContextMenu>
       <ContextMenuTrigger>

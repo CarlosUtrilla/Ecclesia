@@ -1,9 +1,10 @@
 import { Button } from '@/ui/button'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { Save, CalendarSearch, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { ScheduleItem } from '@prisma/client'
+import { ScheduleGroup, ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import GroupTemplateManager from '../components/scheduleGroups/GroupTemplateManagerDialog'
@@ -68,6 +69,7 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     onDragEnd: (e: DragEndEvent) => {
       try {
         const data = e.active.data.current
+        console.log(e)
         if (!data || !e.over) return
 
         // Check if it's a group template
@@ -76,6 +78,13 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
           return
         }
 
+        if (e.over.id.toString().includes('schedule-group-')) {
+          console.log('Dropped into group', e.over.id)
+          // Handle dropping into a schedule group
+          const group = e.over.data.current as ScheduleGroup
+          addItemToSchedule(data as AddItemToSchedule, group.id)
+          return
+        }
         // Handle regular items
         addItemToSchedule(data as AddItemToSchedule)
       } catch (error) {
@@ -126,15 +135,11 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4" ref={setNodeRef}>
+        <div className="flex-1 overflow-y-auto p-3" ref={setNodeRef}>
           {currentSchedule.length === 0 ? (
             <EmptyShcedule isOver={isOver} />
           ) : (
-            <div
-              className={`min-h-full transition-colors ${
-                isOver ? 'bg-primary/5 border-2 border-dashed border-primary rounded-lg p-2' : ''
-              }`}
-            >
+            <div className="min-h-full transition-colors relative">
               <div className="flex flex-col gap-1">
                 {currentSchedule.map((group, index) => (
                   <ScheduleGroupItem
@@ -145,12 +150,24 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
                   />
                 ))}
               </div>
-              {isOver && (
-                <div className="mt-4 p-8 border-2 border-dashed border-primary rounded-lg bg-primary/5 text-center">
-                  <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
-                  <p className="text-sm text-primary font-medium">Soltar para agregar al final</p>
-                </div>
-              )}
+              <AnimatePresence>
+                {isOver && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute animate-in fade-in duration-300 -inset-2 flex items-center justify-center pointer-events-none bg-primary/10 rounded-md border-2 border-dashed border-primary"
+                  >
+                    <div className="mt-4 p-8 border-2 border-dashed border-primary rounded-lg bg-primary/5 text-center">
+                      <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
+                      <p className="text-sm text-primary font-medium">
+                        Soltar para agregar al final
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>
