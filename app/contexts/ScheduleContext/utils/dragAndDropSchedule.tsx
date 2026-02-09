@@ -9,7 +9,7 @@ import {
 import { ScheduleItem } from '@prisma/client'
 import { PropsWithChildren, useState } from 'react'
 import { AddItemToSchedule } from '../types'
-import ScheduleItemComponent from '@/screens/panels/schedule/scheduleContent/scheduleItem'
+import ScheduleItemComponent from '@/screens/panels/schedule/components/scheduleContent/scheduleItem'
 import { useSchedule } from '..'
 import { generateUniqueId } from '@/lib/utils'
 import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'

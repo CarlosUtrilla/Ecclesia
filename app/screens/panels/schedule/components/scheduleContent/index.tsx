@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { ScheduleGroup, ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
-import GroupTemplateManager from '../components/scheduleGroups/GroupTemplateManagerDialog'
+import GroupTemplateManager from '../scheduleGroups/GroupTemplateManagerDialog'
 import { DragEndEvent, useDndMonitor, useDroppable } from '@dnd-kit/core'
 import EmptyShcedule from './emptyShcedule'
 import PreviewSchedule from './previewSchedule'
@@ -15,6 +15,12 @@ import { AddItemToSchedule } from '@/contexts/ScheduleContext/types'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import ScheduleGroupItem from './scheduleGroupItem'
 import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
 
 type ScheduleContentProps = {
   onBack: () => void
@@ -106,6 +112,8 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
   } = form
   const pendingSave = isDirty
 
+  const itemsIndex = currentSchedule.map((g) => g.items.map((i) => i.id)).flat()
+
   return (
     <>
       <div
@@ -141,14 +149,16 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
           ) : (
             <div className="min-h-full transition-colors relative">
               <div className="flex flex-col gap-1">
-                {currentSchedule.map((group, index) => (
-                  <ScheduleGroupItem
-                    key={index + (group.group?.id || 'ungrouped').toString() + group.items.length}
-                    group={group}
-                    setSelectedItem={setSelectedItem}
-                    selectedItem={selectedItem}
-                  />
-                ))}
+                <SortableContext items={itemsIndex} strategy={verticalListSortingStrategy}>
+                  {currentSchedule.map((group, index) => (
+                    <ScheduleGroupItem
+                      key={index + (group.group?.id || 'ungrouped').toString() + group.items.length}
+                      group={group}
+                      setSelectedItem={setSelectedItem}
+                      selectedItem={selectedItem}
+                    />
+                  ))}
+                </SortableContext>
               </div>
               <AnimatePresence>
                 {isOver && (

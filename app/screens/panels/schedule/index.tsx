@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import ScheduleList from './scheduleList'
-import ScheduleContent from './scheduleContent'
+import ScheduleContent from './components/scheduleContent'
 
 export default function SchedulePanelContent() {
   const [showList, setShowList] = useState(false) // Empezar en vista de contenido

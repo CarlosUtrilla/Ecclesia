@@ -7,6 +7,8 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/ui/context-menu'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { ScheduleItem } from '@prisma/client'
 import { Radio, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -28,6 +30,13 @@ export default function ScheduleItemComponent({ selectedItem, setSelectedItem, i
     fetchLabel()
   }, [])
 
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger>
@@ -43,6 +52,10 @@ export default function ScheduleItemComponent({ selectedItem, setSelectedItem, i
             e.preventDefault()
           }}
           onDoubleClick={() => showItemOnLiveScreen(item, 0)}
+          ref={setNodeRef}
+          style={style}
+          {...attributes}
+          {...listeners}
         >
           <div className="flex items-center gap-2">
             <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
