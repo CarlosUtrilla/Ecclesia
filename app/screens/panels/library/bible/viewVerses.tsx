@@ -12,6 +12,7 @@ import {
 import { CalendarPlus, Radio } from 'lucide-react'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
+import { useDraggable } from '@dnd-kit/core'
 
 type Props = {
   bookData?: BibleSchemaDTO
@@ -98,13 +99,27 @@ export default function ViewVerses({
       // Marcar que la selección viene del componente interno
       internalSelectionRef.current = true
 
-      if (isRangeSelect && anchorIndexRef.current !== null) {
+      if (isRangeSelect) {
         // Shift + click: seleccionar rango desde el ancla
-        const start = Math.min(anchorIndexRef.current, index)
-        const end = Math.max(anchorIndexRef.current, index)
-        const rangeVerses = completeChapter.slice(start, end + 1).map((v) => v.verse)
-        setSelectedVerse(rangeVerses)
-        // No actualizar ancla en shift+click, mantener el punto de origen
+        // Si no hay ancla, inicializar con el primer verso seleccionado actualmente
+        if (anchorIndexRef.current === null && verse.length > 0) {
+          const currentVerseIndex = completeChapter.findIndex((v) => v.verse === verse[0])
+          if (currentVerseIndex !== -1) {
+            anchorIndexRef.current = currentVerseIndex
+          }
+        }
+        
+        if (anchorIndexRef.current !== null) {
+          const start = Math.min(anchorIndexRef.current, index)
+          const end = Math.max(anchorIndexRef.current, index)
+          const rangeVerses = completeChapter.slice(start, end + 1).map((v) => v.verse)
+          setSelectedVerse(rangeVerses)
+          // No actualizar ancla en shift+click, mantener el punto de origen
+        } else {
+          // Fallback: si aún no hay ancla, hacer selección normal
+          setSelectedVerse([verseNumber])
+          anchorIndexRef.current = index
+        }
       } else if (isMultiSelect) {
         // Ctrl/Cmd + click: toggle individual
         if (verse.includes(verseNumber)) {
@@ -150,18 +165,6 @@ export default function ViewVerses({
     // Reset del flag después de procesar el cambio
     internalSelectionRef.current = false
   }, [verse, completeChapter])
-
-  const hanldeDragStart = (e: React.DragEvent) => {
-    const verseRange = verse.length === 1 ? verse[0] : `${Math.min(...verse)}-${Math.max(...verse)}`
-    e.dataTransfer.setData(
-      'application/json',
-      JSON.stringify({
-        type: 'BIBLE',
-        accessData: `${bookData?.id},${chapter},${verseRange},${version}`
-      })
-    )
-    e.dataTransfer.effectAllowed = 'copy'
-  }
 
   const handleAddToSchedule = (verseNumber: number) => {
     if (verse.includes(verseNumber)) {
@@ -211,41 +214,94 @@ export default function ViewVerses({
         className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent flex-1"
       >
         {completeChapter.map((v, index) => (
-          <ContextMenu key={index}>
-            <ContextMenuTrigger>
-              <div
-                draggable
-                ref={(el) => {
-                  if (el) verseRefs.current.set(v.verse, el)
-                }}
-                className={cn(
-                  'flex border-b py-0.5 items-baseline hover:bg-muted/40 cursor-pointer ',
-                  {
-                    'bg-secondary/20 hover:bg-secondary/10': verse.includes(v.verse)
-                  }
-                )}
-                onClick={(e) => handleItemClick({ verseNumber: v.verse, index }, e)}
-                onDragStart={hanldeDragStart}
-              >
-                <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">
-                  {v.verse}
-                </div>
-                <div className="flex-1 pr-1.5 text-sm select-none">{v.text}</div>
-              </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent>
-              <ContextMenuItem onClick={() => handleAddToSchedule(v.verse)}>
-                <CalendarPlus />
-                Añadir al cronograma
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => handleShowOnLive(v.verse)}>
-                <Radio className="text-green-600" />
-                Presentar en vivo
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
+          <VerseItem
+            key={index}
+            verse={v}
+            index={index}
+            bookData={bookData}
+            chapter={chapter}
+            version={version}
+            selectedVerses={verse}
+            onItemClick={handleItemClick}
+            onAddToSchedule={handleAddToSchedule}
+            onShowOnLive={handleShowOnLive}
+            verseRefs={verseRefs}
+          />
         ))}
       </div>
     </div>
+  )
+}
+
+// Componente individual para cada versículo con dnd-kit
+function VerseItem({
+  verse: v,
+  index,
+  bookData,
+  chapter,
+  version,
+  selectedVerses,
+  onItemClick,
+  onAddToSchedule,
+  onShowOnLive,
+  verseRefs
+}: {
+  verse: any
+  index: number
+  bookData?: BibleSchemaDTO
+  chapter: number
+  version: string
+  selectedVerses: number[]
+  onItemClick: (item: { verseNumber: number; index: number }, e: React.MouseEvent) => void
+  onAddToSchedule: (verseNumber: number) => void
+  onShowOnLive: (verseNumber: number) => void
+  verseRefs: React.MutableRefObject<Map<number, HTMLDivElement>>
+}) {
+  const verseRange = selectedVerses.length === 1 ? selectedVerses[0] : `${Math.min(...selectedVerses)}-${Math.max(...selectedVerses)}`
+  
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `verse-${v.verse}-${chapter}-${bookData?.id}`,
+    data: {
+      type: 'BIBLE',
+      accessData: `${bookData?.id},${chapter},${verseRange},${version}`
+    }
+  })
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger>
+        <div
+          ref={(el) => {
+            setNodeRef(el)
+            if (el) verseRefs.current.set(v.verse, el)
+          }}
+          className={cn(
+            'flex border-b py-0.5 items-baseline hover:bg-muted/40 cursor-pointer',
+            {
+              'bg-secondary/20 hover:bg-secondary/10': selectedVerses.includes(v.verse),
+              'opacity-50 bg-muted': isDragging
+            }
+          )}
+          onClick={(e) => onItemClick({ verseNumber: v.verse, index }, e)}
+          {...listeners}
+          {...attributes}
+        >
+          <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">
+            {v.verse}
+          </div>
+          <div className="flex-1 pr-1.5 text-sm select-none">{v.text}</div>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => onAddToSchedule(v.verse)}>
+          <CalendarPlus />
+          Añadir al cronograma
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onShowOnLive(v.verse)}>
+          <Radio className="text-green-600" />
+          Presentar en vivo
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }

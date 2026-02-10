@@ -10,6 +10,7 @@ import {
 import { Media } from './types'
 import { SelectableItem } from './hooks/useSelection'
 import { cn } from '@/lib/utils'
+import { useDraggable } from '@dnd-kit/core'
 
 interface FolderCardProps {
   folderName: string
@@ -42,10 +43,13 @@ export function FolderCard({
   const [isDragOver, setIsDragOver] = useState(false)
   const clickTimeout = useRef<NodeJS.Timeout | null>(null)
 
-  const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('application/json', JSON.stringify({ item: folderName, isFolder: true }))
-  }
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `folder-${folderName}`,
+    data: {
+      item: folderName,
+      isFolder: true
+    }
+  })
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -124,6 +128,9 @@ export function FolderCard({
     <ContextMenu>
       <ContextMenuTrigger>
         <div
+          ref={setNodeRef}
+          {...attributes}
+          {...listeners}
           className={cn(
             'group relative border border-border/50 rounded-lg overflow-hidden',
             'bg-card/30 backdrop-blur-sm hover:bg-card/60 transition-all duration-200',
@@ -133,11 +140,10 @@ export function FolderCard({
             {
               'ring-2 ring-primary bg-primary/10 border-primary shadow-md shadow-primary/20':
                 isDragOver,
-              'ring-2 ring-accent border-accent shadow-md shadow-accent/20 bg-accent/5': isSelected
+              'ring-2 ring-accent border-accent shadow-md shadow-accent/20 bg-accent/5': isSelected,
+              'opacity-50 bg-muted': isDragging
             }
           )}
-          draggable
-          onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}

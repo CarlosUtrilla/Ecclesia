@@ -8,9 +8,8 @@ import {
   useSensor,
   useSensors
 } from '@dnd-kit/core'
-import { ScheduleItem } from '@prisma/client'
+import { ScheduleItem, ScheduleItemType } from '@prisma/client'
 import { PropsWithChildren, useState } from 'react'
-import { AddItemToSchedule } from '../types'
 import { useSchedule } from '..'
 import { generateUniqueId } from '@/lib/utils'
 import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
@@ -19,7 +18,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import ScheduleItemComponent from '@/screens/panels/schedule/scheduleContent/scheduleItem'
 
 export default function DragAndDropSchedule({ children }: PropsWithChildren) {
-  const { form, reorderItems, moveItemToGroup, reorderInMainSchedule } = useSchedule()
+  const { form, moveItemToGroup, reorderInMainSchedule } = useSchedule()
   const [isDragginGroup, setIsDragginGroup] = useState(false)
   const [draggingItem, setDraggingItem] = useState<ScheduleItem | ScheduleGroupTemplateDTO | null>(
     null
@@ -27,12 +26,12 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
   const formData = form.watch()
 
   const handleOnDragStart = (event: DragStartEvent) => {
-    const current = event.active.data.current as AddItemToSchedule
+    const current = event.active.data.current
     const activeId = event.active.id.toString()
 
-    // Caso 1: Item nuevo desde fuera del schedule
-    if (current?.type !== undefined && !current?.item) {
-      if ((current.type as any) === 'schedule-group') {
+    // Caso 1: Item nuevo desde fuera del schedule (biblioteca)
+    if (current?.type && typeof current.type === 'string' && current.accessData !== undefined) {
+      if (current.type === 'schedule-group') {
         setIsDragginGroup(true)
         setDraggingItem((current as any).template as ScheduleGroupTemplateDTO)
         return
@@ -40,7 +39,7 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
       // convertimos el dato en item y lo seteamos como dragging item
       const item: ScheduleItem = {
         id: generateUniqueId(),
-        type: current.type,
+        type: current.type as ScheduleItemType,
         accessData: String(current.accessData),
         order: (formData?.items.length || 0) + 1,
         scheduleGroupId: null,
@@ -50,17 +49,18 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
       return
     }
 
-    // Caso 2: Item existente del schedule siendo reordenado
-    if (current?.type === 'item' && current?.item) {
-      setDraggingItem(current.item as ScheduleItem)
-      return
-    }
+    // Caso 2: Elementos del schedule siendo reordenado (con data específica)
+    if (current && typeof current === 'object' && 'type' in current) {
+      if (current.type === 'item' && 'item' in current) {
+        setDraggingItem(current.item as ScheduleItem)
+        return
+      }
 
-    // Caso 3: Grupo existente siendo reordenado
-    if (current?.type === 'group' && current?.group) {
-      setIsDragginGroup(true)
-      setDraggingItem(current.group as any) // Se usará como template para overlay
-      return
+      if (current.type === 'group' && 'group' in current) {
+        setIsDragginGroup(true)
+        setDraggingItem(current.group as any)
+        return
+      }
     }
 
     // Fallback: buscar en los items del schedule actual

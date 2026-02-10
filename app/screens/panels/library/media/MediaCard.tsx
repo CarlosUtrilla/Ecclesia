@@ -12,6 +12,7 @@ import { Media } from './types'
 import { SelectableItem } from './hooks/useSelection'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { cn } from '@/lib/utils'
+import { useDraggable } from '@dnd-kit/core'
 
 interface MediaCardProps {
   media: Media
@@ -37,13 +38,13 @@ export function MediaCard({
   const filePath = media.thumbnail || media.filePath
   const mediaUrl = buildMediaUrl(filePath)
 
-  const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData(
-      'application/json',
-      JSON.stringify({ item: media, isFolder: false, type: 'MEDIA', accessData: media.id })
-    )
-  }
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: media.id,
+    data: {
+      type: 'MEDIA',
+      accessData: media.id
+    }
+  })
 
   const handleClick = (e: React.MouseEvent) => {
     // Prevenir clicks en el botón de eliminar
@@ -57,6 +58,7 @@ export function MediaCard({
     <ContextMenu>
       <ContextMenuTrigger>
         <div
+          ref={setNodeRef}
           className={cn(
             'group relative border border-border/50 rounded-lg overflow-hidden',
             'bg-card/50 backdrop-blur-sm hover:bg-card transition-all duration-200',
@@ -64,11 +66,10 @@ export function MediaCard({
             'hover:-translate-y-0.5 cursor-pointer w-32 aspect-square',
             'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             {
-              'ring-2 ring-primary border-primary shadow-md shadow-primary/20': isSelected
+              'ring-2 ring-primary border-primary shadow-md shadow-primary/20': isSelected,
+              'opacity-50 bg-muted': isDragging
             }
           )}
-          draggable
-          onDragStart={handleDragStart}
           onClick={handleClick}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -77,6 +78,8 @@ export function MediaCard({
             }
           }}
           tabIndex={0}
+          {...listeners}
+          {...attributes}
         >
           {/* Preview */}
           <div className="aspect-square bg-muted/30 flex items-center justify-center overflow-hidden relative">
