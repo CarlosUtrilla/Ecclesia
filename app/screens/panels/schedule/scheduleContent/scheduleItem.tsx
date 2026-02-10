@@ -30,11 +30,15 @@ export default function ScheduleItemComponent({ selectedItem, setSelectedItem, i
     fetchLabel()
   }, [])
 
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+    data: { type: 'item', item: item }
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition
+    transition,
+    opacity: isDragging ? 0.5 : 1
   }
 
   return (
@@ -42,9 +46,12 @@ export default function ScheduleItemComponent({ selectedItem, setSelectedItem, i
       <ContextMenuTrigger>
         <div
           className={cn(
-            'p-3 py-1.5 bg-background border cursor-pointer rounded-md hover:bg-muted/50 transition-colors',
+            'p-3 py-1.5 bg-background border cursor-pointer rounded-md hover:bg-muted/50 transition-all duration-200',
             {
-              'border-secondary bg-secondary/10': selectedItem?.order === item.order
+              'border-secondary bg-secondary/10': selectedItem?.order === item.order,
+              'cursor-grabbing': isDragging,
+              'cursor-grab': !isDragging,
+              'shadow-lg border-primary/50 bg-primary/5': isDragging
             }
           )}
           onClick={(e) => {

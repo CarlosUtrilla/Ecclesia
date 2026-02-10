@@ -5,6 +5,7 @@ import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { DisplayWithUsage } from '@/hooks/useDisplays'
 import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
+import { UseFormReturn } from 'react-hook-form'
 
 export type ILiveContext = {
   itemIndex: number
@@ -34,6 +35,12 @@ type IScheduleContext = {
   addItemToSchedule: (item: AddItemToSchedule, groupId?: string) => void
   deleteItemFromSchedule: (index: number) => void
   addGroupToSchedule: (template: ScheduleGroupTemplateDTO) => void
+  reorderItems: (activeId: string, overId: string) => void
+  reorderGroups: (activeId: string, overId: string) => void
+  reorderInMainSchedule: (activeId: string, overId: string) => void
+  moveItemToGroup: (itemId: string, targetGroupId: string | null) => void
+  saveScheduleChanges: () => Promise<void>
+  itemsSortableIndex: string[]
 }
 
 export type ContentScreen = {

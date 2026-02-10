@@ -188,6 +188,11 @@ enum ScheduleItemType {
 
 model ScheduleItem {
   id              String           @unique
+  /**
+   * este order se refiere al orden dentro del grupo en caso que este dentro de uno, o el orden dentro del horario si no pertenece a ningún grupo
+   * en el grupo se manejan de 0 a n dependiendo de la cantidad de items que tenga el grupo, y en el horario se manejan de 0 a n dependiendo de la cantidad de items que no pertenecen a ningún grupo
+   * pero cada uno es independiente, es decir, puede haber un item con order 0 dentro de un grupo, y otro item con order 0 fuera de los grupos, y no se afectarían entre sí, ya que el orden dentro del grupo es independiente del orden fuera de los grupos
+   */
   order           Int
   type            ScheduleItemType
   /**
