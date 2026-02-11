@@ -18,7 +18,7 @@ export type ILiveContext = {
   showItemOnLiveScreen: (item: ScheduleItem, index?: number) => Promise<void>
 }
 
-export type AddItemToSchedule = { type: ScheduleItemType; accessData: any }
+export type AddItemToSchedule = { type: ScheduleItemType; accessData: any; insertPosition?: number }
 
 type IScheduleContext = {
   itemOnLive: ScheduleItem | null

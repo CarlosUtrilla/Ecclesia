@@ -31,7 +31,7 @@ export default function ScheduleItemComponent({ selectedItem, setSelectedItem, i
   }, [])
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: item.id,
+    id: `schedule-item-${item.id}`,
     data: { type: 'item', item: item }
   })
 

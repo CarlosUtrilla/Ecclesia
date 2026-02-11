@@ -52,18 +52,44 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   }, [])
 
   const addItemToSchedule = (item: AddItemToSchedule, groupId?: string) => {
-    if (!item.type || !['BIBLE', 'SONG', 'MEDIA', 'PRESENTATION'].includes(item.type)) return
+    console.log('🟪 addItemToSchedule:', {
+      itemType: item?.type,
+      itemAccessData: item?.accessData,
+      insertPosition: item?.insertPosition
+    })
+
+    if (!item.type || !['BIBLE', 'SONG', 'MEDIA', 'PRESENTATION'].includes(item.type)) {
+      console.log('🟪 Invalid item type, returning early')
+      return
+    }
+
     // Determinar el tipo y crear el item apropiado
     const newItem: ScheduleItem = {
       id: generateUniqueId(),
-      order: (formData?.items.length || 0) + 1,
+      order: item?.insertPosition || (formData?.items.length || 0) + 1,
       type: item.type,
       accessData: String(item.accessData),
       scheduleGroupId: groupId || null,
       scheduleId: formData.id || -1
     }
 
-    form.setValue('items', [...formData.items, newItem], { shouldDirty: true })
+    console.log('🟪 Creating schedule item:', {
+      type: item.type,
+      accessData: item.accessData,
+      insertPosition: item.insertPosition
+    })
+
+    const updatedItems = [...formData.items]
+
+    if (typeof item.insertPosition === 'number') {
+      // Insertar en posición específica
+      updatedItems.splice(item.insertPosition, 0, newItem)
+    } else {
+      // Agregar al final (comportamiento por defecto)
+      updatedItems.push(newItem)
+    }
+
+    form.setValue('items', updatedItems, { shouldDirty: true })
   }
 
   const deleteItemFromSchedule = (index: number) => {
@@ -151,16 +177,30 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
   // Función unificada para reordenar en la lista principal (items sin grupo + grupos)
   const reorderInMainSchedule = (activeId: string, overId: string) => {
+    // Extraer IDs reales removiendo prefijos
+    const getItemId = (id: string) => id.replace(/^schedule-item-/, '')
+    const getGroupId = (id: string) => id.replace(/^schedule-group-/, '')
+
+    const activeItemId = activeId.startsWith('schedule-item-') ? getItemId(activeId) : null
+    const activeGroupId = activeId.startsWith('schedule-group-') ? getGroupId(activeId) : null
+
+    const overItemId = overId.startsWith('schedule-item-') ? getItemId(overId) : null
+    const overGroupId = overId.startsWith('schedule-group-') ? getGroupId(overId) : null
+
     // Obtener el currentSchedule actual para trabajar con los índices visuales
     const scheduleArray = currentSchedule
 
     // Encontrar índices en el array visual
     const activeIndex = scheduleArray.findIndex((item) => {
-      return item.group ? item.group.id === activeId : item.items[0]?.id === activeId
+      return item.group
+        ? activeGroupId && item.group.id === activeGroupId
+        : activeItemId && item.items[0]?.id === activeItemId
     })
 
     const overIndex = scheduleArray.findIndex((item) => {
-      return item.group ? item.group.id === overId : item.items[0]?.id === overId
+      return item.group
+        ? overGroupId && item.group.id === overGroupId
+        : overItemId && item.items[0]?.id === overItemId
     })
 
     if (activeIndex === -1 || overIndex === -1) {
@@ -220,22 +260,26 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
   // Función para mover item a grupo
   const moveItemToGroup = (itemId: string, targetGroupId: string | null) => {
-    const item = formData.items.find((i) => i.id === itemId)
+    // Extraer ID real removiendo prefijo si lo tiene
+    const realItemId = itemId.replace(/^schedule-item-/, '')
+    const realGroupId = targetGroupId?.replace(/^schedule-group-/, '') || null
+
+    const item = formData.items.find((i) => i.id === realItemId)
     if (!item) return
 
     // Si ya está en el mismo grupo, no hacer nada
-    if (item.scheduleGroupId === targetGroupId) return
+    if (item.scheduleGroupId === realGroupId) return
 
     // Obtener items en el grupo destino para calcular nuevo order
     const itemsInTargetGroup = formData.items
-      .filter((i) => i.scheduleGroupId === targetGroupId)
+      .filter((i) => i.scheduleGroupId === realGroupId)
       .sort((a, b) => a.order - b.order)
 
     const newOrder = itemsInTargetGroup.length
 
     // Actualizar el item movido
     const updatedItems = formData.items.map((i) =>
-      i.id === itemId ? { ...i, scheduleGroupId: targetGroupId, order: newOrder } : i
+      i.id === realItemId ? { ...i, scheduleGroupId: realGroupId, order: newOrder } : i
     )
 
     // Reordenar los items que quedaron en el grupo origen si es necesario
@@ -276,7 +320,10 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
   const itemsSortableIndex = currentSchedule
     .map((g) => {
-      return [g.items.map((i) => i.id), ...(g.group ? [g.group.id] : [])].flat()
+      return [
+        g.items.map((i) => `schedule-item-${i.id}`),
+        ...(g.group ? [`schedule-group-${g.group.id}`] : [])
+      ].flat()
     })
     .flat()
 

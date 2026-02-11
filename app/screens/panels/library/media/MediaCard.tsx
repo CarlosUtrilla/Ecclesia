@@ -39,7 +39,7 @@ export function MediaCard({
   const mediaUrl = buildMediaUrl(filePath)
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: media.id,
+    id: `media-${media.id}`,
     data: {
       type: 'MEDIA',
       accessData: media.id

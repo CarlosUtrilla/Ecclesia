@@ -16,6 +16,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import ScheduleGroupItem from './scheduleGroupItem'
 import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import InsertionDropZone from './insertionDropZone'
 
 type ScheduleContentProps = {
   onBack: () => void
@@ -72,21 +73,50 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     onDragEnd: (e: DragEndEvent) => {
       try {
         const data = e.active.data.current
-        if (!data || !e.over) return
+
+        console.log('🟨 useDndMonitor - onDragEnd:', {
+          activeId: e.active.id,
+          dataType: data?.type,
+          dataAccessData: data?.accessData,
+          overId: e.over?.id,
+          overType: e.over?.data?.current?.type
+        })
+
+        if (!data || !e.over) {
+          console.log('🟨 No data or no over element - returning')
+          return
+        }
+
+        // Check if it's dropped on an insertion zone
+        if (e.over.data.current?.type === 'insertion-zone') {
+          const insertionData = e.over.data.current
+          const position = insertionData.position
+          console.log('🟨 Inserting at specific position:', position)
+
+          addItemToSchedule({
+            ...(data as AddItemToSchedule),
+            insertPosition: position
+          })
+          return
+        }
 
         // Check if it's a group template
         if (data.type === 'schedule-group') {
+          console.log('🟨 Adding group template to schedule:', data.template)
           addGroupToSchedule(data.template as ScheduleGroupTemplateDTO)
           return
         }
 
         if (e.over.id.toString().includes('schedule-group-')) {
           // Handle dropping into a schedule group
+          console.log('🟨 Adding item to specific group:', data)
           const group = e.over.data.current as ScheduleGroup
           addItemToSchedule(data as AddItemToSchedule, group.id)
           return
         }
+
         // Handle regular items
+        console.log('🟨 Adding regular item to schedule:', data)
         addItemToSchedule(data as AddItemToSchedule)
       } catch (error) {
         console.error('Error al procesar drop:', error)
@@ -141,15 +171,28 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
             <EmptyShcedule isOver={isOver} />
           ) : (
             <div className="min-h-full transition-colors relative">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col">
                 <SortableContext items={itemsSortableIndex} strategy={verticalListSortingStrategy}>
-                  {currentSchedule.map((group) => (
-                    <ScheduleGroupItem
-                      key={group.group?.id || `item-${group.items[0]?.id}`}
-                      group={group}
-                      setSelectedItem={setSelectedItem}
-                      selectedItem={selectedItem}
-                    />
+                  {/* Zona de inserción al principio */}
+                  <div className="h-4 mb-1">
+                    <InsertionDropZone position={0} isFirst={true} />
+                  </div>
+
+                  {currentSchedule.map((group, index) => (
+                    <div key={group.group?.id || `item-${group.items[0]?.id}`}>
+                      <ScheduleGroupItem
+                        group={group}
+                        setSelectedItem={setSelectedItem}
+                        selectedItem={selectedItem}
+                      />
+                      {/* Zona de inserción después de cada elemento */}
+                      <div className="h-0.5 mt-1">
+                        <InsertionDropZone
+                          position={index + 1}
+                          isLast={index === currentSchedule.length - 1}
+                        />
+                      </div>
+                    </div>
                   ))}
                 </SortableContext>
               </div>

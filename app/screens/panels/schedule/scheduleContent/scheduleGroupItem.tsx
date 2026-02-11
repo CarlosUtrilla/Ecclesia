@@ -40,7 +40,7 @@ const GroupRender = ({ group, setSelectedItem, selectedItem }: Props) => {
     transition,
     isDragging
   } = useSortable({
-    id: group.group!.id,
+    id: `schedule-group-${group.group!.id}`,
     data: { type: 'group', group: group.group! }
   })
 

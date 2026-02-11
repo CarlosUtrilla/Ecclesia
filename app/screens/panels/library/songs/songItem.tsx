@@ -19,12 +19,20 @@ type Props = {
 }
 
 export default function SongItem({ song, selectedSong, setSelectedSong, handleDeleteSong }: Props) {
+  const dragData = {
+    type: 'SONG',
+    accessData: song.id
+  }
+
+  console.log('🎵 SongItem dragging:', {
+    songId: song.id,
+    songTitle: song.title,
+    uniqueId: `song-${song.id}`
+  })
+
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: song.id,
-    data: {
-      type: 'SONG',
-      accessData: song.id
-    }
+    id: `song-${song.id}`,
+    data: dragData
   })
 
   const { addItemToSchedule } = useSchedule()

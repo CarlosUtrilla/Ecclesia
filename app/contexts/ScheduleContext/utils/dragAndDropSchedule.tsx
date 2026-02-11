@@ -6,7 +6,11 @@ import {
   KeyboardSensor,
   MouseSensor,
   useSensor,
-  useSensors
+  useSensors,
+  closestCenter,
+  getFirstCollision,
+  pointerWithin,
+  rectIntersection
 } from '@dnd-kit/core'
 import { ScheduleItem, ScheduleItemType } from '@prisma/client'
 import { PropsWithChildren, useState } from 'react'
@@ -29,13 +33,22 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
     const current = event.active.data.current
     const activeId = event.active.id.toString()
 
-    // Caso 1: Item nuevo desde fuera del schedule (biblioteca)
+    console.log('🟦 DragAndDropSchedule - handleOnDragStart:', {
+      activeId,
+      currentType: current?.type,
+      currentAccessData: current?.accessData
+    })
+
+    // Caso especial: Group templates (no tienen accessData)
+    if (current?.type === 'schedule-group' && current.template) {
+      console.log('🟦 Setting dragging GROUP template')
+      setIsDragginGroup(true)
+      setDraggingItem(current.template as ScheduleGroupTemplateDTO)
+      return
+    }
+
+    // Caso 1: Items desde biblioteca (tienen accessData)
     if (current?.type && typeof current.type === 'string' && current.accessData !== undefined) {
-      if (current.type === 'schedule-group') {
-        setIsDragginGroup(true)
-        setDraggingItem((current as any).template as ScheduleGroupTemplateDTO)
-        return
-      }
       // convertimos el dato en item y lo seteamos como dragging item
       const item: ScheduleItem = {
         id: generateUniqueId(),
@@ -45,6 +58,10 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
         scheduleGroupId: null,
         scheduleId: -1
       }
+      console.log('🟦 Creating LIBRARY item:', {
+        type: current.type,
+        accessData: current.accessData
+      })
       setDraggingItem(item)
       return
     }
@@ -52,11 +69,13 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
     // Caso 2: Elementos del schedule siendo reordenado (con data específica)
     if (current && typeof current === 'object' && 'type' in current) {
       if (current.type === 'item' && 'item' in current) {
+        console.log('🟦 Setting dragging SCHEDULE item:', current.item)
         setDraggingItem(current.item as ScheduleItem)
         return
       }
 
       if (current.type === 'group' && 'group' in current) {
+        console.log('🟦 Setting dragging SCHEDULE group')
         setIsDragginGroup(true)
         setDraggingItem(current.group as any)
         return
@@ -66,7 +85,10 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
     // Fallback: buscar en los items del schedule actual
     const existingItem = formData.items.find((item) => item.id === activeId)
     if (existingItem) {
+      console.log('🟦 Setting dragging EXISTING item from schedule:', existingItem)
       setDraggingItem(existingItem)
+    } else {
+      console.log('🟦 No matching item found for activeId:', activeId)
     }
   }
 
@@ -84,10 +106,44 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
     setIsDragginGroup(false)
   }
 
+  // Collision detection personalizada para priorizar zonas de inserción
+  const customCollisionDetection = (args: any) => {
+    // Si estamos arrastrando un elemento externo (desde biblioteca)
+    const isExternalDrag =
+      args.active.data.current?.accessData !== undefined && !args.active.data.current?.item
+
+    if (isExternalDrag) {
+      // Para elementos externos, priorizar zonas de inserción
+      const insertionZoneCollisions = Array.from(args.droppableContainers.values())
+        .filter((container) => container.id.toString().startsWith('insert-position-'))
+        .map((container) => {
+          const collisions = rectIntersection({
+            ...args,
+            droppableContainers: new Map([[container.id, container]])
+          })
+          return collisions?.length > 0 ? collisions[0] : null
+        })
+        .filter(Boolean)
+
+      if (insertionZoneCollisions.length > 0) {
+        return insertionZoneCollisions
+      }
+    }
+
+    // Para elementos internos o fallback, usar detección estándar
+    return closestCenter(args)
+  }
+
   const handleEnd = (event: DragEndEvent) => {
     const { active, over } = event
 
+    console.log('🟩 DragAndDropSchedule - handleEnd:', {
+      activeId: active.id,
+      overId: over?.id
+    })
+
     if (!over || active.id === over.id) {
+      console.log('🟩 No over or same element - canceling')
       handleCancel()
       return
     }
@@ -95,15 +151,45 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
     const activeId = active.id.toString()
     const overId = over.id.toString()
 
-    // Si es un group template nuevo siendo arrastrado
-    if (active.data.current?.type === 'schedule-group') {
+    // Verificar si el elemento "over" está realmente dentro del área del schedule
+    const overElement = document.getElementById(overId)
+    const scheduleContainer = document.querySelector('[data-schedule-container="true"]')
+
+    // Si no encontramos el contenedor del schedule o el elemento over no está dentro, ignorar
+    if (!scheduleContainer || !overElement) {
+      console.log('🟩 No schedule container or over element - canceling')
       handleCancel()
       return
     }
 
+    const isWithinSchedule = scheduleContainer.contains(overElement)
+    if (!isWithinSchedule) {
+      console.log('🟩 Drop outside schedule area - canceling')
+      handleCancel()
+      return
+    }
+
+    // Si es un elemento externo (de biblioteca), NO procesarlo aquí
+    // Lo maneja el useDndMonitor en scheduleContent/index.tsx
+    if (active.data.current?.accessData !== undefined && !active.data.current?.item) {
+      console.log('🟩 External element (library) - letting useDndMonitor handle it')
+      handleCancel()
+      return
+    }
+
+    // Si es un group template nuevo siendo arrastrado
+    if (active.data.current?.type === 'schedule-group') {
+      console.log('🟩 Schedule group template - canceling')
+      handleCancel()
+      return
+    }
+
+    console.log('🟩 Processing internal schedule element')
+
     // Prioridad 1: Si se arrastra sobre una zona de drop de grupo específica
     if (over.data.current?.type === 'group-drop-zone') {
       const targetGroupId = over.data.current?.group?.id
+      console.log('🟩 Moving to specific group:', targetGroupId)
       if (targetGroupId) {
         moveItemToGroup(activeId, targetGroupId)
       }
@@ -125,15 +211,9 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
       return
     }
 
-    // Fallback: Si NO hay datos específicos, usar fallback
-    if (!over.data.current?.type) {
+    // Fallback solo para elementos internos en área del schedule
+    if (!over.data.current?.type && active.data.current?.item && overId === 'schedule-drop-area') {
       reorderInMainSchedule(activeId, overId)
-    }
-
-    // Manejar drops en área principal desde biblioteca
-    if (overId === 'schedule-drop-area') {
-      // Los items desde biblioteca se manejan en useDndMonitor del componente
-      return
     }
 
     handleCancel()
@@ -141,6 +221,7 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={customCollisionDetection}
       onDragStart={handleOnDragStart}
       onDragEnd={handleEnd}
       onDragCancel={handleCancel}

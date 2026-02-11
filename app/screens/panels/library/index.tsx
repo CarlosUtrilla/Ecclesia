@@ -22,13 +22,15 @@ export default function LibraryPanel() {
 
       {/* Renderizar todos los componentes pero mostrar solo el activo */}
       <div className="panel-scroll-content">
-        <div className={`${activeTab === 'songs' ? 'block' : 'hidden'} h-full`}>
+        <div className={`${activeTab === 'songs' ? 'block' : 'hidden pointer-events-none'} h-full`}>
           <SongsPanelLibrary />
         </div>
-        <div className={`${activeTab === 'medios' ? 'block' : 'hidden'} h-full`}>
+        <div
+          className={`${activeTab === 'medios' ? 'block' : 'hidden pointer-events-none'} h-full`}
+        >
           <MediaLibrary />
         </div>
-        <div className={`${activeTab === 'bible' ? 'block' : 'hidden'} h-full`}>
+        <div className={`${activeTab === 'bible' ? 'block' : 'hidden pointer-events-none'} h-full`}>
           <BiblePanel />
         </div>
       </div>
