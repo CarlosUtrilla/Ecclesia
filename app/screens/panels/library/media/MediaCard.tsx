@@ -77,7 +77,6 @@ export function MediaCard({
               handleClick(e as any)
             }
           }}
-          tabIndex={0}
           {...listeners}
           {...attributes}
         >

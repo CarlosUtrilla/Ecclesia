@@ -1,7 +1,15 @@
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { BlankTheme, useThemes } from '@/hooks/useThemes'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback
+} from 'react'
 import { useForm } from 'react-hook-form'
 import { ScheduleSchema } from './schema'
 
@@ -51,52 +59,57 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     actualSchedule()
   }, [])
 
-  const addItemToSchedule = (item: AddItemToSchedule, groupId?: string) => {
-    console.log('🟪 addItemToSchedule:', {
-      itemType: item?.type,
-      itemAccessData: item?.accessData,
-      insertPosition: item?.insertPosition
-    })
+  const addItemToSchedule = useCallback(
+    (item: AddItemToSchedule, groupId?: string) => {
+      if (!item.type || !['BIBLE', 'SONG', 'MEDIA', 'PRESENTATION'].includes(item.type)) {
+        return
+      }
 
-    if (!item.type || !['BIBLE', 'SONG', 'MEDIA', 'PRESENTATION'].includes(item.type)) {
-      console.log('🟪 Invalid item type, returning early')
-      return
-    }
+      console.log('🟪 addItemToSchedule called:', {
+        type: item.type,
+        accessData: item.accessData,
+        insertPosition: item.insertPosition,
+        groupId,
+        currentItemsCount: formData.items.length
+      })
 
-    // Determinar el tipo y crear el item apropiado
-    const newItem: ScheduleItem = {
-      id: generateUniqueId(),
-      order: item?.insertPosition || (formData?.items.length || 0) + 1,
-      type: item.type,
-      accessData: String(item.accessData),
-      scheduleGroupId: groupId || null,
-      scheduleId: formData.id || -1
-    }
+      const newItem: ScheduleItem = {
+        id: generateUniqueId(),
+        order: item.insertPosition ?? (formData.items.length || 0) + 1,
+        type: item.type,
+        accessData: String(item.accessData),
+        scheduleGroupId: groupId || null,
+        scheduleId: formData.id || -1
+      }
 
-    console.log('🟪 Creating schedule item:', {
-      type: item.type,
-      accessData: item.accessData,
-      insertPosition: item.insertPosition
-    })
+      const updatedItems = [...formData.items]
 
-    const updatedItems = [...formData.items]
+      if (typeof item.insertPosition === 'number') {
+        console.log('🟪 Inserting at specific position:', {
+          position: item.insertPosition,
+          beforeInsert: updatedItems.map((i, idx) => ({ idx, id: i.id, order: i.order }))
+        })
+        updatedItems.splice(item.insertPosition, 0, newItem)
+        console.log('🟪 After insert:', {
+          afterInsert: updatedItems.map((i, idx) => ({ idx, id: i.id, order: i.order }))
+        })
+      } else {
+        updatedItems.push(newItem)
+      }
 
-    if (typeof item.insertPosition === 'number') {
-      // Insertar en posición específica
-      updatedItems.splice(item.insertPosition, 0, newItem)
-    } else {
-      // Agregar al final (comportamiento por defecto)
-      updatedItems.push(newItem)
-    }
+      form.setValue('items', updatedItems, { shouldDirty: true })
+    },
+    [formData.items, formData.id, form]
+  )
 
-    form.setValue('items', updatedItems, { shouldDirty: true })
-  }
-
-  const deleteItemFromSchedule = (index: number) => {
-    const updatedItems = [...formData.items]
-    updatedItems.splice(index, 1)
-    form.setValue('items', updatedItems, { shouldDirty: true })
-  }
+  const deleteItemFromSchedule = useCallback(
+    (index: number) => {
+      const updatedItems = [...formData.items]
+      updatedItems.splice(index, 1)
+      form.setValue('items', updatedItems, { shouldDirty: true })
+    },
+    [formData.items, form]
+  )
 
   const currentSchedule = useMemo(() => {
     const { groups, items } = formData
@@ -118,17 +131,20 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     return result
   }, [formData])
 
-  const addGroupToSchedule = (template: ScheduleGroupTemplateDTO) => {
-    const newGroup: ScheduleGroup = {
-      id: generateUniqueId(),
-      name: template.name,
-      color: template.color,
-      order: (formData?.groups.length || 0) + 1,
-      groupTemplateId: template.id,
-      scheduleId: formData.id || null
-    }
-    form.setValue('groups', [...formData.groups, newGroup], { shouldDirty: true })
-  }
+  const addGroupToSchedule = useCallback(
+    (template: ScheduleGroupTemplateDTO) => {
+      const newGroup: ScheduleGroup = {
+        id: generateUniqueId(),
+        name: template.name,
+        color: template.color,
+        order: (formData.groups.length || 0) + 1,
+        groupTemplateId: template.id,
+        scheduleId: formData.id || null
+      }
+      form.setValue('groups', [...formData.groups, newGroup], { shouldDirty: true })
+    },
+    [formData.groups, formData.id, form]
+  )
 
   // Función para reordenar items DENTRO de grupos solamente
   const reorderItems = (activeId: string, overId: string) => {
@@ -259,46 +275,28 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   }
 
   // Función para mover item a grupo
-  const moveItemToGroup = (itemId: string, targetGroupId: string | null) => {
-    // Extraer ID real removiendo prefijo si lo tiene
-    const realItemId = itemId.replace(/^schedule-item-/, '')
-    const realGroupId = targetGroupId?.replace(/^schedule-group-/, '') || null
+  const moveItemToGroup = useCallback(
+    (itemId: string, targetGroupId: string | null) => {
+      const realItemId = itemId.replace(/^schedule-item-/, '')
+      const realGroupId = targetGroupId?.replace(/^schedule-group-/, '') || null
 
-    const item = formData.items.find((i) => i.id === realItemId)
-    if (!item) return
+      const item = formData.items.find((i) => i.id === realItemId)
+      if (!item || item.scheduleGroupId === realGroupId) return
 
-    // Si ya está en el mismo grupo, no hacer nada
-    if (item.scheduleGroupId === realGroupId) return
-
-    // Obtener items en el grupo destino para calcular nuevo order
-    const itemsInTargetGroup = formData.items
-      .filter((i) => i.scheduleGroupId === realGroupId)
-      .sort((a, b) => a.order - b.order)
-
-    const newOrder = itemsInTargetGroup.length
-
-    // Actualizar el item movido
-    const updatedItems = formData.items.map((i) =>
-      i.id === realItemId ? { ...i, scheduleGroupId: realGroupId, order: newOrder } : i
-    )
-
-    // Reordenar los items que quedaron en el grupo origen si es necesario
-    if (item.scheduleGroupId !== null) {
-      const remainingItemsInOriginalGroup = updatedItems
-        .filter((i) => i.scheduleGroupId === item.scheduleGroupId && i.id !== itemId)
+      const itemsInTargetGroup = formData.items
+        .filter((i) => i.scheduleGroupId === realGroupId)
         .sort((a, b) => a.order - b.order)
-        .map((item, index) => ({ ...item, order: index }))
 
-      const finalItems = updatedItems.map((i) => {
-        const reorderedItem = remainingItemsInOriginalGroup.find((ri) => ri.id === i.id)
-        return reorderedItem || i
-      })
+      const newOrder = itemsInTargetGroup.length
 
-      form.setValue('items', finalItems, { shouldDirty: true })
-    } else {
+      const updatedItems = formData.items.map((i) =>
+        i.id === realItemId ? { ...i, scheduleGroupId: realGroupId, order: newOrder } : i
+      )
+
       form.setValue('items', updatedItems, { shouldDirty: true })
-    }
-  }
+    },
+    [formData.items, form]
+  )
 
   // Función para persistir cambios en la base de datos
   const saveScheduleChanges = async () => {

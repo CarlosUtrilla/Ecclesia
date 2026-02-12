@@ -1,6 +1,6 @@
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
-import { cn } from '@/lib/utils'
+import { cn, generateUniqueId } from '@/lib/utils'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -23,12 +23,6 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
     type: 'SONG',
     accessData: song.id
   }
-
-  console.log('🎵 SongItem dragging:', {
-    songId: song.id,
-    songTitle: song.title,
-    uniqueId: `song-${song.id}`
-  })
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `song-${song.id}`,
@@ -78,7 +72,7 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
               {
                 accessData: song.id.toString(),
                 type: 'SONG',
-                id: -1,
+                id: generateUniqueId(),
                 order: -1,
                 scheduleGroupId: null,
                 scheduleId: -1
