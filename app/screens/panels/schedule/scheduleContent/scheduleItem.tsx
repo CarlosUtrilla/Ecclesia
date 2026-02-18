@@ -18,10 +18,13 @@ type Props = {
   selectedItem?: ScheduleItem | null
   item: ScheduleItem
 }
+
 export default function ScheduleItemComponent({ selectedItem, setSelectedItem, item }: Props) {
   const { getScheduleItemIcon, getScheduleItemLabel } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
   const [label, setLabel] = useState('')
+  const [groupTemplate, setGroupTemplate] = useState<any>(null)
+
   useEffect(() => {
     const fetchLabel = async () => {
       const lbl = await getScheduleItemLabel(item)
@@ -30,15 +33,40 @@ export default function ScheduleItemComponent({ selectedItem, setSelectedItem, i
     fetchLabel()
   }, [])
 
+  useEffect(() => {
+    if (item.type === 'GROUP' && item.accessData) {
+      window.api.schedule.getGroupTemplateById?.(parseInt(item.accessData)).then(setGroupTemplate)
+    }
+  }, [item])
+  // Vista normal para items
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: `schedule-item-${item.id}`,
+    id: item.id,
     data: { type: 'item', item: item }
   })
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1
+  }
+
+  // Vista especial para grupo visual (reordenable)
+  if (item.type === 'GROUP') {
+    return (
+      <div
+        className="rounded-md border font-semibold text-base px-4 py-2 my-2 select-none cursor-grab"
+        style={{
+          ...style,
+          background: groupTemplate?.color || '#e0e0e0',
+          color: '#222',
+          opacity: isDragging ? 0.5 : 0.95
+        }}
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+      >
+        {groupTemplate?.name || 'Grupo'}
+      </div>
+    )
   }
 
   return (

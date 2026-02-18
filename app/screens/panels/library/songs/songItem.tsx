@@ -74,7 +74,6 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
                 type: 'SONG',
                 id: generateUniqueId(),
                 order: -1,
-                scheduleGroupId: null,
                 scheduleId: -1
               },
               0

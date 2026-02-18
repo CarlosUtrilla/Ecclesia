@@ -18,6 +18,22 @@ export default function LibraryItemPreview({ item }: LibraryItemPreviewProps) {
     fetchLabel()
   }, [item, getScheduleItemLabel])
 
+  // Para grupos, mostrar el nombre y color
+  if (item.type === 'GROUP') {
+    return (
+      <div
+        className="rounded-md border font-semibold text-base px-4 py-2 my-2 select-none shadow-xl min-w-[200px]"
+        style={{
+          background: (item as any).color || '#e0e0e0',
+          color: '#222',
+          opacity: 0.95
+        }}
+      >
+        {(item as any).name || label || 'Grupo'}
+      </div>
+    )
+  }
+
   // Para media, usar un card cuadrado similar al original
   if (item.type === 'MEDIA') {
     return (

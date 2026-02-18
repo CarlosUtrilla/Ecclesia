@@ -12,9 +12,9 @@ import { useDroppable } from '@dnd-kit/core'
 import EmptyShcedule from './emptyShcedule'
 import PreviewSchedule from './previewSchedule'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-import ScheduleGroupItem from './scheduleGroupItem'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import InsertionDropZone from './insertionDropZone'
+import ScheduleItemComponent from './scheduleItem'
 
 type ScheduleContentProps = {
   onBack: () => void
@@ -119,28 +119,20 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
                     <InsertionDropZone position={0} isFirst={true} />
                   </div>
 
-                  {currentSchedule.map((group, index) => {
-                    console.log('🟨 Rendering schedule item:', {
-                      index,
-                      groupId: group.group?.id,
-                      itemIds: group.items.map((i) => i.id),
-                      nextInsertPosition: index + 1
-                    })
-                    return (
-                      <div key={group.group?.id || `item-${group.items[0]?.id}`}>
-                        <ScheduleGroupItem
-                          group={group}
-                          setSelectedItem={setSelectedItem}
-                          selectedItem={selectedItem}
-                        />
-                        {/* Zona de inserción después de cada elemento */}
-                        <InsertionDropZone
-                          position={index + 1}
-                          isLast={index === currentSchedule.length - 1}
-                        />
-                      </div>
-                    )
-                  })}
+                  {currentSchedule.map((item, index) => (
+                    <>
+                      <ScheduleItemComponent
+                        key={`item-${item.id}`}
+                        item={item}
+                        setSelectedItem={setSelectedItem}
+                        selectedItem={selectedItem}
+                      />
+                      <InsertionDropZone
+                        position={index + 1}
+                        isLast={index === currentSchedule.length - 1}
+                      />
+                    </>
+                  ))}
                 </SortableContext>
               </div>
               <AnimatePresence>

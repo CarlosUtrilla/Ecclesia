@@ -11,19 +11,25 @@ type Props = {
 }
 
 export default function ScheduleGruopItem({ template, startEdit, handleDeleteTemplate }: Props) {
-  const { setNodeRef, attributes, listeners } = useDraggable({
-    id: `template-${template.id}`,
-    data: {
-      type: 'schedule-group',
-      template
-    }
+  const dragData = {
+    type: 'GROUP',
+    accessData: template.id,
+    name: template.name,
+    color: template.color
+  }
+
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `schedule-group-${template.id}`,
+    data: dragData
   })
+
   return (
     <div
       ref={setNodeRef}
       className={cn(
         'flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors cursor-grab active:cursor-grabbing',
-        'border border-transparent hover:border-muted-foreground/20'
+        'border border-transparent hover:border-muted-foreground/20',
+        { 'opacity-50 bg-muted ': isDragging }
       )}
       {...attributes}
       {...listeners}

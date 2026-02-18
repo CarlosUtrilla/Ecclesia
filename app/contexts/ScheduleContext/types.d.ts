@@ -1,10 +1,9 @@
-import { Media, ScheduleGroup, ScheduleItem, ScheduleItemType } from '@prisma/client'
+import { Media, ScheduleItem, ScheduleItemType } from '@prisma/client'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 import { ScheduleSchemaType } from './schema'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { DisplayWithUsage } from '@/hooks/useDisplays'
-import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
 import { UseFormReturn } from 'react-hook-form'
 
 export type ILiveContext = {
@@ -32,13 +31,10 @@ type IScheduleContext = {
   getScheduleItemContentScreen: (item: ScheduleItem) => Promise<ContentScreen>
   songs: SongResponseDTO[]
   media: Media[]
-  addItemToSchedule: (item: AddItemToSchedule, groupId?: string) => void
+  addItemToSchedule: (item: AddItemToSchedule) => void
   deleteItemFromSchedule: (index: number) => void
-  addGroupToSchedule: (template: ScheduleGroupTemplateDTO) => void
   reorderItems: (activeId: string, overId: string) => void
-  reorderGroups: (activeId: string, overId: string) => void
   reorderInMainSchedule: (activeId: string, overId: string) => void
-  moveItemToGroup: (itemId: string, targetGroupId: string | null) => void
   saveScheduleChanges: () => Promise<void>
   itemsSortableIndex: string[]
 }
@@ -46,10 +42,4 @@ type IScheduleContext = {
 export type ContentScreen = {
   title: string
   content: PresentationViewItems[]
-}
-
-export type ScheduleItemData = {
-  group: ScheduleGroup | null
-  items: ScheduleItem[]
-  order: number
 }
