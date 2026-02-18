@@ -119,20 +119,31 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
                     <InsertionDropZone position={0} isFirst={true} />
                   </div>
 
-                  {currentSchedule.map((item, index) => (
-                    <>
-                      <ScheduleItemComponent
-                        key={`item-${item.id}`}
-                        item={item}
-                        setSelectedItem={setSelectedItem}
-                        selectedItem={selectedItem}
-                      />
-                      <InsertionDropZone
-                        position={index + 1}
-                        isLast={index === currentSchedule.length - 1}
-                      />
-                    </>
-                  ))}
+                  {(() => {
+                    let lastGroup: string | undefined = undefined
+                    return currentSchedule.map((item, index) => {
+                      if (item.type === 'GROUP') {
+                        lastGroup = item.accessData
+                      }
+                      return (
+                        <>
+                          <ScheduleItemComponent
+                            key={`item-${item.id}`}
+                            item={item}
+                            setSelectedItem={setSelectedItem}
+                            selectedItem={selectedItem}
+                            groupId={lastGroup}
+                          />
+                          <InsertionDropZone
+                            key={`drop-zone-${item.id}`}
+                            position={index + 1}
+                            isLast={index === currentSchedule.length - 1}
+                            groupId={lastGroup}
+                          />
+                        </>
+                      )
+                    })
+                  })()}
                 </SortableContext>
               </div>
               <AnimatePresence>

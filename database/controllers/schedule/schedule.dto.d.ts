@@ -1,4 +1,4 @@
-import { Schedule, ScheduleItem, ScheduleGroupTemplate, ScheduleGroup } from '@prisma/client'
+import { Schedule, ScheduleItem, ScheduleGroupTemplate } from '@prisma/client'
 
 export type CreateScheduleDto = Omit<Schedule, 'id'>
 
@@ -9,6 +9,4 @@ export type ScheduleWithItems = Omit<Schedule, 'id'> & {
 
 export type AddScheduleItemDto = Omit<ScheduleItem, 'id' | 'scheduleId'>
 
-export type ScheduleGroupTemplateDTO = ScheduleGroupTemplate & {
-  scheduleGroups: ScheduleGroup[]
-}
+export type ScheduleGroupTemplateDTO = ScheduleGroupTemplate

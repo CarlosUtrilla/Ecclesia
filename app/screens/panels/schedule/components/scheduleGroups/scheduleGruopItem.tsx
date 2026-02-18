@@ -59,7 +59,6 @@ export default function ScheduleGruopItem({ template, startEdit, handleDeleteTem
             e.stopPropagation()
             handleDeleteTemplate && handleDeleteTemplate(template)
           }}
-          disabled={template.scheduleGroups && template.scheduleGroups.length > 0}
         >
           <Trash2 className="h-3 w-3" />
         </Button>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover'
 import { Input } from '@/ui/input'
@@ -6,17 +6,17 @@ import { ColorPicker } from '@/ui/colorPicker'
 import { Plus, Save, X } from 'lucide-react'
 import ScheduleGruopItem from './scheduleGruopItem'
 import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
+import useScheduleGroupTemplates from '@/hooks/useScheduleGroupTemplates'
 
 type GroupTemplateManagerProps = {
   children: React.ReactNode
 }
 
 export default function GroupTemplateManager({ children }: GroupTemplateManagerProps) {
+  const { scheduleGroupTemplates, refetch, isLoading } = useScheduleGroupTemplates()
   const [isOpen, setIsOpen] = useState(false)
-  const [templates, setTemplates] = useState<ScheduleGroupTemplateDTO[]>([])
   const [editingTemplate, setEditingTemplate] = useState<ScheduleGroupTemplateDTO | null>(null)
   const [isCreating, setIsCreating] = useState(false)
-  const [loading, setLoading] = useState(false)
 
   // Form state for new/edit template
   const [formData, setFormData] = useState({
@@ -24,35 +24,15 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
     color: '#3b82f6'
   })
 
-  // Load templates when popover opens
-  useEffect(() => {
-    if (isOpen) {
-      loadTemplates()
-    }
-  }, [isOpen])
-
-  const loadTemplates = async () => {
-    try {
-      setLoading(true)
-      const result = await window.api.schedule.getAllGroupTemplates()
-      setTemplates(result)
-    } catch (error) {
-      console.error('Error loading group templates:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleCreateTemplate = async () => {
     if (!formData.name.trim()) return
 
     try {
-      const newTemplate = await window.api.schedule.createGroupTemplate({
+      await window.api.schedule.createGroupTemplate({
         name: formData.name.trim(),
         color: formData.color
       })
-
-      setTemplates((prev) => [...prev, newTemplate])
+      await refetch()
       resetForm()
       setIsCreating(false)
     } catch (error) {
@@ -65,14 +45,14 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
     if (!editingTemplate || !formData.name.trim()) return
 
     try {
-      const updatedTemplate = await window.api.schedule.updateGroupTemplate(editingTemplate.id, {
+      await window.api.schedule.updateGroupTemplate(editingTemplate.id, {
         name: formData.name.trim(),
         color: formData.color
       })
 
-      setTemplates((prev) => prev.map((t) => (t.id === editingTemplate.id ? updatedTemplate : t)))
       resetForm()
       setEditingTemplate(null)
+      await refetch()
     } catch (error) {
       console.error('Error updating template:', error)
       alert('Error al actualizar el template de grupo')
@@ -80,18 +60,13 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
   }
 
   const handleDeleteTemplate = async (template: ScheduleGroupTemplateDTO) => {
-    if (template.scheduleGroups && template.scheduleGroups.length > 0) {
-      alert('No se puede eliminar un template que tiene grupos asociados')
-      return
-    }
-
     if (!confirm(`¿Estás seguro de eliminar el template "${template.name}"?`)) {
       return
     }
 
     try {
       await window.api.schedule.deleteGroupTemplate(template.id)
-      setTemplates((prev) => prev.filter((t) => t.id !== template.id))
+      await refetch()
     } catch (error) {
       console.error('Error deleting template:', error)
       alert('Error al eliminar el template de grupo')
@@ -183,17 +158,17 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
 
           {/* Templates List */}
           <div className="flex-1 overflow-y-auto">
-            {loading ? (
+            {isLoading ? (
               <div className="text-center py-6 text-muted-foreground text-xs">
                 Cargando grupos...
               </div>
-            ) : templates.length === 0 ? (
+            ) : scheduleGroupTemplates.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground text-xs">
                 No hay grupos creados
               </div>
             ) : (
               <div className="space-y-1 p-2">
-                {templates.map((template) => (
+                {scheduleGroupTemplates.map((template) => (
                   <ScheduleGruopItem
                     key={template.id}
                     template={template}
