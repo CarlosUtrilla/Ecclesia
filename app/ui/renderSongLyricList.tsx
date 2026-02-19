@@ -41,7 +41,7 @@ export default function RenderSongLyricList({
   return songGruoups.map((group, index) => {
     const tagSong = tagSongs.find((t) => t.id === group.tagSongsId)
     return (
-      <div key={index} className="relative">
+      <div key={`group-${group.tagSongsId}-${index}`} className="relative">
         {tagSong ? (
           <div
             className="w-6 absolute left-0 top-0 bottom-0 p-1 flex flex-col justify-center text-center text-xs leading-4"
@@ -50,8 +50,8 @@ export default function RenderSongLyricList({
               color: getContrastTextColor(tagSong.color)
             }}
           >
-            {tagSong.shortName.split('').map((char, index) => (
-              <div key={index}>{char}</div>
+            {tagSong.shortName.split('').map((char, charIdx) => (
+              <div key={`${char}-${charIdx}`}>{char}</div>
             ))}
           </div>
         ) : null}
@@ -66,13 +66,15 @@ export default function RenderSongLyricList({
             const color = tagSong ? getContrastTextColor(background) : '#000'
             return (
               <p
-                key={idx}
+                key={`${group.tagSongsId}-${idx}`}
                 className={cn(
                   'transition-colors cursor-pointer border-b py-1 px-2 text-sm relative',
                   {
                     'border border-secondary': isSelected
                   }
                 )}
+                role="button"
+                tabIndex={0}
                 style={{
                   backgroundColor: background,
                   color
@@ -80,6 +82,12 @@ export default function RenderSongLyricList({
                 onClick={(e) => {
                   if (setSelectedLyricIndex) setSelectedLyricIndex(index)
                   if (onLyricClick) onLyricClick(e, index)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    if (setSelectedLyricIndex) setSelectedLyricIndex(index)
+                  }
                 }}
                 onDoubleClick={(e) => {
                   if (onDoubleClick) onDoubleClick(e, index)

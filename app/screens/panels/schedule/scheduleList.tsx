@@ -161,7 +161,15 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
         {isTemporary && currentSchedule && (
           <div
             className="p-2 rounded-md bg-amber-100 dark:bg-amber-900/20 border-2 border-amber-500 cursor-pointer"
+            role="button"
+            tabIndex={0}
             onClick={onScheduleSelect}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onScheduleSelect()
+              }
+            }}
           >
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
@@ -184,9 +192,18 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
                     ? 'bg-primary/10 border border-primary'
                     : 'bg-background border border-transparent'
                 }`}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   loadSchedule(schedule.id)
                   onScheduleSelect()
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    loadSchedule(schedule.id)
+                    onScheduleSelect()
+                  }
                 }}
               >
                 <div className="flex items-start justify-between gap-2">

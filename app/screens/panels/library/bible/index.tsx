@@ -129,7 +129,15 @@ export default function BiblePanel() {
                 className={cn('p-2 py-1 border-b cursor-pointer hover:bg-muted/40', {
                   'bg-secondary/20 hover:bg-secondary/10': selectedBook === book.book_id
                 })}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleChangeBook(book.book_id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleChangeBook(book.book_id)
+                  }
+                }}
               >
                 {book.book}
               </div>
@@ -148,7 +156,15 @@ export default function BiblePanel() {
                 className={cn('p-2 py-1 border-b hover:bg-muted/40 min-w-12 cursor-default', {
                   'bg-secondary/20 hover:bg-secondary/10': selectedChapter === chapter
                 })}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleChangeChapter(chapter)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleChangeChapter(chapter)
+                  }
+                }}
               >
                 {chapter}
               </div>

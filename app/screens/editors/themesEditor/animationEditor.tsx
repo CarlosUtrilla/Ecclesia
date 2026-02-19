@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Settings2, Play } from 'lucide-react'
 import { animations, AnimationType } from '@/lib/animations'
 import { AnimationSettings, defaultAnimationSettings, easingOptions } from '@/lib/animationSettings'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion'
 import { getAnimationVariants } from '@/lib/animations'
 
 type AnimationEditorProps = {
@@ -27,10 +27,13 @@ export default function AnimationEditor({ settings, onChange }: AnimationEditorP
   const [localSettings, setLocalSettings] = useState<AnimationSettings>(settings)
   const [previewKey, setPreviewKey] = useState(0)
 
-  // Sincronizar localSettings cuando cambian las settings externas
-  useEffect(() => {
-    setLocalSettings(settings)
-  }, [settings])
+  const handleOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (isOpen) setLocalSettings(settings)
+      setOpen(isOpen)
+    },
+    [settings]
+  )
 
   const handleSave = useCallback(() => {
     onChange(localSettings)
@@ -65,7 +68,7 @@ export default function AnimationEditor({ settings, onChange }: AnimationEditorP
   )
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="h-8 gap-2">
           <Settings2 className="h-4 w-4" />
@@ -172,18 +175,20 @@ export default function AnimationEditor({ settings, onChange }: AnimationEditorP
               </Button>
             </div>
             <div className="h-32 border rounded-lg flex items-center justify-center bg-muted/20 overflow-hidden">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={previewKey}
-                  variants={variants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="px-8 py-4 bg-primary text-primary-foreground rounded-md font-medium"
-                >
-                  Texto de ejemplo
-                </motion.div>
-              </AnimatePresence>
+              <LazyMotion features={domAnimation}>
+                <AnimatePresence mode="wait">
+                  <m.div
+                    key={previewKey}
+                    variants={variants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    className="px-8 py-4 bg-primary text-primary-foreground rounded-md font-medium"
+                  >
+                    Texto de ejemplo
+                  </m.div>
+                </AnimatePresence>
+              </LazyMotion>
             </div>
           </div>
         </div>

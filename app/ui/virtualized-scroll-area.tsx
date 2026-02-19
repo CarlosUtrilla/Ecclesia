@@ -9,6 +9,18 @@ interface VirtualizedScrollAreaProps<T> {
   className?: string
 }
 
+function VirtualRow<T>({
+  item,
+  index,
+  renderItem
+}: {
+  item: T
+  index: number
+  renderItem: (item: T, index: number) => React.ReactNode
+}) {
+  return <>{renderItem(item, index)}</>
+}
+
 export interface VirtualizedScrollAreaRef {
   scrollToIndex: (
     index: number,
@@ -60,7 +72,11 @@ const VirtualizedScrollArea = ({
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
             >
-              {renderItem(items[virtualRow.index], virtualRow.index)}
+              <VirtualRow
+                item={items[virtualRow.index]}
+                index={virtualRow.index}
+                renderItem={renderItem}
+              />
             </div>
           ))}
         </div>

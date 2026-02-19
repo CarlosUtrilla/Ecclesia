@@ -30,8 +30,16 @@ export default function RenderBibleVerses({ data }: Props) {
           className={cn('flex border-b items-baseline hover:bg-muted/40 cursor-pointer', {
             'bg-secondary/20 hover:bg-secondary/10': itemIndex === i
           })}
-          key={i}
+          key={verse?.verse ?? i}
+          role="button"
+          tabIndex={0}
           onClick={() => setItemIndex(i)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setItemIndex(i)
+            }
+          }}
         >
           <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">
             {verse?.verse}

@@ -36,7 +36,7 @@ export default function PreviewSchedule({
         {itemContent.map((content, index) => (
           <PresentationView
             tagSongId={(content as any).tagSongId}
-            key={index}
+            key={`preview-${index}-${content.text?.slice(0, 20)}`}
             items={[content]}
             theme={selectedTheme}
             onClick={(e) => {

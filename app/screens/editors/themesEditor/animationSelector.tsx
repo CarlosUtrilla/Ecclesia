@@ -24,7 +24,7 @@ const AnimationSelector = memo(function AnimationSelector({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs text-muted-foreground whitespace-nowrap">Animación:</label>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">Animación:</span>
       <div className="flex items-center gap-2">
         <Select value={settings.type} onValueChange={handleTypeChange}>
           <SelectTrigger size="sm" className="w-[180px] !h-9">

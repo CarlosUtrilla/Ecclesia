@@ -40,10 +40,18 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
             'bg-secondary/20 hover:bg-secondary/10': selectedSong?.id === song.id,
             'opacity-50 bg-muted ': isDragging
           })}
+          role="button"
+          tabIndex={0}
           ref={setNodeRef}
           {...listeners}
           {...attributes}
           onClick={() => setSelectedSong(song)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setSelectedSong(song)
+            }
+          }}
           onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
         >
           <h3 className="font-semibold text-base flex gap-2 items-center">

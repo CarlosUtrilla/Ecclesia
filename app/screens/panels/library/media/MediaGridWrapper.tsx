@@ -91,10 +91,17 @@ export function MediaGridWrapper({
           className={cn('h-full outline-none', {
             'ring-2 ring-primary ring-inset': isDragOver
           })}
+          role="region"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={handleClick}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleClick(e as any)
+            }
+          }}
           tabIndex={0}
         >
           <MediaGrid

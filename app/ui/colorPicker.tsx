@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover'
 import { ChromePicker } from 'react-color'
 
@@ -10,17 +10,6 @@ interface ColorPickerProps {
 
 export function ColorPicker({ value, onChange, className = 'h-8 w-20' }: ColorPickerProps) {
   const [open, setOpen] = useState(false)
-  const [localColor, setLocalColor] = useState(value)
-
-  useEffect(() => {
-    setLocalColor(value)
-  }, [value])
-
-  const handleChange = (color: any) => {
-    setLocalColor(color.hex)
-    // Actualizar en tiempo real
-    onChange(color.hex)
-  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -32,7 +21,7 @@ export function ColorPicker({ value, onChange, className = 'h-8 w-20' }: ColorPi
         />
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <ChromePicker color={localColor} onChange={handleChange} />
+        <ChromePicker color={value} onChange={(color: any) => onChange(color.hex)} />
       </PopoverContent>
     </Popover>
   )

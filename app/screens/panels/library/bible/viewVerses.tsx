@@ -215,7 +215,7 @@ export default function ViewVerses({
       >
         {completeChapter.map((v, index) => (
           <VerseItem
-            key={index}
+            key={v.verse}
             verse={v}
             index={index}
             bookData={bookData}
@@ -282,7 +282,15 @@ function VerseItem({
               'opacity-50 bg-muted': isDragging
             }
           )}
+          role="button"
+          tabIndex={0}
           onClick={(e) => onItemClick({ verseNumber: v.verse, index }, e)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onItemClick({ verseNumber: v.verse, index }, e as any)
+            }
+          }}
           {...listeners}
           {...attributes}
         >

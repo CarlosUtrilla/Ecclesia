@@ -57,7 +57,7 @@ export default function BackgroundSelector({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs text-muted-foreground whitespace-nowrap">Fondo:</label>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">Fondo:</span>
       <div className="flex items-center gap-2">
         {/* Background Type Selector */}
         <DropdownMenu>

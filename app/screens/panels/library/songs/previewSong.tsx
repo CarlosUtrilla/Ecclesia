@@ -7,7 +7,7 @@ import { Tooltip } from '@/ui/tooltip'
 import { ScheduleItemType } from '@prisma/client'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { CalendarPlus, Edit2, Music, Radio, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 
 type Props = {
   song?: SongResponseDTO | null
@@ -18,6 +18,11 @@ export default function PreviewSong({ song, onDelete }: Props) {
   const { addItemToSchedule } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const prevSongIdRef = useRef(song?.id)
+  if (prevSongIdRef.current !== song?.id) {
+    prevSongIdRef.current = song?.id
+    setSelectedIndex(0)
+  }
   const dataForLive = {
     type: 'SONG' as ScheduleItemType,
     accessData: song?.id.toString() || '',
@@ -26,9 +31,6 @@ export default function PreviewSong({ song, onDelete }: Props) {
     scheduleGroupId: null,
     scheduleId: -1
   }
-  useEffect(() => {
-    setSelectedIndex(0)
-  }, [song])
 
   if (!song) {
     return (

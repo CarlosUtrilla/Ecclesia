@@ -32,9 +32,9 @@ export default function LiveScreens() {
         <div className="p-2 bg-muted/40">Pantallas publicas</div>
         <div className="flex gap-2 p-2">
           {contentScreen ? (
-            liveScreens.map((_, idx) => (
+            liveScreens.map((screen, idx) => (
               <PresentationView
-                key={idx}
+                key={`screen-${(screen as any)?.id ?? idx}`}
                 items={contentScreen.content}
                 theme={selectedTheme}
                 currentIndex={itemIndex}

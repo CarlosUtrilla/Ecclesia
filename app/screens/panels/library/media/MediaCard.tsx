@@ -59,6 +59,7 @@ export function MediaCard({
       <ContextMenuTrigger>
         <div
           ref={setNodeRef}
+          role="button"
           className={cn(
             'group relative border border-border/50 rounded-lg overflow-hidden',
             'bg-card/50 backdrop-blur-sm hover:bg-card transition-all duration-200',

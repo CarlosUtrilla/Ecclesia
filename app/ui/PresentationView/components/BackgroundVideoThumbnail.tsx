@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 
 interface BackgroundVideoThumbnailProps {
   thumbnailUrl: string
@@ -6,7 +6,7 @@ interface BackgroundVideoThumbnailProps {
 
 export function BackgroundVideoThumbnail({ thumbnailUrl }: BackgroundVideoThumbnailProps) {
   return (
-    <motion.img
+    <m.img
       key={`thumbnail-${thumbnailUrl}`}
       src={thumbnailUrl}
       alt="Video thumbnail"

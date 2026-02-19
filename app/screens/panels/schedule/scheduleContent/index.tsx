@@ -1,5 +1,5 @@
 import { Button } from '@/ui/button'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m, LazyMotion, domAnimation } from 'framer-motion'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { Save, CalendarSearch, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -141,33 +141,33 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
                   })()}
                 </SortableContext>
               </div>
-              <AnimatePresence>
-                {isOver &&
-                  (() => {
-                    // Detectar si el drag activo es externo
-                    // Detectar si se está arrastrando un elemento externo (de biblioteca)
-                    const isExternalDrag =
-                      active?.data.current?.accessData !== undefined && !active?.data.current?.item
+              <LazyMotion features={domAnimation}>
+                <AnimatePresence>
+                  {isOver &&
+                    (() => {
+                      const isExternalDrag =
+                        active?.data.current?.accessData !== undefined && !active?.data.current?.item
 
-                    if (!isExternalDrag) return null
-                    return (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.98 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute animate-in fade-in duration-300 -inset-2 flex items-center justify-center pointer-events-none bg-primary/10 rounded-md border-2 border-dashed border-primary"
-                      >
-                        <div className="mt-4 p-8 border-2 border-dashed border-primary rounded-lg bg-primary/5 text-center">
-                          <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
-                          <p className="text-sm text-primary font-medium">
-                            Soltar para agregar al final
-                          </p>
-                        </div>
-                      </motion.div>
-                    )
-                  })()}
-              </AnimatePresence>
+                      if (!isExternalDrag) return null
+                      return (
+                        <m.div
+                          initial={{ opacity: 0, scale: 0.98 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.98 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute animate-in fade-in duration-300 -inset-2 flex items-center justify-center pointer-events-none bg-primary/10 rounded-md border-2 border-dashed border-primary"
+                        >
+                          <div className="mt-4 p-8 border-2 border-dashed border-primary rounded-lg bg-primary/5 text-center">
+                            <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
+                            <p className="text-sm text-primary font-medium">
+                              Soltar para agregar al final
+                            </p>
+                          </div>
+                        </m.div>
+                      )
+                    })()}
+                </AnimatePresence>
+              </LazyMotion>
             </div>
           )}
         </div>

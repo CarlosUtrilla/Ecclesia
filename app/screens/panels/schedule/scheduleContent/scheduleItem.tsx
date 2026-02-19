@@ -179,6 +179,12 @@ export function ScheduleItemComponent({
               setSelectedItem?.(item)
               e.preventDefault()
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setSelectedItem?.(item)
+              }
+            }}
             onDoubleClick={() => showItemOnLiveScreen(item, 0)}
             {...attributes}
             {...listeners}

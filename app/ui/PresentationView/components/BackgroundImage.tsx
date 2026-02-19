@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 
 interface BackgroundImageProps {
   url: string
@@ -6,7 +6,7 @@ interface BackgroundImageProps {
 
 export function BackgroundImage({ url }: BackgroundImageProps) {
   return (
-    <motion.img
+    <m.img
       key={`img-${url}`}
       src={url}
       alt="Background"

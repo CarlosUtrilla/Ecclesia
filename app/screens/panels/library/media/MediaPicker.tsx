@@ -142,7 +142,7 @@ export function MediaPicker({
                 <Home className="h-3 w-3" />
               </Button>
               {breadcrumbs.map((crumb, index) => (
-                <div key={index} className="flex items-center gap-1">
+                <div key={crumb} className="flex items-center gap-1">
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
                   <Button
                     variant="ghost"

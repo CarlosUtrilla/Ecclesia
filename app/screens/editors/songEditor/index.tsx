@@ -153,7 +153,7 @@ export default function SongEditor() {
             />
             {cleanesLyrics.map((lyric, index) => (
               <PresentationView
-                key={index}
+                key={`lyric-${lyric.tagSongsId}-${index}`}
                 items={[
                   {
                     text: lyric.content

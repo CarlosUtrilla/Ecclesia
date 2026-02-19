@@ -518,7 +518,7 @@ export default function ThemesEditor() {
         {PreviewsItems.map((item, index) => (
           <PresentationView
             onClick={() => setSelectedPreview(index)}
-            key={index}
+            key={`preview-${item.text?.slice(0, 20)}`}
             theme={previewData}
             items={[item]}
             className="max-w-48"

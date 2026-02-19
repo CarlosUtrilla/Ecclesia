@@ -85,7 +85,15 @@ export function MediaList({
                         selected
                     }
                   )}
+                  role="button"
+                  tabIndex={0}
                   onClick={(e) => onItemClick(item, e)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onItemClick(item, e as any)
+                    }
+                  }}
                   onDoubleClick={() => {
                     if (isFolder) {
                       onNavigateToFolder(item)
@@ -111,6 +119,7 @@ export function MediaList({
                           'ring-2 ring-primary/30 shadow-sm': selected
                         })}
                         src={mediaUrl}
+                        alt={item.name}
                       />
                     )}
                   </div>

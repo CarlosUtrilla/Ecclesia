@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, LazyMotion, domAnimation } from 'framer-motion'
 import { cn, getContrastTextColor } from '../../lib/utils'
 import { PresentationViewProps } from './types'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
@@ -80,13 +80,9 @@ export function PresentationView({
     } else {
       setFallbackUrl(null)
     }
-  }, [background, backgroundMedia, buildMediaUrl])
-
-  // Reset video estado cuando cambia el background
-  useEffect(() => {
     setVideoLoaded(false)
     setVideoError(false)
-  }, [background, backgroundMedia])
+  }, [background, backgroundMedia, buildMediaUrl])
 
   // Parse animation settings
   const animationSettings = useMemo<AnimationSettings>(() => {
@@ -151,61 +147,75 @@ export function PresentationView({
   if (!currentItem) return null
 
   return (
-    <div
-      ref={containerRef as React.RefObject<HTMLDivElement>}
-      onClick={onClick}
-      style={containerStyle}
-      className={cn('border bg-background relative select-none', className, {
-        'outline-2 outline-primary transition-colors': selected,
-        'cursor-pointer': onClick !== undefined,
-        'border-0': live,
-        'rounded-md': !live,
-        'pb-7': tagSong !== null
-      })}
-    >
-      {/* Fondos con transición cross-fade */}
-      <AnimatePresence>
-        {mediaType === 'image' && backgroundUrl && <BackgroundImage url={backgroundUrl} />}
+    <LazyMotion features={domAnimation}>
+      <div
+        ref={containerRef as React.RefObject<HTMLDivElement>}
+        onClick={onClick}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={
+          onClick
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onClick()
+                }
+              }
+            : undefined
+        }
+        style={containerStyle}
+        className={cn('border bg-background relative select-none', className, {
+          'outline-2 outline-primary transition-colors': selected,
+          'cursor-pointer': onClick !== undefined,
+          'border-0': live,
+          'rounded-md': !live,
+          'pb-7': tagSong !== null
+        })}
+      >
+        {/* Fondos con transición cross-fade */}
+        <AnimatePresence>
+          {mediaType === 'image' && backgroundUrl && <BackgroundImage url={backgroundUrl} />}
 
-        {mediaType === 'video' && !live && thumbnailUrl && (
-          <BackgroundVideoThumbnail thumbnailUrl={thumbnailUrl} />
-        )}
+          {mediaType === 'video' && !live && thumbnailUrl && (
+            <BackgroundVideoThumbnail thumbnailUrl={thumbnailUrl} />
+          )}
 
-        {mediaType === 'video' && live && (
-          <BackgroundVideoLive
-            videoUrl={backgroundUrl}
-            fallbackUrl={fallbackUrl}
-            isVideoLoaded={videoLoaded}
-            hasError={videoError}
-            onVideoLoaded={() => setVideoLoaded(true)}
-            onVideoError={() => setVideoError(true)}
+          {mediaType === 'video' && live && (
+            <BackgroundVideoLive
+              videoUrl={backgroundUrl}
+              fallbackUrl={fallbackUrl}
+              isVideoLoaded={videoLoaded}
+              hasError={videoError}
+              onVideoLoaded={() => setVideoLoaded(true)}
+              onVideoError={() => setVideoError(true)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Texto con animaciones */}
+        <AnimatePresence mode="wait">
+          <AnimatedText
+            item={currentItem}
+            animationType={animationType}
+            variants={variants}
+            textStyle={textStyle}
+            isPreview={!live}
+            theme={theme}
+            smallFontSize={calculatedSmallFontSize}
           />
-        )}
-      </AnimatePresence>
-
-      {/* Texto con animaciones */}
-      <AnimatePresence mode="wait">
-        <AnimatedText
-          item={currentItem}
-          animationType={animationType}
-          variants={variants}
-          textStyle={textStyle}
-          isPreview={!live}
-          theme={theme}
-          smallFontSize={calculatedSmallFontSize}
-        />
-      </AnimatePresence>
-      {tagSong !== null ? (
-        <div
-          style={{
-            backgroundColor: tagSong.color,
-            color: getContrastTextColor(tagSong.color)
-          }}
-          className="absolute flex items-center bottom-0 h-7 w-full text-[0.8rem] px-3"
-        >
-          {tagSong.name}
-        </div>
-      ) : null}
-    </div>
+        </AnimatePresence>
+        {tagSong !== null ? (
+          <div
+            style={{
+              backgroundColor: tagSong.color,
+              color: getContrastTextColor(tagSong.color)
+            }}
+            className="absolute flex items-center bottom-0 h-7 w-full text-[0.8rem] px-3"
+          >
+            {tagSong.name}
+          </div>
+        ) : null}
+      </div>
+    </LazyMotion>
   )
 }

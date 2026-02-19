@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 
 interface BackgroundVideoLiveProps {
   videoUrl: string
@@ -21,7 +21,7 @@ export function BackgroundVideoLive({
     <>
       {/* Imagen de fallback mientras carga el video */}
       {fallbackUrl && (
-        <motion.img
+        <m.img
           key={`fallback-${fallbackUrl}`}
           src={fallbackUrl}
           alt="Loading video..."
@@ -43,7 +43,7 @@ export function BackgroundVideoLive({
 
       {/* Video */}
       {!hasError && (
-        <motion.video
+        <m.video
           key={`video-${videoUrl}`}
           src={videoUrl}
           autoPlay

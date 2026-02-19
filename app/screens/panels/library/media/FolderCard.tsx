@@ -131,6 +131,7 @@ export function FolderCard({
           ref={setNodeRef}
           {...attributes}
           {...listeners}
+          role="button"
           className={cn(
             'group relative border border-border/50 rounded-lg overflow-hidden',
             'bg-card/30 backdrop-blur-sm hover:bg-card/60 transition-all duration-200',

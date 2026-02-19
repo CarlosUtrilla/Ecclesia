@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { sanitizeHTML } from '@/lib/utils'
 import { wordVariants, AnimationType } from '@/lib/animations'
 import { PresentationViewItems, ThemeWithMedia } from '../types'
@@ -123,7 +123,7 @@ export function AnimatedText({
         const lines = textContext.split(/<br\s*\/?>/i)
 
         return (
-          <motion.div
+          <m.div
             variants={variants}
             initial="initial"
             animate="animate"
@@ -140,7 +140,7 @@ export function AnimatedText({
               return (
                 <div key={lineIndex}>
                   {words.map((word, wordIndex) => (
-                    <motion.span
+                    <m.span
                       key={`${lineIndex}-${wordIndex}`}
                       variants={wordVariants}
                       style={{ display: 'inline-block', marginRight: '0.3em' }}
@@ -152,13 +152,13 @@ export function AnimatedText({
                 </div>
               )
             })}
-          </motion.div>
+          </m.div>
         )
       }
 
       // Animación de bloque completo (otras animaciones)
       return (
-        <motion.div
+        <m.div
           variants={variants}
           initial="initial"
           animate="animate"

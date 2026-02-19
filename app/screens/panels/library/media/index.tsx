@@ -399,7 +399,7 @@ export default function MediaLibrary() {
                 </Button>
                 {breadcrumbs.map((crumb, index) => (
                   <Button
-                    key={index}
+                    key={crumb}
                     variant="ghost"
                     size="sm"
                     className="h-6 px-2 justify-start text-xs ml-2"
