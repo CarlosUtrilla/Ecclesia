@@ -46,7 +46,9 @@ export function ScheduleItemComponent({
     },
     disabled: !isExternalDrag
   })
-  const { getScheduleItemIcon, getScheduleItemLabel } = useSchedule()
+  const { getScheduleItemIcon, getScheduleItemLabel, deleteItemFromSchedule, currentSchedule } =
+    useSchedule()
+
   const { showItemOnLiveScreen } = useLive()
   const [label, setLabel] = useState('')
   const [groupTemplate, setGroupTemplate] = useState<any>(null)
@@ -84,8 +86,8 @@ export function ScheduleItemComponent({
     opacity: isDragging ? 0.5 : 1
   }
 
-  // Vista especial para grupo visual (reordenable)
   if (item.type === 'GROUP') {
+    // Permitir eliminar grupo desde el menú contextual
     return (
       <div
         className="rounded-t-md"
@@ -123,7 +125,15 @@ export function ScheduleItemComponent({
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent>
-            <ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                const index = currentSchedule.findIndex((i) => i.id === item.id)
+                if (index !== -1) {
+                  deleteItemFromSchedule(index)
+                  setSelectedItem?.(null)
+                }
+              }}
+            >
               <Trash2 className="text-destructive size-4" />
               Eliminar grupo
             </ContextMenuItem>
@@ -204,7 +214,15 @@ export function ScheduleItemComponent({
             <Radio className="h-4 w-4 text-green-600" />
             Presentar en vivo
           </ContextMenuItem>
-          <ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => {
+              const index = currentSchedule.findIndex((i) => i.id === item.id)
+              if (index !== -1) {
+                deleteItemFromSchedule(index)
+                setSelectedItem?.(null)
+              }
+            }}
+          >
             <Trash2 className="text-destructive size-4" />
             Eliminar del cronograma
           </ContextMenuItem>

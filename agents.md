@@ -225,6 +225,9 @@ React Component
 - No agregar comments obvios. Solo comentar logica no evidente.
 - Si algo queda sin usar (variable, import, funcion), eliminarlo por completo. No renombrar con `_`, no re-exportar, no dejar `// removed`.
 
+> **REGLA CRÍTICA:**
+> Siempre que edites, crees o elimines código en cualquier módulo, ACTUALIZA el `agents.md` correspondiente de esa carpeta. Así nunca se pierde el contexto ni la trazabilidad de la arquitectura y flujos.
+
 ## Estructura de archivos clave
 
 ```
@@ -258,3 +261,9 @@ React Component
 │   └── ui/
 │       └── agents.md             <- Agent de componentes UI
 ```
+
+## Integración ScheduleContext, Schedule y Library
+
+- La carpeta `app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
+- Los items de biblioteca (songs, media, bible) se agregan al cronograma por drag & drop o acciones directas (click/context menu), usando los métodos del contexto (`addItemToSchedule`, etc.).
+- Ver detalles y flujos completos en los agents de cada módulo.

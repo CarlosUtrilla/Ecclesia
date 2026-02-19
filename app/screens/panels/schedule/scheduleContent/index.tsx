@@ -11,6 +11,7 @@ import GroupTemplateManager from '../components/scheduleGroups/GroupTemplateMana
 import { useDndContext, useDroppable } from '@dnd-kit/core'
 import EmptyShcedule from './emptyShcedule'
 import PreviewSchedule from './previewSchedule'
+import { useRef as useReactRef } from 'react'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import InsertionDropZone from './insertionDropZone'
@@ -32,12 +33,14 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     getScheduleItemContentScreen,
     selectedTheme,
     saveScheduleChanges,
-    itemsSortableIndex
+    itemsSortableIndex,
+    deleteItemFromSchedule
   } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
 
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
   const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
+  const previewRef = useReactRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (selectedItem) {
@@ -51,20 +54,25 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     }
   }, [selectedItem])
 
-  useKeyboardShortcuts(containerRef, {
-    onDelete: () => {
-      if (selectedItem) {
-        /* const index = currentSchedule?.items.findIndex((i) => i.order === selectedItem.order)
-        if (index !== undefined && index >= 0) {
-          deleteItemFromSchedule(index)
-          setSelectedItem(null)
-        } */
+  useKeyboardShortcuts(
+    containerRef,
+    {
+      onDelete: () => {
+        console.log('Delete key pressed')
+        if (selectedItem) {
+          const index = currentSchedule.findIndex((i) => i.id === selectedItem.id)
+          if (index !== -1) {
+            deleteItemFromSchedule(index)
+            setSelectedItem(null)
+          }
+        }
+      },
+      onClickOutside: () => {
+        setSelectedItem(null)
       }
     },
-    onClickOutside: () => {
-      setSelectedItem(null)
-    }
-  })
+    itemContent && itemContent.length && selectedItem ? [previewRef] : []
+  )
 
   if (!currentSchedule) {
     return (
@@ -86,6 +94,8 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
           'h-7/12': itemContent && itemContent.length && selectedItem
         })}
         ref={containerRef}
+        tabIndex={0}
+        style={{ outline: 'none' }}
       >
         {/* Header con info del schedule */}
         <div className="px-4 py-3 border-b bg-muted/20 flex items-center gap-2">
@@ -146,7 +156,8 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
                   {isOver &&
                     (() => {
                       const isExternalDrag =
-                        active?.data.current?.accessData !== undefined && !active?.data.current?.item
+                        active?.data.current?.accessData !== undefined &&
+                        !active?.data.current?.item
 
                       if (!isExternalDrag) return null
                       return (
@@ -174,6 +185,7 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
       </div>
       {itemContent && itemContent.length && selectedItem ? (
         <PreviewSchedule
+          ref={previewRef}
           itemContent={itemContent}
           selectedItem={selectedItem}
           selectedTheme={selectedTheme}

@@ -5,22 +5,22 @@ import { ScheduleItem } from '@prisma/client'
 import { Radio } from 'lucide-react'
 import { useState } from 'react'
 
+import { ForwardedRef, forwardRef } from 'react'
+
 interface PreviewScheduleProps {
   itemContent: PresentationViewItems[]
   selectedItem: ScheduleItem
   selectedTheme: any
   onLivePresentation: (index: number) => void
+  previewRef?: React.RefObject<HTMLDivElement>
 }
 
-export default function PreviewSchedule({
-  itemContent,
-  selectedTheme,
-  onLivePresentation
-}: PreviewScheduleProps) {
+const PreviewSchedule = forwardRef<HTMLDivElement, Omit<PreviewScheduleProps, 'previewRef'>>(
+  ({ itemContent, selectedTheme, onLivePresentation }, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   return (
-    <div className="flex flex-col h-5/12">
+    <div className="flex flex-col h-5/12" ref={ref}>
       <div className="flex justify-between items-center px-2 py-2 border-y bg-muted/20">
         <h3 className="font-medium text-sm italic">Vista previa de pantallas en vivo</h3>
         <Button
@@ -52,4 +52,7 @@ export default function PreviewSchedule({
       </div>
     </div>
   )
-}
+  }
+)
+PreviewSchedule.displayName = 'PreviewSchedule'
+export default PreviewSchedule

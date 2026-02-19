@@ -11,9 +11,11 @@ interface KeyboardShortcuts {
   onClickOutside?: () => void
 }
 
+type RefType = React.RefObject<HTMLElement | null>
 export function useKeyboardShortcuts(
-  containerRef: React.RefObject<HTMLElement | null>,
-  shortcuts: KeyboardShortcuts
+  containerRef: RefType,
+  shortcuts: KeyboardShortcuts,
+  excludeRefs: RefType[] = []
 ) {
   const [containerFocused, setContainerFocused] = useState(false)
 
@@ -27,23 +29,47 @@ export function useKeyboardShortcuts(
     }
   }
 
+  // Usar focusin/focusout para detectar foco en cualquier hijo
   useEffect(() => {
-    const handleBlur = () => {
-      setContainerFocused(false)
-      if (shortcuts.onClickOutside) {
-        shortcuts.onClickOutside()
-      }
-    }
     const current = containerRef.current
-    if (current) {
-      current.addEventListener('blur', handleBlur)
-    }
-    return () => {
-      if (current) {
-        current.removeEventListener('blur', handleBlur)
+    if (!current) return
+
+    const handleFocusIn = () => setContainerFocused(true)
+    const handleFocusOut = (e: FocusEvent) => {
+      // Si el nuevo foco está fuera del contenedor, desactivar
+      if (!current.contains(e.relatedTarget as Node)) {
+        setContainerFocused(false)
+        if (shortcuts.onClickOutside) {
+          shortcuts.onClickOutside()
+        }
       }
     }
-  }, [containerRef])
+    current.addEventListener('focusin', handleFocusIn)
+    current.addEventListener('focusout', handleFocusOut)
+    return () => {
+      current.removeEventListener('focusin', handleFocusIn)
+      current.removeEventListener('focusout', handleFocusOut)
+    }
+  }, [containerRef, shortcuts])
+
+  // Click outside detection mejorada
+  useEffect(() => {
+    if (!shortcuts.onClickOutside) return
+    function handleDocumentClick(e: MouseEvent) {
+      const container = containerRef.current
+      if (!container) return
+      // Si el click fue dentro del contenedor, ignorar
+      if (container.contains(e.target as Node)) return
+      // Si el click fue dentro de algún ref excluido, ignorar
+      for (const ref of excludeRefs) {
+        if (ref.current && ref.current.contains(e.target as Node)) return
+      }
+      // Si no, es click outside
+      shortcuts.onClickOutside()
+    }
+    document.addEventListener('mousedown', handleDocumentClick, true)
+    return () => document.removeEventListener('mousedown', handleDocumentClick, true)
+  }, [containerRef, excludeRefs, shortcuts])
 
   useEffect(() => {
     const handleFocus = () => setContainerFocused(true)
