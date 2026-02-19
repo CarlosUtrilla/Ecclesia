@@ -65,7 +65,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
       const newItem: ScheduleItem = {
         id: generateUniqueId(),
-        order: item.insertPosition ?? (formData.items.length || 0) + 1,
+        order: 0, // Se recalcula abajo
         type: item.type,
         accessData: String(item.accessData),
         scheduleId: formData.id || -1
@@ -79,7 +79,9 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         updatedItems.push(newItem)
       }
 
-      form.setValue('items', updatedItems, { shouldDirty: true })
+      // Recalcular order para todos los items
+      const reOrdered = updatedItems.map((it, idx) => ({ ...it, order: idx + 1 }))
+      form.setValue('items', reOrdered, { shouldDirty: true })
     },
     [formData.items, formData.id, form]
   )
@@ -88,7 +90,9 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     (index: number) => {
       const updatedItems = [...formData.items]
       updatedItems.splice(index, 1)
-      form.setValue('items', updatedItems, { shouldDirty: true })
+      // Recalcular order para todos los items
+      const reOrdered = updatedItems.map((it, idx) => ({ ...it, order: idx + 1 }))
+      form.setValue('items', reOrdered, { shouldDirty: true })
     },
     [formData.items, form]
   )
@@ -101,14 +105,13 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   const reorderItems = (activeId: string, overId: string) => {
     const activeIndex = formData.items.findIndex((item) => item.id === activeId)
     const overIndex = formData.items.findIndex((item) => item.id === overId)
-    console.log('reordenando', activeIndex, overIndex, formData)
     if (activeIndex === -1 || overIndex === -1) return
     const reordered = [...formData.items]
     const [moved] = reordered.splice(activeIndex, 1)
     reordered.splice(overIndex, 0, moved)
-    // Actualizar los orders
-    const updated = reordered.map((item, idx) => ({ ...item, order: idx + 1 }))
-    form.setValue('items', updated, { shouldDirty: true })
+    // Recalcular order para todos los items
+    const reOrdered = reordered.map((item, idx) => ({ ...item, order: idx + 1 }))
+    form.setValue('items', reOrdered, { shouldDirty: true })
   }
 
   // Alias para compatibilidad con DnD

@@ -65,7 +65,7 @@ export function useKeyboardShortcuts(
         if (ref.current && ref.current.contains(e.target as Node)) return
       }
       // Si no, es click outside
-      shortcuts.onClickOutside()
+      shortcuts.onClickOutside?.()
     }
     document.addEventListener('mousedown', handleDocumentClick, true)
     return () => document.removeEventListener('mousedown', handleDocumentClick, true)
