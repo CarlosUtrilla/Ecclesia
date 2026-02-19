@@ -1,0 +1,155 @@
+# Library (Songs / Media / Bible) Agent
+
+> **Agent router:** [`/agents.md`](../../../../agents.md)
+
+## Descripcion
+
+Panel de biblioteca que ocupa la parte inferior de la aplicacion. Contiene tres secciones en tabs: Canciones, Medios y Biblia. Permite buscar, explorar y arrastrar recursos al cronograma.
+
+## Archivos
+
+```
+app/screens/panels/library/
+├── index.tsx                  # LibraryPanel: tabs de Songs/Media/Bible
+├── songs/
+│   ├── index.tsx              # SongsPanel: lista de canciones con busqueda
+│   ├── songItem.tsx           # SongItem: un item de cancion (draggable)
+│   └── previewSong.tsx        # PreviewSong: preview lateral de cancion seleccionada
+├── media/
+│   ├── index.tsx              # MediaLibrary: gestion completa de medios (514 lineas)
+│   ├── MediaGrid.tsx          # Grilla de medios (cards)
+│   ├── MediaGridWrapper.tsx   # Wrapper con context menu y drag/drop zone
+│   ├── MediaList.tsx          # Vista de lista de medios
+│   ├── MediaCard.tsx          # Card de un medio (imagen/video, draggable)
+│   ├── FolderCard.tsx         # Card de carpeta (draggable, drop target)
+│   ├── MediaPicker.tsx        # Dialog para seleccionar un medio (usado en ThemesEditor)
+│   ├── NewFolderDialog.tsx    # Dialog para crear carpeta
+│   ├── RenameDialog.tsx       # Dialog para renombrar
+│   ├── types.ts               # Tipos: Media, MediaType
+│   ├── utils.ts               # Utilidades: formatFileSize
+│   ├── exports.ts             # Re-exports publicos del modulo
+│   └── hooks/
+│       ├── useClipboard.ts    # Copiar/cortar/pegar medios
+│       ├── useDragAndDrop.ts  # Drag & drop entre carpetas
+│       ├── useMediaOperations.ts  # CRUD de medios (importar, eliminar, renombrar)
+│       └── useSelection.ts    # Seleccion multiple con Shift/Ctrl
+└── bible/
+    ├── index.tsx              # BiblePanel: selector de libro/capitulo + vista de versiculos
+    ├── bibleVersions.tsx      # Selector de version de biblia
+    ├── importBible.tsx        # Boton para importar archivo .ebbl
+    ├── textFragmentSearch.tsx # Busqueda de texto en versiculos
+    ├── verseSearch.tsx        # Busqueda rapida: Libro Cap. Vers.
+    └── viewVerses.tsx         # Lista de versiculos con seleccion multiple y drag
+```
+
+## Songs (Canciones)
+
+### SongsPanel (`songs/index.tsx`)
+
+- Lista de canciones con busqueda por titulo/autor.
+- Usa React Query (`queryKey: ['songs']`) con scroll infinito.
+- Cada cancion es un `SongItem` draggable (dnd-kit `useDraggable`).
+- Al hacer click selecciona, doble-click agrega al cronograma.
+- Boton para crear nueva cancion (abre ventana via `window.windowAPI.openSongWindow()`).
+
+### SongItem (`songs/songItem.tsx`)
+
+- Draggable con `data: { type: 'SONG', accessData: song.id }`.
+- Context menu: Editar, Agregar al cronograma, Presentar en vivo, Eliminar.
+- Usa `useSchedule()` para `addItemToSchedule` y `useLive()` para `showItemOnLiveScreen`.
+
+### PreviewSong (`songs/previewSong.tsx`)
+
+- Muestra vista previa de letras de la cancion seleccionada.
+- Usa `RenderSongLyricList` para mostrar las estrofas con tags de color.
+- Resetea `selectedIndex` a 0 cuando cambia la cancion (patron render-time reset con ref).
+
+## Media (Medios)
+
+### MediaLibrary (`media/index.tsx`)
+
+- Componente principal de gestion de medios (514 lineas).
+- Soporta vista en grilla y lista.
+- Navegacion por carpetas con breadcrumbs.
+- Importacion de archivos (drag & drop de archivos del sistema + boton).
+- Operaciones: copiar, cortar, pegar, renombrar, eliminar, mover entre carpetas.
+- Usa hooks especializados en `hooks/` para separar logica.
+
+### Hooks de Media
+
+| Hook | Proposito |
+|------|-----------|
+| `useMediaOperations` | Importar, eliminar, renombrar medios y carpetas (mutations de React Query) |
+| `useSelection` | Seleccion multiple (click, Shift+click, Ctrl+click). Tipo `SelectableItem = Media \| string` |
+| `useClipboard` | Estado de clipboard interno (copiar/cortar medios/carpetas) |
+| `useDragAndDrop` | Drag & drop entre carpetas con HTML5 API |
+
+### MediaCard y FolderCard
+
+- `MediaCard`: Muestra thumbnail, nombre, tipo. Draggable con `data: { type: 'MEDIA', accessData: media.id }`.
+- `FolderCard`: Muestra icono de carpeta. Draggable Y drop target (para mover items a carpetas).
+- Ambos tienen `role="button"`, `tabIndex`, `onKeyDown` para accesibilidad.
+
+### MediaPicker (`media/MediaPicker.tsx`)
+
+- Dialog reutilizable para seleccionar un medio.
+- Usado por `ThemesEditor` para seleccionar imagen/video de fondo.
+- Soporta filtro por tipo (`IMAGE` o `VIDEO`).
+
+## Bible (Biblia)
+
+### BiblePanel (`bible/index.tsx`)
+
+- Layout de 3 columnas: [Busqueda + Versiones | Libros + Capitulos | Versiculos].
+- Estado: `selectedVersion`, `selectedBook`, `selectedChapter`, `selectedVerse[]`.
+- Auto-scroll al libro/capitulo/versiculo seleccionado via refs.
+- Cada seccion scrolleable independiente.
+
+### VerseSearch (`bible/verseSearch.tsx`)
+
+- Input compuesto: [Libro] [Cap.] [Vers.].
+- Autocompletado progresivo: al escribir libro, auto-avanza a capitulo, luego a versiculo.
+- Usa `useBibleSchema()` para validar libros y capitulos.
+- Patron render-time reset (ref para sincronizar props -> state).
+
+### ViewVerses (`bible/viewVerses.tsx`)
+
+- Lista de versiculos del capitulo seleccionado.
+- Seleccion multiple con Shift+click (rango) y Ctrl+click (toggle).
+- Navegacion con flechas (Shift+flecha extiende seleccion).
+- Cada versiculo es draggable con `data: { type: 'BIBLE', accessData: "bookId,chapter,verseRange,version" }`.
+- Context menu: Agregar al cronograma, Presentar en vivo.
+- Usa `useKeyboardShortcuts()` para navegacion por teclado.
+
+### TextFragmentSearch (`bible/textFragmentSearch.tsx`)
+
+- Busqueda de texto libre en versiculos de la version seleccionada.
+- Llama a `window.api.bible.searchTextFragment(version, text)`.
+
+## Drag & Drop hacia cronograma
+
+Los tres tipos de items de biblioteca son draggables con dnd-kit:
+
+| Tipo | Data de drag | accessData |
+|------|-------------|------------|
+| Song | `{ type: 'SONG', accessData: songId }` | ID numerico del Song |
+| Media | `{ type: 'MEDIA', accessData: mediaId }` | ID numerico del Media |
+| Bible | `{ type: 'BIBLE', accessData: "bookId,chapter,verseRange,version" }` | String compuesto |
+
+El `DragAndDropSchedule` (en ScheduleContext) detecta estos drags y los inserta en el cronograma.
+
+## Convenciones
+
+- Cada sub-modulo (songs, media, bible) es auto-contenido con su propio directorio.
+- Los hooks de media estan en `media/hooks/` porque son especificos de ese sub-modulo.
+- Los hooks compartidos (bible schema, tags) estan en `app/hooks/`.
+- Los items draggables usan el patron `{ type: ScheduleItemType, accessData: id }`.
+- Context menus se implementan con Shadcn `ContextMenu` component.
+- Las listas interactivas usan `role="button"`, `tabIndex={0}`, `onKeyDown` para accesibilidad.
+
+## Agents relacionados
+
+- Datos de canciones/medios/biblia -> `/prisma/agents.md` y `/database/agents.md`
+- Drag & drop al cronograma -> `/app/screens/panels/schedule/agents.md`
+- Contexts consumidos -> `/app/contexts/agents.md`
+- Componentes UI compartidos -> `/app/ui/agents.md`
