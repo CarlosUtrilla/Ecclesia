@@ -8,13 +8,13 @@ import { ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import GroupTemplateManager from '../components/scheduleGroups/GroupTemplateManagerDialog'
-import { useDroppable } from '@dnd-kit/core'
+import { useDndContext, useDroppable } from '@dnd-kit/core'
 import EmptyShcedule from './emptyShcedule'
 import PreviewSchedule from './previewSchedule'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import InsertionDropZone from './insertionDropZone'
-import ScheduleItemComponent from './scheduleItem'
+import { ScheduleItemComponent } from './scheduleItem'
 
 type ScheduleContentProps = {
   onBack: () => void
@@ -22,6 +22,7 @@ type ScheduleContentProps = {
 
 function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const { active } = useDndContext()
   const { isOver, setNodeRef } = useDroppable({
     id: 'schedule-drop-area'
   })
@@ -126,43 +127,46 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
                         lastGroup = item.accessData
                       }
                       return (
-                        <>
-                          <ScheduleItemComponent
-                            key={`item-${item.id}`}
-                            item={item}
-                            setSelectedItem={setSelectedItem}
-                            selectedItem={selectedItem}
-                            groupId={lastGroup}
-                          />
-                          <InsertionDropZone
-                            key={`drop-zone-${item.id}`}
-                            position={index + 1}
-                            isLast={index === currentSchedule.length - 1}
-                            groupId={lastGroup}
-                          />
-                        </>
+                        <ScheduleItemComponent
+                          key={`item-${item.id}`}
+                          item={item}
+                          setSelectedItem={setSelectedItem}
+                          selectedItem={selectedItem}
+                          groupId={lastGroup}
+                          insertPosition={index + 1}
+                          isLast={index === currentSchedule.length - 1}
+                        />
                       )
                     })
                   })()}
                 </SortableContext>
               </div>
               <AnimatePresence>
-                {isOver && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute animate-in fade-in duration-300 -inset-2 flex items-center justify-center pointer-events-none bg-primary/10 rounded-md border-2 border-dashed border-primary"
-                  >
-                    <div className="mt-4 p-8 border-2 border-dashed border-primary rounded-lg bg-primary/5 text-center">
-                      <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
-                      <p className="text-sm text-primary font-medium">
-                        Soltar para agregar al final
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
+                {isOver &&
+                  (() => {
+                    // Detectar si el drag activo es externo
+                    // Detectar si se está arrastrando un elemento externo (de biblioteca)
+                    const isExternalDrag =
+                      active?.data.current?.accessData !== undefined && !active?.data.current?.item
+
+                    if (!isExternalDrag) return null
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute animate-in fade-in duration-300 -inset-2 flex items-center justify-center pointer-events-none bg-primary/10 rounded-md border-2 border-dashed border-primary"
+                      >
+                        <div className="mt-4 p-8 border-2 border-dashed border-primary rounded-lg bg-primary/5 text-center">
+                          <Upload className="h-12 w-12 mx-auto mb-2 text-primary" />
+                          <p className="text-sm text-primary font-medium">
+                            Soltar para agregar al final
+                          </p>
+                        </div>
+                      </motion.div>
+                    )
+                  })()}
               </AnimatePresence>
             </div>
           )}

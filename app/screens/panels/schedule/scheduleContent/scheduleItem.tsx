@@ -9,6 +9,7 @@ import {
   ContextMenuTrigger
 } from '@/ui/context-menu'
 import { useSortable } from '@dnd-kit/sortable'
+import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { ScheduleItem } from '@prisma/client'
 import { Radio, Trash2 } from 'lucide-react'
@@ -19,14 +20,32 @@ type Props = {
   selectedItem?: ScheduleItem | null
   item: ScheduleItem
   groupId?: string
+  insertPosition?: number
+  isLast?: boolean
 }
 
-export default function ScheduleItemComponent({
-  selectedItem,
+export function ScheduleItemComponent({
   setSelectedItem,
+  selectedItem,
   item,
-  groupId
+  groupId,
+  insertPosition,
+  isLast
 }: Props) {
+  // Drop zone para inserción
+  const { active } = useDndContext()
+  // Detectar si se está arrastrando un elemento externo (de biblioteca)
+  const isExternalDrag =
+    active?.data.current?.accessData !== undefined && !active?.data.current?.item
+  const { setNodeRef: setDropNodeRef, isOver } = useDroppable({
+    id: `insert-position-${insertPosition}`,
+    data: {
+      type: 'insertion-zone',
+      position: insertPosition,
+      isLast
+    },
+    disabled: !isExternalDrag
+  })
   const { getScheduleItemIcon, getScheduleItemLabel } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
   const [label, setLabel] = useState('')
@@ -54,7 +73,7 @@ export default function ScheduleItemComponent({
       }
     }
   }, [item, groupId, scheduleGroupTemplates])
-  // Vista normal para items
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { type: 'item', item: item }
@@ -69,18 +88,64 @@ export default function ScheduleItemComponent({
   if (item.type === 'GROUP') {
     return (
       <div
-        className="rounded-t-md border font-semibold text-base px-4 py-2 select-none cursor-grab"
+        className="rounded-t-md"
+        ref={(node) => {
+          setNodeRef(node)
+          setDropNodeRef(node)
+        }}
         style={{
           ...style,
-          background: groupTemplate?.color || '#e0e0e0',
-          color: getContrastTextColor(groupTemplate?.color || '#e0e0e0'),
-          opacity: isDragging ? 0.5 : 0.95
+          background: groupTemplate?.color + 33 || '#e0e0e0'
         }}
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
       >
-        {groupTemplate?.name || 'Grupo'}
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              className={cn(
+                'rounded-t-md border font-semibold text-base px-4 py-2 select-none cursor-grab',
+                {
+                  'cursor-grabbing': isDragging,
+                  'cursor-grab': !isDragging,
+                  'shadow-lg border-primary/50 bg-primary/5': isDragging
+                }
+              )}
+              style={{
+                background: groupTemplate?.color || '#e0e0e0',
+                color: getContrastTextColor(groupTemplate?.color || '#e0e0e0'),
+                opacity: isDragging ? 0.5 : 0.95,
+                borderColor: isOver ? '#3b82f6' : undefined,
+                boxShadow: isOver ? '0 0 0 2px #3b82f6' : undefined
+              }}
+              {...attributes}
+              {...listeners}
+            >
+              <span>{groupTemplate?.name || 'Grupo'}</span>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem>
+              <Trash2 className="text-destructive size-4" />
+              Eliminar grupo
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+        <div
+          className={cn(
+            'w-full flex items-center justify-center transition-all duration-200 h-2.5 ',
+            {
+              'bg-primary/20 border-2 border-dashed border-primary rounded h-8 my-1':
+                isOver && isExternalDrag
+            }
+          )}
+        >
+          <span
+            className={cn('text-primary text-sm font-medium opacity-0', {
+              'opacity-100': isOver && isExternalDrag
+            })}
+          >
+            Soltar para insertar aquí
+          </span>
+        </div>
       </div>
     )
   }
@@ -88,10 +153,14 @@ export default function ScheduleItemComponent({
   return (
     <div
       style={{
-        background: belongsToGroup && groupColor ? groupColor + '33' : undefined,
+        background: belongsToGroup && groupColor && !isDragging ? groupColor + '33' : undefined,
         ...style
       }}
       className={cn({})}
+      ref={(node) => {
+        setNodeRef(node)
+        setDropNodeRef(node)
+      }}
     >
       <ContextMenu>
         <ContextMenuTrigger asChild>
@@ -103,7 +172,7 @@ export default function ScheduleItemComponent({
                 'cursor-grabbing': isDragging,
                 'cursor-grab': !isDragging,
                 'shadow-lg border-primary/50 bg-primary/5': isDragging,
-                'ml-4 mr-2': belongsToGroup
+                'ml-4 mr-2': belongsToGroup && !isDragging
               }
             )}
             onClick={(e) => {
@@ -111,7 +180,6 @@ export default function ScheduleItemComponent({
               e.preventDefault()
             }}
             onDoubleClick={() => showItemOnLiveScreen(item, 0)}
-            ref={setNodeRef}
             {...attributes}
             {...listeners}
           >
@@ -136,6 +204,17 @@ export default function ScheduleItemComponent({
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
+      <div
+        className={cn(
+          'w-full flex items-center justify-center transition-all duration-200 h-2.5 opacity-0',
+          {
+            'bg-primary/20 border-2 border-dashed border-primary rounded h-8 my-1 opacity-100':
+              isOver && isExternalDrag
+          }
+        )}
+      >
+        <span className="text-primary text-sm font-medium">Soltar para insertar aquí</span>
+      </div>
     </div>
   )
 }

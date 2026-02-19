@@ -50,12 +50,18 @@ export default function InsertionDropZone({
     <div
       ref={setNodeRef}
       id={`insert-position-${position}`}
-      className={cn('w-full flex items-center justify-center transition-all duration-200 h-2', {
-        'bg-primary/20 border-2 border-dashed border-primary rounded h-6 mb-0.5 ': isOver
-      })}
+      className={cn(
+        'w-full flex items-center justify-center transition-all duration-200 h-2.5 opacity-0',
+        {
+          'bg-primary/20 border-2 border-dashed border-primary rounded h-8 mb-0.5 opacity-100':
+            isOver
+        }
+      )}
       style={{
         background: groupColor ? groupColor + '33' : undefined
       }}
-    ></div>
+    >
+      <span className="text-primary text-sm font-medium">Soltar para insertar aquí</span>
+    </div>
   )
 }
