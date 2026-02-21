@@ -103,6 +103,12 @@ export function useKeyboardShortcuts(
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey
 
+      // Si el foco está en un input, textarea o contenteditable, no interceptar Delete/Backspace
+      const active = document.activeElement as HTMLElement | null
+      const isTextInput =
+        active &&
+        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)
+
       // Copiar (Ctrl/Cmd + C)
       if (cmdOrCtrl && e.key === 'c' && shortcuts.onCopy) {
         e.preventDefault()
@@ -133,9 +139,11 @@ export function useKeyboardShortcuts(
 
       // Eliminar (Delete o Backspace)
       if ((e.key === 'Delete' || e.key === 'Backspace') && shortcuts.onDelete) {
-        e.preventDefault()
-        shortcuts.onDelete()
-        return
+        if (!isTextInput) {
+          e.preventDefault()
+          shortcuts.onDelete()
+          return
+        }
       }
 
       // Navegación con flechas (con soporte para Shift+Flecha)

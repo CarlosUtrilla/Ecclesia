@@ -37,6 +37,11 @@ type IScheduleContext = {
   reorderInMainSchedule: (activeId: string, overId: string) => void
   saveScheduleChanges: () => Promise<void>
   itemsSortableIndex: string[]
+  loadSchedule: (scheduleId: number) => Promise<void>
+  createTemporarySchedule: () => void
+  isTemporary: boolean
+  formData: ScheduleSchemaType
+  cleanForm: () => void
 }
 
 export type ContentScreen = {

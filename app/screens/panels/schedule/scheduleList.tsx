@@ -1,17 +1,13 @@
-import { useState } from 'react'
 import { Button } from '@/ui/button'
-import { Input } from '@/ui/input'
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/ui/context-menu'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog'
-import { Label } from '@/ui/label'
 import { Calendar, Edit, Plus, Trash2, Clock } from 'lucide-react'
 import { useSchedule } from '@/contexts/ScheduleContext'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -28,53 +24,17 @@ type ScheduleListProps = {
 }
 
 export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
-  const queryClient = useQueryClient()
-  const { currentSchedule, loadSchedule, createTemporarySchedule, isTemporary } = useSchedule()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null)
-  const [formData, setFormData] = useState({
-    title: '',
-    date: new Date().toISOString().split('T')[0],
-    hasDate: true
-  })
+  const { createTemporarySchedule, isTemporary, formData, cleanForm, loadSchedule } = useSchedule()
 
   // Obtener lista de schedules
-  const { data: schedules = [] } = useQuery({
+  const { data: schedules = [], refetch } = useQuery({
     queryKey: ['schedules'],
     queryFn: async () => {
       const data = await window.api.schedule.getAllSchedules()
       return data.map((s: any) => ({
         ...s,
-        date: new Date(s.date)
+        date: s.date ? new Date(s.date) : null
       }))
-    }
-  })
-
-  // Crear schedule
-  const createMutation = useMutation({
-    mutationFn: async (data: { title: string; date?: Date }) => {
-      return await window.api.schedule.createSchedule(data.title, data.date)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedules'] })
-      setIsDialogOpen(false)
-      resetForm()
-    }
-  })
-
-  // Actualizar schedule
-  const updateMutation = useMutation({
-    mutationFn: async (data: { id: number; title: string; date?: Date }) => {
-      return await window.api.schedule.updateSchedule(data.id, {
-        title: data.title,
-        date: data.date
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedules'] })
-      setIsDialogOpen(false)
-      resetForm()
-      setEditingSchedule(null)
     }
   })
 
@@ -84,50 +44,21 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
       return await window.api.schedule.deleteSchedule(id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedules'] })
+      refetch()
     }
   })
 
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      date: new Date().toISOString().split('T')[0],
-      hasDate: true
-    })
-  }
-
   const handleCreate = () => {
-    setEditingSchedule(null)
-    resetForm()
-    setIsDialogOpen(true)
+    cleanForm()
   }
 
   const handleEdit = (schedule: Schedule) => {
-    setEditingSchedule(schedule)
-    setFormData({
-      title: schedule.title,
-      date: schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : '',
-      hasDate: !!schedule.date
-    })
-    setIsDialogOpen(true)
+    loadSchedule(schedule.id)
   }
 
   const handleDelete = (id: number) => {
     if (window.confirm('¿Estás seguro de eliminar este schedule?')) {
       deleteMutation.mutate(id)
-    }
-  }
-
-  const handleSubmit = () => {
-    const submitData = {
-      title: formData.title,
-      date: formData.hasDate ? new Date(formData.date) : undefined
-    }
-
-    if (editingSchedule) {
-      updateMutation.mutate({ id: editingSchedule.id, ...submitData })
-    } else {
-      createMutation.mutate(submitData)
     }
   }
 
@@ -158,7 +89,7 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
       {/* Lista de schedules */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {/* Sesión temporal si está activa */}
-        {isTemporary && currentSchedule && (
+        {isTemporary && formData && (
           <div
             className="p-2 rounded-md bg-amber-100 dark:bg-amber-900/20 border-2 border-amber-500 cursor-pointer"
             role="button"
@@ -175,7 +106,7 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3 text-amber-600" />
-                  <span className="text-xs font-medium truncate">{currentSchedule.title}</span>
+                  <span className="text-xs font-medium truncate">{formData.title}</span>
                 </div>
                 <span className="text-xs text-muted-foreground">Sin guardar</span>
               </div>
@@ -188,20 +119,20 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
             <ContextMenuTrigger>
               <div
                 className={`p-2 rounded-md cursor-pointer transition-colors hover:bg-muted ${
-                  currentSchedule?.id === schedule.id && !isTemporary
+                  formData?.id === schedule.id && !isTemporary
                     ? 'bg-primary/10 border border-primary'
                     : 'bg-background border border-transparent'
                 }`}
                 role="button"
                 tabIndex={0}
-                onClick={() => {
-                  loadSchedule(schedule.id)
+                onClick={async () => {
+                  await loadSchedule(schedule.id)
                   onScheduleSelect()
                 }}
-                onKeyDown={(e) => {
+                onKeyDown={async (e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    loadSchedule(schedule.id)
+                    await loadSchedule(schedule.id)
                     onScheduleSelect()
                   }
                 }}
@@ -235,53 +166,6 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
           </ContextMenu>
         ))}
       </div>
-
-      {/* Dialog para crear/editar */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingSchedule ? 'Editar Schedule' : 'Nuevo Schedule'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="title">Nombre</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Ej: Culto Dominical"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="hasDate"
-                  checked={formData.hasDate}
-                  onChange={(e) => setFormData({ ...formData, hasDate: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="hasDate">Asignar fecha</Label>
-              </div>
-              {formData.hasDate && (
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSubmit} disabled={!formData.title.trim()}>
-              {editingSchedule ? 'Guardar' : 'Crear'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

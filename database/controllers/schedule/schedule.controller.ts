@@ -10,8 +10,8 @@ export class ScheduleController {
     return this.scheduleService.getActualSchedule()
   }
 
-  createSchedule(name: string, dateFrom?: Date, dateTo?: Date) {
-    return this.scheduleService.createNewSchedule(name, dateFrom, dateTo)
+  createSchedule(name: string, dateFrom?: Date, dateTo?: Date, items?: AddScheduleItemDto[]) {
+    return this.scheduleService.createNewSchedule(name, dateFrom, dateTo, items)
   }
 
   getAllSchedules() {
@@ -22,7 +22,7 @@ export class ScheduleController {
     return this.scheduleService.getSchedule(id)
   }
 
-  updateSchedule(id: number, data: { title?: string; date?: Date }) {
+  updateSchedule(id: number, data: { title?: string; date?: Date; items?: AddScheduleItemDto[] }) {
     return this.scheduleService.updateSchedule(id, data)
   }
 

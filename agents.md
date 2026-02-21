@@ -71,7 +71,6 @@ app/main.tsx (entry point React)
           -> ScreenSizeProvider     (calcula tamanos de pantalla)
             -> Routes
               "/" -> ScheduleProvider (gestiona cronograma activo)
-                      -> LiveProvider (sincroniza pantallas en vivo)
                       -> DragAndDropSchedule (drag & drop con dnd-kit)
                       -> Layout con ResizablePanels:
                           [SchedulePanel | LivePanels | LiveScreens]
@@ -81,7 +80,6 @@ app/main.tsx (entry point React)
               "/tagSongEditor" -> TagSongsEditor (ventana separada)
               "/live-screen/:displayId" -> LiveScreen (ventana de proyeccion)
 ```
-
 ## Flujo de datos (IPC)
 
 ```
@@ -90,11 +88,8 @@ React Component
     -> ipcRenderer.invoke('namespace.method', args)
       -> ipcMain.handle() en main process
         -> Controller.method()
-          -> Service (Prisma ORM)
-            -> SQLite (prisma/dev.db)
-```
-
-## Convenciones globales del proyecto
+              - Todos los fetches de datos deben hacerse con `useQuery`.
+              - Si se repite el uso de la misma `queryKey` en varios componentes, crear un hook en la carpeta `app/hooks/` para centralizar la lógica.
 
 ### Idioma
 

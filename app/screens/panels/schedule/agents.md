@@ -1,4 +1,11 @@
 # Schedule & Live Agent
+#
+## Cambios recientes
+
+- Los métodos `createNewSchedule` y `updateSchedule` ahora aceptan un array de items (`AddScheduleItemDto[]`) al crear o actualizar un cronograma.
+- Los DTOs `CreateScheduleDto` y `UpdateScheduleDto` permiten incluir items opcionales.
+- El controller fue actualizado para aceptar estos items y pasarlos al service.
+
 
 > **Agent router:** [`/agents.md`](../../../../agents.md)
 
@@ -38,6 +45,8 @@ SchedulePanel (index.tsx)
         - Lista de items (SortableContext de dnd-kit)
         - Cada item es ScheduleItemComponent (sortable + drop zone)
         - InsertionDropZone entre items para insertar desde biblioteca
+  - Layout principal usa paneles resizables (`ResizablePanelGroup` y `ResizablePanel`) para adaptar el espacio entre cronograma, pantallas en vivo y biblioteca.
+  - El input de nombre del cronograma crece automáticamente al ancho del panel.
         - EmptySchedule cuando no hay items
         - PreviewSchedule al seleccionar un item (parte inferior)
 ```

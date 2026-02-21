@@ -20,12 +20,27 @@ export class ScheduleService {
       }
     })
   }
-  createNewSchedule(name: string, dateFrom?: Date, dateTo?: Date) {
+  createNewSchedule(name: string, dateFrom?: Date, dateTo?: Date, items?: AddScheduleItemDto[]) {
     return this.prisma.schedule.create({
       data: {
         title: name,
         dateFrom,
-        dateTo
+        dateTo,
+        items:
+          items && items.length > 0
+            ? {
+                create: items.map((item) => {
+                  const { scheduleId, ...rest } = item
+                  return {
+                    ...rest,
+                    id: crypto.randomUUID()
+                  }
+                })
+              }
+            : undefined
+      },
+      include: {
+        items: true
       }
     })
   }
@@ -40,13 +55,40 @@ export class ScheduleService {
   }
 
   getAllSchedules() {
-    return this.prisma.schedule.findMany({})
+    return this.prisma.schedule.findMany({
+      include: {
+        items: true
+      }
+    })
   }
 
-  updateSchedule(id: number, data: { title?: string; date?: Date }) {
-    return this.prisma.schedule.update({
-      where: { id },
-      data
+  updateSchedule(id: number, data: { title?: string; date?: Date; items?: AddScheduleItemDto[] }) {
+    const { items, ...rest } = data
+    return this.prisma.$transaction(async (prisma) => {
+      // Eliminar todos los items actuales del schedule
+      await prisma.scheduleItem.deleteMany({ where: { scheduleId: id } })
+      // Actualizar el schedule y crear los nuevos items
+      return prisma.schedule.update({
+        where: { id },
+        data: {
+          ...rest,
+          items:
+            items && items.length > 0
+              ? {
+                  create: items.map((item) => {
+                    const { scheduleId, ...rest } = item
+                    return {
+                      ...rest,
+                      id: crypto.randomUUID()
+                    }
+                  })
+                }
+              : undefined
+        },
+        include: {
+          items: true
+        }
+      })
     })
   }
 
@@ -61,18 +103,24 @@ export class ScheduleService {
       where: { id: scheduleId },
       data: {
         items: {
-          create: itemData
+          create: (() => {
+            const { scheduleId, ...rest } = itemData
+            return {
+              ...rest,
+              id: crypto.randomUUID()
+            }
+          })()
         }
       }
     })
   }
 
-  async deleteItemFromSchedule(scheduleId: number, itemId: number[]) {
+  async deleteItemFromSchedule(_scheduleId: number, itemId: number[]) {
     // Eliminar los items especificados
     await this.prisma.scheduleItem.deleteMany({
       where: {
         id: {
-          in: itemId
+          in: itemId.map(String)
         }
       }
     })

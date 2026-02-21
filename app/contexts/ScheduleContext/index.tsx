@@ -121,21 +121,71 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   const saveScheduleChanges = async () => {
     try {
       const scheduleData = form.getValues()
+      if (!scheduleData.title || scheduleData.title.trim() === '') {
+        form.setError('title', {
+          type: 'manual',
+          message: 'Debes ingresar un nombre para el cronograma.'
+        })
+        return
+      }
       if (scheduleData.id) {
-        // TODO: Implementar updateSchedule cuando esté disponible en la API
-        console.log('Saving schedule changes:', scheduleData)
+        // Actualizar schedule existente (incluyendo items)
+        await window.api.schedule.updateSchedule(scheduleData.id, {
+          title: scheduleData.title,
+          date: scheduleData.dateFrom || undefined,
+          items: scheduleData.items || []
+        })
       } else {
-        // TODO: Implementar createSchedule cuando esté disponible en la API
-        console.log('Creating new schedule:', scheduleData)
+        // Crear nuevo schedule con items
+        const created = await window.api.schedule.createSchedule(
+          scheduleData.title,
+          scheduleData.dateFrom || undefined,
+          scheduleData.dateTo || undefined,
+          scheduleData.items || []
+        )
+        // Asignar el id al form
+        form.setValue('id', created.id)
       }
       // Reset dirty state
-      // form.reset(scheduleData)
+      form.reset(form.getValues())
     } catch (error) {
       console.error('Error saving schedule changes:', error)
     }
   }
 
   const itemsSortableIndex = currentSchedule.map((i) => i.id)
+
+  // Método para cargar un schedule desde la base de datos
+  const loadSchedule = async (scheduleId: number) => {
+    const schedule = await window.api.schedule.getSchedule(scheduleId)
+    if (schedule) {
+      form.reset(schedule)
+    }
+  }
+
+  // Estado y función para sesión temporal
+  const [isTemporary, setIsTemporary] = useState(false)
+  const createTemporarySchedule = () => {
+    form.reset({
+      id: null,
+      title: '',
+      items: [],
+      dateFrom: null,
+      dateTo: null
+    })
+    setIsTemporary(true)
+  }
+
+  const cleanForm = () => {
+    form.reset({
+      id: null,
+      title: '',
+      items: [],
+      dateFrom: null,
+      dateTo: null
+    })
+    setIsTemporary(false)
+  }
 
   return (
     <ScheduleContext.Provider
@@ -156,7 +206,12 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         reorderItems,
         reorderInMainSchedule,
         saveScheduleChanges,
-        itemsSortableIndex
+        itemsSortableIndex,
+        loadSchedule,
+        createTemporarySchedule,
+        isTemporary,
+        formData,
+        cleanForm
       }}
     >
       <LiveProvider>

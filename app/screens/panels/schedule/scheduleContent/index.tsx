@@ -97,25 +97,45 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
         tabIndex={0}
         style={{ outline: 'none' }}
       >
-        {/* Header con info del schedule */}
-        <div className="px-4 py-3 border-b bg-muted/20 flex items-center gap-2">
-          <div>
-            <h2 className="font-medium">{form.getValues('title') || 'Sin título'}</h2>
-          </div>
-          <GroupTemplateManager>
-            <Button size="sm" className="ml-auto">
-              Grupos
+        {/* Header editable del schedule */}
+        <div className="px-4 py-3 border-b bg-muted/20 flex flex-col gap-2">
+          {/* Input y botón Guardar en la misma fila */}
+          <div className="flex items-center gap-2 w-full max-w-xl">
+            <input
+              className={cn(
+                'font-medium text-base bg-background border rounded-md outline-none focus:ring-2 focus:ring-primary px-2 py-0.5 flex-1 transition-all',
+                form.formState.errors.title ? 'border-destructive' : 'border-muted/40'
+              )}
+              value={form.getValues('title') || ''}
+              onChange={(e) => {
+                form.clearErrors('title')
+                form.setValue('title', e.target.value, { shouldDirty: true })
+              }}
+              placeholder="Sesión Temporal"
+              maxLength={48}
+              aria-label="Nombre del cronograma"
+              style={{ minWidth: 180, height: '1.6rem' }}
+            />
+            <Button size="sm" disabled={!pendingSave} onClick={saveScheduleChanges}>
+              <Save className="h-4 w-4" />
+              Guardar
             </Button>
-          </GroupTemplateManager>
-
-          <Button size="sm" disabled={!pendingSave} onClick={saveScheduleChanges}>
-            <Save className="h-4 w-4" />
-            Guardar
-          </Button>
-          <Button size="sm" onClick={onBack}>
-            <CalendarSearch className="h-4 w-4" />
-            Cronogramas
-          </Button>
+          </div>
+          {form.formState.errors.title && (
+            <span className="text-destructive text-xs mt-1">
+              {form.formState.errors.title.message as string}
+            </span>
+          )}
+          {/* Botones secundarios debajo */}
+          <div className="flex items-center gap-2 flex-wrap justify-end mt-1">
+            <GroupTemplateManager>
+              <Button size="sm">Grupos</Button>
+            </GroupTemplateManager>
+            <Button size="sm" onClick={onBack}>
+              <CalendarSearch className="h-4 w-4" />
+              Cronogramas
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3" ref={setNodeRef} data-schedule-container="true">
