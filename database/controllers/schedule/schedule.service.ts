@@ -29,13 +29,10 @@ export class ScheduleService {
         items:
           items && items.length > 0
             ? {
-                create: items.map((item) => {
-                  const { scheduleId, ...rest } = item
-                  return {
-                    ...rest,
-                    id: crypto.randomUUID()
-                  }
-                })
+                create: items.map((item) => ({
+                  ...item,
+                  id: crypto.randomUUID()
+                }))
               }
             : undefined
       },
@@ -75,13 +72,10 @@ export class ScheduleService {
           items:
             items && items.length > 0
               ? {
-                  create: items.map((item) => {
-                    const { scheduleId, ...rest } = item
-                    return {
-                      ...rest,
-                      id: crypto.randomUUID()
-                    }
-                  })
+                  create: items.map((item) => ({
+                    ...item,
+                    id: crypto.randomUUID()
+                  }))
                 }
               : undefined
         },
@@ -103,13 +97,10 @@ export class ScheduleService {
       where: { id: scheduleId },
       data: {
         items: {
-          create: (() => {
-            const { scheduleId, ...rest } = itemData
-            return {
-              ...rest,
-              id: crypto.randomUUID()
-            }
-          })()
+          create: {
+            ...itemData,
+            id: crypto.randomUUID()
+          }
         }
       }
     })
