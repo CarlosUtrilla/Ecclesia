@@ -149,7 +149,13 @@ El `DragAndDropSchedule` (en ScheduleContext) detecta estos drags y los inserta 
 
 ## Agents relacionados
 
-- Datos de canciones/medios/biblia -> `/prisma/agents.md` y `/database/agents.md`
-- Drag & drop al cronograma -> `/app/screens/panels/schedule/agents.md`
-- Contexts consumidos -> `/app/contexts/agents.md`
-- Componentes UI compartidos -> `/app/ui/agents.md`
+
+### ThemesSidePanel (`themesSidePanel.tsx`)
+
+- Panel lateral compacto, ubicado a la izquierda de la biblioteca.
+- Permite seleccionar, editar, eliminar y añadir temas rápidamente.
+- Siempre visible junto al cronograma y la biblioteca, no compite visualmente.
+- Usa `PresentationView` para previews.
+- Acciones: seleccionar tema (aplica al schedule), editar, eliminar, añadir.
+- Context menu para editar/eliminar.
+- Accesibilidad: todos los previews son botones accesibles.

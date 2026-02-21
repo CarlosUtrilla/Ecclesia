@@ -10,50 +10,67 @@ import {
 } from '@/ui/context-menu'
 import { Edit, Plus, Trash2 } from 'lucide-react'
 
-export default function ThemesPanel() {
+// Nuevo diseño: panel lateral compacto, no compite visualmente
+import { useState } from 'react'
+import { Input } from '@/ui/input'
+
+export function ThemesSidePanel() {
   const { themes, refetchThemes } = useThemes()
   const { selectedTheme, setSelectedTheme } = useSchedule()
+  const [search, setSearch] = useState('')
 
   const handleEditarTema = (themeId: number) => {
     window.windowAPI.openThemeWindow(themeId)
   }
 
   const handleEliminarTema = (themeId: number) => {
-    // preguntar confirmación
     const confirmed = window.confirm('¿Estás seguro de que deseas eliminar este tema?')
     if (!confirmed) return
-
     window.api.themes.deleteTheme(themeId).then(() => {
       refetchThemes()
     })
   }
+
+  // Filtrar temas por nombre
+  const filteredThemes = themes.filter((theme) =>
+    theme.name?.toLowerCase().includes(search.toLowerCase())
+  )
+
   return (
-    <div className="border-t">
-      <div className="bg-muted/40 px-3 py-2 border-b flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Themes</h2>
-        <div>
+    <aside
+      className="bg-muted/30 border-r border-muted/40 h-full flex flex-col items-center py-2 px-1 gap-2 min-w-[72px] max-w-44 shadow-sm"
+      aria-label="Panel de temas"
+    >
+      <div className="flex flex-col items-center w-full mb-2 px-2">
+        <div className="flex items-center gap-1 w-full justify-between">
+          <span className="text-xs font-semibold text-muted-foreground select-none">Temas</span>
           <Button
-            size="sm"
-            className="text-xs h-7"
+            size="icon"
+            variant="ghost"
+            className="text-muted-foreground hover:text-primary"
+            title="Añadir tema"
             onClick={() => window.windowAPI.openThemeWindow()}
           >
-            <Plus /> Add Theme
+            <Plus className="w-4 h-4" />
           </Button>
         </div>
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar tema..."
+          className="w-full h-7 text-xs px-2 border-muted/40 bg-background"
+        />
       </div>
-      <div className="grid grid-cols-2 gap-2 flex-wrap overflow-y-auto p-3 max-h-max">
-        {themes.map((theme) => (
+      <div className="flex flex-col gap-2 overflow-y-auto w-full px-2">
+        {filteredThemes.map((theme) => (
           <ContextMenu key={theme.id}>
-            <ContextMenuTrigger className="rounded-md overflow-hidden">
+            <ContextMenuTrigger className="rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary">
               <PresentationView
                 onClick={() => setSelectedTheme(theme)}
                 selected={selectedTheme?.id === theme.id}
                 theme={theme}
-                items={[
-                  {
-                    text: 'Preview Text'
-                  }
-                ]}
+                items={[{ text: 'Preview Text' }]}
+                className={`border ${selectedTheme?.id === theme.id ? 'border-primary' : 'border-muted/40'} bg-background cursor-pointer transition-all`}
               />
             </ContextMenuTrigger>
             <ContextMenuContent>
@@ -67,6 +84,6 @@ export default function ThemesPanel() {
           </ContextMenu>
         ))}
       </div>
-    </div>
+    </aside>
   )
 }

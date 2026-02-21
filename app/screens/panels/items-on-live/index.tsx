@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Radio } from 'lucide-react'
 import { RenderSongLyrics } from './components/RenderSongLyrics'
 import RenderBibleVerses from './components/RenderBibleVerses'
-import ThemesPanel from './components/themes'
 export default function LivePanel() {
   const { itemOnLive, getScheduleItemContentScreen } = useSchedule()
   const { data } = useQuery({
@@ -58,7 +57,6 @@ export default function LivePanel() {
         </div>
         {data?.content ? renderContent() : null}
       </div>
-      <ThemesPanel />
     </div>
   )
 }
