@@ -13,7 +13,7 @@ export default function LiveScreens() {
     <div>
       <div className="bg-muted/50 border-b py-2 px-4 flex justify-between items-center">
         <span>Pantallas en vivo</span>
-        <div>
+        <div className="flex gap-2">
           <Button
             onClick={() => setShowLiveScreen(!showLiveScreen)}
             variant={showLiveScreen ? 'default' : 'outline'}
@@ -25,6 +25,13 @@ export default function LiveScreens() {
               })}
             />{' '}
             Pantalla pública
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.displayAPI.showNewDisplayConnected()}
+          >
+            Gestionar pantallas
           </Button>
         </div>
       </div>

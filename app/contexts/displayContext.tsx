@@ -33,7 +33,8 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
       )
       if (screenInUse.length !== displayInfo.length) {
         console.log('Some displays are not configured in selected screens')
-        setOpenNewDisplay(true)
+        // Abrir ventana de gestión de displays desde el context
+        window.displayAPI.showNewDisplayConnected()
       }
       const liveScreens: DisplayWithUsage[] = screenInUse
         .map((display) => {
@@ -83,6 +84,16 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
   const refresh = () => {
     fetchDisplays()
   }
+  useEffect(() => {
+    // Listener para abrir el dialog manualmente desde Electron
+    const unsub = window.electron.ipcRenderer.on('open-new-display-connected', () => {
+      setOpenNewDisplay(true)
+    })
+    return () => {
+      unsub()
+    }
+  }, [])
+
   return (
     <DisplaysContext.Provider value={{ displays, refresh, mainDisplay }}>
       <NewDisplayConected open={openNewDisplay} onOpenChange={setOpenNewDisplay} />

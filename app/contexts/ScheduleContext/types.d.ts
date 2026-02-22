@@ -15,6 +15,8 @@ export type ILiveContext = {
   setShowLiveScreen: (show: boolean) => void
   contentScreen?: ContentScreen | null
   showItemOnLiveScreen: (item: ScheduleItem, index?: number) => Promise<void>
+  sendLiveMediaState: (state: LiveMediaState) => void
+  liveScreensReady: boolean
 }
 
 export type AddItemToSchedule = { type: ScheduleItemType; accessData: any; insertPosition?: number }

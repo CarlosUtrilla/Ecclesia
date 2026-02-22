@@ -46,6 +46,7 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     if (selectedItem) {
       const fetchContent = async () => {
         const content = await getScheduleItemContentScreen(selectedItem)
+        console.log(content)
         setItemContent(content.content)
       }
       fetchContent()
@@ -86,6 +87,8 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     formState: { isDirty }
   } = form
   const pendingSave = isDirty
+
+  console.log(itemContent)
 
   return (
     <>

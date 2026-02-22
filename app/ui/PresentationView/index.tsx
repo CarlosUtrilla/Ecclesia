@@ -13,6 +13,7 @@ import { AnimatedText } from './components/AnimatedText'
 
 import useTagSongs from '@/hooks/useTagSongs'
 import { useResizeObserver } from 'usehooks-ts'
+import MediaRender from './components/MediaRender'
 
 // Tipos para backgrounds
 type MediaType = 'image' | 'video' | 'color' | 'gradient'
@@ -44,7 +45,7 @@ export function PresentationView({
   })
   const screenSize = useScreenSize(height || 0, displayId)
   // Estados para manejar el background
-  const [mediaType, setMediaType] = useState<MediaType>('color')
+  const [backgroundType, setBackgroundType] = useState<MediaType>('color')
   const [videoError, setVideoError] = useState(false)
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
@@ -62,11 +63,11 @@ export function PresentationView({
       setBackgroundUrl(background)
       setThumbnailUrl(null)
       setFallbackUrl(null)
-      setMediaType(getMediaType(background))
+      setBackgroundType(getMediaType(background))
       return
     }
 
-    setMediaType(backgroundMedia.type === 'VIDEO' ? 'video' : 'image')
+    setBackgroundType(backgroundMedia.type === 'VIDEO' ? 'video' : 'image')
     setBackgroundUrl(buildMediaUrl(backgroundMedia.filePath))
 
     if (backgroundMedia.type === 'VIDEO' && backgroundMedia.thumbnail) {
@@ -133,10 +134,11 @@ export function PresentationView({
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative' as const,
-      background: mediaType === 'color' || mediaType === 'gradient' ? background : 'transparent',
+      background:
+        backgroundType === 'color' || backgroundType === 'gradient' ? background : 'transparent',
       ...style
     }),
-    [screenSize.aspectRatio, background, mediaType]
+    [screenSize.aspectRatio, background, backgroundType]
   )
 
   const tagSong = useMemo(() => {
@@ -174,21 +176,30 @@ export function PresentationView({
       >
         {/* Fondos con transición cross-fade */}
         <AnimatePresence>
-          {mediaType === 'image' && backgroundUrl && <BackgroundImage url={backgroundUrl} />}
+          {currentItem.resourceType === 'MEDIA' ? (
+            <MediaRender currentItem={currentItem} live={live} />
+          ) : (
+            <>
+              {/* Imagen: siempre mostrar */}
+              {backgroundType === 'image' && backgroundUrl && (
+                <BackgroundImage url={backgroundUrl} />
+              )}
 
-          {mediaType === 'video' && !live && thumbnailUrl && (
-            <BackgroundVideoThumbnail thumbnailUrl={thumbnailUrl} />
-          )}
-
-          {mediaType === 'video' && live && (
-            <BackgroundVideoLive
-              videoUrl={backgroundUrl}
-              fallbackUrl={fallbackUrl}
-              isVideoLoaded={videoLoaded}
-              hasError={videoError}
-              onVideoLoaded={() => setVideoLoaded(true)}
-              onVideoError={() => setVideoError(true)}
-            />
+              {/* Video: mostrar thumbnail si !live, video si live */}
+              {backgroundType === 'video' && !live && thumbnailUrl && (
+                <BackgroundVideoThumbnail thumbnailUrl={thumbnailUrl} />
+              )}
+              {backgroundType === 'video' && live && (
+                <BackgroundVideoLive
+                  videoUrl={backgroundUrl}
+                  fallbackUrl={fallbackUrl}
+                  isVideoLoaded={videoLoaded}
+                  hasError={videoError}
+                  onVideoLoaded={() => setVideoLoaded(true)}
+                  onVideoError={() => setVideoError(true)}
+                />
+              )}
+            </>
           )}
         </AnimatePresence>
 

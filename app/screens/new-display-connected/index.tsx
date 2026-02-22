@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/dialog'
 interface DisplayConfig {
   display: DisplayInfo
   selectedRole?: ScreenRol | 'NO_USE'
+  configured?: boolean
+  id?: number // id del registro en DB
 }
 
 export default function NewDisplayConected({
@@ -26,9 +28,17 @@ export default function NewDisplayConected({
     try {
       const savedScreens = await window.api.selectedScreens.getAllSelectedScreens()
       const displays = await window.displayAPI.getDisplays()
-      const newDisplays = displays.filter((d) => !savedScreens.find((ss) => ss.screenId === d.id))
-
-      setDisplayConfigs(newDisplays.map((display) => ({ display, selectedRole: 'NO_USE' })))
+      // Para cada pantalla detectada, buscar si ya está configurada y mostrar su rol
+      const configs = displays.map((display) => {
+        const found = savedScreens.find((ss) => ss.screenId === display.id)
+        return {
+          display,
+          selectedRole: (found?.rol as ScreenRol) ?? 'NO_USE',
+          configured: !!found,
+          id: found?.id
+        }
+      })
+      setDisplayConfigs(configs)
     } catch (error) {
       console.error('Error fetching displays:', error)
     }
@@ -51,19 +61,34 @@ export default function NewDisplayConected({
 
     setSaving(true)
     try {
-      const createPromises = configsToSave.map((config) =>
-        window.api.selectedScreens.createSelectedScreen({
+      const savePromises = configsToSave.map((config) => {
+        const screenData = {
           screenId: config.display.id,
           screenName: config.display.label,
-          rol: config.selectedRole === 'NO_USE' ? null : config.selectedRole
-        })
-      )
+          // Para update: solo enviar undefined si es NO_USE
+          rol: config.selectedRole === 'NO_USE' ? undefined : config.selectedRole
+        }
+        if (config.configured && config.id) {
+          // Actualizar pantalla existente (requiere id)
+          return window.api.selectedScreens.updateSelectedScreen({
+            id: config.id,
+            ...screenData
+          })
+        } else {
+          // Crear nueva pantalla
+          // Para create: puede ser null
+          return window.api.selectedScreens.createSelectedScreen({
+            ...screenData,
+            rol: config.selectedRole === 'NO_USE' ? null : config.selectedRole
+          })
+        }
+      })
 
-      await Promise.all(createPromises)
+      await Promise.all(savePromises)
 
-      // Refresh the list after saving
+      // Refrescar la lista después de guardar
       await fetchDisplays()
-      window.windowAPI.closeCurrentWindow()
+      onOpenChange(false)
     } catch (error) {
       console.error('Error saving screens:', error)
     } finally {

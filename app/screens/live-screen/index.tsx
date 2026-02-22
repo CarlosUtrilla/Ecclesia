@@ -12,10 +12,13 @@ export default function LiveScreen() {
   const [itemIndex, setItemIndex] = useState(0)
   const [content, setContent] = useState<ContentScreen | null>(null)
   const [themeKey, setThemeKey] = useState(0)
+
   useEffect(() => {
+    console.log('LiveScreen mounted, setting up IPC listeners')
     const unsuscribeItems = window.electron.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
+        console.log('Received live screen update:', data)
         setItemIndex(data.itemIndex)
         setContent(data.contentScreen)
       }
@@ -23,6 +26,7 @@ export default function LiveScreen() {
     const unsuscribeThemes = window.electron.ipcRenderer.on(
       'liveScreen-update-theme',
       (_, data: ThemeWithMedia) => {
+        console.log('Received live screen theme update:', data)
         setSelectedTheme(data)
         setThemeKey((prev) => prev + 1)
       }

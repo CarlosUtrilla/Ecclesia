@@ -1,3 +1,4 @@
+import { initializeLiveMediaManager } from './liveMediaController/liveMediaController'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerRoutes } from '../../database'
@@ -43,6 +44,8 @@ app.whenReady().then(async () => {
   initializeBibleManager()
   //inicalizar gestor de pantallas
   initializeDisplayManager()
+  // Inicializar manager de media en vivo
+  initializeLiveMediaManager()
 
   // Obtener fuentes del sistema
   ipcMain.handle('get-system-fonts', async () => {

@@ -1,3 +1,19 @@
+## Controladores IPC dedicados
+
+Cada canal IPC debe tener su propio archivo controlador en `electron/main/`, siguiendo el patrón:
+
+```ts
+// electron/main/liveMediaController.ts
+export function initializeLiveMediaManager() {
+  ipcMain.on('live-media-state', ...)
+}
+```
+Luego se importa y se inicializa en `main/index.ts`:
+
+```ts
+import { initializeLiveMediaManager } from './liveMediaController'
+
+Esto asegura modularidad, trazabilidad y seguridad.
 # Electron (Main Process) Agent
 
 > **Agent router:** [`/agents.md`](../agents.md)
@@ -16,31 +32,45 @@ electron/
 │   ├── prisma.ts               # Inicializacion de Prisma, backups, migraciones
 │   ├── bibleManager/
 │   │   ├── index.tsx            # IPC handlers para biblia
-│   │   ├── bibleManager.ts     # Logica de gestion de biblias
-│   │   └── bibleInitializer.ts # Inicializacion de biblias al arranque
-│   ├── displayManager/
-│   │   ├── index.ts             # IPC handlers para displays
-│   │   ├── displaysMethods.ts   # Utilidades de pantallas
-│   │   └── displayType.d.ts     # Tipos de display
-│   └── mediaManager/
-│       ├── index.ts              # IPC handlers para medios
-│       ├── mediaServer.ts        # Servidor HTTP local para servir archivos
-│       └── mediaHandlers.ts      # Importacion y procesamiento de medios
-└── preload/
-    ├── index.ts                  # Context bridge (expone APIs al renderer)
-    └── index.d.ts                # Tipos para window.api, window.displayAPI, etc.
+## Controladores IPC dedicados
+
+Cada canal IPC debe tener su propio archivo controlador en `electron/main/`, siguiendo el patrón:
+
+```ts
+// electron/main/liveMediaController.ts
+export function initializeLiveMediaManager() {
+  ipcMain.on('live-media-state', ...)
+}
+```
+Luego se importa y se inicializa en `main/index.ts`:
+
+```ts
+import { initializeLiveMediaManager } from './liveMediaController'
+app.whenReady().then(() => {
+  initializeLiveMediaManager()
+})
 ```
 
-## Flujo de inicializacion
+**Patrón obligatorio para managers:**
+- Cada manager debe tener función `initializeXManager()`
+- Registrar todos los handlers IPC en esa función
+- Ser importado y llamado en `main/index.ts` (no en otro manager)
+- Documentar canal y propósito en agents.md
+- No mezclar handlers de diferentes managers en un solo archivo
 
-En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
+Esto asegura modularidad, trazabilidad y seguridad.
+
+# Electron (Main Process) Agent
+
+> **Agent router:** [`/agents.md`](../agents.md)
+
+## Descripcion
+
+Proceso principal de Electron. Gestiona ventanas, servidor de medios locales, manejo de pantallas/displays, importacion de biblias e inicializacion de la base de datos.
+
+## Archivos
 
 ```
-1. initPrisma()              -> Inicializa DB, aplica migraciones
-2. initializeMediaManager()  -> Inicia servidor HTTP para medios
-3. registerRoutes()          -> Registra IPC handlers de database/
-4. initializeBibleManager()  -> Registra IPC handlers para biblia
-5. initializeDisplayManager() -> Registra IPC handlers para pantallas
 6. Registra IPC handlers locales (fonts, ventanas, notificaciones)
 7. createMainWindow()        -> Crea la ventana principal
 ```
@@ -65,6 +95,39 @@ Ventanas modales se abren via IPC:
 
 ### Media Manager (`mediaManager/`)
 
+
+## Flujo de inicializacion
+
+En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
+
+```
+1. initPrisma()              -> Inicializa DB, aplica migraciones
+2. initializeMediaManager()  -> Inicia servidor HTTP para medios
+3. registerRoutes()          -> Registra IPC handlers de database/
+4. initializeBibleManager()  -> Registra IPC handlers para biblia
+5. initializeDisplayManager() -> Registra IPC handlers para pantallas
+6. initializeLiveMediaManager() -> Registra canal IPC para media en vivo
+7. Registra IPC handlers locales (fonts, ventanas, notificaciones)
+8. createMainWindow()        -> Crea la ventana principal
+```
+
+## Modulos
+
+### LiveMediaController (`liveMediaController.ts`)
+
+Manager dedicado para sincronización de media en vivo:
+
+- Canal IPC: `live-media-state`
+- Expone API en preload como `liveMediaAPI`
+- Documentar canal y propósito aquí y en agents.md de items-on-live
+
+### Window Manager (`windowManager.ts`)
+
+Gestiona todas las ventanas de la aplicacion:
+
+| Funcion | Ruta hash | Proposito |
+|---------|-----------|-----------|
+| `createMainWindow()` | `/` | Ventana principal con layout de paneles |
 - **mediaServer.ts**: Servidor HTTP local (Express o http nativo) que sirve archivos del directorio de datos de la app. El puerto se comunica al frontend via `window.mediaAPI.getMediaServerPort()`.
 - **mediaHandlers.ts**: Procesa importacion de medios:
   - Copia archivos al directorio de datos

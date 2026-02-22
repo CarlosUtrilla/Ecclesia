@@ -1,3 +1,4 @@
+import { ScheduleItemType } from '@prisma/client'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 
 export { ThemeWithMedia }
@@ -7,7 +8,7 @@ export type PresentationViewProps = {
   live?: boolean
   currentIndex?: number
   items: PresentationViewItems[]
-  onClick?: (e: React.MouseEvent) => void
+  onClick?: (e?: React.MouseEvent) => void
   selected?: boolean
   tagSongId?: number | null
   className?: string
@@ -24,6 +25,7 @@ export type PresentationViewItems = {
     verse: number
     version: string
   }
+  resourceType: ScheduleItemType
 }
 
 export type ScreenSize = { width: number; height: number; aspectRatio: string }

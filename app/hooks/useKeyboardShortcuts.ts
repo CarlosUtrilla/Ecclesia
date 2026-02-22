@@ -95,10 +95,8 @@ export function useKeyboardShortcuts(
 
   useEffect(() => {
     if (!containerFocused) {
-      console.log('Container not focused, skipping keyboard shortcuts')
       return
     }
-    console.log('Container focused, enabling keyboard shortcuts')
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey

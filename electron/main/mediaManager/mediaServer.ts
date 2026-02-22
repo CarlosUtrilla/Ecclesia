@@ -6,7 +6,7 @@ import fs from 'fs'
 let server: ReturnType<typeof createServer> | null = null
 let serverPort = 0
 
-const mimeTypes: Record<string, string> = {
+export const mimeTypes: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',

@@ -146,7 +146,8 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
             chapter: chapter,
             verse: text.verse,
             version: version
-          }
+          },
+          resourceType: item.type
         }))
         return {
           title: `${texts[0]?.book || ''} ${chapter}:${versesSplited[0]}${
@@ -165,7 +166,8 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         }
         const content = song.lyrics.map((lyric) => ({
           text: lyric.content,
-          tagSongId: lyric.tagSongsId
+          tagSongId: lyric.tagSongsId,
+          resourceType: item.type
         }))
 
         return {
@@ -173,8 +175,26 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
           content
         }
       }
+      if (type === 'MEDIA') {
+        const mediaId = parseInt(accessData)
+        let mediaItem = media.find((m) => m.id === mediaId)
+        if (!mediaItem) {
+          // si no está en cache puede ser un item mandado a live directamente
+          const loaded = await window.api.media.getMediaByIds([mediaId])
+          mediaItem = loaded?.[0]
+          if (mediaItem) media.push(mediaItem)
+        }
+        return {
+          title: mediaItem?.name || 'Medio',
+          content: mediaItem ? [{ ...mediaItem, resourceType: item.type } as any] : [] // Cast para evitar error de tipo
+        }
+      }
+      return {
+        title: 'Contenido',
+        content: [{ text: accessData, resourceType: item.type }]
+      }
     },
-    [songs]
+    [songs, media]
   )
 
   return { songs, media, getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen }

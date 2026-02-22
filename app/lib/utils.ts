@@ -106,3 +106,19 @@ export const generateUniqueId = (): string => {
     .padStart(10, '0') // Número aleatorio en base36, rellenado a 10 caracteres
   return `${timestamp}-${randomNum}`
 }
+
+export const getMediaType = (format: string) => {
+  const mimeTypes: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mov: 'video/quicktime',
+    avi: 'video/x-msvideo'
+  }
+  const mime = mimeTypes[format] || 'application/octet-stream'
+  return mime.startsWith('video/') ? 'video' : 'image'
+}

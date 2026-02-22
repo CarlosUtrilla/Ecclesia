@@ -66,7 +66,8 @@ export function initializeDisplayManager() {
       simpleFullscreen: true, // macOS específico
       webPreferences: {
         preload: join(__dirname, '../preload/index.js'),
-        sandbox: false
+        sandbox: false,
+        backgroundThrottling: false
       }
     })
 
@@ -90,13 +91,15 @@ export function initializeDisplayManager() {
       }, 250)
     })
 
-    // Notificar cuando la ventana esté completamente cargada
-    liveScreen.webContents.once('did-finish-load', () => {
-      // Enviar evento a la ventana principal indicando que esta live screen está lista
-      mainWindow.webContents.send('live-screen-ready', liveScreen.id)
-    })
-
     const route = '/live-screen/' + displayId
+
+    const loadPromise = new Promise<number>((resolve) => {
+      liveScreen.webContents.once('did-finish-load', () => {
+        // Enviar evento a la ventana principal indicando que esta live screen está lista
+        mainWindow.webContents.send('live-screen-ready', liveScreen.id)
+        resolve(liveScreen.id)
+      })
+    })
 
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
       liveScreen.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
@@ -106,7 +109,7 @@ export function initializeDisplayManager() {
       })
     }
 
-    return liveScreen.id
+    return loadPromise
   })
 
   // Cerrar ventana por su ID
@@ -162,5 +165,16 @@ export function initializeDisplayManager() {
     allWindows.forEach((win) => {
       win.webContents.send('liveScreen-hide')
     })
+  })
+  // Handler para abrir la ventana de gestión de pantallas
+  ipcMain.handle('show-new-display-connected', () => {
+    // Aquí deberías abrir la ventana de gestión de pantallas
+    // Por ejemplo, puedes reutilizar o crear una nueva ventana
+    // TODO: Implementar UI específica para gestión de pantallas
+    const mainWindow = BrowserWindow.getAllWindows()[0]
+    if (mainWindow) {
+      mainWindow.webContents.send('open-new-display-connected')
+    }
+    return
   })
 }

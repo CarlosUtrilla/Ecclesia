@@ -1,3 +1,10 @@
+// =====================
+// GESTIÓN DE CANALES IPC PARA RENDERER
+// Todo nuevo controlador/canal IPC que se exponga a renderer DEBE agregarse aquí,
+// siguiendo la estructura y patrón de seguridad/contextBridge de este archivo.
+// Documentar y mantener la API centralizada en este archivo.
+// =====================
+
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { exposeRoutes } from '../../database'
@@ -5,6 +12,7 @@ import { RoutesTypes } from '../../database/routeTypes'
 import { bibleAPI } from '../main/bibleManager'
 import { mediaAPI } from '../main/mediaManager'
 import { displayAPI } from '../main/displayManager/displaysMethods'
+import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
 
 // Funciones adicionales para ventanas
 const windowAPI = {
@@ -26,6 +34,7 @@ export const HandleManagers = {
   systemAPI,
   windowAPI,
   displayAPI,
+  liveMediaAPI,
   api: exposeRoutes() as RoutesTypes
 }
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -42,6 +51,8 @@ if (process.contextIsolated) {
 } else {
   // @ts-ignore (define in dts)
   window.electron = electronAPI
+  // @ts-ignore (define in dts)
+  window.liveMediaAPI = liveMediaAPI
   // @ts-ignore (define in dts)
   window.api = api
   // @ts-ignore (define in dts)
