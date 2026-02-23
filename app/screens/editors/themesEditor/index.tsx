@@ -535,7 +535,8 @@ const PreviewsItems: PresentationViewItems[] = [
     text: `Testing Theme Preview
           <br>Aa Áá Ee Éé Ii Íí Oo Óó Uu Úú
           <br>Çç Ññ Ää Öö Üü ß
-          <br>Àà Èè Ìì Òò Ùù`
+          <br>Àà Èè Ìì Òò Ùù`,
+    resourceType: 'BIBLE'
   },
   {
     text: 'Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.',
@@ -544,6 +545,7 @@ const PreviewsItems: PresentationViewItems[] = [
       chapter: 3,
       verse: 16,
       version: 'RVR1960'
-    }
+    },
+    resourceType: 'BIBLE'
   }
 ]

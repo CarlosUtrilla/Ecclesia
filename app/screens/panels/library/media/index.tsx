@@ -48,7 +48,11 @@ export default function MediaLibrary() {
   })
 
   // Queries
-  const { data: mediaData, isLoading } = useQuery({
+  const {
+    data: mediaData,
+    isLoading,
+    refetch
+  } = useQuery({
     queryKey: ['media', searchTerm, currentFolder],
     queryFn: async () => {
       const params: MediaFilterDto = searchTerm ? { search: searchTerm } : {}
@@ -77,6 +81,7 @@ export default function MediaLibrary() {
 
       if (progress >= 100) {
         setTimeout(() => {
+          refetch()
           setConversionProgress(null)
         }, 500)
       }

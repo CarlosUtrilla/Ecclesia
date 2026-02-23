@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
@@ -18,6 +18,7 @@ interface MediaPickerProps {
   onSelect: (media: Media) => void
   filterType?: MediaType // 'IMAGE' o 'VIDEO'
   title?: string
+  footerExtra?: React.ReactNode
 }
 
 export function MediaPicker({
@@ -31,6 +32,10 @@ export function MediaPicker({
   const [currentFolder, setCurrentFolder] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
+  const [conversionProgress, setConversionProgress] = useState<{
+    fileName: string
+    progress: number
+  } | null>(null)
 
   const operations = useMediaOperations(currentFolder)
 
@@ -41,7 +46,11 @@ export function MediaPicker({
     }
   })
 
-  const { data: mediaData, isLoading } = useQuery({
+  const {
+    data: mediaData,
+    isLoading,
+    refetch
+  } = useQuery({
     queryKey: ['media', searchTerm, currentFolder, filterType],
     queryFn: async () => {
       const params: MediaFilterDto = {
@@ -83,6 +92,37 @@ export function MediaPicker({
   const handleItemClick = (item: Media) => {
     setSelectedMedia(item)
   }
+
+  const handleImport = async () => {
+    try {
+      const filePaths = await window.mediaAPI.selectFiles(filterType || 'all')
+      if (filePaths.length > 0) {
+        await operations.importMutation.mutateAsync(filePaths)
+      }
+    } catch (error) {
+      console.error('Error en importación:', error)
+    }
+  }
+  // Escuchar progreso de conversión de video
+  useEffect(() => {
+    const unsubscribe = window.mediaAPI.onImportProgress(({ progress, fileName }) => {
+      setConversionProgress({ fileName, progress })
+
+      if (progress >= 100) {
+        setTimeout(() => {
+          refetch()
+          setConversionProgress(null)
+        }, 500)
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+
+  const loading =
+    isLoading || operations.importMutation.isPending || operations.deleteMutation.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -235,6 +275,31 @@ export function MediaPicker({
               />
             )}
           </div>
+          {loading && (
+            <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+                {conversionProgress ? (
+                  <>
+                    <p className="mt-2 text-sm font-medium">
+                      Convirtiendo video &quot;{conversionProgress.fileName}&quot;
+                    </p>
+                    <div className="mt-2 w-48 mx-auto bg-secondary rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-primary h-full transition-all duration-300"
+                        style={{ width: `${conversionProgress.progress}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {conversionProgress.progress}% - Optimizando para máxima compatibilidad
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">Cargando...</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -249,7 +314,12 @@ export function MediaPicker({
               <span>Selecciona un archivo</span>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {filterType === 'VIDEO' && (
+              <Button size="sm" variant="secondary" onClick={handleImport} className="h-8">
+                Importar video
+              </Button>
+            )}
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
