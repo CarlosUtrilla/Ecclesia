@@ -285,6 +285,7 @@ function VerseItem({
           role="button"
           tabIndex={0}
           onClick={(e) => onItemClick({ verseNumber: v.verse, index }, e)}
+          onDoubleClick={() => onShowOnLive(v.verse)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()

@@ -65,8 +65,19 @@ export default function BiblePresentationConfiguration({
       setOpen(false)
       return
     }
-    console.log('Guardar configuración:', data)
-    // Aquí implementar la lógica para guardar
+    // Guardar configuración global
+    window.api.bible
+      .updateDefaultBibleSettings({
+        ...data,
+        isGlobal: true
+      })
+      .then(() => {
+        setOpen(false)
+      })
+      .catch((err) => {
+        console.error('Error al guardar configuración:', err)
+        alert('Error al guardar configuración de Biblia')
+      })
   }
 
   const loadGlobalSettings = () => {
@@ -228,7 +239,8 @@ export default function BiblePresentationConfiguration({
                       chapter: 3,
                       verse: 16,
                       version: 'RVR1960'
-                    }
+                    },
+                    resourceType: 'BIBLE'
                   }
                 ]}
                 maxHeight={220}

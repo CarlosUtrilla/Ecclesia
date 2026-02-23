@@ -5,7 +5,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/ui/context-menu'
-import { Calendar, Edit, Plus, Trash2, Clock } from 'lucide-react'
+import { Calendar, Edit, Plus, Trash2, Clock, ClockPlus } from 'lucide-react'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { format } from 'date-fns'
@@ -74,15 +74,14 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
         </div>
         <Button
           size="sm"
-          variant="outline"
           className="w-full text-xs"
           onClick={() => {
             createTemporarySchedule()
             onScheduleSelect()
           }}
         >
-          <Clock className="h-3 w-3" />
-          Sesión Temporal
+          <ClockPlus className="h-3 w-3" />
+          Nuevo cronograma
         </Button>
       </div>
 

@@ -130,10 +130,18 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       }
       if (scheduleData.id) {
         // Actualizar schedule existente (incluyendo items)
+        // Filtrar campos válidos para items
+        const items = (scheduleData.items || []).map(({ id, order, type, accessData }) => ({
+          id,
+          order,
+          type,
+          accessData
+        }))
         await window.api.schedule.updateSchedule(scheduleData.id, {
           title: scheduleData.title,
-          date: scheduleData.dateFrom || undefined,
-          items: scheduleData.items || []
+          dateFrom: scheduleData.dateFrom || undefined,
+          dateTo: scheduleData.dateTo || undefined,
+          items
         })
       } else {
         // Crear nuevo schedule con items
@@ -160,6 +168,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     const schedule = await window.api.schedule.getSchedule(scheduleId)
     if (schedule) {
       form.reset(schedule)
+      setItemOnLive(null)
     }
   }
 
@@ -173,6 +182,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       dateFrom: null,
       dateTo: null
     })
+    setItemOnLive(null)
     setIsTemporary(true)
   }
 

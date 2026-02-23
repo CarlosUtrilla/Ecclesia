@@ -2,7 +2,9 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useMediaServer } from '@/contexts/MediaServerContext'
-import { Play, Pause, Rewind } from 'lucide-react'
+import { Play, Pause, Rewind, RotateCcw, Volume1 } from 'lucide-react'
+import { Volume2, VolumeX } from 'lucide-react'
+import { Popover, PopoverTrigger, PopoverContent } from '@/ui/popover'
 import { Button } from '@/ui/button'
 import { Slider } from '@/ui/slider'
 
@@ -13,7 +15,28 @@ export const RenderMedia = () => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [autoRewind, setAutoRewind] = useState(false)
+  const [volume, setVolume] = useState(1)
   const { buildMediaUrl } = useMediaServer()
+  // Rebobinación automática: si termina el video y está activado, reinicia
+  const handleEnded = () => {
+    if (autoRewind && videoRef.current) {
+      videoRef.current.currentTime = 0
+      videoRef.current.play()
+      setIsPlaying(true)
+      sendLiveMediaState({ action: 'restart', time: 0 })
+    } else {
+      setIsPlaying(false)
+    }
+  }
+
+  // Control de volumen
+  const handleVolumeChange = (val: number) => {
+    setVolume(val)
+    if (videoRef.current) {
+      videoRef.current.volume = val
+    }
+  }
 
   const handlePlay = () => {
     setIsPlaying(true)
@@ -102,21 +125,81 @@ export const RenderMedia = () => {
             className="max-h-full max-w-full rounded shadow"
             onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
             onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+            onEnded={handleEnded}
           />
         </div>
         <div className="flex items-center gap-2 w-full px-28 bg-background/80 p-2 rounded shadow z-10">
-          <Button variant="ghost" size="icon" onClick={handleRestart} title="Reiniciar">
+          {/* Control de volumen con popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" title="Volumen">
+                {volume === 0 ? (
+                  <VolumeX className="w-5 h-5" />
+                ) : volume < 0.5 ? (
+                  <Volume1 className="w-5 h-5" />
+                ) : (
+                  <Volume2 className="w-5 h-5" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 flex flex-col items-center gap-2">
+              <span className="text-xs">Volumen</span>
+              <Slider
+                min={0}
+                max={1}
+                step={0.01}
+                value={[volume]}
+                onValueChange={([val]) => handleVolumeChange(val)}
+                className="w-full"
+              />
+              <span className="text-xs">{Math.round(volume * 100)}%</span>
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant={autoRewind ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setAutoRewind((v) => !v)}
+            title="Rebobinación automática"
+            aria-label={
+              autoRewind ? 'Desactivar rebobinación automática' : 'Activar rebobinación automática'
+            }
+            aria-pressed={autoRewind}
+          >
+            <RotateCcw className="w-5 h-5" />
+          </Button>
+          {/* Reinicio manual */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRestart}
+            title="Reiniciar video"
+            aria-label="Reiniciar video"
+          >
             <Rewind className="w-5 h-5" />
           </Button>
+          {/* Play/Pause */}
           {isPlaying ? (
-            <Button variant="ghost" size="icon" onClick={handlePause} title="Pausar">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePause}
+              title="Pausar video"
+              aria-label="Pausar video"
+            >
               <Pause className="w-5 h-5" />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" onClick={handlePlay} title="Reproducir">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePlay}
+              title="Reproducir video"
+              aria-label="Reproducir video"
+            >
               <Play className="w-5 h-5" />
             </Button>
           )}
+          {/* Barra de progreso */}
           <Slider
             min={0}
             max={duration}
@@ -144,19 +227,7 @@ export const RenderMedia = () => {
 function formatTime(time: number) {
   const minutes = Math.floor(time / 60)
   const seconds = Math.floor(time % 60)
-  // Redondear ms a múltiplos de 60ms, nunca mostrar 100ms
-  const ms = Math.round(((time - Math.floor(time)) * 1000) / 60) * 60
-  // Si ms llega a 60, sumar 1s y poner ms en 0
-  let displaySeconds = seconds
-  let displayMs = ms
-  let displayMinutes = minutes
-  if (ms >= 60) {
-    displaySeconds += 1
-    displayMs = 0
-    if (displaySeconds >= 60) {
-      displayMinutes += 1
-      displaySeconds = 0
-    }
-  }
-  return `${displayMinutes}:${displaySeconds.toString().padStart(2, '0')}:${displayMs.toString().padStart(2, '0')}`
+  // Calcular centésimas de segundo (0-59)
+  const centiseconds = Math.floor((time - Math.floor(time)) * 60)
+  return `${minutes}:${seconds.toString().padStart(2, '0')}:${centiseconds.toString().padStart(2, '0')}`
 }

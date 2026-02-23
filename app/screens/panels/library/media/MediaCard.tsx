@@ -11,8 +11,9 @@ import {
 import { Media } from './types'
 import { SelectableItem } from './hooks/useSelection'
 import { useMediaServer } from '@/contexts/MediaServerContext'
-import { cn } from '@/lib/utils'
+import { cn, generateUniqueId } from '@/lib/utils'
 import { useDraggable } from '@dnd-kit/core'
+import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 
 interface MediaCardProps {
   media: Media
@@ -34,6 +35,7 @@ export function MediaCard({
   onClick,
   isSelected = false
 }: MediaCardProps) {
+  const { showItemOnLiveScreen } = useLive()
   const { buildMediaUrl } = useMediaServer()
   const filePath = media.thumbnail || media.filePath
   const mediaUrl = buildMediaUrl(filePath)
@@ -54,12 +56,25 @@ export function MediaCard({
     onClick?.(media, e)
   }
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return
+    // Solo enviar a en vivo si es imagen o video
+    if (media.type === 'IMAGE' || media.type === 'VIDEO') {
+      showItemOnLiveScreen({
+        id: generateUniqueId(),
+        order: 0,
+        type: 'MEDIA',
+        accessData: String(media.id),
+        scheduleId: -1 // temporalm,
+      })
+    }
+  }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger>
         <div
           ref={setNodeRef}
-          role="button"
           className={cn(
             'group relative border border-border/50 rounded-lg overflow-hidden',
             'bg-card/50 backdrop-blur-sm hover:bg-card transition-all duration-200',
@@ -72,6 +87,7 @@ export function MediaCard({
             }
           )}
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
