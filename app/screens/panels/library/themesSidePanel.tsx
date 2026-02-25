@@ -13,6 +13,7 @@ import { Edit, Plus, Trash2 } from 'lucide-react'
 // Nuevo diseño: panel lateral compacto, no compite visualmente
 import { useState } from 'react'
 import { Input } from '@/ui/input'
+import { cn } from '@/lib/utils'
 
 export function ThemesSidePanel() {
   const { themes, refetchThemes } = useThemes()
@@ -38,6 +39,7 @@ export function ThemesSidePanel() {
 
   return (
     <aside
+      id="theme-selector"
       className="bg-muted/30 border-r border-muted/40 h-full flex flex-col items-center py-2 px-1 gap-2 min-w-[72px] max-w-44 shadow-sm"
       aria-label="Panel de temas"
     >
@@ -62,27 +64,35 @@ export function ThemesSidePanel() {
         />
       </div>
       <div className="flex flex-col gap-2 overflow-y-auto w-full px-2">
-        {filteredThemes.map((theme) => (
-          <ContextMenu key={theme.id}>
-            <ContextMenuTrigger className="rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary">
-              <PresentationView
-                onClick={() => setSelectedTheme(theme)}
-                selected={selectedTheme?.id === theme.id}
-                theme={theme}
-                items={[{ text: 'Preview Text' }]}
-                className={`border ${selectedTheme?.id === theme.id ? 'border-primary' : 'border-muted/40'} bg-background cursor-pointer transition-all`}
-              />
-            </ContextMenuTrigger>
-            <ContextMenuContent>
-              <ContextMenuItem onClick={() => handleEditarTema(theme.id)}>
-                <Edit /> Editar tema
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => handleEliminarTema(theme.id)}>
-                <Trash2 className="text-destructive" /> Borrar tema
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-        ))}
+        {filteredThemes.map((theme) => {
+          const isSelected = selectedTheme?.id === theme.id
+          return (
+            <ContextMenu key={theme.id}>
+              <ContextMenuTrigger className="rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary">
+                <PresentationView
+                  onClick={() => setSelectedTheme(theme)}
+                  selected={isSelected}
+                  theme={theme}
+                  items={[{ text: 'Preview Text', resourceType: 'BIBLE' }]}
+                  className={cn(
+                    'border border-muted/40 bg-background cursor-pointer transition-all',
+                    {
+                      'border-primary': isSelected
+                    }
+                  )}
+                />
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onClick={() => handleEditarTema(theme.id)}>
+                  <Edit /> Editar tema
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => handleEliminarTema(theme.id)}>
+                  <Trash2 className="text-destructive" /> Borrar tema
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          )
+        })}
       </div>
     </aside>
   )

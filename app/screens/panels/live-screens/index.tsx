@@ -1,13 +1,11 @@
-import { PresentationView } from '@/ui/PresentationView'
-import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { cn } from '@/lib/utils'
 import { Button } from '@/ui/button'
 import { Radio } from 'lucide-react'
+import LiveScreen from '@/screens/live-screen'
 
 export default function LiveScreens() {
-  const { selectedTheme } = useSchedule()
-  const { showLiveScreen, setShowLiveScreen, liveScreens, contentScreen, itemIndex } = useLive()
+  const { showLiveScreen, setShowLiveScreen, liveScreens, contentScreen } = useLive()
 
   return (
     <div>
@@ -40,13 +38,7 @@ export default function LiveScreens() {
         <div className="flex gap-2 p-2">
           {contentScreen ? (
             liveScreens.map((screen, idx) => (
-              <PresentationView
-                key={`screen-${(screen as any)?.id ?? idx}`}
-                items={contentScreen.content}
-                theme={selectedTheme}
-                currentIndex={itemIndex}
-                live
-              />
+              <LiveScreen key={`screen-${(screen as any)?.id ?? idx}`} isPreview />
             ))
           ) : (
             <div>No hay contenido para mostrar</div>

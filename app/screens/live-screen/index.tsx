@@ -6,7 +6,7 @@ import { PresentationView } from '../../ui/PresentationView'
 import { useParams } from 'react-router'
 import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 
-export default function LiveScreen() {
+export default function LiveScreen({ isPreview = false }: { isPreview?: boolean }) {
   const displayId = useParams().displayId
   const [selectedTheme, setSelectedTheme] = useState<ThemeWithMedia>(BlankTheme)
   const [itemIndex, setItemIndex] = useState(0)
@@ -45,14 +45,14 @@ export default function LiveScreen() {
   }, [])
 
   return (
-    <div className="overflow-hidden">
+    <div className="overflow-hidden w-full">
       <PresentationView
         key={themeKey}
         items={content?.content || []}
         theme={selectedTheme}
         currentIndex={itemIndex}
         live
-        displayId={displayId ? parseInt(displayId) : undefined}
+        displayId={displayId && !isPreview ? parseInt(displayId) : undefined}
       />
     </div>
   )

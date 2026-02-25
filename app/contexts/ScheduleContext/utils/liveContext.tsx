@@ -22,6 +22,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const [contentScreen, setContentScreen] = useState<ContentScreen | null>(null)
   const [windowsLiveScreenOpens, setWindowsLiveScreenOpens] = useState<number[]>([])
   const [liveScreensReady, setLiveScreensReady] = useState(false)
+  const [showedItemKey, setShowedItemKey] = useState(0)
 
   useEffect(() => {
     if (!showLiveScreen && itemOnLive) {
@@ -94,10 +95,18 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       })
     }
     sendUpdateToLiveScreens()
-  }, [itemIndex, itemOnLive, contentScreen, windowsLiveScreenOpens, liveScreensReady])
+  }, [
+    itemIndex,
+    itemOnLive,
+    contentScreen,
+    windowsLiveScreenOpens,
+    liveScreensReady,
+    showedItemKey
+  ])
 
   useEffect(() => {
     // Solo enviar updates si las pantallas están listas y hay ventanas abiertas
+    // no mandar si el tema cambio, solo mandar el cambio de tema al reeniviar otro item
     if (!liveScreensReady || windowsLiveScreenOpens.length === 0) {
       return
     }
@@ -106,7 +115,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       await window.displayAPI.updateLiveScreenTheme(selectedTheme)
     }
     sendThemeToLiveScreens()
-  }, [selectedTheme, showLiveScreen, windowsLiveScreenOpens, liveScreensReady])
+  }, [showLiveScreen, windowsLiveScreenOpens, liveScreensReady, showedItemKey])
 
   useEffect(() => {
     if (!showLiveScreen) return
@@ -126,6 +135,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     if (typeof index === 'number') {
       setItemIndex(index)
     }
+    setShowedItemKey((prev) => prev + 1)
   }
   return (
     <LiveContext.Provider

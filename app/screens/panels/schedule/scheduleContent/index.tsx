@@ -2,7 +2,7 @@ import { Button } from '@/ui/button'
 import { AnimatePresence, m, LazyMotion, domAnimation } from 'framer-motion'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { Save, CalendarSearch, Upload } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
@@ -41,6 +41,7 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
   const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
   const previewRef = useReactRef<HTMLDivElement>(null)
+  const themeSelectorRef = useReactRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (selectedItem) {
@@ -54,6 +55,13 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
       setItemContent(null)
     }
   }, [selectedItem])
+
+  useLayoutEffect(() => {
+    const el = document.getElementById('theme-selector') as HTMLDivElement
+    if (el) {
+      themeSelectorRef.current = el
+    }
+  }, [])
 
   useKeyboardShortcuts(
     containerRef,
@@ -72,7 +80,9 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
         setSelectedItem(null)
       }
     },
-    itemContent && itemContent.length && selectedItem ? [previewRef] : []
+    itemContent && itemContent.length && selectedItem
+      ? [previewRef, themeSelectorRef]
+      : [themeSelectorRef]
   )
 
   if (!currentSchedule) {
@@ -87,8 +97,6 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     formState: { isDirty }
   } = form
   const pendingSave = isDirty
-
-  console.log(itemContent)
 
   return (
     <>

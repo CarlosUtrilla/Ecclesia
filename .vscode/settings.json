@@ -31,8 +31,5 @@
   "files.exclude": {
     "**/.DS_Store": true,
     "**/node_modules": false
-  },
-  "typescript.tsserver.maxTsServerMemory": 4096,
-  "typescript.disableAutomaticTypeAcquisition": false,
-  "files.autoSave": "onFocusChange"
+  }
 }
