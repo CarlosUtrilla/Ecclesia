@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useOnClickOutside } from 'usehooks-ts'
 
 interface KeyboardShortcuts {
   onCopy?: () => void
@@ -30,27 +31,14 @@ export function useKeyboardShortcuts(
   }
 
   // Usar focusin/focusout para detectar foco en cualquier hijo
-  useEffect(() => {
-    const current = containerRef.current
-    if (!current) return
-
-    const handleFocusIn = () => setContainerFocused(true)
-    const handleFocusOut = (e: FocusEvent) => {
-      // Si el nuevo foco está fuera del contenedor, desactivar
-      if (!current.contains(e.relatedTarget as Node)) {
-        setContainerFocused(false)
-        if (shortcuts.onClickOutside) {
-          shortcuts.onClickOutside()
-        }
-      }
-    }
-    current.addEventListener('focusin', handleFocusIn)
-    current.addEventListener('focusout', handleFocusOut)
-    return () => {
-      current.removeEventListener('focusin', handleFocusIn)
-      current.removeEventListener('focusout', handleFocusOut)
-    }
-  }, [containerRef, shortcuts])
+  useOnClickOutside(
+    containerRef as any,
+    () => {
+      setContainerFocused(false)
+      shortcuts.onClickOutside?.()
+    },
+    excludeRefs as any
+  )
 
   // Click outside detection mejorada
   useEffect(() => {

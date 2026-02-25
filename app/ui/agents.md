@@ -114,6 +114,7 @@ PresentationView (index.tsx)
 ### Logica de fondos
 
 El campo `theme.background` determina el tipo:
+
 - **Color/Gradient**: Se aplica directamente como `background` CSS.
 - **`"media"`**: Usa `theme.backgroundMedia` para determinar si es imagen o video.
   - Imagen: `BackgroundImage` (fade in/out con `m.img`).
@@ -129,6 +130,7 @@ Renderiza el texto del slide con animaciones:
 - **Otras animaciones**: Bloque completo animado con `m.div`.
 
 Soporta referencia biblica con posicion configurable:
+
 - Inline: beforeText, afterText, underText, overText.
 - Pantalla: upScreen, downScreen (posicion absoluta con offset configurable).
 
@@ -156,8 +158,20 @@ Soporta referencia biblica con posicion configurable:
 
 ### FontFamilySelector (`fontFamilySelector.tsx`)
 
-- Selector de fuentes del sistema.
-- Carga fuentes via `window.electron.ipcRenderer.invoke('get-system-fonts')`.
+- Selector de fuentes del sistema y personalizadas.
+- Permite elegir fuentes del sistema detectadas automáticamente.
+- Permite subir fuentes personalizadas (`.ttf`, `.otf`) mediante un diálogo visual moderno, que soporta carga múltiple y feedback de éxito/error.
+- Elimina fuentes personalizadas con confirmación.
+- UI moderna, accesible y responsiva, con separación clara entre fuentes propias y del sistema.
+- Usa el componente desacoplado `uploadFontDialog.tsx` para la carga de fuentes.
+
+### UploadFontDialog (`uploadFontDialog.tsx`)
+
+- Componente desacoplado para subir fuentes personalizadas.
+- Permite seleccionar varios archivos a la vez.
+- Feedback visual de progreso, éxito y error.
+- Diseño espacioso, botones grandes y claros, inputs accesibles.
+- Se controla desde el selector de fuentes o cualquier otro componente que requiera subir fuentes.
 
 ### VirtualizedScrollArea (`virtualized-scroll-area.tsx`)
 
