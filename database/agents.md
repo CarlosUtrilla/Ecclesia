@@ -88,6 +88,7 @@ Definidos en `routes.ts`:
 | `schedule` | ScheduleController | `createSchedule`, `getAllSchedules`, `getScheduleById`, `updateSchedule`, `deleteSchedule`, `getActualSchedule`, `addItemToSchedule`, `getAllGroupTemplates`, `createGroupTemplate`, `updateGroupTemplate`, `deleteGroupTemplate`, `getGroupTemplateById` |
 | `setttings` | SettingsController | `getSettings`, `updateSettings` |
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
+| `fonts` | FontsController | `addFont`, `getAllFonts`, `deleteFont` |
 
 **Nota:** El namespace `setttings` tiene un typo historico (3 t's). No cambiar sin actualizar todos los puntos de referencia.
 

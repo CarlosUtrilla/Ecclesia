@@ -63,12 +63,16 @@ function App() {
   )
 }
 
+import { FontsProvider } from './contexts/fontsContext'
+
 function MainApp({ children }: PropsWithChildren) {
   return (
     <MediaServerProvider>
-      <DisplaysProvider>
-        <ScreenSizeProvider>{children}</ScreenSizeProvider>
-      </DisplaysProvider>
+      <FontsProvider>
+        <DisplaysProvider>
+          <ScreenSizeProvider>{children}</ScreenSizeProvider>
+        </DisplaysProvider>
+      </FontsProvider>
     </MediaServerProvider>
   )
 }

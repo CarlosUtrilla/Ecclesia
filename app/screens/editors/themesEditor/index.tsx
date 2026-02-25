@@ -351,7 +351,7 @@ export default function ThemesEditor() {
                 type="button"
                 size="icon"
                 variant={field.value === 'bold' ? 'default' : 'ghost'}
-                onClick={() => field.onChange(!field.value)}
+                onClick={() => field.onChange(field.value === 'bold' ? undefined : 'bold')}
                 className="h-8 w-8"
               >
                 <Bold className="h-4 w-4" />
@@ -368,7 +368,7 @@ export default function ThemesEditor() {
                 type="button"
                 size="icon"
                 variant={field.value === 'italic' ? 'default' : 'ghost'}
-                onClick={() => field.onChange(!field.value)}
+                onClick={() => field.onChange(field.value === 'italic' ? undefined : 'italic')}
                 className="h-8 w-8"
               >
                 <Italic className="h-4 w-4" />
@@ -385,7 +385,9 @@ export default function ThemesEditor() {
                 type="button"
                 size="icon"
                 variant={field.value === 'underline' ? 'default' : 'ghost'}
-                onClick={() => field.onChange(!field.value)}
+                onClick={() =>
+                  field.onChange(field.value === 'underline' ? undefined : 'underline')
+                }
                 className="h-8 w-8"
               >
                 <UnderlineIcon className="h-4 w-4" />

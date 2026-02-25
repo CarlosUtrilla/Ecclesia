@@ -27,9 +27,12 @@ function handleRequest(req: IncomingMessage, res: ServerResponse) {
   // Construir path completo
   const filePath = path.join(userDataPath, 'media', urlPath.slice(1))
 
+
   // Verificar que el archivo existe
   if (!fs.existsSync(filePath)) {
-    res.writeHead(404)
+    res.writeHead(404, {
+      'Access-Control-Allow-Origin': '*'
+    })
     res.end('Not found')
     return
   }
@@ -51,7 +54,8 @@ function handleRequest(req: IncomingMessage, res: ServerResponse) {
       'Content-Range': `bytes ${start}-${end}/${stats.size}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
-      'Content-Type': mime
+      'Content-Type': mime,
+      'Access-Control-Allow-Origin': '*'
     })
 
     const stream = fs.createReadStream(filePath, { start, end })
@@ -61,7 +65,8 @@ function handleRequest(req: IncomingMessage, res: ServerResponse) {
     res.writeHead(200, {
       'Content-Length': stats.size,
       'Content-Type': mime,
-      'Accept-Ranges': 'bytes'
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*'
     })
 
     const stream = fs.createReadStream(filePath)

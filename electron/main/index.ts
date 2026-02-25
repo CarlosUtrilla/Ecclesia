@@ -16,6 +16,7 @@ import { initializeBibleManager } from './bibleManager'
 import { initializeMediaManager } from './mediaManager'
 import { stopMediaServer } from './mediaManager/mediaServer'
 import { initializeDisplayManager } from './displayManager'
+import { initializeFontManager } from './fontManager'
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -38,6 +39,8 @@ app.whenReady().then(async () => {
 
   // Inicializar gestor de medios
   initializeMediaManager()
+  // Inicializar gestor de fuentes
+  initializeFontManager()
   // Registrar rutas de la base de datos
   registerRoutes()
   // Inicializar gestor de biblias

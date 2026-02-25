@@ -49,6 +49,14 @@ model TagSongs {
   lyrics Lyrics[]
 }
 
+model Font {
+  id        Int      @id @default(autoincrement())
+  name      String
+  fileName  String
+  filePath  String
+  createdAt DateTime @default(now())
+}
+
 model Themes {
   id                          Int                        @id @default(autoincrement())
   name                        String                     @unique

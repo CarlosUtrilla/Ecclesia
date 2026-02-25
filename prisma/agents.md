@@ -50,9 +50,6 @@ model Lyrics {
 ```
 
 - El `content` puede contener HTML basico (negrita, cursiva) del editor TipTap.
-- `tagSongsId` asocia la estrofa con un tipo (Verso, Coro, Puente, etc.).
-
-### TagSongs (Etiquetas de canciones)
 
 ```prisma
 model TagSongs {
