@@ -62,9 +62,10 @@ MediaServerProvider          (top-level, sin dependencias)
 | `aspectRatio` | `string` | Ratio como string CSS (ej: "16/9") |
 
 - Calcula dimensiones proporcionales basadas en el `maxHeight` dado y el aspect ratio del display.
-- Cache interno con `Map` para evitar recalculos.
+- Cache interno con `Map` por combinacion `maxHeight + displayId` para evitar mezclar tamaños entre pantallas distintas.
 - Escucha `window.resize` para recalcular.
 - Depende de `useDisplays()` para obtener el aspect ratio real del display.
+- Si llega `displayId` y no existe en `displays`, hace fallback al display LIVE o `mainDisplay` antes de devolver tamaño default.
 
 ### ScheduleContext
 

@@ -24,29 +24,36 @@ export function ScreenSizeProvider({ children }: { children: ReactNode }) {
 
   // Memoizar la función de cálculo para que solo se recalcule cuando cambien displays o triggerUpdate
   const getScreenSize = useMemo(() => {
-    // Cache para diferentes maxHeight values
-    const cache = new Map<number, ScreenSize>()
+    // Cache por altura + display para evitar mezclar tamaños entre pantallas
+    const cache = new Map<string, ScreenSize>()
 
     return (maxHeight: number, displayId?: number): ScreenSize => {
-      // Verificar si ya calculamos este maxHeight
-      const cached = cache.get(maxHeight)
+      const fallbackDisplay =
+        displays.find((display) => display.type === 'LIVE_SCREEN') || mainDisplay || undefined
+
+      const selectedDisplay =
+        displayId !== undefined
+          ? displays.find((display) => display.id === displayId) || fallbackDisplay
+          : fallbackDisplay
+
+      const cacheKey = `${maxHeight}-${selectedDisplay?.id ?? 'default'}`
+
+      // Verificar si ya calculamos este escenario
+      const cached = cache.get(cacheKey)
       if (cached) return cached
 
-      // Encontrar el display público
-      const publicDisplay = displayId
-        ? displays.find((d) => d.id === displayId)
-        : displays.find((display) => display.type === 'LIVE_SCREEN') || mainDisplay
-
-      if (!publicDisplay) {
+      if (!selectedDisplay || maxHeight <= 0) {
         const defaultSize: ScreenSize = { width: 0, height: 0, aspectRatio: '16 / 9' }
-        cache.set(maxHeight, defaultSize)
+        cache.set(cacheKey, defaultSize)
         return defaultSize
       }
 
-      const aspectRatio = publicDisplay.aspectRatioCss
+      const aspectRatio = selectedDisplay.aspectRatioCss || '16 / 9'
 
       // Extraer el aspect ratio para calcular proporcionalmente
-      const [arWidth, arHeight] = aspectRatio.split('/').map((n) => parseFloat(n.trim()))
+      const [arWidthRaw, arHeightRaw] = aspectRatio.split('/').map((n) => parseFloat(n.trim()))
+      const arWidth = Number.isFinite(arWidthRaw) && arWidthRaw > 0 ? arWidthRaw : 16
+      const arHeight = Number.isFinite(arHeightRaw) && arHeightRaw > 0 ? arHeightRaw : 9
       const width = Math.round(maxHeight * (arWidth / arHeight))
 
       const screenSize: ScreenSize = {
@@ -55,10 +62,10 @@ export function ScreenSizeProvider({ children }: { children: ReactNode }) {
         aspectRatio
       }
 
-      cache.set(maxHeight, screenSize)
+      cache.set(cacheKey, screenSize)
       return screenSize
     }
-  }, [displays, triggerUpdate]) // Solo recalcula cuando displays o triggerUpdate cambian
+  }, [displays, mainDisplay, triggerUpdate]) // Solo recalcula cuando displays o triggerUpdate cambian
 
   return (
     <ScreenSizeContext.Provider value={{ getScreenSize }}>{children}</ScreenSizeContext.Provider>
