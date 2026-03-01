@@ -41,7 +41,7 @@ SchedulePanel (index.tsx)
   │     - Click en schedule -> carga y cambia a vista "contenido"
   │
   └── [Vista "contenido"] ScheduleContent
-        - Header: titulo, boton guardar, boton "Cronogramas" (volver)
+      - Header: titulo, boton guardar y boton "Cronogramas" (volver)
         - Lista de items (SortableContext de dnd-kit)
         - Cada item es ScheduleItemComponent (sortable + drop zone)
         - InsertionDropZone entre items para insertar desde biblioteca

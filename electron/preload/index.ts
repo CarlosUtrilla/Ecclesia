@@ -19,6 +19,7 @@ const windowAPI = {
   openSongWindow: (songId?: number) => ipcRenderer.send('open-song-window', songId),
   openThemeWindow: (themeId?: number) => ipcRenderer.send('open-theme-window', themeId),
   openTagSongsWindow: () => ipcRenderer.send('open-tag-songs-window'),
+  openSettingsWindow: () => ipcRenderer.send('open-settings-window'),
   closeCurrentWindow: () => ipcRenderer.send('close-current-window')
 }
 

@@ -13,6 +13,7 @@ import { DisplaysProvider } from './contexts/displayContext'
 import { PropsWithChildren } from 'react'
 import LiveScreen from './screens/live-screen'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from './ui/resizable'
+import SettingsScreen from './screens/settings'
 
 function App() {
   return (
@@ -56,6 +57,9 @@ function App() {
 
         {/* Rutas para crear/editar tags de canciones */}
         <Route path="/tagSongEditor" element={<TagSongsEditor />} />
+
+        {/* Ruta para ajustes */}
+        <Route path="/settings" element={<SettingsScreen />} />
 
         <Route path="/live-screen/:displayId" element={<LiveScreen />} />
       </Routes>

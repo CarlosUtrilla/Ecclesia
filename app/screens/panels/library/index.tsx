@@ -5,6 +5,8 @@ import MediaLibrary from './media'
 import BiblePanel from './bible'
 import { useState } from 'react'
 import { ThemesSidePanel } from './themesSidePanel'
+import { Button } from '@/ui/button'
+import { Settings } from 'lucide-react'
 
 export default function LibraryPanel() {
   const [activeTab, setActiveTab] = useState('songs')
@@ -15,7 +17,7 @@ export default function LibraryPanel() {
       <ThemesSidePanel />
       {/* Biblioteca principal */}
       <div className="flex-1 gap-0 border-r panel-scrollable">
-        <div className="panel-header w-full bg-muted/40 p-1 py-0.5 border-b">
+        <div className="panel-header w-full bg-muted/40 p-1 py-0.5 border-b flex items-center justify-between gap-2">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-transparent">
               <TabsTrigger value="songs">{t('libraryMenu.songs')}</TabsTrigger>
@@ -23,11 +25,17 @@ export default function LibraryPanel() {
               <TabsTrigger value="bible">Biblia</TabsTrigger>
             </TabsList>
           </Tabs>
+          <Button size="sm" variant="ghost" onClick={() => window.windowAPI.openSettingsWindow()}>
+            <Settings className="h-4 w-4" />
+            Ajustes
+          </Button>
         </div>
 
         {/* Renderizar todos los componentes pero mostrar solo el activo */}
         <div className="panel-scroll-content">
-          <div className={`${activeTab === 'songs' ? 'block' : 'hidden pointer-events-none'} h-full`}>
+          <div
+            className={`${activeTab === 'songs' ? 'block' : 'hidden pointer-events-none'} h-full`}
+          >
             <SongsPanelLibrary />
           </div>
           <div
@@ -35,7 +43,9 @@ export default function LibraryPanel() {
           >
             <MediaLibrary />
           </div>
-          <div className={`${activeTab === 'bible' ? 'block' : 'hidden pointer-events-none'} h-full`}>
+          <div
+            className={`${activeTab === 'bible' ? 'block' : 'hidden pointer-events-none'} h-full`}
+          >
             <BiblePanel />
           </div>
         </div>

@@ -6,6 +6,8 @@
 
 Componentes UI compartidos de la aplicacion. Incluye el componente central `PresentationView` (renders de presentacion), componentes Shadcn UI personalizados y utilidades de interfaz.
 
+Tambien considera la configuracion de tema global en `app/assets/globals.css`; se ajusto el modo oscuro para mejorar contraste y legibilidad (fondos menos oscuros y texto secundario mas claro), y se reforzo el token `--secondary` para que destaque mas visualmente en dark mode.
+
 ## Archivos
 
 ```

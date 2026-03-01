@@ -57,6 +57,7 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | Modificar gestion de displays/pantallas | [`electron`](electron/agents.md) + [`contexts`](app/contexts/agents.md) |
 | Importar o gestionar biblias | [`electron`](electron/agents.md) + [`library`](app/screens/panels/library/agents.md) |
 | Agregar una nueva ruta en React Router | Leer `app/App.tsx` + [`electron`](electron/agents.md) si requiere ventana nueva |
+| Crear o modificar ventana de ajustes | [`electron`](electron/agents.md) + [`ui`](app/ui/agents.md) |
 | Modificar estilos globales o temas CSS | Leer `app/assets/globals.css` + [`ui`](app/ui/agents.md) |
 
 ## Arquitectura general
@@ -78,6 +79,7 @@ app/main.tsx (entry point React)
               "/song/:id"     -> SongEditor (ventana separada)
               "/theme/:id"    -> ThemesEditor (ventana separada)
               "/tagSongEditor" -> TagSongsEditor (ventana separada)
+              "/settings" -> SettingsScreen (ventana separada)
               "/live-screen/:displayId" -> LiveScreen (ventana de proyeccion)
 ```
 

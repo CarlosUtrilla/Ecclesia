@@ -158,3 +158,37 @@ export function createTagsSongWindow(): BrowserWindow {
 
   return tagSongWindow
 }
+
+export function createSettingsWindow(): BrowserWindow {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  const settingsWindow = new BrowserWindow({
+    title: 'Ajustes',
+    width: Math.round(width * 0.7),
+    height: Math.round(height * 0.8),
+    minWidth: 900,
+    minHeight: 620,
+    show: false,
+    autoHideMenuBar: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  settingsWindow.on('ready-to-show', () => {
+    settingsWindow.show()
+  })
+
+  const route = '/settings'
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    settingsWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
+  } else {
+    settingsWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      hash: route
+    })
+  }
+
+  return settingsWindow
+}

@@ -5,6 +5,7 @@ import { registerRoutes } from '../../database'
 import { initPrisma } from './prisma'
 import {
   createMainWindow,
+  createSettingsWindow,
   createSongWindow,
   createTagsSongWindow,
   createThemeWindow
@@ -75,6 +76,12 @@ app.whenReady().then(async () => {
   ipcMain.on('open-tag-songs-window', () => {
     createTagsSongWindow()
   })
+
+  // Abrir ventana de ajustes
+  ipcMain.on('open-settings-window', () => {
+    createSettingsWindow()
+  })
+
   // Cerrar ventana actual
   ipcMain.on('close-current-window', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
