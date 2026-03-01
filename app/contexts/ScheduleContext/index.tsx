@@ -41,11 +41,33 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
   const { getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen, songs, media } =
     useIndexDataItems(formData)
+
   useEffect(() => {
     if (themes.length > 0 && selectedTheme.name === 'Blank') {
       setSelectedTheme(themes[0])
     }
   }, [themes])
+
+  useEffect(() => {
+    if (selectedTheme.name === 'Blank') {
+      return
+    }
+
+    const updatedSelectedTheme = themes.find((theme) => theme.id === selectedTheme.id)
+    if (!updatedSelectedTheme) {
+      return
+    }
+
+    if (
+      String(updatedSelectedTheme.updatedAt) !== String(selectedTheme.updatedAt) ||
+      updatedSelectedTheme.textStyle !== selectedTheme.textStyle ||
+      updatedSelectedTheme.animationSettings !== selectedTheme.animationSettings ||
+      updatedSelectedTheme.background !== selectedTheme.background ||
+      updatedSelectedTheme.backgroundMediaId !== selectedTheme.backgroundMediaId
+    ) {
+      setSelectedTheme(updatedSelectedTheme)
+    }
+  }, [themes, selectedTheme])
 
   useEffect(() => {
     const actualSchedule = async () => {

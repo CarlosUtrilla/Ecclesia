@@ -14,6 +14,7 @@ export type PresentationViewProps = {
   className?: string
   displayId?: number
   style?: React.CSSProperties
+  showTextBounds?: boolean
 }
 
 export type PresentationViewItems = {

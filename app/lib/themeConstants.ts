@@ -1,3 +1,6 @@
+export const BASE_PRESENTATION_HEIGHT = 320
+export const BASE_PRESENTATION_WIDTH = (BASE_PRESENTATION_HEIGHT * 16) / 9
+
 export const fontSizes = [
   { label: '12px', value: 12 },
   { label: '14px', value: 14 },

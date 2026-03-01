@@ -96,11 +96,24 @@ app/screens/editors/
   - Imagen (MediaPicker dialog)
   - Video (MediaPicker dialog)
 - **Estilos de texto**: fontSize, fontFamily, fontWeight, color, textAlign, letterSpacing, lineHeight.
+- **Contenedor de texto**: `Margen X` y `Margen Y` (padding horizontal/vertical) configurables por tema para controlar cercanía al borde de pantalla.
+- **Posición del contenedor**: `Posición X` y `Posición Y` para desplazar el bloque de texto a izquierda/derecha/arriba/abajo.
+- En el preview del Theme Editor se muestra una guía visual con borde punteado del área efectiva del texto para ajustar tamaño/márgenes con precisión.
+- Para evitar saturación en la toolbar, los controles de `Margen X/Y` y `Posición X/Y` están agrupados en un dropdown `Posición`.
+- Los valores de estos controles se muestran en una sola línea con ancho fijo para evitar saltos de línea en números grandes/negativos.
+- Cada control admite edición precisa por teclado mediante input numérico (además del slider) para ajustar valores en px.
+- Los inputs numéricos de estos controles son compactos e incluyen sufijo visual `px` al final.
+- El dropdown incluye acción rápida `Centrar / Restablecer` para volver a valores por defecto (`Margen X/Y = 16`, `Posición X/Y = 0`).
 - **Animacion**: `AnimationSelector` (selector rapido) + `AnimationEditor` (dialog detallado).
   - Tipos: fade, slide, scale, rotate, flip, bounce, blur, zoom, split, none.
   - Parametros: duracion, delay, easing.
 - **Config de biblia**: Toggle "usar config global" o configuracion personalizada por tema.
 - **Preview en vivo**: `PresentationView` con items de ejemplo.
+- **Guardado en edición**: al actualizar un tema existente se usa el `id` de la ruta (`/theme/:id`) para evitar depender de campos filtrados por validación del formulario.
+- El guardado no depende del estado `isDirty`; el botón `Save` permanece disponible y se bloquea solo durante `isSubmitting`.
+- En edición, si el `id` de ruta no está disponible, intenta fallback con el tema cargado y muestra error claro si no puede resolverlo.
+- El guardado del formulario se ejecuta con `handleSubmit`.
+- El desplazamiento del contenedor de texto usa `textStyle.translate` (string CSS, por ejemplo `"-40px 12px"`) en lugar de campos custom `translateX/translateY`.
 
 ### AnimationEditor (`animationEditor.tsx`)
 
@@ -139,7 +152,7 @@ app/screens/editors/
   - Modo de descripcion: nombre corto o completo del libro.
   - Posicion: antes/despues/encima/debajo del texto, arriba/abajo de la pantalla.
   - Mostrar version, mostrar numero de versiculo.
-  - Offset en px para posiciones de pantalla.
+  - Offset en px para posiciones de pantalla (`upScreen` / `downScreen`) con rango ampliado para ajustar mejor la cercanía al borde.
 - Puede configurarse globalmente o por tema individual.
 
 ## Tag Songs Editor

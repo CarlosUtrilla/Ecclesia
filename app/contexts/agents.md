@@ -91,6 +91,8 @@ MediaServerProvider          (top-level, sin dependencias)
 | `getScheduleItemLabel(item)` | `async function` | Retorna label del item |
 | `getScheduleItemContentScreen(item)` | `async function` | Retorna contenido para presentacion |
 
+- `selectedTheme` se resincroniza por `id` cuando `useThemes()` recibe datos nuevos (por ejemplo después de `theme-saved`), para aplicar en caliente cambios de `textStyle`, fondo y animación en `PresentationView`.
+
 **Archivos auxiliares:**
 - `schema.ts` - Esquema Zod para validacion del formulario
 - `types.d.ts` - Tipos TypeScript del contexto

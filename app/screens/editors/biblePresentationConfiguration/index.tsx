@@ -200,7 +200,7 @@ export default function BiblePresentationConfiguration({
 
             {watch('position') === 'upScreen' || watch('position') === 'downScreen' ? (
               <div>
-                <Label htmlFor="positionStyle">Altura en la pantalla</Label>
+                <Label htmlFor="positionStyle">Separación del borde</Label>
                 <Controller
                   name="positionStyle"
                   control={control}
@@ -208,8 +208,9 @@ export default function BiblePresentationConfiguration({
                     <div className="flex items-center gap-2">
                       <Slider
                         value={[field.value || 0]}
-                        max={16}
+                        max={200}
                         min={0}
+                        step={1}
                         onValueChange={(value) => field.onChange(value[0])}
                       />
                       <div className="w-10 text-sm text-right">{field.value || 0} px</div>

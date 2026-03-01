@@ -4,18 +4,17 @@ import { cn, getContrastTextColor } from '../../lib/utils'
 import { PresentationViewProps } from './types'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
+import { BASE_PRESENTATION_HEIGHT, BASE_PRESENTATION_WIDTH } from '@/lib/themeConstants'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { BackgroundImage } from './components/BackgroundImage'
 import { BackgroundVideoThumbnail } from './components/BackgroundVideoThumbnail'
 import { BackgroundVideoLive } from './components/BackgroundVideoLive'
 import { AnimatedText } from './components/AnimatedText'
-
 import useTagSongs from '@/hooks/useTagSongs'
 import { useResizeObserver } from 'usehooks-ts'
 import MediaRender from './components/MediaRender'
 
-// Tipos para backgrounds
 type MediaType = 'image' | 'video' | 'color' | 'gradient'
 
 function getMediaType(background: string): MediaType {
@@ -34,18 +33,17 @@ export function PresentationView({
   tagSongId,
   className,
   style,
-  displayId
+  displayId,
+  showTextBounds = false
 }: PresentationViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const { tagSongs } = useTagSongs()
-
   const { buildMediaUrl } = useMediaServer()
   const { height } = useResizeObserver({
     ref: containerRef as React.RefObject<HTMLDivElement>
   })
   const screenSize = useScreenSize(height || 0, displayId)
-  console.log(screenSize, height)
-  // Estados para manejar el background
+
   const [backgroundType, setBackgroundType] = useState<MediaType>('color')
   const [videoError, setVideoError] = useState(false)
   const [videoLoaded, setVideoLoaded] = useState(false)
@@ -53,12 +51,10 @@ export function PresentationView({
   const [fallbackUrl, setFallbackUrl] = useState<string | null>(null)
   const [backgroundUrl, setBackgroundUrl] = useState<string>('')
 
-  // Obtener item actual y datos del theme
   const currentItem = items[currentIndex] ?? items[0]
   const background = theme.background
   const backgroundMedia = theme.backgroundMedia
 
-  // Construir URLs y determinar tipo de media
   useEffect(() => {
     if (!backgroundMedia || background !== 'media') {
       setBackgroundUrl(background)
@@ -82,11 +78,11 @@ export function PresentationView({
     } else {
       setFallbackUrl(null)
     }
+
     setVideoLoaded(false)
     setVideoError(false)
   }, [background, backgroundMedia, buildMediaUrl])
 
-  // Parse animation settings
   const animationSettings = useMemo<AnimationSettings>(() => {
     try {
       return JSON.parse(theme.animationSettings || '{}')
@@ -97,15 +93,57 @@ export function PresentationView({
 
   const animationType = (animationSettings.type || 'fade') as AnimationType
 
-  // Calcular font size proporcional
   const calculatedFontSize = theme.textStyle?.fontSize
-    ? `${(screenSize.height * Number(theme.textStyle.fontSize)) / 320}px`
+    ? `${(screenSize.height * Number(theme.textStyle.fontSize)) / BASE_PRESENTATION_HEIGHT}px`
     : 'inherit'
 
   const calculatedSmallFontSize = theme.textStyle?.fontSize
-    ? `${(screenSize.height * (Number(theme.textStyle.fontSize) * 0.85)) / 320}px`
+    ? `${(screenSize.height * (Number(theme.textStyle.fontSize) * 0.85)) / BASE_PRESENTATION_HEIGHT}px`
     : 'inherit'
-  // Memoizar variants
+
+  const scaleFactor = useMemo(() => {
+    const factor = screenSize.height / BASE_PRESENTATION_HEIGHT
+    return Number.isFinite(factor) && factor > 0 ? factor : 1
+  }, [screenSize.height])
+
+  const calculatedTextPadding = useMemo(() => {
+    const horizontalValue = Number(theme.textStyle?.paddingInline ?? 16)
+    const verticalValue = Number(theme.textStyle?.paddingBlock ?? 16)
+    const horizontal = Number.isFinite(horizontalValue)
+      ? (screenSize.width * horizontalValue) / BASE_PRESENTATION_WIDTH
+      : 16
+    const vertical = Number.isFinite(verticalValue)
+      ? (screenSize.height * verticalValue) / BASE_PRESENTATION_HEIGHT
+      : 16
+
+    return {
+      horizontal,
+      vertical
+    }
+  }, [
+    theme.textStyle?.paddingInline,
+    theme.textStyle?.paddingBlock,
+    screenSize.height,
+    screenSize.width
+  ])
+
+  const textStyleConfig = (theme.textStyle || {}) as Record<string, unknown>
+  const translateRaw =
+    typeof textStyleConfig.translate === 'string' ? textStyleConfig.translate : ''
+  const translateParts = translateRaw.trim().split(/\s+/)
+  const translateXValue = Number.parseFloat(translateParts[0] || '0')
+  const translateYValue = Number.parseFloat(translateParts[1] || translateParts[0] || '0')
+
+  const calculatedTextOffset = useMemo(() => {
+    const x = Number.isFinite(translateXValue)
+      ? (screenSize.width * translateXValue) / BASE_PRESENTATION_WIDTH
+      : 0
+    const y = Number.isFinite(translateYValue)
+      ? (screenSize.height * translateYValue) / BASE_PRESENTATION_HEIGHT
+      : 0
+    return { x, y }
+  }, [screenSize.height, screenSize.width, translateXValue, translateYValue])
+
   const variants = useMemo(
     () =>
       getAnimationVariants(
@@ -117,14 +155,17 @@ export function PresentationView({
     [animationType, animationSettings.duration, animationSettings.delay, animationSettings.easing]
   )
 
-  // Memoizar estilos
-  const textStyle = useMemo(
-    () => ({
-      ...theme.textStyle,
+  const textStyle = useMemo(() => {
+    const restTextStyle = { ...(theme.textStyle || {}) } as Record<string, unknown>
+    delete restTextStyle.paddingInline
+    delete restTextStyle.paddingBlock
+    delete restTextStyle.translate
+
+    return {
+      ...restTextStyle,
       fontSize: calculatedFontSize
-    }),
-    [theme, calculatedFontSize]
-  )
+    }
+  }, [theme.textStyle, calculatedFontSize])
 
   const containerStyle = useMemo(
     () => ({
@@ -139,7 +180,7 @@ export function PresentationView({
         backgroundType === 'color' || backgroundType === 'gradient' ? background : 'transparent',
       ...style
     }),
-    [screenSize.aspectRatio, background, backgroundType]
+    [screenSize.aspectRatio, background, backgroundType, style]
   )
 
   const tagSong = useMemo(() => {
@@ -175,18 +216,15 @@ export function PresentationView({
           'pb-7': tagSong !== null
         })}
       >
-        {/* Fondos con transición cross-fade */}
         <AnimatePresence>
           {currentItem.resourceType === 'MEDIA' ? (
             <MediaRender currentItem={currentItem} live={live} />
           ) : (
             <>
-              {/* Imagen: siempre mostrar */}
               {backgroundType === 'image' && backgroundUrl && (
                 <BackgroundImage url={backgroundUrl} />
               )}
 
-              {/* Video: mostrar thumbnail si !live, video si live */}
               {backgroundType === 'video' && !live && thumbnailUrl && (
                 <BackgroundVideoThumbnail thumbnailUrl={thumbnailUrl} />
               )}
@@ -204,7 +242,6 @@ export function PresentationView({
           )}
         </AnimatePresence>
 
-        {/* Texto con animaciones */}
         <AnimatePresence mode="wait">
           <AnimatedText
             item={currentItem}
@@ -214,8 +251,13 @@ export function PresentationView({
             isPreview={!live}
             theme={theme}
             smallFontSize={calculatedSmallFontSize}
+            textContainerPadding={calculatedTextPadding}
+            textContainerOffset={calculatedTextOffset}
+            scaleFactor={scaleFactor}
+            showTextBounds={showTextBounds}
           />
         </AnimatePresence>
+
         {tagSong !== null ? (
           <div
             style={{

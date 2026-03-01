@@ -17,5 +17,5 @@ export const CreateThemeSchema = z.object({
 })
 
 export const UpdateThemeSchema = CreateThemeSchema.extend({
-  biblePresentationSettingsId: z.number().optional()
+  biblePresentationSettingsId: z.number().nullable().optional()
 })

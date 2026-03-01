@@ -10,7 +10,7 @@ Tambien considera la configuracion de tema global en `app/assets/globals.css`; s
 
 ## Archivos
 
-```
+```text
 app/ui/
 ├── PresentationView/
 │   ├── index.tsx                       # PresentationView: componente principal de presentacion
@@ -99,7 +99,7 @@ type ThemeWithMedia = Themes & {
 
 ### Arquitectura interna
 
-```
+```text
 PresentationView (index.tsx)
   └── LazyMotion features={domAnimation}   <- Wrapper para optimizar bundle
         ├── AnimatePresence                 <- Transicion de fondos
@@ -126,6 +126,13 @@ El campo `theme.background` determina el tipo:
 ### AnimatedText (`components/AnimatedText.tsx`)
 
 Renderiza el texto del slide con animaciones:
+
+- El contenedor del texto aplica padding configurable por tema (`textStyle.paddingInline` y `textStyle.paddingBlock`), permitiendo ajustar márgenes desde el editor de temas.
+- El contenedor también admite desplazamiento configurable mediante `textStyle.translate` (string CSS) para mover el bloque de texto en ambos ejes.
+- Márgenes y desplazamiento se escalan por eje para mantener consistencia visual entre previews pequeños y pantallas grandes: valores horizontales (`paddingInline`, `translateX`) en función del ancho, y verticales (`paddingBlock`, `translateY`) en función del alto.
+- El recálculo de estos valores depende explícitamente de cambios en ancho y alto del viewport renderizado para evitar desalineaciones al redimensionar o cambiar de display.
+- El `positionStyle` de referencia bíblica en modos `upScreen/downScreen` también se escala proporcionalmente.
+- Soporta guía visual opcional del área de texto (`showTextBounds`) para mostrar el contenedor efectivo con borde punteado en modos de edición/preview.
 
 - **Preview mode** (`isPreview: true`): Sin animacion, solo `dangerouslySetInnerHTML` con `sanitizeHTML()`.
 - **Animacion "split"**: Divide por palabras, cada una animada individualmente con `m.span`.
@@ -207,6 +214,7 @@ Soporta referencia biblica con posicion configurable:
 ### themeConstants.ts
 
 - Constantes de temas (si existen valores por defecto).
+- Incluye `BASE_PRESENTATION_HEIGHT` y `BASE_PRESENTATION_WIDTH` como referencias base para escalar tipografía, márgenes y offsets por eje en `PresentationView`.
 
 ## Convenciones
 

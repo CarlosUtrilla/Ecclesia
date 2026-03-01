@@ -17,6 +17,16 @@ interface AnimatedTextProps {
   isPreview?: boolean // Modo preview (sin animaciones)
   theme: ThemeWithMedia // Tema con configuración de presentación
   smallFontSize: string // Indica si se debe usar un tamaño de fuente más pequeño
+  textContainerPadding: {
+    horizontal: number
+    vertical: number
+  }
+  textContainerOffset: {
+    x: number
+    y: number
+  }
+  scaleFactor: number
+  showTextBounds?: boolean
 }
 
 /**
@@ -30,7 +40,11 @@ export function AnimatedText({
   textStyle,
   isPreview,
   theme,
-  smallFontSize
+  smallFontSize,
+  textContainerPadding,
+  textContainerOffset,
+  scaleFactor,
+  showTextBounds = false
 }: AnimatedTextProps) {
   const { text: rawText, verse } = item
   const { biblePresentationSettings } = useBiblePresentationSetting()
@@ -173,8 +187,35 @@ export function AnimatedText({
 
   return (
     <>
+      {showTextBounds ? (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: textContainerPadding.vertical,
+            right: textContainerPadding.horizontal,
+            bottom: textContainerPadding.vertical,
+            left: textContainerPadding.horizontal,
+            border: '2px dashed rgba(255,255,255,0.65)',
+            borderRadius: 8,
+            pointerEvents: 'none',
+            zIndex: 0,
+            transform: `translate(${textContainerOffset.x}px, ${textContainerOffset.y}px)`
+          }}
+        />
+      ) : null}
+
       {/* Contenido principal del texto */}
-      <div key={text} style={{ position: 'relative', zIndex: 1, width: '100%', padding: '1rem' }}>
+      <div
+        key={text}
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          width: '100%',
+          padding: `${textContainerPadding.vertical}px ${textContainerPadding.horizontal}px`,
+          transform: `translate(${textContainerOffset.x}px, ${textContainerOffset.y}px)`
+        }}
+      >
         {content(text)}
       </div>
 
@@ -188,11 +229,11 @@ export function AnimatedText({
             fontSize: smallFontSize,
             bottom:
               selectedBiblePresentationSettings?.position === 'downScreen'
-                ? `${selectedBiblePresentationSettings.positionStyle || 0}px`
+                ? `${(selectedBiblePresentationSettings.positionStyle || 0) * scaleFactor}px`
                 : 'auto',
             top:
               selectedBiblePresentationSettings?.position === 'upScreen'
-                ? `${selectedBiblePresentationSettings.positionStyle || 0}px`
+                ? `${(selectedBiblePresentationSettings.positionStyle || 0) * scaleFactor}px`
                 : 'auto'
           }}
         >

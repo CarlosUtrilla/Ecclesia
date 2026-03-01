@@ -85,6 +85,7 @@ Ver detalles de implementación y convenciones en los agents de [schedule](../..
 
 - `itemOnLive`, `setItemOnLive`: Item actualmente proyectado en vivo.
 - `selectedTheme`, `setSelectedTheme`: Tema visual activo para la proyección.
+- `selectedTheme` se resincroniza automáticamente cuando `useThemes()` refetchea cambios (por ejemplo al guardar desde ThemeEditor), para aplicar inmediatamente updates de `textStyle`, fondo y animación en `PresentationView` sin re-seleccionar manualmente el tema.
 - `currentSchedule`: Lista ordenada de items del cronograma.
 - `form`: Instancia de React Hook Form para edición y validación.
 - `getScheduleItemIcon`, `getScheduleItemLabel`, `getScheduleItemContentScreen`: Helpers para UI y proyección.

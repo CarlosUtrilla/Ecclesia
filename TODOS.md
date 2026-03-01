@@ -7,11 +7,22 @@
 3. [X] Al iniciar la app y empezar a trabajar en un schedule temporal, si me muevo a la lista de cronogramas no me sale la opcion para regresar al schedule temporal en el que estaba trabajando
 4. [X] de igual manera, mejorar el ui del schema y la lista del schema, sus cabezeras son un poco feas y puede mejorarse el diseño
 5. [X] A si mismo, despues de esto, en la pantalla de items-on-live, mostrar un boton para cambiar la vista entre lista y grid
-6. [ ] ir empezando a ver la fabricacion de presentaciones desde la aplicacion (y considerar la carga de powerpoints)
-7. [ ] planear como sincronizar toda la configuracion, base de datos y archivos entre varias computadoras
-8. [ ] considerar que las animaciones de cambios entre fondos y de fondos a videos o imagenes sean segun las animaciones elegidas para el tema que va entrando o el seleccionado en caso de poner un video o una foto, o en su defecto (de preferencia esta opcion), implementar un selecitor de transisiones en el creador de temas, para seleccionar la transision de entrada
-9. [ ] añadir una configuracion para que siempre que haya una pantalla en vivo pero no haya un recurso cargado mostrandose, se muestre como fallback un video o imagen seleccionado por el usuario que sera considerado como “logo” que puede servir como pantalla de fondo al quitar un recurso, este siempre estara debajo de los fondos de los temas para que al ocultar los recursos siempre haya una pantalla de fondo y no se vea en blanco o negro
-10. [ ] Ademas, añador un listener de botones para elegir si mostrar el logo rapidamente por ejemplo con la tecla F9, o si ocultar el texto pero sin quitar el fondo pro ejemplo con F10, o mostrar una pantalla en negro por ejemplo con F11, o quitar la pantalla en vivo con F7
-11. [ ] en el editor de temas añadir una manera de hacer crecer o achicar el contenedor del texto, de manera que tenga “margenes” o “padding” desde el borde de la pantalla, lo mismo para el verso cuando esta seleccionado en “mostrar debajo de la pantalla o arriba” para poder elegir que tan cerca del borde se quiere ue este el texto
-12. [ ] gestionar las pantalla de stage, e implementar en el editor de temas la opcion de poder usar recursos varios sobre la pantalla de stage, como un cronometro, una caja para mandar mensajes al predicador, un temporizador, un preview de la siguiente diapositiva, verso, letra, etc del recurso presentado en vivo, el tiempo del video que se esta viendo, etc, para que las personas de estage puedan ver lo necesario para comunicarse con ellos, al estilo vista del presentador de powerpoint pero con super mega poderes
-13. [ ] despues de resolver todos estos puntos debemos conseguir que los apuntadores (los que se usan para poner diapositiva siguiente y anteriir) sean compatibles con la app
+6. [ ] Implementar `Presentaciones` como nuevo tipo de medio (MVP)
+
+- Crear/usar `Presentaciones` en la biblioteca (ya contemplado en Prisma).
+- Una presentación debe ser una colección de diapositivas con:
+- imágenes,
+- videos,
+- textos bíblicos,
+- bloques de texto libre (NO canciones).
+- Permitir crear/editar diapositivas con texto estilo PowerPoint (posición, contenido y formato básico).
+- Permitir ordenar diapositivas y presentarlas desde el cronograma como un recurso único.
+- Considerar importación de PowerPoint en una fase posterior (fuera del MVP inmediato).
+
+7. [X] planear como sincronizar toda la configuracion, base de datos y archivos entre varias computadoras
+2. [ ] considerar que las animaciones de cambios entre fondos y de fondos a videos o imagenes sean segun las animaciones elegidas para el tema que va entrando o el seleccionado en caso de poner un video o una foto, o en su defecto (de preferencia esta opcion), implementar un selecitor de transisiones en el creador de temas, para seleccionar la transision de entrada
+3. [ ] añadir una configuracion para que siempre que haya una pantalla en vivo pero no haya un recurso cargado mostrandose, se muestre como fallback un video o imagen seleccionado por el usuario que sera considerado como “logo” que puede servir como pantalla de fondo al quitar un recurso, este siempre estara debajo de los fondos de los temas para que al ocultar los recursos siempre haya una pantalla de fondo y no se vea en blanco o negro
+4. [ ] Ademas, añador un listener de botones para elegir si mostrar el logo rapidamente por ejemplo con la tecla F9, o si ocultar el texto pero sin quitar el fondo pro ejemplo con F10, o mostrar una pantalla en negro por ejemplo con F11, o quitar la pantalla en vivo con F7
+5. [X] en el editor de temas añadir una manera de hacer crecer o achicar el contenedor del texto, de manera que tenga “margenes” o “padding” desde el borde de la pantalla, lo mismo para el verso cuando esta seleccionado en “mostrar debajo de la pantalla o arriba” para poder elegir que tan cerca del borde se quiere ue este el texto
+6. [ ] gestionar las pantalla de stage, e implementar en el editor de temas la opcion de poder usar recursos varios sobre la pantalla de stage, como un cronometro, una caja para mandar mensajes al predicador, un temporizador, un preview de la siguiente diapositiva, verso, letra, etc del recurso presentado en vivo, el tiempo del video que se esta viendo, etc, para que las personas de estage puedan ver lo necesario para comunicarse con ellos, al estilo vista del presentador de powerpoint pero con super mega poderes
+7. [ ] despues de resolver todos estos puntos debemos conseguir que los apuntadores (los que se usan para poner diapositiva siguiente y anteriir) sean compatibles con la app
