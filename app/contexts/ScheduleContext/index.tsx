@@ -173,7 +173,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   }
 
   // Estado y función para sesión temporal
-  const [isTemporary, setIsTemporary] = useState(false)
+  const [isTemporary, setIsTemporary] = useState(true)
   const createTemporarySchedule = () => {
     form.reset({
       id: null,

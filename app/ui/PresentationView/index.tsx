@@ -167,7 +167,7 @@ export function PresentationView({
         }
         style={containerStyle}
         className={cn('border bg-background relative select-none', className, {
-          'outline-2 outline-primary transition-colors': selected,
+          'outline-4 outline-secondary transition-colors': selected,
           'cursor-pointer': onClick !== undefined,
           'border-0': live,
           'rounded-md': !live,

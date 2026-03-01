@@ -10,6 +10,11 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { Card } from '@/ui/card'
+import { Badge } from '@/ui/badge'
+import { Separator } from '@/ui/separator'
+import { Input } from '@/ui/input'
+import { useState } from 'react'
 
 type Schedule = {
   id: number
@@ -38,6 +43,12 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
     }
   })
 
+  // Estado para búsqueda
+  const [search, setSearch] = useState('')
+  const filteredSchedules = schedules.filter((s: Schedule) =>
+    s.title.toLowerCase().includes(search.toLowerCase())
+  )
+
   // Eliminar schedule
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -63,36 +74,51 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-muted/20">
-      {/* Header */}
-      <div className="px-3 py-2 border-b bg-muted/40">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-sm font-semibold">Schedules</h2>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleCreate}>
-            <Plus className="h-4 w-4" />
+    <div className="flex flex-col h-full w-full bg-muted/20 panel-scrollable">
+      {/* Header mejorado */}
+      <div className="panel-header px-4 pt-4 pb-2 border-b bg-muted/40">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Cronogramas
+          </h2>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={handleCreate}
+            aria-label="Nuevo cronograma"
+          >
+            <Plus className="h-5 w-5" />
           </Button>
         </div>
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar cronograma..."
+          className="w-full mb-2 text-xs px-2 py-1 h-8 rounded-md border border-muted focus:border-primary focus:ring-1 focus:ring-primary bg-background"
+          aria-label="Buscar cronograma"
+        />
         <Button
           size="sm"
-          className="w-full text-xs"
+          className="w-full text-xs font-semibold flex items-center gap-2"
           onClick={() => {
             createTemporarySchedule()
             onScheduleSelect()
           }}
         >
-          <ClockPlus className="h-3 w-3" />
+          <ClockPlus className="h-4 w-4" />
           Nuevo cronograma
         </Button>
       </div>
-
-      {/* Lista de schedules */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      <div className="panel-scroll-content flex-1 overflow-y-auto px-2 py-3 space-y-3">
         {/* Sesión temporal si está activa */}
         {isTemporary && formData && (
-          <div
-            className="p-2 rounded-md bg-amber-100 dark:bg-amber-900/20 border-2 border-amber-500 cursor-pointer"
-            role="button"
+          <Card
+            className="p-2 border-amber-500 bg-amber-50 dark:bg-amber-900/20 cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-amber-400 outline-none"
             tabIndex={0}
+            role="button"
+            aria-label="Volver al cronograma temporal"
             onClick={onScheduleSelect}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -101,29 +127,39 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
               }
             }}
           >
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3 text-amber-600" />
-                  <span className="text-xs font-medium truncate">{formData.title}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">Sin guardar</span>
-              </div>
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className="h-4 w-4 text-amber-600" />
+              <span className="font-semibold text-sm truncate flex-1">
+                {formData.title || 'Cronograma temporal'}
+              </span>
+              <Badge
+                variant="outline"
+                className="border-amber-500 text-amber-700 bg-amber-100 dark:bg-amber-900/40"
+              >
+                Temporal
+              </Badge>
             </div>
+            <span className="text-xs text-muted-foreground">Sin guardar</span>
+          </Card>
+        )}
+        <Separator className="my-1" />
+        {filteredSchedules.length === 0 && (
+          <div className="text-center text-muted-foreground text-xs py-8 select-none">
+            No hay cronogramas encontrados
           </div>
         )}
-
-        {schedules.map((schedule) => (
+        {filteredSchedules.map((schedule) => (
           <ContextMenu key={schedule.id}>
             <ContextMenuTrigger>
-              <div
-                className={`p-2 rounded-md cursor-pointer transition-colors hover:bg-muted ${
+              <Card
+                className={`cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-primary outline-none ${
                   formData?.id === schedule.id && !isTemporary
-                    ? 'bg-primary/10 border border-primary'
-                    : 'bg-background border border-transparent'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-transparent bg-background'
                 }`}
-                role="button"
                 tabIndex={0}
+                role="button"
+                aria-label={`Abrir cronograma ${schedule.title}`}
                 onClick={async () => {
                   await loadSchedule(schedule.id)
                   onScheduleSelect()
@@ -136,18 +172,20 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
                   }
                 }}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium truncate">{schedule.title}</h3>
-                    {schedule.date && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(schedule.date), 'PPP', { locale: es })}
-                      </p>
-                    )}
-                  </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span className="font-semibold text-sm truncate flex-1">{schedule.title}</span>
+                  <Badge variant="outline" className="border-primary text-primary bg-primary/10">
+                    Guardado
+                  </Badge>
                 </div>
-              </div>
+                {schedule.date && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(schedule.date), 'PPP', { locale: es })}
+                  </span>
+                )}
+              </Card>
             </ContextMenuTrigger>
             <ContextMenuContent>
               <ContextMenuItem onClick={() => handleEdit(schedule)}>

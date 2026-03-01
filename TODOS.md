@@ -4,9 +4,9 @@
 
 1. [X] Añadir a la lista de elementos excluidos del schedule, el componente de temas para poder dar click a un tema y ver el preview sin que se quite el preview
 2. [X] Al hacer click en un nuevo tema, no se debe mandar el nuevo tema al live, hasta que se mande desde el schedule
-3. [ ] Al iniciar la app y empezar a trabajar en un schedule temporal, si me muevo a la lista de cronogramas no me sale la opcion para regresar al schedule temporal en el que estaba trabajando
-4. [ ] de igual manera, mejorar el ui del schema y la lista del schema, sus cabezeras son un poco feas y puede mejorarse el diseño
-5. [ ] A si mismo, despues de esto, en la pantalla de items-on-live, mostrar un boton para cambiar la vista entre lista y grid
+3. [X] Al iniciar la app y empezar a trabajar en un schedule temporal, si me muevo a la lista de cronogramas no me sale la opcion para regresar al schedule temporal en el que estaba trabajando
+4. [X] de igual manera, mejorar el ui del schema y la lista del schema, sus cabezeras son un poco feas y puede mejorarse el diseño
+5. [X] A si mismo, despues de esto, en la pantalla de items-on-live, mostrar un boton para cambiar la vista entre lista y grid
 6. [ ] ir empezando a ver la fabricacion de presentaciones desde la aplicacion (y considerar la carga de powerpoints)
 7. [ ] planear como sincronizar toda la configuracion, base de datos y archivos entre varias computadoras
 8. [ ] considerar que las animaciones de cambios entre fondos y de fondos a videos o imagenes sean segun las animaciones elegidas para el tema que va entrando o el seleccionado en caso de poner un video o una foto, o en su defecto (de preferencia esta opcion), implementar un selecitor de transisiones en el creador de temas, para seleccionar la transision de entrada

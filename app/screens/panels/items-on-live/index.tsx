@@ -1,11 +1,16 @@
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useQuery } from '@tanstack/react-query'
-import { Radio } from 'lucide-react'
+import { LayoutGrid, List, Radio } from 'lucide-react'
 import { RenderSongLyrics } from './components/RenderSongLyrics'
 import RenderBibleVerses from './components/RenderBibleVerses'
 import { RenderMedia } from './components/RenderMedia'
+import { useState } from 'react'
+import { Button } from '@/ui/button'
+import { ViewModeTypes } from './types'
+import RenderGridMode from './components/RenderGridMode'
 export default function LivePanel() {
   const { itemOnLive, getScheduleItemContentScreen } = useSchedule()
+  const [viewMode, setViewMode] = useState<ViewModeTypes>('list')
   const { data } = useQuery({
     queryKey: ['liveItemContent', itemOnLive?.accessData],
     queryFn: () => {
@@ -16,6 +21,9 @@ export default function LivePanel() {
 
   const renderContent = () => {
     const content = data!.content
+    if (viewMode === 'grid' && itemOnLive!.type !== 'MEDIA') {
+      return <RenderGridMode data={content} />
+    }
     switch (itemOnLive!.type) {
       case 'SONG':
         return <RenderSongLyrics />
@@ -50,11 +58,29 @@ export default function LivePanel() {
               {data?.title ? `- ${data.title}` : ''}
             </span>
           </div>
-          {itemOnLive ? (
-            <div className="text-nowrap ml-auto animate-pulse text-sm bg-green-600 text-white rounded-md px-2 py-1 flex items-center gap-1">
-              <Radio className="size-6" /> En vivo
-            </div>
-          ) : null}
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              className={`rounded-md p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-primary`}
+              aria-label="Vista de lista"
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-5 w-5" />
+            </Button>
+            <Button
+              className={`rounded-md p-1.5 transition-colors  focus:outline-none focus:ring-2 focus:ring-primary`}
+              aria-label="Vista de cuadrícula"
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              onClick={() => setViewMode('grid')}
+            >
+              <LayoutGrid className="h-5 w-5" />
+            </Button>
+            {itemOnLive ? (
+              <div className="text-nowrap animate-pulse text-sm bg-green-600 text-white rounded-md px-2 py-1 flex items-center gap-1 ml-2">
+                <Radio className="size-6" /> En vivo
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">{data?.content ? renderContent() : null}</div>
