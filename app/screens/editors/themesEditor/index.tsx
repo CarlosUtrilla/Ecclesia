@@ -30,7 +30,12 @@ import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSett
 import { fontSizes, lineHeights, letterSpacings } from '@/lib/themeConstants'
 import { ColorPicker } from '@/ui/colorPicker'
 import { useResizeObserver } from 'usehooks-ts'
-import { PresentationViewItems, ThemeWithMedia } from '../../../ui/PresentationView/types'
+import {
+  EditableBoundsTarget,
+  PresentationViewItems,
+  ThemeWithMedia,
+  TextBoundsValues
+} from '../../../ui/PresentationView/types'
 import { useParams } from 'react-router'
 import { CreateThemeSchema, UpdateThemeSchema } from './schema'
 import { z } from 'zod'
@@ -49,6 +54,8 @@ type FormData = z.infer<typeof CreateThemeSchema> & {
   updatedAt?: Date
 }
 
+const NEW_THEME_DEFAULT_VERSE_EDGE = 10
+
 const parseTranslate = (translateValue: unknown) => {
   if (typeof translateValue !== 'string') {
     return { x: 0, y: 0 }
@@ -66,6 +73,7 @@ const parseTranslate = (translateValue: unknown) => {
 
 export default function ThemesEditor() {
   const { id } = useParams()
+  const isCreatingTheme = !id
   const previewRef = useRef<HTMLDivElement>(null)
   const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
   const { height = 0 } = useResizeObserver({
@@ -76,6 +84,7 @@ export default function ThemesEditor() {
   const [selectedPreview, setSelectedPreview] = useState(0)
   const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
   const [animationKey, setAnimationKey] = useState(0)
+  const [selectedBoundsTarget, setSelectedBoundsTarget] = useState<EditableBoundsTarget>('text')
 
   const {
     control,
@@ -231,10 +240,18 @@ export default function ThemesEditor() {
   const handleSwitchBibleSetting = (value: boolean) => {
     setValue('useDefaultBibleSettings', value, { shouldDirty: true })
     if (!watchedData.biblePresentationSettings) {
+      const nextPositionStyle =
+        defaultBiblePresentationSettings?.positionStyle === null ||
+        defaultBiblePresentationSettings?.positionStyle === undefined ||
+        (isCreatingTheme && defaultBiblePresentationSettings?.positionStyle === 0)
+          ? NEW_THEME_DEFAULT_VERSE_EDGE
+          : defaultBiblePresentationSettings.positionStyle
+
       setValue(
         'biblePresentationSettings',
         {
           ...defaultBiblePresentationSettings,
+          positionStyle: nextPositionStyle,
           id: undefined
         } as any,
         { shouldDirty: true }
@@ -247,6 +264,98 @@ export default function ThemesEditor() {
     setValue('textStyle.paddingBlock', 16, { shouldDirty: true })
     setValue('textStyle.translate', '0px 0px', { shouldDirty: true })
   }
+
+  const handleTextBoundsChange = useCallback(
+    (next: TextBoundsValues) => {
+      setValue('textStyle.paddingInline', next.paddingInline, { shouldDirty: true })
+      setValue('textStyle.paddingBlock', next.paddingBlock, { shouldDirty: true })
+      setValue('textStyle.translate', `${next.translateX}px ${next.translateY}px`, {
+        shouldDirty: true
+      })
+    },
+    [setValue]
+  )
+
+  const activeBibleSettings = useMemo(() => {
+    const baseSettings = watchedData.useDefaultBibleSettings
+      ? defaultBiblePresentationSettings
+      : watchedData.biblePresentationSettings
+
+    if (!baseSettings) return baseSettings
+
+    if (
+      isCreatingTheme &&
+      watchedData.useDefaultBibleSettings &&
+      (baseSettings.positionStyle === null || baseSettings.positionStyle === 0)
+    ) {
+      return {
+        ...baseSettings,
+        positionStyle: NEW_THEME_DEFAULT_VERSE_EDGE
+      }
+    }
+
+    return baseSettings
+  }, [
+    defaultBiblePresentationSettings,
+    isCreatingTheme,
+    watchedData.useDefaultBibleSettings,
+    watchedData.biblePresentationSettings
+  ])
+
+  const canSelectVerseBounds = useMemo(() => {
+    const item = PreviewsItems[selectedPreview]
+    if (!item?.verse) return false
+    const position = activeBibleSettings?.position
+    return position === 'upScreen' || position === 'downScreen'
+  }, [activeBibleSettings?.position, selectedPreview])
+
+  useEffect(() => {
+    if (!canSelectVerseBounds && selectedBoundsTarget === 'verse') {
+      setSelectedBoundsTarget('text')
+    }
+  }, [canSelectVerseBounds, selectedBoundsTarget])
+
+  const handleBibleVersePositionChange = useCallback(
+    (next: number) => {
+      const bounded = Math.min(Math.max(0, Math.round(next)), 72)
+
+      if (watchedData.useDefaultBibleSettings) {
+        const sourceSettings =
+          watchedData.biblePresentationSettings || defaultBiblePresentationSettings
+        if (!sourceSettings) return
+
+        const startPositionStyle =
+          sourceSettings.positionStyle === null ||
+          sourceSettings.positionStyle === undefined ||
+          (isCreatingTheme && sourceSettings.positionStyle === 0)
+            ? NEW_THEME_DEFAULT_VERSE_EDGE
+            : sourceSettings.positionStyle
+
+        setValue('useDefaultBibleSettings', false, { shouldDirty: true })
+        setValue(
+          'biblePresentationSettings',
+          {
+            ...sourceSettings,
+            id: undefined,
+            positionStyle: startPositionStyle === bounded ? startPositionStyle : bounded
+          } as any,
+          { shouldDirty: true }
+        )
+        return
+      }
+
+      if (!watchedData.biblePresentationSettings) return
+
+      setValue('biblePresentationSettings.positionStyle', bounded, { shouldDirty: true })
+    },
+    [
+      defaultBiblePresentationSettings,
+      isCreatingTheme,
+      setValue,
+      watchedData.biblePresentationSettings,
+      watchedData.useDefaultBibleSettings
+    ]
+  )
 
   return (
     <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
@@ -554,32 +663,117 @@ export default function ThemesEditor() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[360px] p-3 space-y-3">
-              <Controller
-                name="textStyle.paddingInline"
-                control={control}
-                render={({ field }) => (
+              <div className="rounded-md border bg-background/60 px-2.5 py-1.5 text-xs">
+                Editando seleccionado:{' '}
+                <span className="font-medium text-foreground">
+                  {selectedBoundsTarget === 'verse' ? 'Verso bíblico' : 'Texto principal'}
+                </span>
+              </div>
+
+              {selectedBoundsTarget === 'text' ? (
+                <>
+                  <Controller
+                    name="textStyle.paddingInline"
+                    control={control}
+                    render={({ field }) => (
+                      <div className="w-full flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          Margen X
+                        </span>
+                        <Slider
+                          value={[Number(field.value ?? 16)]}
+                          min={0}
+                          max={160}
+                          step={1}
+                          onValueChange={(value) => field.onChange(value[0])}
+                        />
+                        <div className="relative w-16 shrink-0">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={160}
+                            step={1}
+                            className="h-6 w-16 pr-6 pl-2 text-right text-xs"
+                            value={Number(field.value ?? 16)}
+                            onChange={(event) => {
+                              const nextValue = Number(event.target.value)
+                              field.onChange(Number.isFinite(nextValue) ? nextValue : 0)
+                            }}
+                          />
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                            px
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  />
+
+                  <Controller
+                    name="textStyle.paddingBlock"
+                    control={control}
+                    render={({ field }) => (
+                      <div className="w-full flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          Margen Y
+                        </span>
+                        <Slider
+                          value={[Number(field.value ?? 16)]}
+                          min={0}
+                          max={160}
+                          step={1}
+                          onValueChange={(value) => field.onChange(value[0])}
+                        />
+                        <div className="relative w-16 shrink-0">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={160}
+                            step={1}
+                            className="h-6 w-16 pr-6 pl-2 text-right text-xs"
+                            value={Number(field.value ?? 16)}
+                            onChange={(event) => {
+                              const nextValue = Number(event.target.value)
+                              field.onChange(Number.isFinite(nextValue) ? nextValue : 0)
+                            }}
+                          />
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                            px
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  />
+
                   <div className="w-full flex items-center gap-2">
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      Margen X
+                      Posición X
                     </span>
                     <Slider
-                      value={[Number(field.value ?? 16)]}
-                      min={0}
-                      max={160}
+                      value={[translateValues.x]}
+                      min={-200}
+                      max={200}
                       step={1}
-                      onValueChange={(value) => field.onChange(value[0])}
+                      onValueChange={(value) => {
+                        const nextX = value[0] ?? 0
+                        setValue('textStyle.translate', `${nextX}px ${translateValues.y}px`, {
+                          shouldDirty: true
+                        })
+                      }}
                     />
                     <div className="relative w-16 shrink-0">
                       <Input
                         type="number"
-                        min={0}
-                        max={160}
+                        min={-200}
+                        max={200}
                         step={1}
                         className="h-6 w-16 pr-6 pl-2 text-right text-xs"
-                        value={Number(field.value ?? 16)}
+                        value={translateValues.x}
                         onChange={(event) => {
                           const nextValue = Number(event.target.value)
-                          field.onChange(Number.isFinite(nextValue) ? nextValue : 0)
+                          const nextX = Number.isFinite(nextValue) ? nextValue : 0
+                          setValue('textStyle.translate', `${nextX}px ${translateValues.y}px`, {
+                            shouldDirty: true
+                          })
                         }}
                       />
                       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
@@ -587,35 +781,37 @@ export default function ThemesEditor() {
                       </span>
                     </div>
                   </div>
-                )}
-              />
 
-              <Controller
-                name="textStyle.paddingBlock"
-                control={control}
-                render={({ field }) => (
                   <div className="w-full flex items-center gap-2">
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      Margen Y
+                      Posición Y
                     </span>
                     <Slider
-                      value={[Number(field.value ?? 16)]}
-                      min={0}
-                      max={160}
+                      value={[translateValues.y]}
+                      min={-200}
+                      max={200}
                       step={1}
-                      onValueChange={(value) => field.onChange(value[0])}
+                      onValueChange={(value) => {
+                        const nextY = value[0] ?? 0
+                        setValue('textStyle.translate', `${translateValues.x}px ${nextY}px`, {
+                          shouldDirty: true
+                        })
+                      }}
                     />
                     <div className="relative w-16 shrink-0">
                       <Input
                         type="number"
-                        min={0}
-                        max={160}
+                        min={-200}
+                        max={200}
                         step={1}
                         className="h-6 w-16 pr-6 pl-2 text-right text-xs"
-                        value={Number(field.value ?? 16)}
+                        value={translateValues.y}
                         onChange={(event) => {
                           const nextValue = Number(event.target.value)
-                          field.onChange(Number.isFinite(nextValue) ? nextValue : 0)
+                          const nextY = Number.isFinite(nextValue) ? nextValue : 0
+                          setValue('textStyle.translate', `${translateValues.x}px ${nextY}px`, {
+                            shouldDirty: true
+                          })
                         }}
                       />
                       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
@@ -623,93 +819,58 @@ export default function ThemesEditor() {
                       </span>
                     </div>
                   </div>
-                )}
-              />
 
-              <div className="w-full flex items-center gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Posición X</span>
-                <Slider
-                  value={[translateValues.x]}
-                  min={-200}
-                  max={200}
-                  step={1}
-                  onValueChange={(value) => {
-                    const nextX = value[0] ?? 0
-                    setValue('textStyle.translate', `${nextX}px ${translateValues.y}px`, {
-                      shouldDirty: true
-                    })
-                  }}
-                />
-                <div className="relative w-16 shrink-0">
-                  <Input
-                    type="number"
-                    min={-200}
-                    max={200}
-                    step={1}
-                    className="h-6 w-16 pr-6 pl-2 text-right text-xs"
-                    value={translateValues.x}
-                    onChange={(event) => {
-                      const nextValue = Number(event.target.value)
-                      const nextX = Number.isFinite(nextValue) ? nextValue : 0
-                      setValue('textStyle.translate', `${nextX}px ${translateValues.y}px`, {
-                        shouldDirty: true
-                      })
-                    }}
-                  />
-                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                    px
-                  </span>
-                </div>
-              </div>
-
-              <div className="w-full flex items-center gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Posición Y</span>
-                <Slider
-                  value={[translateValues.y]}
-                  min={-200}
-                  max={200}
-                  step={1}
-                  onValueChange={(value) => {
-                    const nextY = value[0] ?? 0
-                    setValue('textStyle.translate', `${translateValues.x}px ${nextY}px`, {
-                      shouldDirty: true
-                    })
-                  }}
-                />
-                <div className="relative w-16 shrink-0">
-                  <Input
-                    type="number"
-                    min={-200}
-                    max={200}
-                    step={1}
-                    className="h-6 w-16 pr-6 pl-2 text-right text-xs"
-                    value={translateValues.y}
-                    onChange={(event) => {
-                      const nextValue = Number(event.target.value)
-                      const nextY = Number.isFinite(nextValue) ? nextValue : 0
-                      setValue('textStyle.translate', `${translateValues.x}px ${nextY}px`, {
-                        shouldDirty: true
-                      })
-                    }}
-                  />
-                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                    px
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-1">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="w-full gap-2"
-                  onClick={handleResetTextPosition}
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Centrar / Restablecer
-                </Button>
-              </div>
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="w-full gap-2"
+                      onClick={handleResetTextPosition}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Centrar / Restablecer
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-full flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      Borde verso
+                    </span>
+                    <Slider
+                      value={[Number(activeBibleSettings?.positionStyle ?? 0)]}
+                      min={0}
+                      max={72}
+                      step={1}
+                      disabled={!canSelectVerseBounds}
+                      onValueChange={(value) => handleBibleVersePositionChange(value[0] ?? 0)}
+                    />
+                    <div className="relative w-16 shrink-0">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={72}
+                        step={1}
+                        className="h-6 w-16 pr-6 pl-2 text-right text-xs"
+                        value={Number(activeBibleSettings?.positionStyle ?? 0)}
+                        disabled={!canSelectVerseBounds}
+                        onChange={(event) => {
+                          const nextValue = Number(event.target.value)
+                          handleBibleVersePositionChange(Number.isFinite(nextValue) ? nextValue : 0)
+                        }}
+                      />
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                        px
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    El verso solo se mueve en el borde superior o inferior para no tapar el texto.
+                  </p>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -731,6 +892,11 @@ export default function ThemesEditor() {
             live
             currentIndex={selectedPreview}
             showTextBounds
+            textBoundsIsSelected={selectedBoundsTarget === 'text'}
+            bibleVerseIsSelected={selectedBoundsTarget === 'verse'}
+            onTextBoundsChange={handleTextBoundsChange}
+            onBibleVersePositionChange={handleBibleVersePositionChange}
+            onEditableTargetSelect={setSelectedBoundsTarget}
           />
         </div>
       </div>
@@ -744,6 +910,8 @@ export default function ThemesEditor() {
             className="max-w-48"
             selected={selectedPreview === index}
             showTextBounds
+            textBoundsIsSelected={selectedBoundsTarget === 'text'}
+            bibleVerseIsSelected={selectedBoundsTarget === 'verse'}
           />
         ))}
       </div>

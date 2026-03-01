@@ -144,6 +144,7 @@ export interface CreateSongDTO {
 - **Metodos del controller** son `async` y reciben los argumentos directamente (no `req/res`).
 - El canal IPC es `{namespace}.{method}` (ej: `songs.createSong`).
 - **No usar middleware HTTP** - todo es IPC directo.
+- La configuración global de presentación bíblica se inicializa con `positionStyle = 10` (separación desde borde) y se normaliza si viene sin valor para mantener comportamiento visual consistente.
 
 ## Serializacion IPC
 

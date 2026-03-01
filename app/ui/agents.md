@@ -132,7 +132,14 @@ Renderiza el texto del slide con animaciones:
 - Márgenes y desplazamiento se escalan por eje para mantener consistencia visual entre previews pequeños y pantallas grandes: valores horizontales (`paddingInline`, `translateX`) en función del ancho, y verticales (`paddingBlock`, `translateY`) en función del alto.
 - El recálculo de estos valores depende explícitamente de cambios en ancho y alto del viewport renderizado para evitar desalineaciones al redimensionar o cambiar de display.
 - El `positionStyle` de referencia bíblica en modos `upScreen/downScreen` también se escala proporcionalmente.
+- La separación del verso bíblico desde el borde se calcula de forma explícitamente relativa usando la altura real renderizada de la presentación (base de referencia `BASE_PRESENTATION_HEIGHT`).
 - Soporta guía visual opcional del área de texto (`showTextBounds`) para mostrar el contenedor efectivo con borde punteado en modos de edición/preview.
+- La visibilidad/interacción de esa guía también depende de `textBoundsIsSelected`; esto permite usar el mismo componente en editores donde el cuadro solo se muestra cuando está seleccionado.
+- El verso bíblico en modo `upScreen/downScreen` también admite selección/arrastre con `bibleVerseIsSelected` y `onBibleVersePositionChange`, limitado a una banda de borde para evitar superposición con el texto principal.
+- La selección del bloque editable puede hacerse directamente con click sobre el texto o sobre el verso (sin depender de controles externos), reutilizando el mismo flujo de selección/edición en `AnimatedText`.
+- En modo edición, la guía visual del área de texto es interactiva: permite mover el cuadro arrastrando y redimensionarlo desde bordes (izquierdo/derecho/superior/inferior), emitiendo cambios de `paddingInline`, `paddingBlock` y `translate` al editor.
+- Durante la edición interactiva, el cursor cambia dinámicamente según el borde detectado (`ew-resize` en laterales, `ns-resize` en superior/inferior, `move` en el centro) para dar feedback visual sin mostrar handles.
+- Además se muestran handles circulares sobrios en las cuatro esquinas del recuadro para redimensionado diagonal (`nwse-resize` y `nesw-resize`) con precisión estilo editor profesional.
 
 - **Preview mode** (`isPreview: true`): Sin animacion, solo `dangerouslySetInnerHTML` con `sanitizeHTML()`.
 - **Animacion "split"**: Divide por palabras, cada una animada individualmente con `m.span`.

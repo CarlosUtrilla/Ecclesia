@@ -2,8 +2,19 @@ import { ScheduleItemType } from '@prisma/client'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 
 export { ThemeWithMedia }
+
+export type TextBoundsValues = {
+  paddingInline: number
+  paddingBlock: number
+  translateX: number
+  translateY: number
+}
+
+export type EditableBoundsTarget = 'text' | 'verse'
+
 export type PresentationViewProps = {
   maxHeight?: number
+  presentationHeight?: number
   theme: ThemeWithMedia
   live?: boolean
   currentIndex?: number
@@ -15,6 +26,11 @@ export type PresentationViewProps = {
   displayId?: number
   style?: React.CSSProperties
   showTextBounds?: boolean
+  textBoundsIsSelected?: boolean
+  bibleVerseIsSelected?: boolean
+  onTextBoundsChange?: (next: TextBoundsValues) => void
+  onBibleVersePositionChange?: (next: number) => void
+  onEditableTargetSelect?: (target: EditableBoundsTarget) => void
 }
 
 export type PresentationViewItems = {

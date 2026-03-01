@@ -34,7 +34,12 @@ export function PresentationView({
   className,
   style,
   displayId,
-  showTextBounds = false
+  showTextBounds = false,
+  textBoundsIsSelected = true,
+  bibleVerseIsSelected = false,
+  onTextBoundsChange,
+  onBibleVersePositionChange,
+  onEditableTargetSelect
 }: PresentationViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const { tagSongs } = useTagSongs()
@@ -106,26 +111,25 @@ export function PresentationView({
     return Number.isFinite(factor) && factor > 0 ? factor : 1
   }, [screenSize.height])
 
+  const basePaddingInline = Number(theme.textStyle?.paddingInline ?? 16)
+  const basePaddingBlock = Number(theme.textStyle?.paddingBlock ?? 16)
+
+  const safePaddingInline = Number.isFinite(basePaddingInline) ? basePaddingInline : 16
+  const safePaddingBlock = Number.isFinite(basePaddingBlock) ? basePaddingBlock : 16
+
   const calculatedTextPadding = useMemo(() => {
-    const horizontalValue = Number(theme.textStyle?.paddingInline ?? 16)
-    const verticalValue = Number(theme.textStyle?.paddingBlock ?? 16)
-    const horizontal = Number.isFinite(horizontalValue)
-      ? (screenSize.width * horizontalValue) / BASE_PRESENTATION_WIDTH
+    const horizontal = Number.isFinite(safePaddingInline)
+      ? (screenSize.width * safePaddingInline) / BASE_PRESENTATION_WIDTH
       : 16
-    const vertical = Number.isFinite(verticalValue)
-      ? (screenSize.height * verticalValue) / BASE_PRESENTATION_HEIGHT
+    const vertical = Number.isFinite(safePaddingBlock)
+      ? (screenSize.height * safePaddingBlock) / BASE_PRESENTATION_HEIGHT
       : 16
 
     return {
       horizontal,
       vertical
     }
-  }, [
-    theme.textStyle?.paddingInline,
-    theme.textStyle?.paddingBlock,
-    screenSize.height,
-    screenSize.width
-  ])
+  }, [safePaddingInline, safePaddingBlock, screenSize.height, screenSize.width])
 
   const textStyleConfig = (theme.textStyle || {}) as Record<string, unknown>
   const translateRaw =
@@ -143,6 +147,14 @@ export function PresentationView({
       : 0
     return { x, y }
   }, [screenSize.height, screenSize.width, translateXValue, translateYValue])
+
+  const boundsScale = useMemo(
+    () => ({
+      x: screenSize.width / BASE_PRESENTATION_WIDTH,
+      y: screenSize.height / BASE_PRESENTATION_HEIGHT
+    }),
+    [screenSize.width, screenSize.height]
+  )
 
   const variants = useMemo(
     () =>
@@ -254,7 +266,20 @@ export function PresentationView({
             textContainerPadding={calculatedTextPadding}
             textContainerOffset={calculatedTextOffset}
             scaleFactor={scaleFactor}
+            presentationHeight={screenSize.height}
             showTextBounds={showTextBounds}
+            textBoundsIsSelected={textBoundsIsSelected}
+            bibleVerseIsSelected={bibleVerseIsSelected}
+            textBoundsBaseValues={{
+              paddingInline: safePaddingInline,
+              paddingBlock: safePaddingBlock,
+              translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
+              translateY: Number.isFinite(translateYValue) ? translateYValue : 0
+            }}
+            textBoundsScale={boundsScale}
+            onTextBoundsChange={onTextBoundsChange}
+            onBibleVersePositionChange={onBibleVersePositionChange}
+            onEditableTargetSelect={onEditableTargetSelect}
           />
         </AnimatePresence>
 

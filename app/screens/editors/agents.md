@@ -99,6 +99,13 @@ app/screens/editors/
 - **Contenedor de texto**: `Margen X` y `Margen Y` (padding horizontal/vertical) configurables por tema para controlar cercanía al borde de pantalla.
 - **Posición del contenedor**: `Posición X` y `Posición Y` para desplazar el bloque de texto a izquierda/derecha/arriba/abajo.
 - En el preview del Theme Editor se muestra una guía visual con borde punteado del área efectiva del texto para ajustar tamaño/márgenes con precisión.
+- La guía visual del preview es editable con mouse: se puede arrastrar el cuadro para moverlo y usar handles de borde para redimensionar, sincronizando los campos `Margen X/Y` y `Posición X/Y` en tiempo real.
+- En Theme Editor, la guía se renderiza con estado seleccionado siempre activo para mostrarse en todo momento; en otros editores puede ocultarse y mostrarse por selección del usuario.
+- El selector `Texto/Verso` permite elegir qué bloque está activo para edición en el preview; el verso bíblico (cuando está en `upScreen/downScreen`) se arrastra verticalmente con límite de borde para que no invada la zona central.
+- El menú `Posición` no usa pestañas: carga automáticamente los controles del elemento actualmente seleccionado en el preview (texto principal o verso bíblico).
+- Si el tema está usando configuración bíblica por defecto y el usuario arrastra el verso en el preview, el editor cambia automáticamente a configuración personalizada del tema para aplicar el ajuste de `positionStyle`.
+- Al crear un tema nuevo, la separación inicial del verso bíblico desde el borde usa `10px` en lugar de `0px` para una posición de partida más útil.
+- En la configuración de presentación bíblica, el valor inicial de separación del borde también parte en `10px` para mantener consistencia con el editor de temas.
 - Para evitar saturación en la toolbar, los controles de `Margen X/Y` y `Posición X/Y` están agrupados en un dropdown `Posición`.
 - Los valores de estos controles se muestran en una sola línea con ancho fijo para evitar saltos de línea en números grandes/negativos.
 - Cada control admite edición precisa por teclado mediante input numérico (además del slider) para ajustar valores en px.

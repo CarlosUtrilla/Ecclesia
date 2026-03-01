@@ -5,6 +5,8 @@ import { openBible } from './utils'
 import { TestamentEnum } from '@prisma/client'
 import { getBiblesResourcesPath } from '../../../electron/main/bibleManager/bibleManager'
 
+const DEFAULT_BIBLE_EDGE_OFFSET = 10
+
 export class BibleManagmentService {
   prisma = getPrisma()
   biblesFolder = getBiblesResourcesPath()
@@ -18,11 +20,20 @@ export class BibleManagmentService {
           isGlobal: true,
           position: 'overText',
           showVersion: true,
-          showVerseNumber: false
+          showVerseNumber: false,
+          positionStyle: DEFAULT_BIBLE_EDGE_OFFSET
         }
       })
       console.log('✅ Configuración inicial de presentación de biblias creada')
     } else {
+      if (existsDefault.positionStyle === null || existsDefault.positionStyle === undefined) {
+        await this.prisma.biblePresentationSettings.update({
+          where: { id: existsDefault.id },
+          data: { positionStyle: DEFAULT_BIBLE_EDGE_OFFSET }
+        })
+        console.log('ℹ️ Configuración global de biblia normalizada con separación inicial de 10px')
+      }
+
       console.log('ℹ️ Configuración inicial de presentación de biblias ya existe')
     }
   }

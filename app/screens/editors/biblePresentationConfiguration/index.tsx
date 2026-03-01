@@ -26,6 +26,8 @@ import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePres
 import { Slider } from '@/ui/slider'
 import { ThemeWithMedia } from '../../../ui/PresentationView/types'
 
+const DEFAULT_BIBLE_EDGE_OFFSET = 10
+
 type Props = {
   hideTooltip?: boolean
   customTheme?: ThemeWithMedia
@@ -51,7 +53,7 @@ export default function BiblePresentationConfiguration({
       position: 'afterText' as BibleDescriptionPosition,
       showVersion: true,
       showVerseNumber: false,
-      positionStyle: null,
+      positionStyle: DEFAULT_BIBLE_EDGE_OFFSET,
       ...customBibleSettings
     },
     resolver: zodResolver(BiblePresentationSchema)
@@ -82,7 +84,14 @@ export default function BiblePresentationConfiguration({
 
   const loadGlobalSettings = () => {
     if (defaultBiblePresentationSettings) {
-      reset(defaultBiblePresentationSettings)
+      reset({
+        ...defaultBiblePresentationSettings,
+        positionStyle:
+          defaultBiblePresentationSettings.positionStyle === null ||
+          defaultBiblePresentationSettings.positionStyle === undefined
+            ? DEFAULT_BIBLE_EDGE_OFFSET
+            : defaultBiblePresentationSettings.positionStyle
+      })
     }
   }
 
@@ -208,10 +217,12 @@ export default function BiblePresentationConfiguration({
                     <div className="flex items-center gap-2">
                       <Slider
                         value={[field.value || 0]}
-                        max={200}
+                        max={72}
                         min={0}
                         step={1}
-                        onValueChange={(value) => field.onChange(value[0])}
+                        onValueChange={(value) =>
+                          field.onChange(Math.min(Math.max(0, value[0] || 0), 72))
+                        }
                       />
                       <div className="w-10 text-sm text-right">{field.value || 0} px</div>
                     </div>
