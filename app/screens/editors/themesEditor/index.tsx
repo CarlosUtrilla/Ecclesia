@@ -172,6 +172,7 @@ export default function ThemesEditor() {
       }
       // cerrar ventana
       window.electron.ipcRenderer.send('theme-saved')
+        window.googleDriveSyncAPI.notifyAutoSaveEvent()
       window.windowAPI.closeCurrentWindow()
     } catch (error: any) {
       console.error('Error saving theme:', error)

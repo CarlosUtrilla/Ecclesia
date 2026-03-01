@@ -13,6 +13,7 @@ import { bibleAPI } from '../main/bibleManager'
 import { mediaAPI } from '../main/mediaManager'
 import { displayAPI } from '../main/displayManager/displaysMethods'
 import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
+import { googleDriveSyncAPI } from '../main/googleDriveSyncManager/googleDriveSyncAPI'
 
 // Funciones adicionales para ventanas
 const windowAPI = {
@@ -36,6 +37,7 @@ export const HandleManagers = {
   windowAPI,
   displayAPI,
   liveMediaAPI,
+  googleDriveSyncAPI,
   api: exposeRoutes() as RoutesTypes
 }
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -66,4 +68,6 @@ if (process.contextIsolated) {
   window.mediaAPI = mediaAPI
   // @ts-ignore (define in dts)
   window.displayAPI = displayAPI
+  // @ts-ignore (define in dts)
+  window.googleDriveSyncAPI = googleDriveSyncAPI
 }

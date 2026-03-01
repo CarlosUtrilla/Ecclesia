@@ -77,6 +77,23 @@ Proceso principal de Electron. Gestiona ventanas, servidor de medios locales, ma
 
 ## Modulos
 
+### GoogleDriveSyncManager (`googleDriveSyncManager/`)
+
+- Manager dedicado para sincronizacion de respaldo completo con Google Drive.
+- El login OAuth se abre en una ventana interna de Electron (no en navegador externo).
+- Canales IPC:
+  - `sync:google-drive:status`
+  - `sync:google-drive:configure`
+  - `sync:google-drive:connect`
+  - `sync:google-drive:disconnect`
+  - `sync:google-drive:push`
+  - `sync:google-drive:pull`
+- Evento IPC adicional: `sync:google-drive:auto-save-event` para autosync al guardar desde editores.
+- Emite `sync-state` a renderer con `{ syncing, progress }` para mostrar indicador global `Sincronizando...` y porcentaje en tiempo real.
+- La descarga (`pull`) deja una restauracion pendiente para aplicar al iniciar la app.
+- En startup se ejecuta `applyPendingDriveRestoreOnStartup()` antes de `initPrisma()` y luego se evalúa autosync inicial.
+- Las credenciales OAuth se cargan desde variables de entorno leídas en startup con `loadAppEnv()` (`.env`, `.env.local` o `userData/.env`).
+
 ### Window Manager (`windowManager.ts`)
 
 Gestiona todas las ventanas de la aplicacion:
@@ -199,6 +216,7 @@ Definidas en `electron/preload/index.ts`:
 | `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()` |
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wraps del bible controller |
+| `window.googleDriveSyncAPI` | `getStatus()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()` |
 
 ## Convenciones
 

@@ -18,11 +18,18 @@ import { initializeMediaManager } from './mediaManager'
 import { stopMediaServer } from './mediaManager/mediaServer'
 import { initializeDisplayManager } from './displayManager'
 import { initializeFontManager } from './fontManager'
+import {
+  applyPendingDriveRestoreOnStartup,
+  initializeGoogleDriveSyncManager
+} from './googleDriveSyncManager/googleDriveSyncManager'
+import { loadAppEnv } from './loadEnv'
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  loadAppEnv()
+  await applyPendingDriveRestoreOnStartup()
   await initPrisma()
 
   // Inicia
@@ -50,6 +57,8 @@ app.whenReady().then(async () => {
   initializeDisplayManager()
   // Inicializar manager de media en vivo
   initializeLiveMediaManager()
+  // Inicializar manager de sincronización con Google Drive
+  initializeGoogleDriveSyncManager()
 
   // Obtener fuentes del sistema
   ipcMain.handle('get-system-fonts', async () => {

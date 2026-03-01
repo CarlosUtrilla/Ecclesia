@@ -6,6 +6,7 @@
 
 Panel de biblioteca que ocupa la parte inferior de la aplicacion. Contiene tres secciones en tabs: Canciones, Medios y Biblia. Permite buscar, explorar y arrastrar recursos al cronograma.
 En el extremo derecho del header de tabs incluye un botón `Ajustes` que abre la ventana de configuración.
+Cuando hay una operación activa de sync con Google Drive, muestra la etiqueta `Sincronizando X%` junto al botón (fallback `Sincronizando...` mientras inicializa el progreso).
 
 ## Archivos
 

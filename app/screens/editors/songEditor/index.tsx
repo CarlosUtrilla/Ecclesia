@@ -82,6 +82,7 @@ export default function SongEditor() {
         await window.api.songs.createSong(data)
       }
       window.electron.ipcRenderer.send('song-saved')
+      window.googleDriveSyncAPI.notifyAutoSaveEvent()
       window.windowAPI.closeCurrentWindow()
     } catch (e) {
       console.error('Error saving song:', e)

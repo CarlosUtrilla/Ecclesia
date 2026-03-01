@@ -3,13 +3,26 @@ import { t } from '@locales'
 import SongsPanelLibrary from './songs'
 import MediaLibrary from './media'
 import BiblePanel from './bible'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ThemesSidePanel } from './themesSidePanel'
 import { Button } from '@/ui/button'
 import { Settings } from 'lucide-react'
 
 export default function LibraryPanel() {
   const [activeTab, setActiveTab] = useState('songs')
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState(0)
+
+  useEffect(() => {
+    const unsubscribe = window.googleDriveSyncAPI.onSyncStateChange(({ syncing, progress }) => {
+      setIsSyncing(syncing)
+      setSyncProgress(progress)
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   return (
     <div className="flex flex-row h-full">
@@ -28,6 +41,11 @@ export default function LibraryPanel() {
           <Button size="sm" variant="ghost" onClick={() => window.windowAPI.openSettingsWindow()}>
             <Settings className="h-4 w-4" />
             Ajustes
+            {isSyncing ? (
+              <span className="text-xs text-primary">
+                {syncProgress > 0 ? `Sincronizando ${syncProgress}%` : 'Sincronizando...'}
+              </span>
+            ) : null}
           </Button>
         </div>
 

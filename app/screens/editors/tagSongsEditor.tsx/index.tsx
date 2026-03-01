@@ -57,6 +57,7 @@ export default function TagSongsEditor() {
       toast.success('Tags guardadas correctamente')
       setHasChanges(false)
       window.electron.ipcRenderer.send('tags-saved')
+      window.googleDriveSyncAPI.notifyAutoSaveEvent()
       window.windowAPI.closeCurrentWindow()
     },
     onError: (error: Error) => {
