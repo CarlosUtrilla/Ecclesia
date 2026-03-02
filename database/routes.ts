@@ -7,6 +7,7 @@ import BibleController from './controllers/bible/bible.controller'
 import { ScheduleController } from './controllers/schedule/schedule.controller'
 import SelectedScreensController from './controllers/selectedScreens/selectedScreens.controller'
 import FontsController from './controllers/fonts/fonts.controller'
+import { PresentationsController } from './controllers/presentations/presentations.controller'
 
 export const routes = {
   setttings: SettingsController,
@@ -16,6 +17,7 @@ export const routes = {
   tagSongs: TagSongsController,
   bible: BibleController,
   schedule: ScheduleController,
+  presentations: PresentationsController,
   selectedScreens: SelectedScreensController,
   fonts: FontsController
 }

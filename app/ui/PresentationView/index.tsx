@@ -11,6 +11,7 @@ import { BackgroundImage } from './components/BackgroundImage'
 import { BackgroundVideoThumbnail } from './components/BackgroundVideoThumbnail'
 import { BackgroundVideoLive } from './components/BackgroundVideoLive'
 import { AnimatedText } from './components/AnimatedText'
+import PresentationRender from './components/PresentationRender'
 import useTagSongs from '@/hooks/useTagSongs'
 import { useResizeObserver } from 'usehooks-ts'
 import MediaRender from './components/MediaRender'
@@ -255,32 +256,61 @@ export function PresentationView({
         </AnimatePresence>
 
         <AnimatePresence mode="wait">
-          <AnimatedText
-            item={currentItem}
-            animationType={animationType}
-            variants={variants}
-            textStyle={textStyle}
-            isPreview={!live}
-            theme={theme}
-            smallFontSize={calculatedSmallFontSize}
-            textContainerPadding={calculatedTextPadding}
-            textContainerOffset={calculatedTextOffset}
-            scaleFactor={scaleFactor}
-            presentationHeight={screenSize.height}
-            showTextBounds={showTextBounds}
-            textBoundsIsSelected={textBoundsIsSelected}
-            bibleVerseIsSelected={bibleVerseIsSelected}
-            textBoundsBaseValues={{
-              paddingInline: safePaddingInline,
-              paddingBlock: safePaddingBlock,
-              translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
-              translateY: Number.isFinite(translateYValue) ? translateYValue : 0
-            }}
-            textBoundsScale={boundsScale}
-            onTextBoundsChange={onTextBoundsChange}
-            onBibleVersePositionChange={onBibleVersePositionChange}
-            onEditableTargetSelect={onEditableTargetSelect}
-          />
+          {currentItem.resourceType === 'PRESENTATION' ? (
+            <PresentationRender
+              item={currentItem}
+              animationType={animationType}
+              variants={variants}
+              textStyle={textStyle}
+              isPreview={!live}
+              theme={theme}
+              smallFontSize={calculatedSmallFontSize}
+              textContainerPadding={calculatedTextPadding}
+              textContainerOffset={calculatedTextOffset}
+              scaleFactor={scaleFactor}
+              presentationHeight={screenSize.height}
+              showTextBounds={showTextBounds}
+              textBoundsIsSelected={textBoundsIsSelected}
+              bibleVerseIsSelected={bibleVerseIsSelected}
+              textBoundsBaseValues={{
+                paddingInline: safePaddingInline,
+                paddingBlock: safePaddingBlock,
+                translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
+                translateY: Number.isFinite(translateYValue) ? translateYValue : 0
+              }}
+              textBoundsScale={boundsScale}
+              onTextBoundsChange={onTextBoundsChange}
+              onBibleVersePositionChange={onBibleVersePositionChange}
+              onEditableTargetSelect={onEditableTargetSelect}
+            />
+          ) : (
+            <AnimatedText
+              item={currentItem}
+              animationType={animationType}
+              variants={variants}
+              textStyle={textStyle}
+              isPreview={!live}
+              theme={theme}
+              smallFontSize={calculatedSmallFontSize}
+              textContainerPadding={calculatedTextPadding}
+              textContainerOffset={calculatedTextOffset}
+              scaleFactor={scaleFactor}
+              presentationHeight={screenSize.height}
+              showTextBounds={showTextBounds}
+              textBoundsIsSelected={textBoundsIsSelected}
+              bibleVerseIsSelected={bibleVerseIsSelected}
+              textBoundsBaseValues={{
+                paddingInline: safePaddingInline,
+                paddingBlock: safePaddingBlock,
+                translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
+                translateY: Number.isFinite(translateYValue) ? translateYValue : 0
+              }}
+              textBoundsScale={boundsScale}
+              onTextBoundsChange={onTextBoundsChange}
+              onBibleVersePositionChange={onBibleVersePositionChange}
+              onEditableTargetSelect={onEditableTargetSelect}
+            />
+          )}
         </AnimatePresence>
 
         {tagSong !== null ? (

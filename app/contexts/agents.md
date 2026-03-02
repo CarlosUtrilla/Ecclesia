@@ -96,7 +96,7 @@ MediaServerProvider          (top-level, sin dependencias)
 **Archivos auxiliares:**
 - `schema.ts` - Esquema Zod para validacion del formulario
 - `types.d.ts` - Tipos TypeScript del contexto
-- `utils/indexDataItems.tsx` - Queries de React Query para songs/media, funciones de display
+- `utils/indexDataItems.tsx` - Queries de React Query para songs/media/presentations, funciones de display
 - `utils/LibraryItemPreview.tsx` - Componente de preview para drag overlay
 
 **Tipos de items soportados:** BIBLE, SONG, MEDIA, PRESENTATION, GROUP
@@ -202,6 +202,18 @@ const { scheduleGroupTemplates, refetch } = useScheduleGroupTemplates()
 
 - React Query: `queryKey: ['scheduleGroupTemplates']`
 - Escucha IPC `schedule-group-templates-saved` -> refetch automatico
+
+### usePresentations
+
+**Archivo:** `app/hooks/usePresentations.ts`
+
+```typescript
+const { presentations, refetchPresentations } = usePresentations({ search })
+```
+
+- React Query: `queryKey: ['presentations', search]`
+- Escucha IPC `presentation-saved` -> refetch automatico
+- Se usa en la pestaña de biblioteca `Presentaciones`
 
 ### useKeyboardShortcuts
 

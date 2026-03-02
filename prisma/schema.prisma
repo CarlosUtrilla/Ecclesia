@@ -111,6 +111,14 @@ model Media {
   themesUsingAsBackground Themes[]
 }
 
+model Presentation {
+  id        Int      @id @default(autoincrement())
+  title     String
+  slides    String   @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum TestamentEnum {
   Old
   New

@@ -34,15 +34,38 @@ export type PresentationViewProps = {
 }
 
 export type PresentationViewItems = {
+  id?: string
   text: string
   customStyle?: string
+  animationSettings?: string
+  layer?: number
+  media?: {
+    id: number
+    name: string
+    type: 'IMAGE' | 'VIDEO'
+    filePath: string
+    thumbnail?: string | null
+    format?: string
+  }
+  presentationItems?: PresentationLayerItem[]
   verse?: {
     bookId: number
     chapter: number
     verse: number
     version: string
   }
-  resourceType: ScheduleItemType
+  resourceType: ScheduleItemType | 'TEXT'
+}
+
+export type PresentationLayerItem = {
+  id: string
+  text: string
+  customStyle?: string
+  animationSettings?: string
+  layer?: number
+  media?: PresentationViewItems['media']
+  verse?: PresentationViewItems['verse']
+  resourceType: ScheduleItemType | 'TEXT'
 }
 
 export type ScreenSize = { width: number; height: number; aspectRatio: string }

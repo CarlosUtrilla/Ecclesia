@@ -17,6 +17,7 @@ app/ui/
 │   ├── types.d.ts                      # Tipos: PresentationViewProps, PresentationViewItems, ThemeWithMedia
 │   ├── components/
 │   │   ├── AnimatedText.tsx            # Texto con animaciones (LazyMotion m)
+│   │   ├── PresentationRender.tsx       # Render por capas para PRESENTATION (items mixtos + animación por item)
 │   │   ├── BackgroundImage.tsx         # Fondo de imagen animado (m.img)
 │   │   ├── BackgroundVideoLive.tsx     # Fondo de video en vivo (m.video + m.img fallback)
 │   │   └── BackgroundVideoThumbnail.tsx # Thumbnail de video para preview (m.img)
@@ -107,11 +108,14 @@ PresentationView (index.tsx)
         │     ├── BackgroundVideoThumbnail  <- Thumbnail de video (preview)
         │     └── BackgroundVideoLive       <- Video en vivo (m.video)
         │
-        ├── AnimatePresence mode="wait"     <- Transicion de texto
-        │     └── AnimatedText              <- Texto con animacion configurable
+        ├── AnimatePresence mode="wait"     <- Transicion de contenido
+        │     ├── PresentationRender         <- Flujo dedicado para resourceType PRESENTATION
+        │     └── AnimatedText               <- Texto con animacion configurable (otros tipos)
         │
         └── Tag bar (opcional)              <- Barra de color inferior con nombre del tag
 ```
+
+- `PresentationRender` interpreta `presentationItems` ordenados por `layer` y aplica `animationSettings` por item para entradas independientes.
 
 ### Logica de fondos
 

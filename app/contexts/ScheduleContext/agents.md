@@ -14,6 +14,8 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
 - **utils/**: Utilidades especializadas:
   - **dragAndDropSchedule.tsx**: Lógica de drag & drop (dnd-kit) para items y plantillas.
   - **indexDataItems.tsx**: Helpers para obtener iconos, etiquetas y contenido de items (canciones, medios, biblias).
+    - Incluye soporte MVP para `PRESENTATION`: resuelve título, ícono y contenido por diapositiva.
+    - Para slides legacy de tipo `MEDIA` y para slides mixtos (`items[]`), carga los `Media` requeridos y los mapea a `PresentationViewItems`.
   - **liveContext.tsx**: Sub-contexto para gestión de pantallas en vivo y sincronización de contenido.
   - **LibraryItemPreview.tsx**: Vista previa de items durante drag & drop.
 

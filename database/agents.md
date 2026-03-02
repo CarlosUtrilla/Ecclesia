@@ -42,6 +42,10 @@ database/
 │   │   ├── songs.controller.ts
 │   │   ├── songs.service.ts
 │   │   └── songs.dto.d.ts
+│   ├── presentations/
+│   │   ├── presentations.controller.ts
+│   │   ├── presentations.service.ts
+│   │   └── presentations.dto.d.ts
 │   ├── tagSongs/
 │   │   ├── tagSongs.controller.ts
 │   │   ├── tagSongs.service.ts
@@ -86,6 +90,7 @@ Definidos en `routes.ts`:
 | `tagSongs` | TagSongsController | `createTagSong`, `getAllTagSongs`, `updateTagSong`, `deleteTagSong` |
 | `bible` | BibleController | `getBibleSchema`, `getVerses`, `getCompleteChapter`, `getAvailableBibles`, `importBible`, `searchTextFragment`, `getDefaultBibleSettings`, `updateDefaultBibleSettings` |
 | `schedule` | ScheduleController | `createSchedule`, `getAllSchedules`, `getScheduleById`, `updateSchedule`, `deleteSchedule`, `getActualSchedule`, `addItemToSchedule`, `getAllGroupTemplates`, `createGroupTemplate`, `updateGroupTemplate`, `deleteGroupTemplate`, `getGroupTemplateById` |
+| `presentations` | PresentationsController | `createPresentation`, `getPresentations`, `getPresentationsByIds`, `getPresentationById`, `updatePresentation`, `deletePresentation` |
 | `setttings` | SettingsController | `getSettings`, `updateSettings` |
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
 | `fonts` | FontsController | `addFont`, `getAllFonts`, `deleteFont` |
@@ -145,6 +150,8 @@ export interface CreateSongDTO {
 - El canal IPC es `{namespace}.{method}` (ej: `songs.createSong`).
 - **No usar middleware HTTP** - todo es IPC directo.
 - La configuración global de presentación bíblica se inicializa con `positionStyle = 10` (separación desde borde) y se normaliza si viene sin valor para mantener comportamiento visual consistente.
+- El módulo `presentations` serializa `slides` como JSON string en Prisma para MVP y lo normaliza a objeto en service antes de devolver al renderer.
+- `presentations.slides` ahora soporta estructura mixta por diapositiva con `items[]` (schedule-like): cada item define `type`, `accessData`, `layer`, `customStyle` y `animationSettings` para render por capas y animación por elemento.
 
 ## Serializacion IPC
 

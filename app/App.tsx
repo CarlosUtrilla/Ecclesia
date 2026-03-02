@@ -14,6 +14,7 @@ import { PropsWithChildren } from 'react'
 import LiveScreen from './screens/live-screen'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from './ui/resizable'
 import SettingsScreen from './screens/settings'
+import PresentationEditor from './screens/editors/presentationEditor'
 
 function App() {
   return (
@@ -60,6 +61,9 @@ function App() {
 
         {/* Ruta para ajustes */}
         <Route path="/settings" element={<SettingsScreen />} />
+
+        <Route path="/presentation/new" element={<PresentationEditor />} />
+        <Route path="/presentation/:id" element={<PresentationEditor />} />
 
         <Route path="/live-screen/:displayId" element={<LiveScreen />} />
       </Routes>

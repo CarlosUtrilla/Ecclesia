@@ -8,7 +8,7 @@ Editores de la aplicacion. Se abren en ventanas separadas de Electron (excepto l
 
 ## Archivos
 
-```
+```text
 app/screens/editors/
 ├── songEditor/
 │   ├── index.tsx                # SongEditor: editor completo de canciones
@@ -27,6 +27,25 @@ app/screens/editors/
 ├── biblePresentationConfiguration/
 │   ├── index.tsx                # BiblePresentationConfiguration: dialog de config
 │   └── schema.ts                # Esquema Zod
+├── presentationEditor/
+│   ├── index.tsx                # PresentationEditor: orquestador del editor
+│   ├── bibleTextPicker.tsx      # Dialog para seleccionar rango bíblico
+│   ├── schema.ts                # Esquema Zod del editor de presentaciones
+│   ├── agents.md                # Documentación específica del módulo
+│   ├── components/
+│   │   ├── editorCanvas.tsx     # Lienzo editable (drag visual de contenido)
+│   │   ├── textCanvasItem.tsx   # Item de texto editable inline (focus/caret/edición)
+│   │   ├── slideControls.tsx    # Barras de control por tipo de slide (media/biblia/contenido)
+│   │   ├── textStyleToolbar.tsx # Toolbar de estilo reutilizable tipo Theme Editor
+│   │   └── sortableSlideCard.tsx # Tarjeta sortable del carrusel de slides
+│   ├── hooks/
+│   │   ├── usePresentationEditorHistory.ts   # Hook dedicado de undo/redo con snapshots
+│   │   ├── usePresentationEditorShortcuts.ts # Atajos globales del editor (Delete/Duplicate/Undo/Redo)
+│   │   ├── usePresentationEditorActions.ts   # Lógica de acciones de slides/items
+│   │   └── useCanvasSnapping.ts             # Snapping magnético y guías del canvas
+│   └── utils/
+│       ├── slideUtils.ts        # Factories y normalización slide -> items[]
+│       └── bibleAccessData.ts   # Parse/build de accessData bíblico reutilizable
 └── tagSongsEditor.tsx/
     └── index.tsx                # TagSongsEditor: editor de etiquetas de canciones
 ```
@@ -36,14 +55,14 @@ app/screens/editors/
 **Ruta:** `/song/new` o `/song/:id`
 **Ventana:** Se abre via `window.windowAPI.openSongWindow(songId?)`
 
-### Layout
+### Layout Song Editor
 
-```
+```text
 [Formulario de cancion]  |  [Preview de slides]  |  [Selector de tema]
      (col 2-3)           |      (col 8-9)        |      (sidebar)
 ```
 
-### Funcionalidad
+### Funcionalidad Song Editor
 
 - **Formulario**: titulo, autor, copyright (React Hook Form + Zod).
 - **Editor de letras**: TipTap rich text editor con estrofas agrupadas por tags.
@@ -53,7 +72,7 @@ app/screens/editors/
 
 ### Flujo de guardado
 
-```
+```text
 1. Usuario edita -> React Hook Form trackea cambios
 2. Click "Guardar" -> validacion Zod
 3. window.api.songs.createSong() o updateSong()
@@ -81,14 +100,14 @@ app/screens/editors/
 **Ruta:** `/theme/new` o `/theme/:id`
 **Ventana:** Se abre via `window.windowAPI.openThemeWindow(themeId?)`
 
-### Layout
+### Layout Themes Editor
 
-```
+```text
 [Formulario de tema]     |  [Preview grande]    |  [Miniaturas de slides]
   (sidebar izquierdo)    |   (centro)           |    (barra inferior)
 ```
 
-### Funcionalidad
+### Funcionalidad Themes Editor
 
 - **Nombre del tema**: Campo unico.
 - **Fondo**: `BackgroundSelector` con 3 opciones:
@@ -148,11 +167,26 @@ app/screens/editors/
 }
 ```
 
+## Presentation Editor
+
+**Ruta:** `/presentation/new` o `/presentation/:id`
+**Ventana:** Se abre via `window.windowAPI.openPresentationWindow(presentationId?)`
+
+### Funcionalidad Presentation Editor
+
+- El detalle técnico del módulo se documenta en [app/screens/editors/presentationEditor/agents.md](presentationEditor/agents.md).
+- El módulo está organizado por `components/`, `hooks/` y `utils/` para mantener `index.tsx` como orquestador.
+- Funcionalidades principales: edición visual canvas, snapping, historial undo/redo, atajos y guardado de slides mixtos (`items[]`).
+- Los cambios de un control de estilo no sobrescriben otros campos no editados (por ejemplo, cambiar alineación conserva `fontFamily`).
+- El editor filtra valores `undefined` en updates de item/estilo para evitar sobrescrituras accidentales en controles de texto, media y canvas.
+- Preview en vivo por diapositiva usando `PresentationView`.
+- Guardado emite evento IPC `presentation-saved` para refrescar biblioteca principal.
+
 ## Bible Presentation Configuration
 
 **UI:** Dialog (no ventana separada), se abre desde el panel de biblia.
 
-### Funcionalidad
+### Funcionalidad Bible Presentation Configuration
 
 - Configura como se muestra la referencia biblica en presentaciones.
 - Opciones:
@@ -167,7 +201,7 @@ app/screens/editors/
 **Ruta:** `/tagSongEditor`
 **Ventana:** Se abre via `window.windowAPI.openTagsSongWindow()`
 
-### Funcionalidad
+### Funcionalidad Tag Songs Editor
 
 - CRUD de tags para categorizar estrofas de canciones.
 - Campos: nombre, nombre corto (shortName), atajo de teclado (shortCut), color.

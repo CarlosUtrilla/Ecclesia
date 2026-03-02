@@ -2,7 +2,7 @@ import { PresentationViewItems } from '../types'
 import { Media } from '@prisma/client'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { getMediaType } from '@/lib/utils'
-import { useId, useLayoutEffect } from 'react'
+import { CSSProperties, useId, useLayoutEffect, useMemo } from 'react'
 
 type MediaRenderProps = {
   currentItem: PresentationViewItems
@@ -18,6 +18,40 @@ export default function MediaRender({ currentItem, live = false }: MediaRenderPr
   const originalUrl = buildMediaUrl(itemData.filePath)
 
   const type = getMediaType(itemData.format)
+
+  const mediaElementStyle = useMemo<CSSProperties>(() => {
+    if (!currentItem.customStyle) {
+      return {
+        width: '100%',
+        height: '100%'
+      }
+    }
+
+    try {
+      const parsed = JSON.parse(currentItem.customStyle) as {
+        offsetX?: number
+        offsetY?: number
+        mediaWidth?: number
+        mediaHeight?: number
+      }
+
+      const width = Number.isFinite(parsed.mediaWidth) ? Math.max(10, parsed.mediaWidth!) : 70
+      const height = Number.isFinite(parsed.mediaHeight) ? Math.max(10, parsed.mediaHeight!) : 70
+      const offsetX = Number.isFinite(parsed.offsetX) ? parsed.offsetX! : 0
+      const offsetY = Number.isFinite(parsed.offsetY) ? parsed.offsetY! : 0
+
+      return {
+        width: `${width}%`,
+        height: `${height}%`,
+        transform: `translate(${offsetX}px, ${offsetY}px)`
+      }
+    } catch {
+      return {
+        width: '100%',
+        height: '100%'
+      }
+    }
+  }, [currentItem.customStyle])
   // Sincronización de media: escuchar eventos desde el controlador
   useLayoutEffect(() => {
     if (!live || type !== 'video') return
@@ -69,7 +103,14 @@ export default function MediaRender({ currentItem, live = false }: MediaRenderPr
 
   const renderMedia = () => {
     if (!live) {
-      return <img src={thumbnailUrl} alt={itemData.name} className="w-full h-full object-contain" />
+      return (
+        <img
+          src={thumbnailUrl}
+          alt={itemData.name}
+          className="object-contain"
+          style={mediaElementStyle}
+        />
+      )
     } else {
       if (type === 'video') {
         // Inicia muted para permitir autoplay
@@ -78,7 +119,8 @@ export default function MediaRender({ currentItem, live = false }: MediaRenderPr
             id={videoId}
             controls={false}
             src={originalUrl}
-            className="w-full h-full object-contain"
+            className="object-contain"
+            style={mediaElementStyle}
             muted
             onLoadedMetadata={(e) => {
               // Forzar play apenas el video esté listo
@@ -89,7 +131,12 @@ export default function MediaRender({ currentItem, live = false }: MediaRenderPr
         )
       } else {
         return (
-          <img src={originalUrl} alt={itemData.name} className="w-full h-full object-contain" />
+          <img
+            src={originalUrl}
+            alt={itemData.name}
+            className="object-contain"
+            style={mediaElementStyle}
+          />
         )
       }
     }

@@ -103,12 +103,14 @@ Gestiona todas las ventanas de la aplicacion:
 | `createMainWindow()` | `/` | Ventana principal con layout de paneles |
 | `createSongWindow(songId?)` | `/song/new` o `/song/:id` | Editor de canciones (ventana modal) |
 | `createThemeWindow(themeId?)` | `/theme/new` o `/theme/:id` | Editor de temas (ventana modal) |
+| `createPresentationWindow(presentationId?)` | `/presentation/new` o `/presentation/:id` | Editor de presentaciones (ventana modal) |
 | `createTagsSongWindow()` | `/tagSongEditor` | Editor de tags de canciones |
 | `createSettingsWindow()` | `/settings` | Ventana de ajustes (tema de colores y sincronización) |
 
 Ventanas modales se abren via IPC:
 - `ipcMain.on('open-song-window', ...)` -> `window.windowAPI.openSongWindow(id)`
 - `ipcMain.on('open-theme-window', ...)` -> `window.windowAPI.openThemeWindow(id)`
+- `ipcMain.on('open-presentation-window', ...)` -> `window.windowAPI.openPresentationWindow(id)`
 - `ipcMain.on('open-tag-songs-window', ...)` -> `window.windowAPI.openTagsSongWindow()`
 - `ipcMain.on('open-settings-window', ...)` -> `window.windowAPI.openSettingsWindow()`
 

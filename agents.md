@@ -202,6 +202,12 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 *   No disenar para requisitos hipoteticos futuros. Tres lineas similares son mejor que una abstraccion prematura.
 *   No agregar feature flags ni shims de backwards-compatibility cuando se puede cambiar el codigo directamente.
 
+### Mantenibilidad y composicion (regla permanente)
+
+*   NUNCA dejar codigo espagueti: cuando un componente crezca o mezcle demasiadas responsabilidades, separarlo en subcomponentes/hooks/utilidades del modulo.
+*   Priorizar composicion y responsabilidades claras (`orquestador` + piezas reutilizables) para que el codigo sea facil de leer, testear y extender.
+*   Mantener el balance: componer para claridad real, sin crear abstracciones innecesarias de un solo uso.
+
 ### Git y mantenimiento
 
 *   Toda modificacion DEBE actualizar los `agents.md` correspondientes.

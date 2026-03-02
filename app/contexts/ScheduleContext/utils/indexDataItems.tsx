@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { ScheduleSchemaType } from '../schema'
 import { ScheduleItem } from '@prisma/client'
-import { BookPlusIcon, Music, Video } from 'lucide-react'
+import { BookPlusIcon, FileSliders, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from '../types'
 import { useCallback } from 'react'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useMediaServer } from '../../MediaServerContext'
+import { presentationSlideToViewItem } from '@/lib/presentationSlides'
 
 export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteVerseText } = useBibleSchema()
@@ -39,6 +40,22 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
     enabled: !!currentSchedule
   })
 
+  const { data: presentations = [] } = useQuery({
+    queryKey: ['presentationsByIds', accessDataKey],
+    queryFn: async () => {
+      if (!currentSchedule) return []
+
+      const presentationIds = currentSchedule.items
+        .filter((item) => item.type === 'PRESENTATION')
+        .map((item) => parseInt(item.accessData))
+
+      if (presentationIds.length === 0) return []
+
+      return window.api.presentations.getPresentationsByIds(presentationIds)
+    },
+    enabled: !!currentSchedule
+  })
+
   const getScheduleItemIcon = (item: ScheduleItem) => {
     const { accessData, type } = item
     switch (type) {
@@ -63,6 +80,8 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
       }
       case 'BIBLE':
         return <BookPlusIcon className="h-4 w-4" />
+      case 'PRESENTATION':
+        return <FileSliders className="h-4 w-4" />
       default:
         return '❓'
     }
@@ -108,6 +127,14 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
             ) : null}
           </div>
         )
+      }
+      case 'PRESENTATION': {
+        const presentation = presentations.find((record) => record.id === parseInt(accessData))
+
+        if (presentation) return presentation.title
+
+        const loaded = await window.api.presentations.getPresentationById(parseInt(accessData))
+        return loaded?.title || 'Presentación desconocida'
       }
       default:
         return accessData
@@ -189,13 +216,57 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
           content: mediaItem ? [{ ...mediaItem, resourceType: item.type } as any] : [] // Cast para evitar error de tipo
         }
       }
+      if (type === 'PRESENTATION') {
+        const presentationId = parseInt(accessData)
+        let presentation = presentations.find((record) => record.id === presentationId)
+
+        if (!presentation) {
+          presentation = await window.api.presentations.getPresentationById(presentationId)
+          if (!presentation) {
+            return {
+              title: 'Presentación',
+              content: []
+            }
+          }
+        }
+
+        const mediaIds = presentation.slides.flatMap((slide: any) => {
+          if (Array.isArray(slide.items)) {
+            return slide.items
+              .filter((item: any) => item.type === 'MEDIA' && item.accessData)
+              .map((item: any) => Number(item.accessData))
+              .filter((id: number) => Number.isFinite(id))
+          }
+
+          if (slide.type === 'MEDIA' && slide.mediaId) {
+            return [Number(slide.mediaId)]
+          }
+
+          return []
+        })
+
+        const mediaItems =
+          mediaIds.length > 0 ? await window.api.media.getMediaByIds(Array.from(new Set(mediaIds))) : []
+        const mediaById = new Map(mediaItems.map((mediaItem) => [mediaItem.id, mediaItem]))
+
+        return {
+          title: presentation.title,
+          content: presentation.slides.map((slide) => presentationSlideToViewItem(slide, mediaById))
+        }
+      }
       return {
         title: 'Contenido',
         content: [{ text: accessData, resourceType: item.type }]
       }
     },
-    [songs, media]
+    [media, presentations, songs]
   )
 
-  return { songs, media, getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen }
+  return {
+    songs,
+    media,
+    getScheduleItemIcon,
+    getScheduleItemLabel,
+    getScheduleItemContentScreen
+  }
 }

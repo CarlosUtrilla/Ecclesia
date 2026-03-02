@@ -19,6 +19,8 @@ import { googleDriveSyncAPI } from '../main/googleDriveSyncManager/googleDriveSy
 const windowAPI = {
   openSongWindow: (songId?: number) => ipcRenderer.send('open-song-window', songId),
   openThemeWindow: (themeId?: number) => ipcRenderer.send('open-theme-window', themeId),
+  openPresentationWindow: (presentationId?: number) =>
+    ipcRenderer.send('open-presentation-window', presentationId),
   openTagSongsWindow: () => ipcRenderer.send('open-tag-songs-window'),
   openSettingsWindow: () => ipcRenderer.send('open-settings-window'),
   closeCurrentWindow: () => ipcRenderer.send('close-current-window')

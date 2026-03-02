@@ -129,6 +129,38 @@ export function createThemeWindow(themeId?: number): BrowserWindow {
   return themeWindow
 }
 
+export function createPresentationWindow(presentationId?: number): BrowserWindow {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  const presentationWindow = new BrowserWindow({
+    title: 'Editor de presentaciones',
+    width: Math.round(width * 0.85),
+    height: Math.round(height * 0.85),
+    show: false,
+    autoHideMenuBar: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  presentationWindow.on('ready-to-show', () => {
+    presentationWindow.show()
+  })
+
+  const route = presentationId ? `/presentation/${presentationId}` : '/presentation/new'
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    presentationWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
+  } else {
+    presentationWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      hash: route
+    })
+  }
+
+  return presentationWindow
+}
+
 export function createTagsSongWindow(): BrowserWindow {
   const tagSongWindow = new BrowserWindow({
     width: 950,

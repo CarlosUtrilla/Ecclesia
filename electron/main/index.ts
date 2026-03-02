@@ -5,6 +5,7 @@ import { registerRoutes } from '../../database'
 import { initPrisma } from './prisma'
 import {
   createMainWindow,
+  createPresentationWindow,
   createSettingsWindow,
   createSongWindow,
   createTagsSongWindow,
@@ -81,6 +82,10 @@ app.whenReady().then(async () => {
     createThemeWindow(themeId)
   })
 
+  ipcMain.on('open-presentation-window', (_event, presentationId?: number) => {
+    createPresentationWindow(presentationId)
+  })
+
   // Abrir ventana para crear/editar tema
   ipcMain.on('open-tag-songs-window', () => {
     createTagsSongWindow()
@@ -125,6 +130,15 @@ app.whenReady().then(async () => {
     if (mainWindow && mainWindow.length > 0) {
       mainWindow.forEach((win) => {
         win.webContents.send('song-saved')
+      })
+    }
+  })
+
+  ipcMain.on('presentation-saved', () => {
+    const mainWindow = BrowserWindow.getAllWindows()
+    if (mainWindow && mainWindow.length > 0) {
+      mainWindow.forEach((win) => {
+        win.webContents.send('presentation-saved')
       })
     }
   })

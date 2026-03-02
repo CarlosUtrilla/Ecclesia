@@ -31,6 +31,8 @@ export default function LivePanel() {
         return <RenderBibleVerses data={content} />
       case 'MEDIA':
         return <RenderMedia />
+      case 'PRESENTATION':
+        return <RenderGridMode data={content} />
       default:
         return <div className="p-4 text-sm text-muted-foreground">Vista previa no disponible.</div>
     }
@@ -50,6 +52,8 @@ export default function LivePanel() {
                       ? 'Biblia'
                       : itemOnLive.type === 'MEDIA'
                         ? 'Multimedia'
+                            : itemOnLive.type === 'PRESENTATION'
+                              ? 'Presentación'
                         : 'Otro contenido'}
                 </>
               ) : (

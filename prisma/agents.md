@@ -111,6 +111,22 @@ model Media {
 - `thumbnail` se genera automaticamente al importar (frame en segundo 1.5 para videos).
 - `folder` permite organizar medios en carpetas virtuales.
 
+### Presentation (Presentaciones)
+
+```prisma
+model Presentation {
+  id        Int      @id @default(autoincrement())
+  title     String
+  slides    String   @default("[]") // JSON serializado de diapositivas (soporta slides con items mixtos)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+- `slides` almacena la estructura de diapositivas como JSON serializado.
+- Cada slide puede incluir `items[]` mixtos (schedule-like) para capas, animación por item y composición libre.
+- El recurso se consume como item único `PRESENTATION` dentro del cronograma.
+
 ### BibleSchema y BibleVerses
 
 ```prisma
@@ -243,6 +259,7 @@ model Setting {
 - Los campos JSON se almacenan como `String` y se parsean en el frontend/service.
 - `@unique` se usa en campos que necesitan ser buscados directamente (filePath, name de tema, etc.).
 - Las relaciones opcionales usan `?` tanto en el campo FK como en la relacion.
+- `Presentation` no modela tablas hijas en MVP; la estructura interna se serializa en `slides` para iterar rápido en editor/biblioteca.
 
 ## Migraciones
 

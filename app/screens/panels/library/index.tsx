@@ -3,6 +3,7 @@ import { t } from '@locales'
 import SongsPanelLibrary from './songs'
 import MediaLibrary from './media'
 import BiblePanel from './bible'
+import PresentationsPanel from './presentations'
 import { useEffect, useState } from 'react'
 import { ThemesSidePanel } from './themesSidePanel'
 import { Button } from '@/ui/button'
@@ -36,6 +37,7 @@ export default function LibraryPanel() {
               <TabsTrigger value="songs">{t('libraryMenu.songs')}</TabsTrigger>
               <TabsTrigger value="medios">{t('libraryMenu.medios')}</TabsTrigger>
               <TabsTrigger value="bible">Biblia</TabsTrigger>
+              <TabsTrigger value="presentations">Presentaciones</TabsTrigger>
             </TabsList>
           </Tabs>
           <Button size="sm" variant="ghost" onClick={() => window.windowAPI.openSettingsWindow()}>
@@ -65,6 +67,11 @@ export default function LibraryPanel() {
             className={`${activeTab === 'bible' ? 'block' : 'hidden pointer-events-none'} h-full`}
           >
             <BiblePanel />
+          </div>
+          <div
+            className={`${activeTab === 'presentations' ? 'block' : 'hidden pointer-events-none'} h-full`}
+          >
+            <PresentationsPanel />
           </div>
         </div>
       </div>

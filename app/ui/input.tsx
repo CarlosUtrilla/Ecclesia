@@ -6,11 +6,12 @@ import { Label } from './label'
 export type InputProps = React.ComponentProps<'input'> & {
   label?: string
   error?: string
+  containerClassName?: string
 }
 
-function Input({ className, type, error, label, ...props }: InputProps) {
+function Input({ className, type, error, label, containerClassName, ...props }: InputProps) {
   return (
-    <div className="w-full">
+    <div className={cn('w-full', containerClassName)}>
       {label ? <Label htmlFor={props.name || props.id}>{label}</Label> : null}
       <input
         type={type}
