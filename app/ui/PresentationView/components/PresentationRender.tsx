@@ -41,7 +41,13 @@ const parseAnimationSettings = (animationSettings?: string): AnimationSettings =
   }
 }
 
-function PresentationLayer({ item }: { item: PresentationLayerItem }) {
+function PresentationLayer({
+  item,
+  isPreview = false
+}: {
+  item: PresentationLayerItem
+  isPreview?: boolean
+}) {
   const { buildMediaUrl } = useMediaServer()
 
   const style = useMemo(
@@ -65,6 +71,29 @@ function PresentationLayer({ item }: { item: PresentationLayerItem }) {
 
   if (item.resourceType === 'MEDIA' && item.media) {
     const mediaUrl = buildMediaUrl(item.media.filePath)
+    const mediaThumbnailUrl = item.media.thumbnail ? buildMediaUrl(item.media.thumbnail) : null
+
+    if (isPreview) {
+      return (
+        <div style={style}>
+          <div className="w-full h-full flex items-center justify-center">
+            {item.media.type === 'VIDEO' ? (
+              mediaThumbnailUrl ? (
+                <img
+                  src={mediaThumbnailUrl}
+                  alt={item.media.name}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-full bg-black" />
+              )
+            ) : (
+              <img src={mediaUrl} alt={item.media.name} className="w-full h-full object-contain" />
+            )}
+          </div>
+        </div>
+      )
+    }
 
     return (
       <m.div initial="initial" animate="animate" exit="exit" variants={variants} style={style}>
@@ -84,6 +113,14 @@ function PresentationLayer({ item }: { item: PresentationLayerItem }) {
     )
   }
 
+  if (isPreview) {
+    return (
+      <div style={style} className="pointer-events-none">
+        <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(item.text || '') }} />
+      </div>
+    )
+  }
+
   return (
     <m.div
       initial="initial"
@@ -99,7 +136,7 @@ function PresentationLayer({ item }: { item: PresentationLayerItem }) {
 }
 
 export default function PresentationRender(props: Props) {
-  const { item } = props
+  const { item, isPreview = false } = props
 
   if (!item.presentationItems || item.presentationItems.length === 0) {
     return <AnimatedText {...props} />
@@ -108,7 +145,7 @@ export default function PresentationRender(props: Props) {
   return (
     <>
       {item.presentationItems.map((layerItem) => (
-        <PresentationLayer key={layerItem.id} item={layerItem} />
+        <PresentationLayer key={layerItem.id} item={layerItem} isPreview={isPreview} />
       ))}
     </>
   )

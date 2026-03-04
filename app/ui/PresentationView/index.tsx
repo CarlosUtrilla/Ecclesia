@@ -1,42 +1,25 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion'
-import { cn, getContrastTextColor } from '../../lib/utils'
+import { memo, useMemo, useRef } from 'react'
+import { type Variants } from 'framer-motion'
+import { cn } from '../../lib/utils'
 import { PresentationViewProps } from './types'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
-import { BASE_PRESENTATION_HEIGHT, BASE_PRESENTATION_WIDTH } from '@/lib/themeConstants'
 import { useMediaServer } from '@/contexts/MediaServerContext'
-import { useScreenSize } from '@/contexts/ScreenSizeContext'
-import { BackgroundImage } from './components/BackgroundImage'
-import { BackgroundVideoThumbnail } from './components/BackgroundVideoThumbnail'
-import { BackgroundVideoLive } from './components/BackgroundVideoLive'
-import { AnimatedText } from './components/AnimatedText'
-import { BibleTextRender } from './components/BibleTextRender'
-import PresentationRender from './components/PresentationRender'
 import useTagSongs from '@/hooks/useTagSongs'
-import { useResizeObserver } from 'usehooks-ts'
-import MediaRender from './components/MediaRender'
+import { usePresentationSizing } from './hooks/usePresentationSizing'
+import { usePresentationBackground } from './hooks/usePresentationBackground'
+import { usePresentationTextLayout } from './hooks/usePresentationTextLayout'
+import { parseAnimationSettings } from './utils/parseAnimationSettings'
+import { LiveThemeTransitionShell } from './components/LiveThemeTransitionShell'
+import { PresentationBody } from './components/PresentationBody'
 
-type MediaType = 'image' | 'video' | 'color' | 'gradient'
-
-function getMediaType(background: string): MediaType {
-  if (!background || background === 'media') return 'color'
-  if (background.includes('gradient')) return 'gradient'
-  return 'color'
+const EMPTY_ANIMATION_VARIANTS: Variants = {
+  initial: {},
+  animate: {},
+  exit: {}
 }
 
-const parseAnimationSettings = (raw?: string): AnimationSettings => {
-  try {
-    return {
-      ...defaultAnimationSettings,
-      ...(raw ? JSON.parse(raw) : {})
-    }
-  } catch {
-    return defaultAnimationSettings
-  }
-}
-
-export function PresentationView({
+function PresentationViewComponent({
   items,
   theme,
   live = false,
@@ -58,229 +41,72 @@ export function PresentationView({
   onEditableTargetSelect
 }: PresentationViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [lastMeasuredHeight, setLastMeasuredHeight] = useState(0)
   const { tagSongs } = useTagSongs()
   const { buildMediaUrl } = useMediaServer()
-  const { height = 0 } = useResizeObserver({
-    ref: containerRef as React.RefObject<HTMLElement>,
-    box: 'border-box'
+  const { screenSize } = usePresentationSizing({
+    containerRef: containerRef as React.RefObject<HTMLDivElement>,
+    live,
+    presentationHeight,
+    maxHeight,
+    displayId
   })
 
-  useEffect(() => {
-    if (height > 0) {
-      setLastMeasuredHeight((prev) => (prev !== height ? height : prev))
-      return
-    }
-
-    if (!live || lastMeasuredHeight > 0) return
-
-    let frameId = 0
-    const measureUntilReady = () => {
-      const nextHeight = containerRef.current?.getBoundingClientRect().height ?? 0
-      if (nextHeight > 0) {
-        setLastMeasuredHeight((prev) => (prev !== nextHeight ? nextHeight : prev))
-        return
-      }
-      frameId = requestAnimationFrame(measureUntilReady)
-    }
-
-    frameId = requestAnimationFrame(measureUntilReady)
-    return () => cancelAnimationFrame(frameId)
-  }, [height, live, lastMeasuredHeight])
-
-  const measuredHeight = height > 0 ? height : lastMeasuredHeight
-  const effectiveHeight = measuredHeight || presentationHeight || maxHeight || 0
-  const screenSize = useScreenSize(effectiveHeight, displayId)
-
-  const [backgroundType, setBackgroundType] = useState<MediaType>('color')
-  const [videoError, setVideoError] = useState(false)
-  const [videoLoaded, setVideoLoaded] = useState(false)
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
-  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null)
-  const [backgroundUrl, setBackgroundUrl] = useState<string>('')
+  const {
+    background,
+    backgroundType,
+    backgroundUrl,
+    thumbnailUrl,
+    fallbackUrl,
+    videoError,
+    videoLoaded,
+    setVideoLoaded,
+    setVideoError
+  } = usePresentationBackground({ theme, buildMediaUrl })
 
   const currentItem = items[currentIndex] ?? items[0]
-  const background = theme.background
-  const backgroundMedia = theme.backgroundMedia
+  const isMediaItem = currentItem?.resourceType === 'MEDIA'
 
-  useEffect(() => {
-    if (!backgroundMedia || background !== 'media') {
-      setBackgroundUrl(background)
-      setThumbnailUrl(null)
-      setFallbackUrl(null)
-      setBackgroundType(getMediaType(background))
-      return
-    }
+  const animationSettings = useMemo<AnimationSettings>(() => {
+    if (!live) return defaultAnimationSettings
+    return parseAnimationSettings(theme.animationSettings)
+  }, [live, theme.animationSettings])
 
-    setBackgroundType(backgroundMedia.type === 'VIDEO' ? 'video' : 'image')
-    setBackgroundUrl(buildMediaUrl(backgroundMedia.filePath))
+  const animationType = (live ? animationSettings.type || 'fade' : 'none') as AnimationType
 
-    if (backgroundMedia.type === 'VIDEO' && backgroundMedia.thumbnail) {
-      setThumbnailUrl(buildMediaUrl(backgroundMedia.thumbnail))
-    } else {
-      setThumbnailUrl(null)
-    }
-
-    if (backgroundMedia.fallback) {
-      setFallbackUrl(buildMediaUrl(backgroundMedia.fallback))
-    } else {
-      setFallbackUrl(null)
-    }
-
-    setVideoLoaded(false)
-    setVideoError(false)
-  }, [background, backgroundMedia, buildMediaUrl])
-
-  const animationSettings = useMemo<AnimationSettings>(
-    () => parseAnimationSettings(theme.animationSettings),
-    [theme.animationSettings]
-  )
-
-  const animationType = (animationSettings.type || 'fade') as AnimationType
-
-  const calculatedFontSize = theme.textStyle?.fontSize
-    ? `${(screenSize.height * Number(theme.textStyle.fontSize)) / BASE_PRESENTATION_HEIGHT}px`
-    : 'inherit'
-
-  const calculatedSmallFontSize = theme.textStyle?.fontSize
-    ? `${(screenSize.height * (Number(theme.textStyle.fontSize) * 0.85)) / BASE_PRESENTATION_HEIGHT}px`
-    : 'inherit'
-
-  const scaleFactor = useMemo(() => {
-    const factor = screenSize.height / BASE_PRESENTATION_HEIGHT
-    return Number.isFinite(factor) && factor > 0 ? factor : 1
-  }, [screenSize.height])
-
-  const basePaddingInline = Number(theme.textStyle?.paddingInline ?? 16)
-  const basePaddingBlock = Number(theme.textStyle?.paddingBlock ?? 16)
-
-  const safePaddingInline = Number.isFinite(basePaddingInline) ? basePaddingInline : 16
-  const safePaddingBlock = Number.isFinite(basePaddingBlock) ? basePaddingBlock : 16
-
-  const calculatedTextPadding = useMemo(() => {
-    const horizontal = Number.isFinite(safePaddingInline)
-      ? (screenSize.width * safePaddingInline) / BASE_PRESENTATION_WIDTH
-      : 16
-    const vertical = Number.isFinite(safePaddingBlock)
-      ? (screenSize.height * safePaddingBlock) / BASE_PRESENTATION_HEIGHT
-      : 16
-
-    return {
-      horizontal,
-      vertical
-    }
-  }, [safePaddingInline, safePaddingBlock, screenSize.height, screenSize.width])
-
-  const textStyleConfig = (theme.textStyle || {}) as Record<string, unknown>
-  const justifyContentRaw =
-    typeof textStyleConfig.justifyContent === 'string' ? textStyleConfig.justifyContent : 'center'
-  const verticalAlign: 'top' | 'center' | 'bottom' =
-    justifyContentRaw === 'flex-start'
-      ? 'top'
-      : justifyContentRaw === 'flex-end'
-        ? 'bottom'
-        : 'center'
-  const translateRaw =
-    typeof textStyleConfig.translate === 'string' ? textStyleConfig.translate : ''
-  const translateParts = translateRaw.trim().split(/\s+/)
-  const translateXValue = Number.parseFloat(translateParts[0] || '0')
-  const translateYValue = Number.parseFloat(translateParts[1] || translateParts[0] || '0')
-
-  const calculatedTextOffset = useMemo(() => {
-    const x = Number.isFinite(translateXValue)
-      ? (screenSize.width * translateXValue) / BASE_PRESENTATION_WIDTH
-      : 0
-    const y = Number.isFinite(translateYValue)
-      ? (screenSize.height * translateYValue) / BASE_PRESENTATION_HEIGHT
-      : 0
-    return { x, y }
-  }, [screenSize.height, screenSize.width, translateXValue, translateYValue])
-
-  const boundsScale = useMemo(
-    () => ({
-      x: screenSize.width / BASE_PRESENTATION_WIDTH,
-      y: screenSize.height / BASE_PRESENTATION_HEIGHT
-    }),
-    [screenSize.width, screenSize.height]
-  )
+  const {
+    calculatedSmallFontSize,
+    scaleFactor,
+    verticalAlign,
+    textStyle,
+    textContainerPadding,
+    textContainerOffset,
+    textBoundsScale,
+    textBoundsBaseValues
+  } = usePresentationTextLayout({ theme, screenSize })
 
   const variants = useMemo(
     () =>
-      getAnimationVariants(
-        animationType,
-        animationSettings.duration,
-        animationSettings.delay,
-        animationSettings.easing
-      ),
-    [animationType, animationSettings.duration, animationSettings.delay, animationSettings.easing]
-  )
-
-  const slideTransitionSettings = useMemo<AnimationSettings>(
-    () => parseAnimationSettings(currentItem?.transitionSettings),
-    [currentItem?.transitionSettings]
-  )
-
-  const slideTransitionType = (slideTransitionSettings.type || 'fade') as AnimationType
-
-  const slideTransitionVariants = useMemo(
-    () =>
-      getAnimationVariants(
-        slideTransitionType,
-        slideTransitionSettings.duration,
-        slideTransitionSettings.delay,
-        slideTransitionSettings.easing
-      ),
+      live
+        ? getAnimationVariants(
+            animationType,
+            animationSettings.duration,
+            animationSettings.delay,
+            animationSettings.easing
+          )
+        : EMPTY_ANIMATION_VARIANTS,
     [
-      slideTransitionType,
-      slideTransitionSettings.duration,
-      slideTransitionSettings.delay,
-      slideTransitionSettings.easing
+      live,
+      animationType,
+      animationSettings.duration,
+      animationSettings.delay,
+      animationSettings.easing
     ]
   )
-
-  const themeTransitionSettings = useMemo<AnimationSettings>(
-    () => parseAnimationSettings((theme as { transitionSettings?: string }).transitionSettings),
-    [theme]
-  )
-
-  const themeTransitionType = (themeTransitionSettings.type || 'fade') as AnimationType
-
-  const resolvedThemeTransitionKey = themeTransitionKey ?? theme.id ?? 0
-
-  const themeTransitionVariants = useMemo(
-    () =>
-      getAnimationVariants(
-        themeTransitionType,
-        themeTransitionSettings.duration,
-        themeTransitionSettings.delay,
-        themeTransitionSettings.easing
-      ),
-    [
-      themeTransitionType,
-      themeTransitionSettings.duration,
-      themeTransitionSettings.delay,
-      themeTransitionSettings.easing
-    ]
-  )
-
-  const textStyle = useMemo(() => {
-    const restTextStyle = { ...(theme.textStyle || {}) } as Record<string, unknown>
-    delete restTextStyle.paddingInline
-    delete restTextStyle.paddingBlock
-    delete restTextStyle.translate
-    delete restTextStyle.justifyContent
-
-    return {
-      ...restTextStyle,
-      fontSize: calculatedFontSize
-    }
-  }, [theme.textStyle, calculatedFontSize])
 
   const containerStyle = useMemo(
     () => ({
       width: '100%',
       aspectRatio: screenSize.aspectRatio,
-      overflow: 'hidden',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -297,176 +123,122 @@ export function PresentationView({
     return tagSongs.find((tag) => tag.id === tagSongId) || null
   }, [tagSongId, tagSongs])
 
-  const nonBibleAnimatedItem = useMemo(
-    () => ({
-      ...currentItem,
-      verse: undefined
-    }),
-    [currentItem]
-  )
-
   if (!currentItem) return null
 
+  const viewContent = (
+    <PresentationBody
+      live={live}
+      currentItem={currentItem}
+      isMediaItem={isMediaItem}
+      backgroundType={backgroundType}
+      backgroundUrl={backgroundUrl}
+      thumbnailUrl={thumbnailUrl}
+      fallbackUrl={fallbackUrl}
+      videoLoaded={videoLoaded}
+      videoError={videoError}
+      setVideoLoaded={setVideoLoaded}
+      setVideoError={setVideoError}
+      containerRef={containerRef as React.RefObject<HTMLDivElement>}
+      onClick={onClick}
+      hasTagSong={tagSong !== null}
+      containerStyle={containerStyle}
+      tagSong={tagSong}
+      animationType={animationType}
+      variants={variants}
+      textStyle={textStyle}
+      theme={theme}
+      calculatedSmallFontSize={calculatedSmallFontSize}
+      textContainerPadding={textContainerPadding}
+      textContainerOffset={textContainerOffset}
+      verticalAlign={verticalAlign}
+      scaleFactor={scaleFactor}
+      presentationHeight={screenSize.height}
+      showTextBounds={showTextBounds}
+      textBoundsIsSelected={textBoundsIsSelected}
+      bibleVerseIsSelected={bibleVerseIsSelected}
+      textBoundsBaseValues={textBoundsBaseValues}
+      textBoundsScale={textBoundsScale}
+      onTextBoundsChange={onTextBoundsChange}
+      onBibleVersePositionChange={onBibleVersePositionChange}
+      onEditableTargetSelect={onEditableTargetSelect}
+      currentIndex={currentIndex}
+    />
+  )
+
+  if (!live) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          aspectRatio: screenSize.aspectRatio
+        }}
+        className={cn(
+          'relative w-full h-full overflow-hidden',
+          {
+            'outline-[3px] outline-secondary transition-colors': selected,
+            'cursor-pointer': onClick !== undefined,
+            'rounded-md': true
+          },
+          className
+        )}
+      >
+        {viewContent}
+      </div>
+    )
+  }
+
   return (
-    <LazyMotion features={domAnimation}>
-      <AnimatePresence mode="wait">
-        <m.div
-          key={`theme-${resolvedThemeTransitionKey}`}
-          variants={themeTransitionVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          className="w-full h-full"
-        >
-          <div
-            ref={containerRef}
-            onClick={onClick}
-            role={onClick ? 'button' : undefined}
-            tabIndex={onClick ? 0 : undefined}
-            onKeyDown={
-              onClick
-                ? (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      onClick()
-                    }
-                  }
-                : undefined
-            }
-            style={containerStyle}
-            className={cn('border bg-background relative select-none', className, {
-              'outline-4 outline-secondary transition-colors': selected,
-              'cursor-pointer': onClick !== undefined,
-              'border-0': live,
-              'rounded-md': !live,
-              'pb-7': tagSong !== null
-            })}
-          >
-            <AnimatePresence mode="wait">
-              <m.div
-                key={currentItem.id || `slide-${currentIndex}`}
-                variants={slideTransitionVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="absolute inset-0"
-              >
-                <AnimatePresence>
-                  {currentItem.resourceType === 'MEDIA' ? (
-                    <MediaRender currentItem={currentItem} live={live} />
-                  ) : (
-                    <>
-                      {backgroundType === 'image' && backgroundUrl && (
-                        <BackgroundImage url={backgroundUrl} />
-                      )}
-
-                      {backgroundType === 'video' && !live && thumbnailUrl && (
-                        <BackgroundVideoThumbnail thumbnailUrl={thumbnailUrl} />
-                      )}
-                      {backgroundType === 'video' && live && (
-                        <BackgroundVideoLive
-                          videoUrl={backgroundUrl}
-                          fallbackUrl={fallbackUrl}
-                          isVideoLoaded={videoLoaded}
-                          hasError={videoError}
-                          onVideoLoaded={() => setVideoLoaded(true)}
-                          onVideoError={() => setVideoError(true)}
-                        />
-                      )}
-                    </>
-                  )}
-                </AnimatePresence>
-
-                {currentItem.resourceType === 'PRESENTATION' ? (
-                  <PresentationRender
-                    item={currentItem}
-                    animationType={animationType}
-                    variants={variants}
-                    textStyle={textStyle}
-                    isPreview={!live}
-                    textContainerPadding={calculatedTextPadding}
-                    textContainerOffset={calculatedTextOffset}
-                    verticalAlign={verticalAlign}
-                    showTextBounds={showTextBounds}
-                    textBoundsIsSelected={textBoundsIsSelected}
-                    textBoundsBaseValues={{
-                      paddingInline: safePaddingInline,
-                      paddingBlock: safePaddingBlock,
-                      translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
-                      translateY: Number.isFinite(translateYValue) ? translateYValue : 0
-                    }}
-                    textBoundsScale={boundsScale}
-                    onTextBoundsChange={onTextBoundsChange}
-                    onEditableTargetSelect={onEditableTargetSelect}
-                  />
-                ) : currentItem.resourceType === 'BIBLE' ? (
-                  <BibleTextRender
-                    item={currentItem}
-                    animationType={animationType}
-                    variants={variants}
-                    textStyle={textStyle}
-                    isPreview={!live}
-                    theme={theme}
-                    smallFontSize={calculatedSmallFontSize}
-                    textContainerPadding={calculatedTextPadding}
-                    textContainerOffset={calculatedTextOffset}
-                    verticalAlign={verticalAlign}
-                    scaleFactor={scaleFactor}
-                    presentationHeight={screenSize.height}
-                    showTextBounds={showTextBounds}
-                    textBoundsIsSelected={textBoundsIsSelected}
-                    bibleVerseIsSelected={bibleVerseIsSelected}
-                    textBoundsBaseValues={{
-                      paddingInline: safePaddingInline,
-                      paddingBlock: safePaddingBlock,
-                      translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
-                      translateY: Number.isFinite(translateYValue) ? translateYValue : 0
-                    }}
-                    textBoundsScale={boundsScale}
-                    onTextBoundsChange={onTextBoundsChange}
-                    onBibleVersePositionChange={onBibleVersePositionChange}
-                    onEditableTargetSelect={onEditableTargetSelect}
-                  />
-                ) : (
-                  <AnimatedText
-                    item={nonBibleAnimatedItem}
-                    animationType={animationType}
-                    variants={variants}
-                    textStyle={textStyle}
-                    isPreview={!live}
-                    textContainerPadding={calculatedTextPadding}
-                    textContainerOffset={calculatedTextOffset}
-                    verticalAlign={verticalAlign}
-                    showTextBounds={showTextBounds}
-                    textBoundsIsSelected={textBoundsIsSelected}
-                    textBoundsBaseValues={{
-                      paddingInline: safePaddingInline,
-                      paddingBlock: safePaddingBlock,
-                      translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
-                      translateY: Number.isFinite(translateYValue) ? translateYValue : 0
-                    }}
-                    textBoundsScale={boundsScale}
-                    onTextBoundsChange={onTextBoundsChange}
-                    onEditableTargetSelect={onEditableTargetSelect}
-                  />
-                )}
-              </m.div>
-            </AnimatePresence>
-
-            {tagSong !== null ? (
-              <div
-                style={{
-                  backgroundColor: tagSong.color,
-                  color: getContrastTextColor(tagSong.color)
-                }}
-                className="absolute flex items-center bottom-0 h-7 w-full text-[0.8rem] px-3"
-              >
-                {tagSong.name}
-              </div>
-            ) : null}
-          </div>
-        </m.div>
-      </AnimatePresence>
-    </LazyMotion>
+    <div
+      style={{
+        width: '100%',
+        aspectRatio: screenSize.aspectRatio
+      }}
+      className={cn(
+        'relative w-full h-full overflow-hidden',
+        {
+          'outline-[3px] outline-secondary transition-colors': selected,
+          'cursor-pointer': onClick !== undefined,
+          'rounded-md': !live
+        },
+        className
+      )}
+    >
+      <LiveThemeTransitionShell
+        themeTransitionRaw={(theme as { transitionSettings?: string }).transitionSettings}
+        themeTransitionKey={themeTransitionKey}
+        themeId={theme.id}
+      >
+        {viewContent}
+      </LiveThemeTransitionShell>
+    </div>
   )
 }
+
+function arePresentationViewPropsEqual(
+  prevProps: PresentationViewProps,
+  nextProps: PresentationViewProps
+) {
+  return (
+    prevProps.live === nextProps.live &&
+    prevProps.maxHeight === nextProps.maxHeight &&
+    prevProps.presentationHeight === nextProps.presentationHeight &&
+    prevProps.currentIndex === nextProps.currentIndex &&
+    prevProps.themeTransitionKey === nextProps.themeTransitionKey &&
+    prevProps.onClick === nextProps.onClick &&
+    prevProps.selected === nextProps.selected &&
+    prevProps.tagSongId === nextProps.tagSongId &&
+    prevProps.className === nextProps.className &&
+    prevProps.displayId === nextProps.displayId &&
+    prevProps.style === nextProps.style &&
+    prevProps.showTextBounds === nextProps.showTextBounds &&
+    prevProps.textBoundsIsSelected === nextProps.textBoundsIsSelected &&
+    prevProps.bibleVerseIsSelected === nextProps.bibleVerseIsSelected &&
+    prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
+    prevProps.onBibleVersePositionChange === nextProps.onBibleVersePositionChange &&
+    prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
+    prevProps.items === nextProps.items &&
+    prevProps.theme === nextProps.theme
+  )
+}
+
+export const PresentationView = memo(PresentationViewComponent, arePresentationViewPropsEqual)

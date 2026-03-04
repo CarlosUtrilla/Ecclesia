@@ -18,12 +18,23 @@ app/ui/
 │   ├── components/
 │   │   ├── AnimatedText.tsx            # Render genérico de texto animado (sin lógica bíblica)
 │   │   ├── BibleTextRender.tsx         # Render específico para biblia (referencia + versión + configuración)
-│   │   ├── PresentationRender.tsx       # Render por capas para PRESENTATION (items mixtos + animación por item)
+│   │   ├── PresentationRender.tsx      # Render por capas para PRESENTATION (items mixtos + animación por item)
+│   │   ├── ResourceContent.tsx         # Render por tipo de recurso (PRESENTATION/BIBLE/TEXT)
+│   │   ├── LiveThemeTransitionShell.tsx # Wrapper de transición de tema en modo live
+│   │   ├── LiveSlideTransitionShell.tsx # Wrapper de transición de slide en modo live
+│   │   ├── PresentationFrame.tsx       # Estructura compartida del frame (capas + interacción)
+│   │   ├── PresentationBody.tsx        # Composición de capas (fondo, contenido, tag) para preview/live
 │   │   ├── BackgroundImage.tsx         # Fondo de imagen animado (m.img)
 │   │   ├── BackgroundVideoLive.tsx     # Fondo de video en vivo (m.video + m.img fallback)
 │   │   └── BackgroundVideoThumbnail.tsx # Thumbnail de video para preview (m.img)
 │   └── hooks/
-│       └── useBibleSetting.tsx         # Hook para config de presentacion de biblia
+│       ├── useBibleSetting.tsx         # Hook para config de presentacion de biblia
+│       ├── usePresentationSizing.ts    # Medición de contenedor + screenSize
+│       ├── usePresentationBackground.ts # Derivación de fondo/media y estado de video
+│       ├── usePresentationTextLayout.ts # Escalado de texto, offsets y bounds
+│       └── useTextBoundsInteraction.ts # Interacción drag/resize del cuadro de texto editable
+│   └── utils/
+│       └── parseAnimationSettings.ts   # Parse robusto de JSON de animaciones con defaults
 ├── renderSongLyricList.tsx             # Lista de letras de cancion con tags de color
 ├── colorPicker.tsx                     # Color picker con ChromePicker
 ├── fontFamilySelector.tsx              # Selector de fuentes del sistema
@@ -126,6 +137,22 @@ PresentationView (index.tsx)
 - La medición de altura en `PresentationView` usa `useResizeObserver` con `box: 'border-box'` y estabiliza el valor reutilizando la última altura válida cuando el observer reporta `0` temporalmente.
 - Para evitar saltos de escala durante transiciones (`AnimatePresence`), `PresentationView` conserva la última altura no-cero observada del contenedor y la reutiliza cuando el observer reporta `0` temporalmente.
 - En modo `live`, la estabilización de altura está simplificada en un solo efecto: primero usa `ResizeObserver` y, si arranca en `0`, hace medición directa de `containerRef.getBoundingClientRect().height` con un ciclo corto en `requestAnimationFrame` hasta obtener un valor válido.
+- El render de fondo (imagen/video/color) vive fuera del contenedor animado por slide; así, cambiar texto/slide no desmonta ni recarga el fondo en `live`.
+- El estado de fondo/video solo se reinicia cuando cambia la fuente real del fondo (`background`, `backgroundMedia.filePath`, `thumbnail`, `fallback`), evitando flashes negros por cambios de objeto sin cambio real de asset.
+- La transición de tema en `PresentationView` usa `AnimatePresence` en `mode="sync"` con capas superpuestas (`absolute inset-0`) para evitar frames vacíos/negros entre salida y entrada.
+- La animación del tema entrante se aplica tanto al `enter` como al `exit` (cross animation), de modo que el tema saliente y el entrante comparten el mismo patrón de transición configurado en el nuevo tema.
+- `PresentationView` tiene dos paths de render: `live` (completo, con transiciones y video en reproducción) y `preview` (`!live`) estático, sin `AnimatePresence` ni wrappers `m.*` a nivel raíz/slide.
+- En `preview`, los videos (fondo y capas de presentación) no se reproducen: se renderizan thumbnails estáticos para reducir CPU/GPU cuando hay muchas instancias simultáneas.
+- Las transiciones de tema/slide (`useMemo` + `AnimatePresence` + `m.div`) se encapsulan en shells solo de `live`, evitando cálculo/instanciación en `preview`.
+- En `preview`, fondos de imagen y thumbnails de video usan `<img>` estático (`loading="lazy"`) en lugar de componentes animados, para minimizar costo de render masivo.
+- `PresentationView` está memoizado (`React.memo`) con comparación explícita de props para evitar re-renders en cascada cuando se renderiza muchas veces en paralelo.
+- El cálculo de variantes de animación se corta en `preview`: usa variantes vacías y tipo `none`, evitando parse/instanciación de animaciones cuando no se van a reproducir.
+- La lógica interna de `PresentationView` está separada en hooks de dominio (`sizing`, `background`, `textLayout`) para reducir complejidad del componente principal y aislar cálculos que antes estaban mezclados.
+- El JSX duplicado entre `preview` y `live` se consolidó en capas compartidas (`backgroundLayer`, `contentLayer`, `tagSongLayer`) y un `viewContent` único; la diferencia entre modos queda solo en el wrapper de transición.
+- El render por tipo de recurso (`PRESENTATION`/`BIBLE`/texto genérico) se extrae a `ResourceContent` dentro del módulo para acortar el flujo principal y hacer más visible la orquestación de capas.
+- El frame visual e interacción base del contenedor (`role`, teclado, padding por tag y montaje de capas) está en `PresentationFrame`, dejando `index.tsx` centrado en composición/orquestación.
+- La construcción de capas compartidas (`backgroundLayer`, `contentLayer`, `tagSongLayer`) se movió a `PresentationBody`, por lo que `index.tsx` solo coordina hooks, props y wrappers de modo.
+- `PresentationBody` y `ResourceContent` están memoizados con comparadores explícitos para reducir re-renders en cascada cuando no cambian props efectivas.
 
 ### Logica de fondos
 
@@ -154,6 +181,10 @@ Renderiza texto genérico del slide con animaciones:
 - En modo edición, la guía visual del área de texto es interactiva: permite mover el cuadro arrastrando y redimensionarlo desde bordes (izquierdo/derecho/superior/inferior), emitiendo cambios de `paddingInline`, `paddingBlock` y `translate` al editor.
 - Durante la edición interactiva, el cursor cambia dinámicamente según el borde detectado (`ew-resize` en laterales, `ns-resize` en superior/inferior, `move` en el centro) para dar feedback visual sin mostrar handles.
 - Además se muestran handles circulares sobrios en las cuatro esquinas del recuadro para redimensionado diagonal (`nwse-resize` y `nesw-resize`) con precisión estilo editor profesional.
+- `AnimatedText` está memoizado (`React.memo`) con comparación de props críticas para reducir re-renders masivos en vistas con muchas instancias.
+- El saneado de HTML se memoiza (`sanitizeHTML`) y, en modo `split`, se precomputa por líneas/palabras para evitar repetir saneado en cada render.
+- Los estilos estáticos de handles se hoistean fuera del componente para evitar recreación de objetos en cada render.
+- La lógica de interacción del cuadro de texto (detectar bordes, drag, resize y cursores) se extrajo a `useTextBoundsInteraction`, dejando `AnimatedText` enfocado en render y composición.
 
 - **Preview mode** (`isPreview: true`): Sin animacion, solo `dangerouslySetInnerHTML` con `sanitizeHTML()`.
 - **Animacion "split"**: Divide por palabras, cada una animada individualmente con `m.span`.

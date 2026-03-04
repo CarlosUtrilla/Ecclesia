@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ThemeWithMedia } from '../../ui/PresentationView/types'
 import { BlankTheme } from '@/hooks/useThemes'
 import { ContentScreen } from '@/contexts/ScheduleContext/types'
@@ -6,12 +6,26 @@ import { PresentationView } from '../../ui/PresentationView'
 import { useParams } from 'react-router'
 import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 
+const getThemeTransitionSignature = (theme: ThemeWithMedia): string => {
+  const backgroundMedia = theme.backgroundMedia
+
+  return [
+    theme.id ?? 'no-theme-id',
+    theme.background ?? 'no-background',
+    backgroundMedia?.type ?? 'no-media-type',
+    backgroundMedia?.filePath ?? 'no-media-file',
+    backgroundMedia?.thumbnail ?? 'no-thumbnail',
+    backgroundMedia?.fallback ?? 'no-fallback'
+  ].join('|')
+}
+
 export default function LiveScreen({ isPreview = false }: { isPreview?: boolean }) {
   const displayId = useParams().displayId
   const [selectedTheme, setSelectedTheme] = useState<ThemeWithMedia>(BlankTheme)
   const [itemIndex, setItemIndex] = useState(0)
   const [content, setContent] = useState<ContentScreen | null>(null)
   const [themeKey, setThemeKey] = useState(0)
+  const lastThemeTransitionSignatureRef = useRef(getThemeTransitionSignature(BlankTheme))
 
   useEffect(() => {
     console.log('LiveScreen mounted, setting up IPC listeners')
@@ -28,7 +42,12 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
       (_, data: ThemeWithMedia) => {
         console.log('Received live screen theme update:', data)
         setSelectedTheme(data)
-        setThemeKey((prev) => prev + 1)
+
+        const nextSignature = getThemeTransitionSignature(data)
+        if (lastThemeTransitionSignatureRef.current !== nextSignature) {
+          lastThemeTransitionSignatureRef.current = nextSignature
+          setThemeKey((prev) => prev + 1)
+        }
       }
     )
     const handleKeyUp = async (e: KeyboardEvent) => {

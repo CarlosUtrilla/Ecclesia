@@ -951,7 +951,7 @@ export default function ThemesEditor() {
           />
         </div>
       </div>
-      <div className="flex-shrink-0 p-3 bg-muted/50 flex items-center gap-1 justify-center overflow-x-auto">
+      <div className="flex-shrink-0 p-3 bg-muted/50 flex items-center gap-4 justify-center overflow-x-auto">
         {PreviewsItems.map((item, index) => (
           <PresentationView
             onClick={() => setSelectedPreview(index)}

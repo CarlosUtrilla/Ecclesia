@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { m } from 'framer-motion'
+import { memo, useCallback, useMemo } from 'react'
+import { m, type Variants } from 'framer-motion'
 import { sanitizeHTML } from '@/lib/utils'
 import { wordVariants, AnimationType } from '@/lib/animations'
 import { EditableBoundsTarget, PresentationViewItems, TextBoundsValues } from '../types'
+import { useTextBoundsInteraction } from '../hooks/useTextBoundsInteraction'
 
 /**
  * Props para el componente AnimatedText
@@ -10,7 +11,7 @@ import { EditableBoundsTarget, PresentationViewItems, TextBoundsValues } from '.
 export interface AnimatedTextProps {
   item: PresentationViewItems // Elemento a mostrar (canción, versículo, etc.)
   animationType: AnimationType // Tipo de animación a aplicar
-  variants: any // Variantes de animación de framer-motion
+  variants: Variants // Variantes de animación de framer-motion
   textStyle: React.CSSProperties // Estilos CSS para el texto
   isPreview?: boolean // Modo preview (sin animaciones)
   textContainerPadding: {
@@ -33,25 +34,18 @@ export interface AnimatedTextProps {
   onEditableTargetSelect?: (target: EditableBoundsTarget) => void
 }
 
-type BoundsInteractionMode =
-  | 'move'
-  | 'resize-left'
-  | 'resize-right'
-  | 'resize-top'
-  | 'resize-bottom'
-  | 'resize-top-left'
-  | 'resize-top-right'
-  | 'resize-bottom-left'
-  | 'resize-bottom-right'
-
-type ActiveBoundsInteraction = {
-  mode: BoundsInteractionMode
-  startX: number
-  startY: number
-  startValues: TextBoundsValues
+const CORNER_HANDLE_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  width: 11,
+  height: 11,
+  borderRadius: '50%',
+  border: '1px solid rgba(255,255,255,0.75)',
+  background: 'rgba(20,184,166,0.9)',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.28)',
+  zIndex: 3
 }
 
-export function AnimatedText({
+function AnimatedTextComponent({
   item,
   animationType,
   variants,
@@ -67,8 +61,6 @@ export function AnimatedText({
   onTextBoundsChange,
   onEditableTargetSelect
 }: AnimatedTextProps) {
-  const activeInteractionRef = useRef<ActiveBoundsInteraction | null>(null)
-  const [boundsCursor, setBoundsCursor] = useState<React.CSSProperties['cursor']>('move')
   const { text: rawText } = item
 
   const shouldShowBounds = showTextBounds && textBoundsIsSelected
@@ -81,239 +73,40 @@ export function AnimatedText({
     textBoundsScale.x > 0 &&
     textBoundsScale.y > 0
 
-  const applyBoundsChange = useCallback(
-    (nextValues: TextBoundsValues) => {
-      if (!onTextBoundsChange) return
+  const {
+    boundsCursor,
+    onBoundsPointerMove,
+    onBoundsPointerLeave,
+    onBoundsPointerDown,
+    startInteraction
+  } = useTextBoundsInteraction({
+    canEditBounds,
+    textBoundsBaseValues,
+    textBoundsScale,
+    onTextBoundsChange
+  })
 
-      const paddingInline = Math.max(0, Math.round(nextValues.paddingInline))
-      const paddingBlock = Math.max(0, Math.round(nextValues.paddingBlock))
-      const translateX = Math.max(
-        -paddingInline,
-        Math.min(paddingInline, Math.round(nextValues.translateX))
-      )
-      const translateY = Math.max(
-        -paddingBlock,
-        Math.min(paddingBlock, Math.round(nextValues.translateY))
-      )
+  const text = rawText || ''
+  const sanitizedText = useMemo(() => sanitizeHTML(text), [text])
 
-      onTextBoundsChange({
-        paddingInline,
-        paddingBlock,
-        translateX,
-        translateY
-      })
-    },
-    [onTextBoundsChange]
+  const splitSanitizedLines = useMemo(
+    () =>
+      text.split(/<br\s*\/?>/i).map((line) =>
+        line
+          .trim()
+          .split(' ')
+          .filter((word) => word.length > 0)
+          .map((word) => sanitizeHTML(word))
+      ),
+    [text]
   )
 
-  const handlePointerMove = useCallback(
-    (event: PointerEvent) => {
-      if (!canEditBounds || !textBoundsScale) return
-
-      const activeInteraction = activeInteractionRef.current
-      if (!activeInteraction) return
-
-      const deltaXInBase = (event.clientX - activeInteraction.startX) / textBoundsScale.x
-      const deltaYInBase = (event.clientY - activeInteraction.startY) / textBoundsScale.y
-
-      const start = activeInteraction.startValues
-      let nextPaddingInline = start.paddingInline
-      let nextPaddingBlock = start.paddingBlock
-      let nextTranslateX = start.translateX
-      let nextTranslateY = start.translateY
-      const mode = activeInteraction.mode
-
-      if (mode === 'move') {
-        nextTranslateX = start.translateX + deltaXInBase
-        nextTranslateY = start.translateY + deltaYInBase
-      }
-
-      if (mode === 'resize-left' || mode === 'resize-top-left' || mode === 'resize-bottom-left') {
-        const nextLeftMargin = Math.max(0, start.paddingInline + start.translateX + deltaXInBase)
-        const fixedRightMargin = Math.max(0, start.paddingInline - start.translateX)
-        nextPaddingInline = (nextLeftMargin + fixedRightMargin) / 2
-        nextTranslateX = (nextLeftMargin - fixedRightMargin) / 2
-      }
-
-      if (
-        mode === 'resize-right' ||
-        mode === 'resize-top-right' ||
-        mode === 'resize-bottom-right'
-      ) {
-        const fixedLeftMargin = Math.max(0, start.paddingInline + start.translateX)
-        const nextRightMargin = Math.max(0, start.paddingInline - start.translateX - deltaXInBase)
-        nextPaddingInline = (fixedLeftMargin + nextRightMargin) / 2
-        nextTranslateX = (fixedLeftMargin - nextRightMargin) / 2
-      }
-
-      if (mode === 'resize-top' || mode === 'resize-top-left' || mode === 'resize-top-right') {
-        const nextTopMargin = Math.max(0, start.paddingBlock + start.translateY + deltaYInBase)
-        const fixedBottomMargin = Math.max(0, start.paddingBlock - start.translateY)
-        nextPaddingBlock = (nextTopMargin + fixedBottomMargin) / 2
-        nextTranslateY = (nextTopMargin - fixedBottomMargin) / 2
-      }
-
-      if (
-        mode === 'resize-bottom' ||
-        mode === 'resize-bottom-left' ||
-        mode === 'resize-bottom-right'
-      ) {
-        const fixedTopMargin = Math.max(0, start.paddingBlock + start.translateY)
-        const nextBottomMargin = Math.max(0, start.paddingBlock - start.translateY - deltaYInBase)
-        nextPaddingBlock = (fixedTopMargin + nextBottomMargin) / 2
-        nextTranslateY = (fixedTopMargin - nextBottomMargin) / 2
-      }
-
-      applyBoundsChange({
-        paddingInline: nextPaddingInline,
-        paddingBlock: nextPaddingBlock,
-        translateX: nextTranslateX,
-        translateY: nextTranslateY
-      })
-    },
-    [applyBoundsChange, canEditBounds, textBoundsScale]
-  )
-
-  const getCursorFromMode = useCallback((mode: BoundsInteractionMode) => {
-    if (mode === 'resize-top-left' || mode === 'resize-bottom-right') return 'nwse-resize'
-    if (mode === 'resize-top-right' || mode === 'resize-bottom-left') return 'nesw-resize'
-    if (mode === 'resize-left' || mode === 'resize-right') return 'ew-resize'
-    if (mode === 'resize-top' || mode === 'resize-bottom') return 'ns-resize'
-    return 'move'
-  }, [])
-
-  const stopInteraction = useCallback(() => {
-    activeInteractionRef.current = null
-    setBoundsCursor('move')
-    document.body.style.cursor = ''
-    window.removeEventListener('pointermove', handlePointerMove)
-    window.removeEventListener('pointerup', stopInteraction)
-  }, [handlePointerMove])
-
-  useEffect(() => {
-    return () => {
-      document.body.style.cursor = ''
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', stopInteraction)
+  const content = useMemo(() => {
+    if (isPreview) {
+      return <div style={textStyle} dangerouslySetInnerHTML={{ __html: sanitizedText }} />
     }
-  }, [handlePointerMove, stopInteraction])
 
-  const startInteraction = useCallback(
-    (mode: BoundsInteractionMode, event: React.PointerEvent<HTMLElement>) => {
-      if (!canEditBounds || !textBoundsBaseValues) return
-      event.preventDefault()
-      event.stopPropagation()
-
-      activeInteractionRef.current = {
-        mode,
-        startX: event.clientX,
-        startY: event.clientY,
-        startValues: {
-          ...textBoundsBaseValues
-        }
-      }
-
-      const cursor = getCursorFromMode(mode)
-      setBoundsCursor(cursor)
-      document.body.style.cursor = cursor
-
-      window.addEventListener('pointermove', handlePointerMove)
-      window.addEventListener('pointerup', stopInteraction)
-    },
-    [canEditBounds, getCursorFromMode, handlePointerMove, stopInteraction, textBoundsBaseValues]
-  )
-
-  const detectInteractionMode = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>): BoundsInteractionMode => {
-      const target = event.currentTarget.getBoundingClientRect()
-      const edgeThreshold = 10
-      const offsetX = event.clientX - target.left
-      const offsetY = event.clientY - target.top
-
-      const nearLeft = offsetX <= edgeThreshold
-      const nearRight = target.width - offsetX <= edgeThreshold
-      const nearTop = offsetY <= edgeThreshold
-      const nearBottom = target.height - offsetY <= edgeThreshold
-
-      if (nearTop && nearLeft) return 'resize-top-left'
-      if (nearTop && nearRight) return 'resize-top-right'
-      if (nearBottom && nearLeft) return 'resize-bottom-left'
-      if (nearBottom && nearRight) return 'resize-bottom-right'
-
-      if (nearLeft && !nearTop && !nearBottom) return 'resize-left'
-      if (nearRight && !nearTop && !nearBottom) return 'resize-right'
-      if (nearTop) return 'resize-top'
-      if (nearBottom) return 'resize-bottom'
-      return 'move'
-    },
-    []
-  )
-
-  const cornerHandleStyle: React.CSSProperties = {
-    position: 'absolute',
-    width: 11,
-    height: 11,
-    borderRadius: '50%',
-    border: '1px solid rgba(255,255,255,0.75)',
-    background: 'rgba(20,184,166,0.9)',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.28)',
-    zIndex: 3
-  }
-
-  const text = useMemo(() => rawText || '', [rawText])
-
-  /**
-   * Renderiza el contenido del texto con o sin animaciones
-   * @param textContext - El texto a renderizar
-   */
-  const content = useCallback(
-    (textContext: string) => {
-      if (isPreview) {
-        return (
-          <div style={textStyle} dangerouslySetInnerHTML={{ __html: sanitizeHTML(textContext) }} />
-        )
-      }
-
-      // Animación palabra por palabra
-      if (animationType === 'split') {
-        // Dividir por saltos de línea (soporta <br>, <br/>, <br />)
-        const lines = textContext.split(/<br\s*\/?>/i)
-
-        return (
-          <m.div
-            variants={variants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            style={textStyle}
-          >
-            {lines.map((line, lineIndex) => {
-              // Dividir cada línea en palabras, eliminando espacios vacíos
-              const words = line
-                .trim()
-                .split(' ')
-                .filter((word) => word.length > 0)
-
-              return (
-                <div key={lineIndex}>
-                  {words.map((word, wordIndex) => (
-                    <m.span
-                      key={`${lineIndex}-${wordIndex}`}
-                      variants={wordVariants}
-                      style={{ display: 'inline-block', marginRight: '0.3em' }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeHTML(word) }}
-                    />
-                  ))}
-                  {/* Salto de línea entre líneas (excepto la última) */}
-                  {lineIndex < lines.length - 1 && <br />}
-                </div>
-              )
-            })}
-          </m.div>
-        )
-      }
-
-      // Animación de bloque completo (otras animaciones)
+    if (animationType === 'split') {
       return (
         <m.div
           variants={variants}
@@ -321,12 +114,35 @@ export function AnimatedText({
           animate="animate"
           exit="exit"
           style={textStyle}
-          dangerouslySetInnerHTML={{ __html: sanitizeHTML(textContext) }}
-        />
+        >
+          {splitSanitizedLines.map((words, lineIndex) => (
+            <div key={lineIndex}>
+              {words.map((word, wordIndex) => (
+                <m.span
+                  key={`${lineIndex}-${wordIndex}`}
+                  variants={wordVariants}
+                  style={{ display: 'inline-block', marginRight: '0.3em' }}
+                  dangerouslySetInnerHTML={{ __html: word }}
+                />
+              ))}
+              {lineIndex < splitSanitizedLines.length - 1 && <br />}
+            </div>
+          ))}
+        </m.div>
       )
-    },
-    [animationType, variants, textStyle, isPreview]
-  )
+    }
+
+    return (
+      <m.div
+        variants={variants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        style={textStyle}
+        dangerouslySetInnerHTML={{ __html: sanitizedText }}
+      />
+    )
+  }, [isPreview, textStyle, sanitizedText, animationType, variants, splitSanitizedLines])
 
   const handleSelectTarget = useCallback(
     (target: EditableBoundsTarget) => {
@@ -358,18 +174,13 @@ export function AnimatedText({
             transform: `translate(${textContainerOffset.x}px, ${textContainerOffset.y}px)`
           }}
           onPointerMove={(event) => {
-            if (!canEditBounds || activeInteractionRef.current) return
-            const mode = detectInteractionMode(event)
-            setBoundsCursor(getCursorFromMode(mode))
+            onBoundsPointerMove(event)
           }}
           onPointerLeave={() => {
-            if (!activeInteractionRef.current) {
-              setBoundsCursor('move')
-            }
+            onBoundsPointerLeave()
           }}
           onPointerDown={(event) => {
-            const mode = detectInteractionMode(event)
-            startInteraction(mode, event)
+            onBoundsPointerDown(event)
           }}
         >
           {canEditBounds ? (
@@ -378,7 +189,7 @@ export function AnimatedText({
                 type="button"
                 aria-label="Redimensionar esquina superior izquierda"
                 style={{
-                  ...cornerHandleStyle,
+                  ...CORNER_HANDLE_STYLE,
                   left: -5.5,
                   top: -5.5,
                   cursor: 'nwse-resize'
@@ -389,7 +200,7 @@ export function AnimatedText({
                 type="button"
                 aria-label="Redimensionar esquina superior derecha"
                 style={{
-                  ...cornerHandleStyle,
+                  ...CORNER_HANDLE_STYLE,
                   right: -5.5,
                   top: -5.5,
                   cursor: 'nesw-resize'
@@ -400,7 +211,7 @@ export function AnimatedText({
                 type="button"
                 aria-label="Redimensionar esquina inferior izquierda"
                 style={{
-                  ...cornerHandleStyle,
+                  ...CORNER_HANDLE_STYLE,
                   left: -5.5,
                   bottom: -5.5,
                   cursor: 'nesw-resize'
@@ -411,7 +222,7 @@ export function AnimatedText({
                 type="button"
                 aria-label="Redimensionar esquina inferior derecha"
                 style={{
-                  ...cornerHandleStyle,
+                  ...CORNER_HANDLE_STYLE,
                   right: -5.5,
                   bottom: -5.5,
                   cursor: 'nwse-resize'
@@ -445,8 +256,31 @@ export function AnimatedText({
           }
         }}
       >
-        <div style={{ width: '100%' }}>{content(text)}</div>
+        <div style={{ width: '100%' }}>{content}</div>
       </div>
     </>
   )
 }
+
+function areAnimatedTextPropsEqual(prevProps: AnimatedTextProps, nextProps: AnimatedTextProps) {
+  return (
+    prevProps.item === nextProps.item &&
+    prevProps.animationType === nextProps.animationType &&
+    prevProps.variants === nextProps.variants &&
+    prevProps.textStyle === nextProps.textStyle &&
+    prevProps.isPreview === nextProps.isPreview &&
+    prevProps.textContainerPadding.horizontal === nextProps.textContainerPadding.horizontal &&
+    prevProps.textContainerPadding.vertical === nextProps.textContainerPadding.vertical &&
+    prevProps.textContainerOffset.x === nextProps.textContainerOffset.x &&
+    prevProps.textContainerOffset.y === nextProps.textContainerOffset.y &&
+    prevProps.verticalAlign === nextProps.verticalAlign &&
+    prevProps.showTextBounds === nextProps.showTextBounds &&
+    prevProps.textBoundsIsSelected === nextProps.textBoundsIsSelected &&
+    prevProps.textBoundsBaseValues === nextProps.textBoundsBaseValues &&
+    prevProps.textBoundsScale === nextProps.textBoundsScale &&
+    prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
+    prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect
+  )
+}
+
+export const AnimatedText = memo(AnimatedTextComponent, areAnimatedTextPropsEqual)
