@@ -20,6 +20,7 @@ type Props = {
   style: CanvasItemStyle
   isSelected: boolean
   isDragging: boolean
+  isRotating?: boolean
   animationPreviewKey?: number
   highlightSnapTarget?: boolean
   isEditing: boolean
@@ -51,6 +52,7 @@ export default function TextCanvasItem({
   style,
   isSelected,
   isDragging,
+  isRotating = false,
   animationPreviewKey = 0,
   highlightSnapTarget,
   isEditing,
@@ -197,6 +199,7 @@ export default function TextCanvasItem({
       style={style}
       layer={layer}
       isSelected={isSelected}
+      rotationLabel={isRotating ? `${Math.round(style.rotation)}°` : undefined}
       highlightSnapTarget={highlightSnapTarget}
       onSelect={(event) => {
         event.stopPropagation()

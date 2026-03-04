@@ -16,6 +16,7 @@ type Props = {
   isSnapTarget: boolean
   isEditingText: boolean
   isDragging: boolean
+  isRotating: boolean
   animationPreviewKey?: number
   onSelectItem: (itemId: string) => void
   onSetEditingItemId: (itemId: string | null) => void
@@ -40,6 +41,7 @@ export default function CanvasItemNode({
   isSnapTarget,
   isEditingText,
   isDragging,
+  isRotating,
   animationPreviewKey = 0,
   onSelectItem,
   onSetEditingItemId,
@@ -71,6 +73,7 @@ export default function CanvasItemNode({
           style={style}
           mediaItem={mediaItem}
           isSelected={isSelected}
+          isRotating={isRotating}
           highlightSnapTarget={isSnapTarget}
           onSelectItem={onSelectItem}
           onStartMove={(event) => onStartDrag(event, item, 'move')}
@@ -103,6 +106,7 @@ export default function CanvasItemNode({
           style={style}
           isSelected={isSelected}
           isDragging={isDragging}
+          isRotating={isRotating}
           animationPreviewKey={animationPreviewKey}
           highlightSnapTarget={isSnapTarget}
           isEditing={isEditingText}

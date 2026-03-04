@@ -9,6 +9,7 @@ type Props = {
   style: CanvasItemStyle
   mediaItem?: Media
   isSelected: boolean
+  isRotating?: boolean
   highlightSnapTarget?: boolean
   onSelectItem: (itemId: string) => void
   onStartMove: (event: React.PointerEvent<HTMLDivElement>) => void
@@ -21,6 +22,7 @@ export default function MediaCanvasItem({
   style,
   mediaItem,
   isSelected,
+  isRotating = false,
   highlightSnapTarget,
   onSelectItem,
   onStartMove,
@@ -35,6 +37,7 @@ export default function MediaCanvasItem({
       style={style}
       layer={Number(item.layer || 0)}
       isSelected={isSelected}
+      rotationLabel={isRotating ? `${Math.round(style.rotation)}°` : undefined}
       highlightSnapTarget={highlightSnapTarget}
       onSelect={(event) => {
         event.stopPropagation()

@@ -16,6 +16,7 @@ export type DragState = {
 
 type Params = {
   dragRef: MutableRefObject<DragState | null>
+  canvasScale?: number
   onItemStyleChange: (itemId: string, next: Partial<CanvasItemStyle>) => void
   clearSnapGuides: () => void
   syncSnapGuides: (snappedPosition: {
@@ -49,6 +50,7 @@ type Params = {
 
 export default function useCanvasTransform({
   dragRef,
+  canvasScale = 1,
   onItemStyleChange,
   clearSnapGuides,
   syncSnapGuides,
@@ -100,8 +102,9 @@ export default function useCanvasTransform({
     const activeDrag = dragRef.current
     if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
 
-    const deltaX = event.clientX - activeDrag.startX
-    const deltaY = event.clientY - activeDrag.startY
+    const safeScale = Number.isFinite(canvasScale) && canvasScale > 0 ? canvasScale : 1
+    const deltaX = (event.clientX - activeDrag.startX) / safeScale
+    const deltaY = (event.clientY - activeDrag.startY) / safeScale
 
     if (activeDrag.mode === 'move') {
       const proposedX = activeDrag.initialStyle.x + deltaX
@@ -238,9 +241,11 @@ export default function useCanvasTransform({
     clearSnapGuides()
     const pointer = getPointerPositionInCanvas(event)
     const angle = (Math.atan2(pointer.y - centerY, pointer.x - centerX) * 180) / Math.PI
+    const rawRotation = angle + 90
+    const snappedRotation = event.shiftKey ? Math.round(rawRotation / 45) * 45 : rawRotation
 
     scheduleStyleUpdate(activeDrag.itemId, {
-      rotation: Math.round(angle + 90)
+      rotation: Math.round(snappedRotation)
     })
   }
 

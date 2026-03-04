@@ -49,8 +49,14 @@ app/screens/editors/presentationEditor/
 - Inserción de contenido (`Texto`, `Biblia`, `Media`) en la diapositiva seleccionada.
 - Punto único de inserción desde el menú `Insertar` (evita duplicar acciones en toolbar de texto).
 - La opción de media en `Insertar` está etiquetada para indicar origen desde biblioteca (más explícita para usuario).
-- Carrusel inferior de diapositivas en formato compacto para priorizar el espacio útil del canvas.
+- Carrusel inferior de diapositivas en formato compacto (`w-36`) para priorizar el espacio útil del canvas.
+- El área inferior del carrusel incluye control de zoom del canvas (`50%` a `200%`) con slider, botones `+/-` y reset rápido a `100%`.
+- Además del slider, el canvas permite zoom directo con `Ctrl/Cmd + rueda` para acercar/alejar rápidamente durante edición.
+- La franja inferior distribuye carrusel y zoom en una sola línea (carrusel a la izquierda con scroll horizontal + bloque de zoom a la derecha) para mejorar legibilidad y uso del espacio.
+- El canvas usa viewport base fijo en px (`1280x720`) y aplica zoom con escalado relativo (`transform: scale`) sobre ese viewport; así se preservan proporciones, aspect ratio y crecimiento uniforme del contenido.
+- El cálculo de interacción en canvas (drag, resize, rotate, snapping y posición de puntero) es zoom-aware: normaliza deltas/coords por escala para mantener precisión en cualquier nivel de zoom.
 - Canvas del editor con fondo blanco por defecto y estilo base de texto en negro para edición inicial.
+- El stage del canvas se presenta dentro de un contenedor visual sutil (borde + fondo + sombra ligera) para separar mejor el lienzo del fondo del editor.
 - El tamaño de preview del canvas usa `useScreenSize` (mismo cálculo que `PresentationView`) para respetar aspect ratio de pantalla LIVE.
 - La toolbar tipográfica de texto se integra en la barra superior (junto al título/acciones), no en una fila separada.
 - En pantallas estrechas, la toolbar tipográfica usa scroll horizontal para mantenerse en una sola línea.
@@ -73,12 +79,16 @@ app/screens/editors/presentationEditor/
 - La escritura inline en `textCanvasItem` está optimizada con debounce suave (~100ms) y `flush` inmediato en `Enter`, `Escape` y `blur`, reduciendo lag al teclear sin perder cambios.
 - Durante drag de items de texto, `textCanvasItem` usa un render liviano estático (HTML sanitizado) y restaura `AnimatedText`/`BibleTextRender` al soltar, para reducir tirones en movimiento.
 - Las transformaciones de drag/resize/rotate en canvas se emiten con `requestAnimationFrame` + `flush` al soltar para suavizar movimiento y evitar ráfagas de updates.
+- Durante la rotación de un item, el canvas muestra una etiqueta temporal con el ángulo actual (`°`) sobre el elemento para facilitar ajuste preciso.
+- Al rotar con `Shift` presionado, el ángulo se ajusta en saltos de `45°` para alineación rápida (`0/45/90/...`).
+- La etiqueta de ángulo se posiciona por encima del handle de rotación para mantener visibilidad durante el ajuste.
 - Edición multi-item por slide con capas (`layer`) y estilos serializados (`customStyle`).
 - Snapping por centros/bordes con guías visuales y `Alt` para desactivar temporalmente.
 - Handles de transformación (`resize/rotate`) centralizados en `canvasTransformHandles.tsx` para evitar duplicación entre MEDIA y TEXT.
 - Cada item del canvas se orquesta desde `canvasItemNode.tsx` para mantener `editorCanvas.tsx` declarativo y con menor complejidad.
 - La lógica de interacción por puntero para `move/resize/rotate` del canvas está desacoplada en `useCanvasTransform.ts`.
 - El menú contextual de acciones (`Editar texto`, `capas`, `duplicar`, `eliminar`) está centralizado en `canvasItemContextMenu.tsx`.
+- Las acciones de item (`Subir/Bajar capa`, `Duplicar`, `Eliminar`) se ejecutan desde el context menu del item en canvas (no desde una barra superior dedicada), reduciendo ruido visual en el header.
 - El contenedor visual común de los items se centraliza en `canvasItemShell.tsx` y lo reutilizan `textCanvasItem` y `mediaCanvasItem`.
 - Historial de cambios con pausa de captura durante drag/resize/rotate.
 - Guardado normalizando shape legacy + `items[]` para persistencia en presentations.

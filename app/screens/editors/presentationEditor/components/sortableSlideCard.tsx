@@ -35,7 +35,7 @@ export default function SortableSlideCard({
         transition,
         opacity: isDragging ? 0.5 : 1
       }}
-      className={cn('w-44 shrink-0 p-1.5 space-y-1.5 cursor-grab active:cursor-grabbing', {
+      className={cn('w-36 shrink-0 p-1.5 space-y-1.5 cursor-grab active:cursor-grabbing', {
         'border-primary': isSelected,
         'shadow-lg border-primary/50': isDragging
       })}

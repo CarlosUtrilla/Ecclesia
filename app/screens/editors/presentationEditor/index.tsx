@@ -3,21 +3,18 @@ import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useParams } from 'react-router-dom'
 import {
-  ArrowDown,
-  ArrowUp,
   BookText,
   ChevronDown,
-  Copy,
+  Minus,
   FileImage,
   Paperclip,
+  Plus as PlusIcon,
   Plus,
   Save,
-  TextCursorInput,
-  Trash2
+  TextCursorInput
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Media } from '@prisma/client'
-import { useResizeObserver } from 'usehooks-ts'
 import {
   closestCenter,
   DndContext,
@@ -39,7 +36,6 @@ import { Card } from '@/ui/card'
 import { Slider } from '@/ui/slider'
 import { Label } from '@/ui/label'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
-import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { MediaPicker } from '@/screens/panels/library/media/exports'
 import AnimationSelector from '../themesEditor/animationSelector'
 import { PresentationSchema, PresentationFormValues } from './schema'
@@ -55,6 +51,8 @@ import usePresentationEditorHistory, {
 import { buildBibleAccessData, parseBibleAccessData } from './utils/bibleAccessData'
 import {
   buildPrimaryItemFromSlide,
+  BASE_CANVAS_HEIGHT,
+  BASE_CANVAS_WIDTH,
   createTextSlide,
   defaultTransitionSettingsString,
   ensureSlideItems,
@@ -76,13 +74,9 @@ export default function PresentationEditor() {
   const [isBiblePickerOpen, setIsBiblePickerOpen] = useState(false)
   const [isCanvasDragging, setIsCanvasDragging] = useState(false)
   const [animationPreviewKey, setAnimationPreviewKey] = useState(0)
+  const [canvasZoom, setCanvasZoom] = useState(100)
   const shouldSeedHistoryRef = useRef(false)
   const previewAreaRef = useRef<HTMLDivElement>(null)
-
-  const { height: previewAreaHeight } = useResizeObserver({
-    ref: previewAreaRef as React.RefObject<HTMLDivElement>
-  })
-  const liveScreenSize = useScreenSize(previewAreaHeight || 0)
 
   const form = useForm<PresentationFormValues>({
     resolver: zodResolver(PresentationSchema),
@@ -104,6 +98,25 @@ export default function PresentationEditor() {
   const title = watch('title')
   const slides = watch('slides')
   const selectedSlide = slides[selectedSlideIndex]
+  const minCanvasZoom = 50
+  const maxCanvasZoom = 200
+  const zoomScale = canvasZoom / 100
+  const zoomedCanvasWidth = BASE_CANVAS_WIDTH * zoomScale
+  const zoomedCanvasHeight = BASE_CANVAS_HEIGHT * zoomScale
+
+  const clampCanvasZoom = (value: number) =>
+    Math.min(maxCanvasZoom, Math.max(minCanvasZoom, Math.round(value)))
+
+  const handleCanvasZoomByWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey && !event.metaKey) return
+
+    event.preventDefault()
+
+    const direction = event.deltaY < 0 ? 1 : -1
+    const step = event.shiftKey ? 20 : 10
+
+    setCanvasZoom((current) => clampCanvasZoom(current + direction * step))
+  }
 
   const { fields, append, move } = useFieldArray({
     control: form.control,
@@ -250,7 +263,6 @@ export default function PresentationEditor() {
     insertTextInCurrentSlide,
     addEmptySlide,
     updateItemLayerById,
-    updateSelectedItemLayer,
     duplicateItemById,
     duplicateSelectedItem,
     removeItemById,
@@ -363,11 +375,11 @@ export default function PresentationEditor() {
     <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
       <div className="flex-shrink-0">
         <title>Editor de presentaciones</title>
-        <div className="p-2 flex items-center gap-1 border-b flex-wrap">
-          <div>
+        <div className="p-2.5 flex items-center gap-2 border-b bg-background/70 flex-wrap">
+          <div className="w-[240px] shrink-0">
             <Input
               placeholder="Título de la presentación"
-              className="!bg-background"
+              className="!bg-background h-8"
               {...register('title')}
             />
             <div className="ml-auto flex mt-1.5 gap-2 w-full">
@@ -508,113 +520,141 @@ export default function PresentationEditor() {
             onLoadBibleText={loadBibleText}
           />
         ) : null}
-
-        {selectedItem && selectedItemStyle ? (
-          <div className="p-2 border-b flex items-center gap-2 flex-wrap">
-            <Label className="text-xs text-muted-foreground">Elemento</Label>
-            <Button size="sm" variant="outline" onClick={() => updateSelectedItemLayer('down')}>
-              <ArrowDown className="size-4" />
-              Bajar capa
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => updateSelectedItemLayer('up')}>
-              <ArrowUp className="size-4" />
-              Subir capa
-            </Button>
-            <Button size="sm" variant="outline" onClick={duplicateSelectedItem}>
-              <Copy className="size-4" />
-              Duplicar
-            </Button>
-            <Button size="sm" variant="destructive" onClick={removeSelectedItem}>
-              <Trash2 className="size-4" />
-              Eliminar item
-            </Button>
-            <span className="text-xs text-muted-foreground">Rotación</span>
-            <Slider
-              value={[selectedItemStyle.rotation]}
-              min={-180}
-              max={180}
-              step={1}
-              className="w-36"
-              onValueChange={(value) => updateSelectedItemStyle({ rotation: value[0] ?? 0 })}
-            />
-          </div>
-        ) : null}
       </div>
 
       <div
         ref={previewAreaRef as React.RefObject<HTMLDivElement>}
-        className="flex-1 min-h-0 bg-muted flex items-center justify-center p-4 overflow-auto"
+        className="flex-1 min-h-0 bg-muted flex items-center justify-center p-5 md:p-6 overflow-auto"
+        onWheel={handleCanvasZoomByWheel}
       >
-        <div className="w-full max-w-6xl" style={{ aspectRatio: liveScreenSize.aspectRatio }}>
-          {selectedSlide ? (
-            <EditorCanvas
-              slide={selectedSlide}
-              mediaById={mediaById}
-              animationPreviewKey={animationPreviewKey}
-              selectedItemId={selectedItemId}
-              onSelectItem={setSelectedItemId}
-              onDuplicateItem={duplicateItemById}
-              onDeleteItem={removeItemById}
-              onLayerUpItem={(itemId) => updateItemLayerById(itemId, 'up')}
-              onLayerDownItem={(itemId) => updateItemLayerById(itemId, 'down')}
-              onDragStateChange={setIsCanvasDragging}
-              onItemTextChange={(itemId, nextText) => {
-                updateSelectedSlideItems((items) =>
-                  items.map((entry) =>
-                    entry.id === itemId
-                      ? {
-                          ...entry,
-                          text: nextText
-                        }
-                      : entry
-                  )
-                )
+        <div className="relative shrink-0 rounded-xl border border-border/60 bg-background/40 p-2 shadow-sm">
+          <div
+            className="relative"
+            style={{
+              width: zoomedCanvasWidth,
+              height: zoomedCanvasHeight
+            }}
+          >
+            <div
+              className="absolute left-0 top-0"
+              style={{
+                width: BASE_CANVAS_WIDTH,
+                height: BASE_CANVAS_HEIGHT,
+                transform: `scale(${zoomScale})`,
+                transformOrigin: 'top left'
               }}
-              onItemStyleChange={(itemId, next) => {
-                updateItemStyleById(itemId, next)
-              }}
-            />
-          ) : null}
+            >
+              {selectedSlide ? (
+                <EditorCanvas
+                  slide={selectedSlide}
+                  mediaById={mediaById}
+                  canvasScale={zoomScale}
+                  animationPreviewKey={animationPreviewKey}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={setSelectedItemId}
+                  onDuplicateItem={duplicateItemById}
+                  onDeleteItem={removeItemById}
+                  onLayerUpItem={(itemId) => updateItemLayerById(itemId, 'up')}
+                  onLayerDownItem={(itemId) => updateItemLayerById(itemId, 'down')}
+                  onDragStateChange={setIsCanvasDragging}
+                  onItemTextChange={(itemId, nextText) => {
+                    updateSelectedSlideItems((items) =>
+                      items.map((entry) =>
+                        entry.id === itemId
+                          ? {
+                              ...entry,
+                              text: nextText
+                            }
+                          : entry
+                      )
+                    )
+                  }}
+                  onItemStyleChange={(itemId, next) => {
+                    updateItemStyleById(itemId, next)
+                  }}
+                />
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="flex-shrink-0 p-2 bg-muted/50 flex items-center gap-1.5 overflow-x-auto">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleSlidesDragEnd}
-        >
-          <SortableContext items={slideSortableIndex} strategy={horizontalListSortingStrategy}>
-            <div className="flex items-center gap-1.5">
-              {slides.map((slide, index) => (
-                <SortableSlideCard
-                  key={slide.id}
-                  slide={slide}
-                  index={index}
-                  mediaById={mediaById}
-                  isSelected={selectedSlideIndex === index}
-                  onSelect={() => {
-                    setSelectedSlideIndex(index)
-                    const topItem = [...(slide.items || [])]
-                      .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
-                      .at(-1)
-                    setSelectedItemId(topItem?.id)
-                  }}
-                />
-              ))}
+      <div className="flex-shrink-0 px-2.5 py-2 bg-muted/50 border-t">
+        <div className="flex items-end gap-3">
+          <div className="min-w-0 flex-1 overflow-x-auto pb-1">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleSlidesDragEnd}
+            >
+              <SortableContext items={slideSortableIndex} strategy={horizontalListSortingStrategy}>
+                <div className="flex items-center gap-1.5">
+                  {slides.map((slide, index) => (
+                    <SortableSlideCard
+                      key={slide.id}
+                      slide={slide}
+                      index={index}
+                      mediaById={mediaById}
+                      isSelected={selectedSlideIndex === index}
+                      onSelect={() => {
+                        setSelectedSlideIndex(index)
+                        const topItem = [...(slide.items || [])]
+                          .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
+                          .at(-1)
+                        setSelectedItemId(topItem?.id)
+                      }}
+                    />
+                  ))}
 
-              <Card
-                className="w-44 shrink-0 p-1.5 h-full min-h-28 border-dashed cursor-pointer hover:border-primary/70 transition-colors"
-                onClick={addEmptySlide}
-              >
-                <div className="h-full min-h-20 flex flex-col items-center justify-center text-muted-foreground gap-1.5">
-                  <Plus className="size-5" />
-                  <span className="text-xs">Nueva diapositiva</span>
+                  <Card
+                    className="w-36 shrink-0 p-1.5 h-full min-h-24 border-dashed cursor-pointer hover:border-primary/70 transition-colors"
+                    onClick={addEmptySlide}
+                  >
+                    <div className="h-full min-h-16 flex flex-col items-center justify-center text-muted-foreground gap-1.5">
+                      <Plus className="size-5" />
+                      <span className="text-xs">Nueva diapositiva</span>
+                    </div>
+                  </Card>
                 </div>
-              </Card>
-            </div>
-          </SortableContext>
-        </DndContext>
+              </SortableContext>
+            </DndContext>
+          </div>
+
+          <div className="shrink-0 rounded-md border bg-background/70 px-2 py-1.5 flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground shrink-0">Zoom</Label>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="size-7"
+              onClick={() => setCanvasZoom((current) => clampCanvasZoom(current - 10))}
+              aria-label="Reducir zoom del canvas"
+            >
+              <Minus className="size-4" />
+            </Button>
+            <Slider
+              value={[canvasZoom]}
+              min={minCanvasZoom}
+              max={maxCanvasZoom}
+              step={5}
+              className="w-40"
+              onValueChange={(value) => setCanvasZoom(clampCanvasZoom(value[0] ?? 100))}
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="size-7"
+              onClick={() => setCanvasZoom((current) => clampCanvasZoom(current + 10))}
+              aria-label="Aumentar zoom del canvas"
+            >
+              <PlusIcon className="size-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground tabular-nums w-11 text-right">
+              {canvasZoom}%
+            </span>
+          </div>
+        </div>
       </div>
 
       <MediaPicker

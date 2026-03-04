@@ -4,8 +4,8 @@ import { PresentationFormValues } from '../schema'
 export type PresentationSlide = PresentationFormValues['slides'][number]
 export type PresentationSlideItem = NonNullable<PresentationSlide['items']>[number]
 
-const BASE_CANVAS_WIDTH = 1280
-const BASE_CANVAS_HEIGHT = 720
+export const BASE_CANVAS_WIDTH = 1280
+export const BASE_CANVAS_HEIGHT = 720
 export const defaultTransitionSettingsString =
   '{"type":"fade","duration":0.4,"delay":0,"easing":"easeInOut"}'
 

@@ -7,6 +7,7 @@ type Props = {
   style: CanvasItemStyle
   layer: number
   isSelected: boolean
+  rotationLabel?: string
   highlightSnapTarget?: boolean
   onSelect: (event: React.MouseEvent<HTMLDivElement>) => void
   onDoubleClick?: (event: React.MouseEvent<HTMLDivElement>) => void
@@ -20,6 +21,7 @@ export default function CanvasItemShell({
   style,
   layer,
   isSelected,
+  rotationLabel,
   highlightSnapTarget,
   onSelect,
   onDoubleClick,
@@ -53,6 +55,11 @@ export default function CanvasItemShell({
       onDoubleClick={onDoubleClick}
       onPointerDown={onPointerDown}
     >
+      {rotationLabel ? (
+        <div className="absolute -top-14 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md border border-border/70 bg-background/95 text-[11px] leading-none font-medium text-foreground pointer-events-none shadow-sm">
+          {rotationLabel}
+        </div>
+      ) : null}
       {children}
       {handles}
     </div>

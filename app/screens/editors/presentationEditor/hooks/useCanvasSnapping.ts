@@ -45,12 +45,14 @@ type Params = {
   containerRef: RefObject<HTMLDivElement | null>
   parsedItems: ParsedItem[]
   snapThreshold?: number
+  canvasScale?: number
 }
 
 export default function useCanvasSnapping({
   containerRef,
   parsedItems,
-  snapThreshold = 12
+  snapThreshold = 12,
+  canvasScale = 1
 }: Params) {
   const [snapGuides, setSnapGuides] = useState<SnapGuides>({
     x: null,
@@ -112,9 +114,11 @@ export default function useCanvasSnapping({
   const getPointerPositionInCanvas = (event: PointerEvent<HTMLDivElement>) => {
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return { x: 0, y: 0 }
+    const safeScale = Number.isFinite(canvasScale) && canvasScale > 0 ? canvasScale : 1
+
     return {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
+      x: (event.clientX - rect.left) / safeScale,
+      y: (event.clientY - rect.top) / safeScale
     }
   }
 
@@ -137,18 +141,22 @@ export default function useCanvasSnapping({
       }
     }
 
+    const safeScale = Number.isFinite(canvasScale) && canvasScale > 0 ? canvasScale : 1
+    const baseWidth = rect.width / safeScale
+    const baseHeight = rect.height / safeScale
+
     const movingAnchorsX = [{ offset: 0 }, { offset: width / 2 }, { offset: width }]
     const movingAnchorsY = [{ offset: 0 }, { offset: height / 2 }, { offset: height }]
 
     const targetAnchorsX: AxisTarget[] = [
       { position: 0, source: 'slide' },
-      { position: rect.width / 2, source: 'slide' },
-      { position: rect.width, source: 'slide' }
+      { position: baseWidth / 2, source: 'slide' },
+      { position: baseWidth, source: 'slide' }
     ]
     const targetAnchorsY: AxisTarget[] = [
       { position: 0, source: 'slide' },
-      { position: rect.height / 2, source: 'slide' },
-      { position: rect.height, source: 'slide' }
+      { position: baseHeight / 2, source: 'slide' },
+      { position: baseHeight, source: 'slide' }
     ]
 
     for (const parsedItem of parsedItems) {

@@ -11,6 +11,7 @@ import CanvasItemNode from './canvasItemNode'
 type Props = {
   slide: PresentationFormValues['slides'][number]
   mediaById: Map<number, Media>
+  canvasScale?: number
   animationPreviewKey?: number
   selectedItemId?: string
   onSelectItem: (itemId?: string) => void
@@ -26,6 +27,7 @@ type Props = {
 export default function EditorCanvas({
   slide,
   mediaById,
+  canvasScale = 1,
   animationPreviewKey = 0,
   selectedItemId,
   onSelectItem,
@@ -41,6 +43,7 @@ export default function EditorCanvas({
   const dragRef = useRef<DragState | null>(null)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null)
+  const [activeDragMode, setActiveDragMode] = useState<DragState['mode'] | null>(null)
 
   useEffect(() => {
     if (editingItemId && editingItemId !== selectedItemId) {
@@ -70,10 +73,12 @@ export default function EditorCanvas({
     getSnappedMovePosition
   } = useCanvasSnapping({
     containerRef,
-    parsedItems
+    parsedItems,
+    canvasScale
   })
   const { handlePointerMove, flushPendingTransform, cancelPendingTransform } = useCanvasTransform({
     dragRef,
+    canvasScale,
     onItemStyleChange,
     clearSnapGuides,
     syncSnapGuides,
@@ -87,6 +92,7 @@ export default function EditorCanvas({
     flushPendingTransform()
     dragRef.current = null
     setActiveDragItemId(null)
+    setActiveDragMode(null)
     onDragStateChange?.(false)
     clearSnapGuides()
     event.currentTarget.releasePointerCapture(event.pointerId)
@@ -121,6 +127,7 @@ export default function EditorCanvas({
       initialStyle: style
     }
     setActiveDragItemId(item.id)
+    setActiveDragMode(mode)
     onDragStateChange?.(true)
     onSelectItem(item.id)
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -131,6 +138,7 @@ export default function EditorCanvas({
     return () => {
       cancelPendingTransform()
       setActiveDragItemId(null)
+      setActiveDragMode(null)
       onDragStateChange?.(false)
     }
   }, [cancelPendingTransform, onDragStateChange])
@@ -178,6 +186,7 @@ export default function EditorCanvas({
         const isSnapTarget =
           snapGuides.xTargetItemId === item.id || snapGuides.yTargetItemId === item.id
         const isEditingText = isSelected && item.type !== 'MEDIA' && editingItemId === item.id
+        const isRotating = activeDragItemId === item.id && activeDragMode === 'rotate'
         return (
           <CanvasItemNode
             key={item.id}
@@ -188,6 +197,7 @@ export default function EditorCanvas({
             isSnapTarget={isSnapTarget}
             isEditingText={isEditingText}
             isDragging={activeDragItemId === item.id}
+            isRotating={isRotating}
             animationPreviewKey={animationPreviewKey}
             onSelectItem={onSelectItem}
             onSetEditingItemId={setEditingItemId}
