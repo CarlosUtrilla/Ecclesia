@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { AnimatePresence, LazyMotion, domAnimation } from 'framer-motion'
+import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion'
 import { cn, getContrastTextColor } from '../../lib/utils'
 import { PresentationViewProps } from './types'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
@@ -11,6 +11,7 @@ import { BackgroundImage } from './components/BackgroundImage'
 import { BackgroundVideoThumbnail } from './components/BackgroundVideoThumbnail'
 import { BackgroundVideoLive } from './components/BackgroundVideoLive'
 import { AnimatedText } from './components/AnimatedText'
+import { BibleTextRender } from './components/BibleTextRender'
 import PresentationRender from './components/PresentationRender'
 import useTagSongs from '@/hooks/useTagSongs'
 import { useResizeObserver } from 'usehooks-ts'
@@ -24,11 +25,25 @@ function getMediaType(background: string): MediaType {
   return 'color'
 }
 
+const parseAnimationSettings = (raw?: string): AnimationSettings => {
+  try {
+    return {
+      ...defaultAnimationSettings,
+      ...(raw ? JSON.parse(raw) : {})
+    }
+  } catch {
+    return defaultAnimationSettings
+  }
+}
+
 export function PresentationView({
   items,
   theme,
   live = false,
+  maxHeight,
+  presentationHeight,
   currentIndex = 0,
+  themeTransitionKey,
   onClick,
   selected,
   tagSongId,
@@ -43,12 +58,39 @@ export function PresentationView({
   onEditableTargetSelect
 }: PresentationViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [lastMeasuredHeight, setLastMeasuredHeight] = useState(0)
   const { tagSongs } = useTagSongs()
   const { buildMediaUrl } = useMediaServer()
-  const { height } = useResizeObserver({
-    ref: containerRef as React.RefObject<HTMLDivElement>
+  const { height = 0 } = useResizeObserver({
+    ref: containerRef as React.RefObject<HTMLElement>,
+    box: 'border-box'
   })
-  const screenSize = useScreenSize(height || 0, displayId)
+
+  useEffect(() => {
+    if (height > 0) {
+      setLastMeasuredHeight((prev) => (prev !== height ? height : prev))
+      return
+    }
+
+    if (!live || lastMeasuredHeight > 0) return
+
+    let frameId = 0
+    const measureUntilReady = () => {
+      const nextHeight = containerRef.current?.getBoundingClientRect().height ?? 0
+      if (nextHeight > 0) {
+        setLastMeasuredHeight((prev) => (prev !== nextHeight ? nextHeight : prev))
+        return
+      }
+      frameId = requestAnimationFrame(measureUntilReady)
+    }
+
+    frameId = requestAnimationFrame(measureUntilReady)
+    return () => cancelAnimationFrame(frameId)
+  }, [height, live, lastMeasuredHeight])
+
+  const measuredHeight = height > 0 ? height : lastMeasuredHeight
+  const effectiveHeight = measuredHeight || presentationHeight || maxHeight || 0
+  const screenSize = useScreenSize(effectiveHeight, displayId)
 
   const [backgroundType, setBackgroundType] = useState<MediaType>('color')
   const [videoError, setVideoError] = useState(false)
@@ -89,13 +131,10 @@ export function PresentationView({
     setVideoError(false)
   }, [background, backgroundMedia, buildMediaUrl])
 
-  const animationSettings = useMemo<AnimationSettings>(() => {
-    try {
-      return JSON.parse(theme.animationSettings || '{}')
-    } catch {
-      return defaultAnimationSettings
-    }
-  }, [theme.animationSettings])
+  const animationSettings = useMemo<AnimationSettings>(
+    () => parseAnimationSettings(theme.animationSettings),
+    [theme.animationSettings]
+  )
 
   const animationType = (animationSettings.type || 'fade') as AnimationType
 
@@ -133,6 +172,14 @@ export function PresentationView({
   }, [safePaddingInline, safePaddingBlock, screenSize.height, screenSize.width])
 
   const textStyleConfig = (theme.textStyle || {}) as Record<string, unknown>
+  const justifyContentRaw =
+    typeof textStyleConfig.justifyContent === 'string' ? textStyleConfig.justifyContent : 'center'
+  const verticalAlign: 'top' | 'center' | 'bottom' =
+    justifyContentRaw === 'flex-start'
+      ? 'top'
+      : justifyContentRaw === 'flex-end'
+        ? 'bottom'
+        : 'center'
   const translateRaw =
     typeof textStyleConfig.translate === 'string' ? textStyleConfig.translate : ''
   const translateParts = translateRaw.trim().split(/\s+/)
@@ -168,11 +215,60 @@ export function PresentationView({
     [animationType, animationSettings.duration, animationSettings.delay, animationSettings.easing]
   )
 
+  const slideTransitionSettings = useMemo<AnimationSettings>(
+    () => parseAnimationSettings(currentItem?.transitionSettings),
+    [currentItem?.transitionSettings]
+  )
+
+  const slideTransitionType = (slideTransitionSettings.type || 'fade') as AnimationType
+
+  const slideTransitionVariants = useMemo(
+    () =>
+      getAnimationVariants(
+        slideTransitionType,
+        slideTransitionSettings.duration,
+        slideTransitionSettings.delay,
+        slideTransitionSettings.easing
+      ),
+    [
+      slideTransitionType,
+      slideTransitionSettings.duration,
+      slideTransitionSettings.delay,
+      slideTransitionSettings.easing
+    ]
+  )
+
+  const themeTransitionSettings = useMemo<AnimationSettings>(
+    () => parseAnimationSettings((theme as { transitionSettings?: string }).transitionSettings),
+    [theme]
+  )
+
+  const themeTransitionType = (themeTransitionSettings.type || 'fade') as AnimationType
+
+  const resolvedThemeTransitionKey = themeTransitionKey ?? theme.id ?? 0
+
+  const themeTransitionVariants = useMemo(
+    () =>
+      getAnimationVariants(
+        themeTransitionType,
+        themeTransitionSettings.duration,
+        themeTransitionSettings.delay,
+        themeTransitionSettings.easing
+      ),
+    [
+      themeTransitionType,
+      themeTransitionSettings.duration,
+      themeTransitionSettings.delay,
+      themeTransitionSettings.easing
+    ]
+  )
+
   const textStyle = useMemo(() => {
     const restTextStyle = { ...(theme.textStyle || {}) } as Record<string, unknown>
     delete restTextStyle.paddingInline
     delete restTextStyle.paddingBlock
     delete restTextStyle.translate
+    delete restTextStyle.justifyContent
 
     return {
       ...restTextStyle,
@@ -201,130 +297,176 @@ export function PresentationView({
     return tagSongs.find((tag) => tag.id === tagSongId) || null
   }, [tagSongId, tagSongs])
 
+  const nonBibleAnimatedItem = useMemo(
+    () => ({
+      ...currentItem,
+      verse: undefined
+    }),
+    [currentItem]
+  )
+
   if (!currentItem) return null
 
   return (
     <LazyMotion features={domAnimation}>
-      <div
-        ref={containerRef as React.RefObject<HTMLDivElement>}
-        onClick={onClick}
-        role={onClick ? 'button' : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        onKeyDown={
-          onClick
-            ? (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onClick()
-                }
-              }
-            : undefined
-        }
-        style={containerStyle}
-        className={cn('border bg-background relative select-none', className, {
-          'outline-4 outline-secondary transition-colors': selected,
-          'cursor-pointer': onClick !== undefined,
-          'border-0': live,
-          'rounded-md': !live,
-          'pb-7': tagSong !== null
-        })}
-      >
-        <AnimatePresence>
-          {currentItem.resourceType === 'MEDIA' ? (
-            <MediaRender currentItem={currentItem} live={live} />
-          ) : (
-            <>
-              {backgroundType === 'image' && backgroundUrl && (
-                <BackgroundImage url={backgroundUrl} />
-              )}
-
-              {backgroundType === 'video' && !live && thumbnailUrl && (
-                <BackgroundVideoThumbnail thumbnailUrl={thumbnailUrl} />
-              )}
-              {backgroundType === 'video' && live && (
-                <BackgroundVideoLive
-                  videoUrl={backgroundUrl}
-                  fallbackUrl={fallbackUrl}
-                  isVideoLoaded={videoLoaded}
-                  hasError={videoError}
-                  onVideoLoaded={() => setVideoLoaded(true)}
-                  onVideoError={() => setVideoError(true)}
-                />
-              )}
-            </>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence mode="wait">
-          {currentItem.resourceType === 'PRESENTATION' ? (
-            <PresentationRender
-              item={currentItem}
-              animationType={animationType}
-              variants={variants}
-              textStyle={textStyle}
-              isPreview={!live}
-              theme={theme}
-              smallFontSize={calculatedSmallFontSize}
-              textContainerPadding={calculatedTextPadding}
-              textContainerOffset={calculatedTextOffset}
-              scaleFactor={scaleFactor}
-              presentationHeight={screenSize.height}
-              showTextBounds={showTextBounds}
-              textBoundsIsSelected={textBoundsIsSelected}
-              bibleVerseIsSelected={bibleVerseIsSelected}
-              textBoundsBaseValues={{
-                paddingInline: safePaddingInline,
-                paddingBlock: safePaddingBlock,
-                translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
-                translateY: Number.isFinite(translateYValue) ? translateYValue : 0
-              }}
-              textBoundsScale={boundsScale}
-              onTextBoundsChange={onTextBoundsChange}
-              onBibleVersePositionChange={onBibleVersePositionChange}
-              onEditableTargetSelect={onEditableTargetSelect}
-            />
-          ) : (
-            <AnimatedText
-              item={currentItem}
-              animationType={animationType}
-              variants={variants}
-              textStyle={textStyle}
-              isPreview={!live}
-              theme={theme}
-              smallFontSize={calculatedSmallFontSize}
-              textContainerPadding={calculatedTextPadding}
-              textContainerOffset={calculatedTextOffset}
-              scaleFactor={scaleFactor}
-              presentationHeight={screenSize.height}
-              showTextBounds={showTextBounds}
-              textBoundsIsSelected={textBoundsIsSelected}
-              bibleVerseIsSelected={bibleVerseIsSelected}
-              textBoundsBaseValues={{
-                paddingInline: safePaddingInline,
-                paddingBlock: safePaddingBlock,
-                translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
-                translateY: Number.isFinite(translateYValue) ? translateYValue : 0
-              }}
-              textBoundsScale={boundsScale}
-              onTextBoundsChange={onTextBoundsChange}
-              onBibleVersePositionChange={onBibleVersePositionChange}
-              onEditableTargetSelect={onEditableTargetSelect}
-            />
-          )}
-        </AnimatePresence>
-
-        {tagSong !== null ? (
+      <AnimatePresence mode="wait">
+        <m.div
+          key={`theme-${resolvedThemeTransitionKey}`}
+          variants={themeTransitionVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="w-full h-full"
+        >
           <div
-            style={{
-              backgroundColor: tagSong.color,
-              color: getContrastTextColor(tagSong.color)
-            }}
-            className="absolute flex items-center bottom-0 h-7 w-full text-[0.8rem] px-3"
+            ref={containerRef}
+            onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onKeyDown={
+              onClick
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onClick()
+                    }
+                  }
+                : undefined
+            }
+            style={containerStyle}
+            className={cn('border bg-background relative select-none', className, {
+              'outline-4 outline-secondary transition-colors': selected,
+              'cursor-pointer': onClick !== undefined,
+              'border-0': live,
+              'rounded-md': !live,
+              'pb-7': tagSong !== null
+            })}
           >
-            {tagSong.name}
+            <AnimatePresence mode="wait">
+              <m.div
+                key={currentItem.id || `slide-${currentIndex}`}
+                variants={slideTransitionVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="absolute inset-0"
+              >
+                <AnimatePresence>
+                  {currentItem.resourceType === 'MEDIA' ? (
+                    <MediaRender currentItem={currentItem} live={live} />
+                  ) : (
+                    <>
+                      {backgroundType === 'image' && backgroundUrl && (
+                        <BackgroundImage url={backgroundUrl} />
+                      )}
+
+                      {backgroundType === 'video' && !live && thumbnailUrl && (
+                        <BackgroundVideoThumbnail thumbnailUrl={thumbnailUrl} />
+                      )}
+                      {backgroundType === 'video' && live && (
+                        <BackgroundVideoLive
+                          videoUrl={backgroundUrl}
+                          fallbackUrl={fallbackUrl}
+                          isVideoLoaded={videoLoaded}
+                          hasError={videoError}
+                          onVideoLoaded={() => setVideoLoaded(true)}
+                          onVideoError={() => setVideoError(true)}
+                        />
+                      )}
+                    </>
+                  )}
+                </AnimatePresence>
+
+                {currentItem.resourceType === 'PRESENTATION' ? (
+                  <PresentationRender
+                    item={currentItem}
+                    animationType={animationType}
+                    variants={variants}
+                    textStyle={textStyle}
+                    isPreview={!live}
+                    textContainerPadding={calculatedTextPadding}
+                    textContainerOffset={calculatedTextOffset}
+                    verticalAlign={verticalAlign}
+                    showTextBounds={showTextBounds}
+                    textBoundsIsSelected={textBoundsIsSelected}
+                    textBoundsBaseValues={{
+                      paddingInline: safePaddingInline,
+                      paddingBlock: safePaddingBlock,
+                      translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
+                      translateY: Number.isFinite(translateYValue) ? translateYValue : 0
+                    }}
+                    textBoundsScale={boundsScale}
+                    onTextBoundsChange={onTextBoundsChange}
+                    onEditableTargetSelect={onEditableTargetSelect}
+                  />
+                ) : currentItem.resourceType === 'BIBLE' ? (
+                  <BibleTextRender
+                    item={currentItem}
+                    animationType={animationType}
+                    variants={variants}
+                    textStyle={textStyle}
+                    isPreview={!live}
+                    theme={theme}
+                    smallFontSize={calculatedSmallFontSize}
+                    textContainerPadding={calculatedTextPadding}
+                    textContainerOffset={calculatedTextOffset}
+                    verticalAlign={verticalAlign}
+                    scaleFactor={scaleFactor}
+                    presentationHeight={screenSize.height}
+                    showTextBounds={showTextBounds}
+                    textBoundsIsSelected={textBoundsIsSelected}
+                    bibleVerseIsSelected={bibleVerseIsSelected}
+                    textBoundsBaseValues={{
+                      paddingInline: safePaddingInline,
+                      paddingBlock: safePaddingBlock,
+                      translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
+                      translateY: Number.isFinite(translateYValue) ? translateYValue : 0
+                    }}
+                    textBoundsScale={boundsScale}
+                    onTextBoundsChange={onTextBoundsChange}
+                    onBibleVersePositionChange={onBibleVersePositionChange}
+                    onEditableTargetSelect={onEditableTargetSelect}
+                  />
+                ) : (
+                  <AnimatedText
+                    item={nonBibleAnimatedItem}
+                    animationType={animationType}
+                    variants={variants}
+                    textStyle={textStyle}
+                    isPreview={!live}
+                    textContainerPadding={calculatedTextPadding}
+                    textContainerOffset={calculatedTextOffset}
+                    verticalAlign={verticalAlign}
+                    showTextBounds={showTextBounds}
+                    textBoundsIsSelected={textBoundsIsSelected}
+                    textBoundsBaseValues={{
+                      paddingInline: safePaddingInline,
+                      paddingBlock: safePaddingBlock,
+                      translateX: Number.isFinite(translateXValue) ? translateXValue : 0,
+                      translateY: Number.isFinite(translateYValue) ? translateYValue : 0
+                    }}
+                    textBoundsScale={boundsScale}
+                    onTextBoundsChange={onTextBoundsChange}
+                    onEditableTargetSelect={onEditableTargetSelect}
+                  />
+                )}
+              </m.div>
+            </AnimatePresence>
+
+            {tagSong !== null ? (
+              <div
+                style={{
+                  backgroundColor: tagSong.color,
+                  color: getContrastTextColor(tagSong.color)
+                }}
+                className="absolute flex items-center bottom-0 h-7 w-full text-[0.8rem] px-3"
+              >
+                {tagSong.name}
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+        </m.div>
+      </AnimatePresence>
     </LazyMotion>
   )
 }

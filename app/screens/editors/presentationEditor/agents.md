@@ -47,6 +47,32 @@ app/screens/editors/presentationEditor/
 ## Flujos clave
 
 - Inserción de contenido (`Texto`, `Biblia`, `Media`) en la diapositiva seleccionada.
+- Punto único de inserción desde el menú `Insertar` (evita duplicar acciones en toolbar de texto).
+- La opción de media en `Insertar` está etiquetada para indicar origen desde biblioteca (más explícita para usuario).
+- Carrusel inferior de diapositivas en formato compacto para priorizar el espacio útil del canvas.
+- Canvas del editor con fondo blanco por defecto y estilo base de texto en negro para edición inicial.
+- El tamaño de preview del canvas usa `useScreenSize` (mismo cálculo que `PresentationView`) para respetar aspect ratio de pantalla LIVE.
+- La toolbar tipográfica de texto se integra en la barra superior (junto al título/acciones), no en una fila separada.
+- En pantallas estrechas, la toolbar tipográfica usa scroll horizontal para mantenerse en una sola línea.
+- El bloque de toolbar tipográfica y el menú `Insertar` se mantienen agrupados visualmente para reducir separación innecesaria en header.
+- Click en área vacía del canvas deselecciona el item activo y cierra edición inline de texto.
+- Los items del canvas usan shell visual transparente (sin fondo gris) para preservar fidelidad del preview.
+- Inserciones de `TEXT/BIBLE` calculan altura inicial según contenido (autosize) para evitar cajas excesivamente altas.
+- Inserciones de `TEXT/BIBLE` se crean centradas en el canvas base (1280x720) con altura autoajustada.
+- El selector bíblico permite seleccionar un único verso por inserción (evita bloques saturados por rangos largos).
+- El picker muestra referencia seleccionada con versión (`Libro capítulo:verso (versión)`) antes de agregar.
+- Los items de texto en canvas (cuando no están en edición inline) reutilizan renderers de `PresentationView`: `AnimatedText` para texto general y `BibleTextRender` para bíblico.
+- El render en canvas aplica `item.animationSettings` (si existe) para previsualizar transiciones/animaciones compatibles con la proyección final.
+- La toolbar tipográfica del editor incluye alineación vertical por item (`Arriba`, `Centro`, `Abajo`) y se persiste en `customStyle` mediante `align-items`.
+- El editor reutiliza `AnimationSelector` (desde `themesEditor`) para configurar animaciones por item de texto/biblia, persistiendo en `item.animationSettings`.
+- El botón de preview de animación fuerza remount controlado del render no-edit para volver a reproducir la transición en canvas.
+- Cada slide permite configurar `transitionSettings` (default `fade`) con `AnimationSelector` reutilizado; esta transición se usa al cambiar de slide en runtime.
+- Los items bíblicos del canvas respetan configuración global de biblia vía `BibleTextRender` (`useDefaultBibleSettings`).
+- El render no-edit del canvas envuelve estos componentes con `LazyMotion` + `domAnimation` para habilitar correctamente los nodos `m.*` de Framer Motion fuera de `PresentationView`.
+- El flujo de edición inline resetea explícitamente estado interno de entrada/salida (`wasEditingRef`) para evitar pérdida visual del contenido al deseleccionar y volver a editar.
+- La escritura inline en `textCanvasItem` está optimizada con debounce suave (~100ms) y `flush` inmediato en `Enter`, `Escape` y `blur`, reduciendo lag al teclear sin perder cambios.
+- Durante drag de items de texto, `textCanvasItem` usa un render liviano estático (HTML sanitizado) y restaura `AnimatedText`/`BibleTextRender` al soltar, para reducir tirones en movimiento.
+- Las transformaciones de drag/resize/rotate en canvas se emiten con `requestAnimationFrame` + `flush` al soltar para suavizar movimiento y evitar ráfagas de updates.
 - Edición multi-item por slide con capas (`layer`) y estilos serializados (`customStyle`).
 - Snapping por centros/bordes con guías visuales y `Alt` para desactivar temporalmente.
 - Handles de transformación (`resize/rotate`) centralizados en `canvasTransformHandles.tsx` para evitar duplicación entre MEDIA y TEXT.

@@ -2,27 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { m } from 'framer-motion'
 import { sanitizeHTML } from '@/lib/utils'
 import { wordVariants, AnimationType } from '@/lib/animations'
-import { BASE_PRESENTATION_HEIGHT } from '@/lib/themeConstants'
-import {
-  EditableBoundsTarget,
-  PresentationViewItems,
-  ThemeWithMedia,
-  TextBoundsValues
-} from '../types'
-import useBiblePresentationSetting from '../hooks/useBibleSetting'
-import useBibleSchema from '@/hooks/useBibleSchema'
+import { EditableBoundsTarget, PresentationViewItems, TextBoundsValues } from '../types'
 
 /**
  * Props para el componente AnimatedText
  */
-interface AnimatedTextProps {
+export interface AnimatedTextProps {
   item: PresentationViewItems // Elemento a mostrar (canción, versículo, etc.)
   animationType: AnimationType // Tipo de animación a aplicar
   variants: any // Variantes de animación de framer-motion
   textStyle: React.CSSProperties // Estilos CSS para el texto
   isPreview?: boolean // Modo preview (sin animaciones)
-  theme: ThemeWithMedia // Tema con configuración de presentación
-  smallFontSize: string // Indica si se debe usar un tamaño de fuente más pequeño
   textContainerPadding: {
     horizontal: number
     vertical: number
@@ -31,18 +21,15 @@ interface AnimatedTextProps {
     x: number
     y: number
   }
-  scaleFactor: number
-  presentationHeight: number
+  verticalAlign?: 'top' | 'center' | 'bottom'
   showTextBounds?: boolean
   textBoundsIsSelected?: boolean
-  bibleVerseIsSelected?: boolean
   textBoundsBaseValues?: TextBoundsValues
   textBoundsScale?: {
     x: number
     y: number
   }
   onTextBoundsChange?: (next: TextBoundsValues) => void
-  onBibleVersePositionChange?: (next: number) => void
   onEditableTargetSelect?: (target: EditableBoundsTarget) => void
 }
 
@@ -64,60 +51,25 @@ type ActiveBoundsInteraction = {
   startValues: TextBoundsValues
 }
 
-type ActiveVerseInteraction = {
-  startY: number
-  startValue: number
-  position: 'upScreen' | 'downScreen'
-}
-
-const MAX_BIBLE_EDGE_OFFSET_BASE = 72
-
-/**
- * Componente para renderizar texto con animaciones en la vista de presentación.
- * Soporta versículos bíblicos con diferentes configuraciones de visualización.
- */
 export function AnimatedText({
   item,
   animationType,
   variants,
   textStyle,
   isPreview,
-  theme,
-  smallFontSize,
   textContainerPadding,
   textContainerOffset,
-  scaleFactor,
-  presentationHeight,
+  verticalAlign = 'center',
   showTextBounds = false,
   textBoundsIsSelected = true,
-  bibleVerseIsSelected = false,
   textBoundsBaseValues,
   textBoundsScale,
   onTextBoundsChange,
-  onBibleVersePositionChange,
   onEditableTargetSelect
 }: AnimatedTextProps) {
   const activeInteractionRef = useRef<ActiveBoundsInteraction | null>(null)
-  const activeVerseInteractionRef = useRef<ActiveVerseInteraction | null>(null)
   const [boundsCursor, setBoundsCursor] = useState<React.CSSProperties['cursor']>('move')
-  const [verseCursor, setVerseCursor] = useState<React.CSSProperties['cursor']>('move')
-  const { text: rawText, verse } = item
-  const { biblePresentationSettings } = useBiblePresentationSetting()
-  const { getCompleteNameById, getShortNameById } = useBibleSchema()
-
-  const selectedBiblePresentationSettings = useMemo(
-    () =>
-      theme.useDefaultBibleSettings ? biblePresentationSettings : theme.biblePresentationSettings!,
-    [theme.useDefaultBibleSettings, theme.biblePresentationSettings, biblePresentationSettings]
-  )
-
-  const isScreenModeVerse = useMemo(
-    () =>
-      verse &&
-      (selectedBiblePresentationSettings?.position === 'upScreen' ||
-        selectedBiblePresentationSettings?.position === 'downScreen'),
-    [verse, selectedBiblePresentationSettings?.position]
-  )
+  const { text: rawText } = item
 
   const shouldShowBounds = showTextBounds && textBoundsIsSelected
 
@@ -128,23 +80,6 @@ export function AnimatedText({
     textBoundsScale !== undefined &&
     textBoundsScale.x > 0 &&
     textBoundsScale.y > 0
-
-  const positionIsScreenMode =
-    selectedBiblePresentationSettings?.position === 'upScreen' ||
-    selectedBiblePresentationSettings?.position === 'downScreen'
-
-  const rawVersePositionStyle = Number(selectedBiblePresentationSettings?.positionStyle || 0)
-  const clampedVersePositionStyle = Math.min(
-    Math.max(0, rawVersePositionStyle),
-    MAX_BIBLE_EDGE_OFFSET_BASE
-  )
-
-  const shouldShowVerseBounds = showTextBounds && bibleVerseIsSelected && isScreenModeVerse
-  const canEditVerseBounds =
-    showTextBounds &&
-    onBibleVersePositionChange !== undefined &&
-    positionIsScreenMode &&
-    scaleFactor > 0
 
   const applyBoundsChange = useCallback(
     (nextValues: TextBoundsValues) => {
@@ -247,43 +182,21 @@ export function AnimatedText({
     return 'move'
   }, [])
 
-  const handleVersePointerMove = useCallback(
-    (event: PointerEvent) => {
-      const activeVerse = activeVerseInteractionRef.current
-      if (!activeVerse || !scaleFactor || !onBibleVersePositionChange) return
-
-      const deltaYBase = (event.clientY - activeVerse.startY) / scaleFactor
-      const nextValueRaw =
-        activeVerse.position === 'upScreen'
-          ? activeVerse.startValue + deltaYBase
-          : activeVerse.startValue - deltaYBase
-
-      const nextValue = Math.round(Math.min(Math.max(0, nextValueRaw), MAX_BIBLE_EDGE_OFFSET_BASE))
-
-      onBibleVersePositionChange(nextValue)
-    },
-    [onBibleVersePositionChange, scaleFactor]
-  )
-
   const stopInteraction = useCallback(() => {
     activeInteractionRef.current = null
-    activeVerseInteractionRef.current = null
     setBoundsCursor('move')
-    setVerseCursor('move')
     document.body.style.cursor = ''
     window.removeEventListener('pointermove', handlePointerMove)
-    window.removeEventListener('pointermove', handleVersePointerMove)
     window.removeEventListener('pointerup', stopInteraction)
-  }, [handlePointerMove, handleVersePointerMove])
+  }, [handlePointerMove])
 
   useEffect(() => {
     return () => {
       document.body.style.cursor = ''
       window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointermove', handleVersePointerMove)
       window.removeEventListener('pointerup', stopInteraction)
     }
-  }, [handlePointerMove, handleVersePointerMove, stopInteraction])
+  }, [handlePointerMove, stopInteraction])
 
   const startInteraction = useCallback(
     (mode: BoundsInteractionMode, event: React.PointerEvent<HTMLElement>) => {
@@ -336,35 +249,6 @@ export function AnimatedText({
     []
   )
 
-  const startVerseInteraction = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!canEditVerseBounds) return
-      event.preventDefault()
-      event.stopPropagation()
-
-      const currentPosition = selectedBiblePresentationSettings?.position
-      if (currentPosition !== 'upScreen' && currentPosition !== 'downScreen') return
-
-      activeVerseInteractionRef.current = {
-        startY: event.clientY,
-        startValue: clampedVersePositionStyle,
-        position: currentPosition
-      }
-
-      setVerseCursor('ns-resize')
-      document.body.style.cursor = 'ns-resize'
-      window.addEventListener('pointermove', handleVersePointerMove)
-      window.addEventListener('pointerup', stopInteraction)
-    },
-    [
-      canEditVerseBounds,
-      clampedVersePositionStyle,
-      handleVersePointerMove,
-      selectedBiblePresentationSettings?.position,
-      stopInteraction
-    ]
-  )
-
   const cornerHandleStyle: React.CSSProperties = {
     position: 'absolute',
     width: 11,
@@ -376,59 +260,7 @@ export function AnimatedText({
     zIndex: 3
   }
 
-  // Construye el texto de la referencia bíblica (ej: "Juan 3:16 (RVR1960)")
-  const verseText = useMemo(() => {
-    if (!verse || !selectedBiblePresentationSettings) return ''
-    const { showVersion, description } = selectedBiblePresentationSettings
-
-    const bookName =
-      description === 'complete'
-        ? getCompleteNameById(verse.bookId)
-        : getShortNameById(verse.bookId)
-
-    const versionText = showVersion ? ` (${verse.version})` : ''
-
-    return `${bookName} ${verse.chapter}:${verse.verse}${versionText}`
-  }, [verse, selectedBiblePresentationSettings, getCompleteNameById, getShortNameById])
-
-  // Envuelve el verseText en un span con el tamaño de fuente pequeño
-  const formattedVerseText = useMemo(() => {
-    if (!verseText) return ''
-    return `<span style="font-size: ${smallFontSize}">${verseText}</span>`
-  }, [verseText, smallFontSize])
-
-  // Construye el texto final combinando el contenido con la referencia bíblica según la configuración
-  const text = useMemo(() => {
-    let finalText = rawText || ''
-    // Solo número de versículo antes del texto
-    if (verse && selectedBiblePresentationSettings?.showVerseNumber) {
-      finalText = `${verse.verse} ${finalText}`
-    }
-
-    // Si es modo pantalla (arriba/abajo), no incluir referencia en el texto principal
-    if (verse && !isScreenModeVerse && selectedBiblePresentationSettings) {
-      const position = selectedBiblePresentationSettings.position
-
-      // Referencia después del texto
-      if (position === 'afterText') {
-        finalText = `${finalText} ${formattedVerseText}`
-      }
-      // Referencia antes del texto
-      if (position === 'beforeText') {
-        finalText = `${formattedVerseText} ${finalText}`
-      }
-      // Referencia debajo del texto
-      if (position === 'underText') {
-        finalText = `${finalText} <br/> ${formattedVerseText}`
-      }
-      // Referencia encima del texto
-      if (position === 'overText') {
-        finalText = `${formattedVerseText} <br/> ${finalText}`
-      }
-    }
-
-    return finalText
-  }, [rawText, isScreenModeVerse, verse, formattedVerseText, selectedBiblePresentationSettings])
+  const text = useMemo(() => rawText || '', [rawText])
 
   /**
    * Renderiza el contenido del texto con o sin animaciones
@@ -496,18 +328,15 @@ export function AnimatedText({
     [animationType, variants, textStyle, isPreview]
   )
 
-  const safePresentationHeight =
-    Number.isFinite(presentationHeight) && presentationHeight > 0
-      ? presentationHeight
-      : BASE_PRESENTATION_HEIGHT
-  const verseEdgeOffsetPx = `${(safePresentationHeight * clampedVersePositionStyle) / BASE_PRESENTATION_HEIGHT}px`
-
   const handleSelectTarget = useCallback(
     (target: EditableBoundsTarget) => {
       onEditableTargetSelect?.(target)
     },
     [onEditableTargetSelect]
   )
+
+  const verticalAlignItems =
+    verticalAlign === 'top' ? 'flex-start' : verticalAlign === 'bottom' ? 'flex-end' : 'center'
 
   return (
     <>
@@ -598,9 +427,15 @@ export function AnimatedText({
       <div
         key={text}
         style={{
-          position: 'relative',
+          position: 'absolute',
+          inset: 0,
           zIndex: 1,
           width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: verticalAlignItems,
+          justifyContent: 'center',
+          boxSizing: 'border-box',
           padding: `${textContainerPadding.vertical}px ${textContainerPadding.horizontal}px`,
           transform: `translate(${textContainerOffset.x}px, ${textContainerOffset.y}px)`
         }}
@@ -610,58 +445,8 @@ export function AnimatedText({
           }
         }}
       >
-        {content(text)}
+        <div style={{ width: '100%' }}>{content(text)}</div>
       </div>
-
-      {/* Referencia bíblica posicionada en pantalla (arriba o abajo) */}
-      {isScreenModeVerse && verseText && (
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            fontSize: smallFontSize,
-            cursor: canEditVerseBounds ? verseCursor : 'default',
-            border: shouldShowVerseBounds ? '2px dashed rgba(255,255,255,0.65)' : 'none',
-            borderRadius: shouldShowVerseBounds ? 8 : 0,
-            padding: shouldShowVerseBounds ? '2px 6px' : 0,
-            touchAction: canEditVerseBounds ? 'none' : 'auto',
-            pointerEvents: 'auto',
-            zIndex: shouldShowVerseBounds ? 2 : 1,
-            bottom:
-              selectedBiblePresentationSettings?.position === 'downScreen'
-                ? verseEdgeOffsetPx
-                : 'auto',
-            top:
-              selectedBiblePresentationSettings?.position === 'upScreen'
-                ? verseEdgeOffsetPx
-                : 'auto'
-          }}
-          onPointerDown={(event) => {
-            if (showTextBounds) {
-              handleSelectTarget('verse')
-            }
-
-            if (!canEditVerseBounds) {
-              return
-            }
-
-            startVerseInteraction(event)
-          }}
-          onPointerMove={() => {
-            if (canEditVerseBounds && !activeVerseInteractionRef.current) {
-              setVerseCursor('ns-resize')
-            }
-          }}
-          onPointerLeave={() => {
-            if (!activeVerseInteractionRef.current) {
-              setVerseCursor('move')
-            }
-          }}
-        >
-          {content(formattedVerseText)}
-        </div>
-      )}
     </>
   )
 }

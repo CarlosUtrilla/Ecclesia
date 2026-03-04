@@ -84,6 +84,7 @@ export default function ThemesEditor() {
   const [selectedPreview, setSelectedPreview] = useState(0)
   const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
   const [animationKey, setAnimationKey] = useState(0)
+  const [themeTransitionPreviewKey, setThemeTransitionPreviewKey] = useState(0)
   const [selectedBoundsTarget, setSelectedBoundsTarget] = useState<EditableBoundsTarget>('text')
 
   const {
@@ -106,11 +107,13 @@ export default function ThemesEditor() {
         letterSpacing: 0,
         fontFamily: 'Arial',
         textAlign: 'center',
+        justifyContent: 'center',
         paddingInline: 16,
         paddingBlock: 16,
         translate: '0px 0px'
       },
       animationSettings: JSON.stringify(defaultAnimationSettings),
+      transitionSettings: JSON.stringify(defaultAnimationSettings),
       biblePresentationSettings: undefined,
       useDefaultBibleSettings: true,
       biblePresentationSettingsId: null
@@ -171,6 +174,14 @@ export default function ThemesEditor() {
     }
   }, [previewData])
 
+  const transitionSettings = useMemo<AnimationSettings>(() => {
+    try {
+      return JSON.parse(previewData.transitionSettings || '{}')
+    } catch {
+      return defaultAnimationSettings
+    }
+  }, [previewData.transitionSettings])
+
   // Callbacks memoizados para evitar re-renders
   const handleMediaChange = useCallback(
     (mediaId: number | null, media: any) => {
@@ -190,6 +201,18 @@ export default function ThemesEditor() {
 
   const handlePreviewAnimation = useCallback(() => {
     setAnimationKey((prev) => prev + 1)
+  }, [])
+
+  const handleTransitionChange = useCallback(
+    (settings: AnimationSettings) => {
+      setValue('transitionSettings', JSON.stringify(settings), { shouldDirty: true })
+      setThemeTransitionPreviewKey((prev) => prev + 1)
+    },
+    [setValue]
+  )
+
+  const handlePreviewTransition = useCallback(() => {
+    setThemeTransitionPreviewKey((prev) => prev + 1)
   }, [])
 
   const onSave = handleSubmit(async (data) => {
@@ -408,6 +431,16 @@ export default function ThemesEditor() {
             settings={animationSettings}
             onChange={handleAnimationChange}
             onPreview={handlePreviewAnimation}
+            label="Animación texto:"
+          />
+
+          <Separator orientation="vertical" className="!h-16 mx-1" />
+
+          <AnimationSelector
+            settings={transitionSettings}
+            onChange={handleTransitionChange}
+            onPreview={handlePreviewTransition}
+            label="Transición tema:"
           />
 
           <Separator orientation="vertical" className="!h-16 mx-1" />
@@ -653,6 +686,23 @@ export default function ThemesEditor() {
             )}
           />
 
+          <Controller
+            name="textStyle.justifyContent"
+            control={control}
+            render={({ field }) => (
+              <Select value={String(field.value || 'center')} onValueChange={field.onChange}>
+                <SelectTrigger size="sm" className="w-[120px]">
+                  <SelectValue placeholder="Alineación Y" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="flex-start">Arriba</SelectItem>
+                  <SelectItem value="center">Centro</SelectItem>
+                  <SelectItem value="flex-end">Abajo</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+
           <Separator orientation="vertical" className="!h-6 mx-1" />
 
           <DropdownMenu>
@@ -891,6 +941,7 @@ export default function ThemesEditor() {
             items={PreviewsItems}
             live
             currentIndex={selectedPreview}
+            themeTransitionKey={themeTransitionPreviewKey}
             showTextBounds
             textBoundsIsSelected={selectedBoundsTarget === 'text'}
             bibleVerseIsSelected={selectedBoundsTarget === 'verse'}

@@ -1,4 +1,4 @@
-import { MutableRefObject, PointerEvent } from 'react'
+import { MutableRefObject, PointerEvent, useCallback, useEffect, useRef } from 'react'
 import { ResizeHandle } from '../components/canvasTransformHandles'
 import { CanvasItemStyle } from '../utils/slideUtils'
 
@@ -55,6 +55,47 @@ export default function useCanvasTransform({
   getPointerPositionInCanvas,
   getSnappedMovePosition
 }: Params) {
+  const pendingStyleUpdateRef = useRef<{ itemId: string; next: Partial<CanvasItemStyle> } | null>(
+    null
+  )
+  const frameRef = useRef<number | null>(null)
+
+  const flushPendingTransform = useCallback(() => {
+    const pendingUpdate = pendingStyleUpdateRef.current
+    if (!pendingUpdate) return
+
+    pendingStyleUpdateRef.current = null
+    onItemStyleChange(pendingUpdate.itemId, pendingUpdate.next)
+  }, [onItemStyleChange])
+
+  const scheduleStyleUpdate = useCallback(
+    (itemId: string, next: Partial<CanvasItemStyle>) => {
+      pendingStyleUpdateRef.current = { itemId, next }
+
+      if (frameRef.current !== null) return
+
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null
+        flushPendingTransform()
+      })
+    },
+    [flushPendingTransform]
+  )
+
+  const cancelPendingTransform = useCallback(() => {
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current)
+      frameRef.current = null
+    }
+    pendingStyleUpdateRef.current = null
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      cancelPendingTransform()
+    }
+  }, [cancelPendingTransform])
+
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const activeDrag = dragRef.current
     if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
@@ -68,7 +109,7 @@ export default function useCanvasTransform({
 
       if (event.altKey) {
         clearSnapGuides()
-        onItemStyleChange(activeDrag.itemId, {
+        scheduleStyleUpdate(activeDrag.itemId, {
           x: Math.round(proposedX),
           y: Math.round(proposedY)
         })
@@ -84,7 +125,7 @@ export default function useCanvasTransform({
       )
       syncSnapGuides(snappedPosition)
 
-      onItemStyleChange(activeDrag.itemId, {
+      scheduleStyleUpdate(activeDrag.itemId, {
         x: snappedPosition.x,
         y: snappedPosition.y
       })
@@ -99,7 +140,7 @@ export default function useCanvasTransform({
       const minHeight = 60
 
       if (corner === 'right') {
-        onItemStyleChange(activeDrag.itemId, {
+        scheduleStyleUpdate(activeDrag.itemId, {
           width: Math.max(minWidth, Math.round(activeDrag.initialStyle.width + deltaX))
         })
         return
@@ -111,7 +152,7 @@ export default function useCanvasTransform({
           activeDrag.initialStyle.x + (activeDrag.initialStyle.width - nextWidth)
         )
 
-        onItemStyleChange(activeDrag.itemId, {
+        scheduleStyleUpdate(activeDrag.itemId, {
           x: nextX,
           width: nextWidth
         })
@@ -119,7 +160,7 @@ export default function useCanvasTransform({
       }
 
       if (corner === 'bottom') {
-        onItemStyleChange(activeDrag.itemId, {
+        scheduleStyleUpdate(activeDrag.itemId, {
           height: Math.max(minHeight, Math.round(activeDrag.initialStyle.height + deltaY))
         })
         return
@@ -131,7 +172,7 @@ export default function useCanvasTransform({
           activeDrag.initialStyle.y + (activeDrag.initialStyle.height - nextHeight)
         )
 
-        onItemStyleChange(activeDrag.itemId, {
+        scheduleStyleUpdate(activeDrag.itemId, {
           y: nextY,
           height: nextHeight
         })
@@ -139,7 +180,7 @@ export default function useCanvasTransform({
       }
 
       if (corner === 'bottom-right') {
-        onItemStyleChange(activeDrag.itemId, {
+        scheduleStyleUpdate(activeDrag.itemId, {
           width: Math.max(minWidth, Math.round(activeDrag.initialStyle.width + deltaX)),
           height: Math.max(minHeight, Math.round(activeDrag.initialStyle.height + deltaY))
         })
@@ -152,7 +193,7 @@ export default function useCanvasTransform({
           activeDrag.initialStyle.x + (activeDrag.initialStyle.width - nextWidth)
         )
 
-        onItemStyleChange(activeDrag.itemId, {
+        scheduleStyleUpdate(activeDrag.itemId, {
           x: nextX,
           width: nextWidth,
           height: Math.max(minHeight, Math.round(activeDrag.initialStyle.height + deltaY))
@@ -166,7 +207,7 @@ export default function useCanvasTransform({
           activeDrag.initialStyle.y + (activeDrag.initialStyle.height - nextHeight)
         )
 
-        onItemStyleChange(activeDrag.itemId, {
+        scheduleStyleUpdate(activeDrag.itemId, {
           y: nextY,
           width: Math.max(minWidth, Math.round(activeDrag.initialStyle.width + deltaX)),
           height: nextHeight
@@ -183,7 +224,7 @@ export default function useCanvasTransform({
         activeDrag.initialStyle.y + (activeDrag.initialStyle.height - nextHeight)
       )
 
-      onItemStyleChange(activeDrag.itemId, {
+      scheduleStyleUpdate(activeDrag.itemId, {
         x: nextX,
         y: nextY,
         width: nextWidth,
@@ -198,12 +239,14 @@ export default function useCanvasTransform({
     const pointer = getPointerPositionInCanvas(event)
     const angle = (Math.atan2(pointer.y - centerY, pointer.x - centerX) * 180) / Math.PI
 
-    onItemStyleChange(activeDrag.itemId, {
+    scheduleStyleUpdate(activeDrag.itemId, {
       rotation: Math.round(angle + 90)
     })
   }
 
   return {
-    handlePointerMove
+    handlePointerMove,
+    flushPendingTransform,
+    cancelPendingTransform
   }
 }

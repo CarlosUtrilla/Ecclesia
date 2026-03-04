@@ -1,6 +1,7 @@
 export type UpdateScheduleDto = {
   title?: string
-  date?: Date
+  dateFrom?: Date
+  dateTo?: Date
   items?: AddScheduleItemDto[]
 }
 import { Schedule, ScheduleItem, ScheduleGroupTemplate } from '@prisma/client'

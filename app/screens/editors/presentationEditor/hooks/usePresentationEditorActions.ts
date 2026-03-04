@@ -4,6 +4,7 @@ import { Media as PickerMedia } from '@/screens/panels/library/media/exports'
 import { BibleTextSelection } from '../bibleTextPicker'
 import { PresentationFormValues } from '../schema'
 import {
+  buildAutoSizedTextCanvasItemStyle,
   buildCanvasItemStyle,
   CanvasItemStyle,
   createMediaSlide,
@@ -27,6 +28,7 @@ type UpdateTextStyleInput = Partial<{
   lineHeight?: number
   letterSpacing?: number
   textAlign?: 'left' | 'center' | 'right' | 'justify'
+  verticalAlign?: 'top' | 'center' | 'bottom'
   offsetX?: number
   offsetY?: number
 }>
@@ -140,6 +142,7 @@ export default function usePresentationEditorActions({
     if (updates.lineHeight !== undefined) next.lineHeight = updates.lineHeight
     if (updates.letterSpacing !== undefined) next.letterSpacing = updates.letterSpacing
     if (updates.textAlign !== undefined) next.textAlign = updates.textAlign
+    if (updates.verticalAlign !== undefined) next.verticalAlign = updates.verticalAlign
 
     if (updates.offsetX !== undefined) next.x = 220 + updates.offsetX
     if (updates.offsetY !== undefined) next.y = 180 + updates.offsetY
@@ -164,9 +167,20 @@ export default function usePresentationEditorActions({
       version: bible.version
     })
 
+    const bibleText = result.map((verse) => `${verse.verse}. ${verse.text}`).join('<br/>')
+
     updateSelectedItem({
-      text: result.map((verse) => `${verse.verse}. ${verse.text}`).join('<br/>')
+      text: bibleText
     })
+
+    if (selectedItemStyle) {
+      updateSelectedItemStyle({
+        height: parseCanvasItemStyle(
+          buildAutoSizedTextCanvasItemStyle(bibleText, selectedItemStyle),
+          'TEXT'
+        ).height
+      })
+    }
   }
 
   const handleAddBibleToPresentation = (selection: BibleTextSelection) => {
@@ -182,7 +196,10 @@ export default function usePresentationEditorActions({
         verseEnd: selection.verseEnd,
         version: selection.version
       }),
-      layer: getNextLayer(items)
+      layer: getNextLayer(items),
+      customStyle: buildAutoSizedTextCanvasItemStyle(selection.text, undefined, {
+        centerInCanvas: true
+      })
     })
 
     setValue(`slides.${selectedSlideIndex}.items`, [...items, newItem], { shouldDirty: true })
@@ -228,7 +245,10 @@ export default function usePresentationEditorActions({
     const items = ensureSlideItems(selectedSlide)
     const newItem = createSlideItem('TEXT', {
       text: 'Nuevo texto',
-      layer: getNextLayer(items)
+      layer: getNextLayer(items),
+      customStyle: buildAutoSizedTextCanvasItemStyle('Nuevo texto', undefined, {
+        centerInCanvas: true
+      })
     })
 
     setValue(`slides.${selectedSlideIndex}.items`, [...items, newItem], { shouldDirty: true })

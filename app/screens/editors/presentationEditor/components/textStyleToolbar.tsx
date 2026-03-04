@@ -4,7 +4,6 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
-  FileImage,
   Italic,
   RotateCcw,
   SlidersHorizontal,
@@ -22,6 +21,7 @@ import FormatLineSpacingIcon from '@/icons/line-spacing'
 import LetterSpacingIcon from '@/icons/letter-spacing'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 import { fontSizes, letterSpacings, lineHeights } from '@/lib/themeConstants'
+import { cn } from '@/lib/utils'
 
 type TextStyleValue = {
   fontFamily?: string
@@ -33,6 +33,7 @@ type TextStyleValue = {
   lineHeight?: number
   letterSpacing?: number
   textAlign?: 'left' | 'center' | 'right' | 'justify'
+  verticalAlign?: 'top' | 'center' | 'bottom'
   offsetX?: number
   offsetY?: number
 }
@@ -40,15 +41,15 @@ type TextStyleValue = {
 type Props = {
   value: TextStyleValue
   onChange: (updates: Partial<TextStyleValue>) => void
-  onInsertMedia?: () => void
+  containerClassName?: string
 }
 
-export default function TextStyleToolbar({ value, onChange, onInsertMedia }: Props) {
+export default function TextStyleToolbar({ value, onChange, containerClassName }: Props) {
   const offsetX = Number(value.offsetX ?? 0)
   const offsetY = Number(value.offsetY ?? 0)
 
   return (
-    <div className="p-2 flex items-center gap-1 border-b flex-wrap">
+    <div className={cn('p-2 flex items-center gap-1 border-b flex-wrap', containerClassName)}>
       <FontFamilySelector
         value={value.fontFamily || 'Arial'}
         onChange={(fontFamily) => onChange({ fontFamily })}
@@ -189,6 +190,20 @@ export default function TextStyleToolbar({ value, onChange, onInsertMedia }: Pro
         <AlignJustify className="h-4 w-4" />
       </Button>
 
+      <Select
+        value={value.verticalAlign || 'center'}
+        onValueChange={(v) => onChange({ verticalAlign: v as TextStyleValue['verticalAlign'] })}
+      >
+        <SelectTrigger size="sm" className="w-[108px]">
+          <SelectValue placeholder="Alineación Y" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="top">Arriba</SelectItem>
+          <SelectItem value="center">Centro</SelectItem>
+          <SelectItem value="bottom">Abajo</SelectItem>
+        </SelectContent>
+      </Select>
+
       <Separator orientation="vertical" className="!h-6 mx-1" />
 
       <DropdownMenu>
@@ -267,22 +282,6 @@ export default function TextStyleToolbar({ value, onChange, onInsertMedia }: Pro
           </Button>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {onInsertMedia ? (
-        <>
-          <Separator orientation="vertical" className="!h-6 mx-1" />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={onInsertMedia}
-          >
-            <FileImage className="h-4 w-4" />
-            Insertar media
-          </Button>
-        </>
-      ) : null}
     </div>
   )
 }

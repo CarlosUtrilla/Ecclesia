@@ -32,10 +32,12 @@ export const BlankTheme: ThemeWithMedia = {
     lineHeight: 1.2,
     letterSpacing: 0,
     fontFamily: 'Arial',
-    textAlign: 'center'
+    textAlign: 'center',
+    justifyContent: 'center'
   },
   previewImage: '',
   animationSettings: '{"type":"fade","duration":0.4,"delay":0,"easing":"easeInOut"}',
+  transitionSettings: '{"type":"fade","duration":0.4,"delay":0,"easing":"easeInOut"}',
   createdAt: new Date(),
   updatedAt: new Date(),
   biblePresentationSettingsId: null,

@@ -8,7 +8,7 @@ Capa de backend que conecta el frontend React con la base de datos SQLite via IP
 
 ## Arquitectura
 
-```
+```text
 Frontend (React)
   -> window.api.namespace.method(args)     // api.ts wraps ipcRenderer
     -> ipcRenderer.invoke('namespace.method', args)
@@ -20,7 +20,7 @@ Frontend (React)
 
 ## Archivos principales
 
-```
+```text
 database/
 ├── index.ts           # registerRoutes() y exposeRoutes() - setup IPC
 ├── api.ts             # wrapApi() - wrapper frontend para IPC
@@ -83,7 +83,7 @@ database/
 Definidos en `routes.ts`:
 
 | Namespace | Controller | Metodos principales |
-|-----------|-----------|-------------------|
+| --------- | ---------- | ------------------- |
 | `songs` | SongsController | `createSong`, `getSongs`, `getSongById`, `getSongsByIds`, `updateSong`, `deleteSong` |
 | `themes` | ThemesController | `createTheme`, `getAllThemes`, `getThemeById`, `updateTheme`, `deleteTheme` |
 | `media` | MediaController | `importMedia`, `getAllMedia`, `getMediaByIds`, `deleteMedia`, `moveMedia`, `renameMedia`, `createFolder`, `renameFolder`, `deleteFolder` |
@@ -152,10 +152,12 @@ export interface CreateSongDTO {
 - La configuración global de presentación bíblica se inicializa con `positionStyle = 10` (separación desde borde) y se normaliza si viene sin valor para mantener comportamiento visual consistente.
 - El módulo `presentations` serializa `slides` como JSON string en Prisma para MVP y lo normaliza a objeto en service antes de devolver al renderer.
 - `presentations.slides` ahora soporta estructura mixta por diapositiva con `items[]` (schedule-like): cada item define `type`, `accessData`, `layer`, `customStyle` y `animationSettings` para render por capas y animación por elemento.
+- `schedule.updateSchedule` usa `dateFrom` y `dateTo` (no `date`) para mantener consistencia con el modelo Prisma y el estado del formulario en frontend.
 
 ## Serializacion IPC
 
 En `middleware/decimal.ts`:
+
 - `Decimal` de Prisma se serializa como `{ __decimal__: string }` y se restaura al deserializar.
 - `Date` se serializa como `{ __date__: ISO string }` y se restaura automaticamente.
 - Esto previene corrupcion de datos al cruzar la frontera entre procesos.

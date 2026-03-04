@@ -65,6 +65,7 @@ model Themes {
   backgroundMedia             Media?                     @relation(fields: [backgroundMediaId], references: [id])
   textStyle                   String // JSON con StyleSheet para el texto
   animationSettings           String                     @default("{\"type\":\"fade\",\"duration\":0.4,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con configuración completa
+  transitionSettings          String                     @default("{\"type\":\"fade\",\"duration\":0.4,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con transición al cambiar de tema
   previewImage                String
   createdAt                   DateTime                   @default(now())
   updatedAt                   DateTime                   @updatedAt

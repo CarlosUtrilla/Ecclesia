@@ -16,7 +16,8 @@ app/ui/
 │   ├── index.tsx                       # PresentationView: componente principal de presentacion
 │   ├── types.d.ts                      # Tipos: PresentationViewProps, PresentationViewItems, ThemeWithMedia
 │   ├── components/
-│   │   ├── AnimatedText.tsx            # Texto con animaciones (LazyMotion m)
+│   │   ├── AnimatedText.tsx            # Render genérico de texto animado (sin lógica bíblica)
+│   │   ├── BibleTextRender.tsx         # Render específico para biblia (referencia + versión + configuración)
 │   │   ├── PresentationRender.tsx       # Render por capas para PRESENTATION (items mixtos + animación por item)
 │   │   ├── BackgroundImage.tsx         # Fondo de imagen animado (m.img)
 │   │   ├── BackgroundVideoLive.tsx     # Fondo de video en vivo (m.video + m.img fallback)
@@ -110,12 +111,21 @@ PresentationView (index.tsx)
         │
         ├── AnimatePresence mode="wait"     <- Transicion de contenido
         │     ├── PresentationRender         <- Flujo dedicado para resourceType PRESENTATION
-        │     └── AnimatedText               <- Texto con animacion configurable (otros tipos)
+        │     ├── BibleTextRender            <- Texto bíblico con referencia configurable
+        │     └── AnimatedText               <- Texto animado genérico (SONG/otros)
         │
         └── Tag bar (opcional)              <- Barra de color inferior con nombre del tag
 ```
 
 - `PresentationRender` interpreta `presentationItems` ordenados por `layer` y aplica `animationSettings` por item para entradas independientes.
+- En `PresentationView/index.tsx`, el branch no-`PRESENTATION` separa `BIBLE` (con `BibleTextRender`) de `SONG/otros` (con `AnimatedText` genérico).
+- `PresentationView` aplica transición por slide con `items[n].transitionSettings` (default `fade`) al cambiar `currentIndex`.
+- `PresentationView` también soporta transición por cambio de tema con `theme.transitionSettings` + `themeTransitionKey` (default `fade`).
+- `PresentationView` interpreta `theme.textStyle.justifyContent` para alineación vertical del bloque de texto (`flex-start`/`center`/`flex-end`); si no existe, usa centrado por defecto.
+- `PresentationView` prioriza `presentationHeight`/`maxHeight` cuando se proveen (por ejemplo en previews embebidos), y usa `ResizeObserver` como fallback para calcular `screenSize`.
+- La medición de altura en `PresentationView` usa `useResizeObserver` con `box: 'border-box'` y estabiliza el valor reutilizando la última altura válida cuando el observer reporta `0` temporalmente.
+- Para evitar saltos de escala durante transiciones (`AnimatePresence`), `PresentationView` conserva la última altura no-cero observada del contenedor y la reutiliza cuando el observer reporta `0` temporalmente.
+- En modo `live`, la estabilización de altura está simplificada en un solo efecto: primero usa `ResizeObserver` y, si arranca en `0`, hace medición directa de `containerRef.getBoundingClientRect().height` con un ciclo corto en `requestAnimationFrame` hasta obtener un valor válido.
 
 ### Logica de fondos
 
@@ -129,18 +139,18 @@ El campo `theme.background` determina el tipo:
 
 ### AnimatedText (`components/AnimatedText.tsx`)
 
-Renderiza el texto del slide con animaciones:
+Renderiza texto genérico del slide con animaciones:
+
+- API estricta: solo recibe props de render/texto y edición de bounds del bloque principal; no recibe props bíblicas (`bibleVerseIsSelected`, `onBibleVersePositionChange`) ni de settings de biblia.
 
 - El contenedor del texto aplica padding configurable por tema (`textStyle.paddingInline` y `textStyle.paddingBlock`), permitiendo ajustar márgenes desde el editor de temas.
 - El contenedor también admite desplazamiento configurable mediante `textStyle.translate` (string CSS) para mover el bloque de texto en ambos ejes.
 - Márgenes y desplazamiento se escalan por eje para mantener consistencia visual entre previews pequeños y pantallas grandes: valores horizontales (`paddingInline`, `translateX`) en función del ancho, y verticales (`paddingBlock`, `translateY`) en función del alto.
 - El recálculo de estos valores depende explícitamente de cambios en ancho y alto del viewport renderizado para evitar desalineaciones al redimensionar o cambiar de display.
-- El `positionStyle` de referencia bíblica en modos `upScreen/downScreen` también se escala proporcionalmente.
-- La separación del verso bíblico desde el borde se calcula de forma explícitamente relativa usando la altura real renderizada de la presentación (base de referencia `BASE_PRESENTATION_HEIGHT`).
 - Soporta guía visual opcional del área de texto (`showTextBounds`) para mostrar el contenedor efectivo con borde punteado en modos de edición/preview.
 - La visibilidad/interacción de esa guía también depende de `textBoundsIsSelected`; esto permite usar el mismo componente en editores donde el cuadro solo se muestra cuando está seleccionado.
-- El verso bíblico en modo `upScreen/downScreen` también admite selección/arrastre con `bibleVerseIsSelected` y `onBibleVersePositionChange`, limitado a una banda de borde para evitar superposición con el texto principal.
-- La selección del bloque editable puede hacerse directamente con click sobre el texto o sobre el verso (sin depender de controles externos), reutilizando el mismo flujo de selección/edición en `AnimatedText`.
+- La selección del bloque editable puede hacerse directamente con click sobre el texto, reutilizando el mismo flujo de selección/edición en `AnimatedText`.
+- El contenedor principal del texto ocupa toda el área renderizable y alinea verticalmente el contenido según `verticalAlign` (`top`/`center`/`bottom`), con default `center`.
 - En modo edición, la guía visual del área de texto es interactiva: permite mover el cuadro arrastrando y redimensionarlo desde bordes (izquierdo/derecho/superior/inferior), emitiendo cambios de `paddingInline`, `paddingBlock` y `translate` al editor.
 - Durante la edición interactiva, el cursor cambia dinámicamente según el borde detectado (`ew-resize` en laterales, `ns-resize` en superior/inferior, `move` en el centro) para dar feedback visual sin mostrar handles.
 - Además se muestran handles circulares sobrios en las cuatro esquinas del recuadro para redimensionado diagonal (`nwse-resize` y `nesw-resize`) con precisión estilo editor profesional.
@@ -149,10 +159,10 @@ Renderiza el texto del slide con animaciones:
 - **Animacion "split"**: Divide por palabras, cada una animada individualmente con `m.span`.
 - **Otras animaciones**: Bloque completo animado con `m.div`.
 
-Soporta referencia biblica con posicion configurable:
+### BibleTextRender (`components/BibleTextRender.tsx`)
 
-- Inline: beforeText, afterText, underText, overText.
-- Pantalla: upScreen, downScreen (posicion absoluta con offset configurable).
+- Encapsula solo la lógica bíblica específica (referencia con libro/capítulo/verso, versión y ubicación según settings).
+- Reutiliza `AnimatedText` para el render/base interactiva del bloque de texto y mantiene en este componente solo la edición/posición del verso en modo pantalla.
 
 ### Estado interno de PresentationView
 

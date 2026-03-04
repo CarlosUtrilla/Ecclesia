@@ -115,6 +115,7 @@ app/screens/editors/
   - Imagen (MediaPicker dialog)
   - Video (MediaPicker dialog)
 - **Estilos de texto**: fontSize, fontFamily, fontWeight, color, textAlign, letterSpacing, lineHeight.
+- **Alineación vertical del bloque**: selector en toolbar (`Arriba`, `Centro`, `Abajo`) persistido en `textStyle.justifyContent` (default `Centro`).
 - **Contenedor de texto**: `Margen X` y `Margen Y` (padding horizontal/vertical) configurables por tema para controlar cercanía al borde de pantalla.
 - **Posición del contenedor**: `Posición X` y `Posición Y` para desplazar el bloque de texto a izquierda/derecha/arriba/abajo.
 - En el preview del Theme Editor se muestra una guía visual con borde punteado del área efectiva del texto para ajustar tamaño/márgenes con precisión.
@@ -133,8 +134,10 @@ app/screens/editors/
 - **Animacion**: `AnimationSelector` (selector rapido) + `AnimationEditor` (dialog detallado).
   - Tipos: fade, slide, scale, rotate, flip, bounce, blur, zoom, split, none.
   - Parametros: duracion, delay, easing.
+- **Transición de tema**: selector reutilizado (`AnimationSelector`) para `transitionSettings`; se ejecuta cuando cambia de un tema a otro (no por cambio de slide).
 - **Config de biblia**: Toggle "usar config global" o configuracion personalizada por tema.
 - **Preview en vivo**: `PresentationView` con items de ejemplo.
+- Las miniaturas del carrusel inferior usan ancho fijo (`w-72`) para preservar legibilidad del texto manteniendo el escalado relativo al tamaño del preview.
 - **Guardado en edición**: al actualizar un tema existente se usa el `id` de la ruta (`/theme/:id`) para evitar depender de campos filtrados por validación del formulario.
 - El guardado no depende del estado `isDirty`; el botón `Save` permanece disponible y se bloquea solo durante `isSubmitting`.
 - En edición, si el `id` de ruta no está disponible, intenta fallback con el tema cargado y muestra error claro si no puede resolverlo.
@@ -177,6 +180,8 @@ app/screens/editors/
 - El detalle técnico del módulo se documenta en [app/screens/editors/presentationEditor/agents.md](presentationEditor/agents.md).
 - El módulo está organizado por `components/`, `hooks/` y `utils/` para mantener `index.tsx` como orquestador.
 - Funcionalidades principales: edición visual canvas, snapping, historial undo/redo, atajos y guardado de slides mixtos (`items[]`).
+- Incluye transición por slide (`slide.transitionSettings`) editable con `AnimationSelector` reutilizado.
+- La toolbar tipográfica del `Presentation Editor` permite alineación vertical del item (`Arriba`, `Centro`, `Abajo`), aplicada al render de canvas y persistida en `customStyle`.
 - Los cambios de un control de estilo no sobrescriben otros campos no editados (por ejemplo, cambiar alineación conserva `fontFamily`).
 - El editor filtra valores `undefined` en updates de item/estilo para evitar sobrescrituras accidentales en controles de texto, media y canvas.
 - Preview en vivo por diapositiva usando `PresentationView`.

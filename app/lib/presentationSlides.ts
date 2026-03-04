@@ -126,6 +126,12 @@ export const presentationSlideToViewItem = (
     return {
       id: slide.id,
       text: '',
+      transitionSettings:
+        typeof slide.transitionSettings === 'string'
+          ? slide.transitionSettings
+          : slide.transitionSettings
+            ? JSON.stringify(slide.transitionSettings)
+            : undefined,
       resourceType: 'PRESENTATION',
       presentationItems: layeredItems
     }
@@ -138,6 +144,12 @@ export const presentationSlideToViewItem = (
       return {
         ...(media as unknown as PresentationViewItems),
         text: '',
+        transitionSettings:
+          typeof slide.transitionSettings === 'string'
+            ? slide.transitionSettings
+            : slide.transitionSettings
+              ? JSON.stringify(slide.transitionSettings)
+              : undefined,
         customStyle: buildMediaStyle(slide),
         resourceType: 'MEDIA'
       }
@@ -146,6 +158,12 @@ export const presentationSlideToViewItem = (
 
   return {
     text: slide.text || '',
+    transitionSettings:
+      typeof slide.transitionSettings === 'string'
+        ? slide.transitionSettings
+        : slide.transitionSettings
+          ? JSON.stringify(slide.transitionSettings)
+          : undefined,
     customStyle: buildCustomStyle(slide),
     verse: slide.bible
       ? {

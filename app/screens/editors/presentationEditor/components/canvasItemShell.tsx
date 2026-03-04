@@ -40,7 +40,7 @@ export default function CanvasItemShell({
     <div
       key={itemId}
       className={cn(
-        'absolute border-2 rounded-md bg-black/20 overflow-visible cursor-move select-none',
+        'absolute border-2 rounded-md bg-transparent overflow-visible cursor-move select-none',
         {
           'border-primary shadow-[0_0_0_1px_hsl(var(--primary))]': isSelected,
           'border-sky-400/90 shadow-[0_0_0_1px_rgba(56,189,248,0.9)]':

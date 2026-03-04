@@ -35,7 +35,7 @@ export default function SortableSlideCard({
         transition,
         opacity: isDragging ? 0.5 : 1
       }}
-      className={cn('w-56 shrink-0 p-2 space-y-2 cursor-grab active:cursor-grabbing', {
+      className={cn('w-44 shrink-0 p-1.5 space-y-1.5 cursor-grab active:cursor-grabbing', {
         'border-primary': isSelected,
         'shadow-lg border-primary/50': isDragging
       })}
@@ -48,7 +48,7 @@ export default function SortableSlideCard({
         theme={BlankTheme}
         selected={isSelected}
       />
-      <div className="text-xs text-muted-foreground text-center">Diapositiva {index + 1}</div>
+      <div className="text-[11px] text-muted-foreground text-center">Diapositiva {index + 1}</div>
     </Card>
   )
 }

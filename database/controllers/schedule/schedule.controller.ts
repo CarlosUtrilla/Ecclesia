@@ -1,5 +1,5 @@
 import { ScheduleGroupTemplateService } from './schedule-group.service'
-import { AddScheduleItemDto } from './schedule.dto'
+import { AddScheduleItemDto, UpdateScheduleDto } from './schedule.dto'
 import { ScheduleService } from './schedule.service'
 
 export class ScheduleController {
@@ -22,7 +22,7 @@ export class ScheduleController {
     return this.scheduleService.getSchedule(id)
   }
 
-  updateSchedule(id: number, data: { title?: string; date?: Date; items?: AddScheduleItemDto[] }) {
+  updateSchedule(id: number, data: UpdateScheduleDto) {
     return this.scheduleService.updateSchedule(id, data)
   }
 

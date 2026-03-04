@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Copy,
   FileImage,
+  Paperclip,
   Plus,
   Save,
   TextCursorInput,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Media } from '@prisma/client'
+import { useResizeObserver } from 'usehooks-ts'
 import {
   closestCenter,
   DndContext,
@@ -36,7 +38,10 @@ import {
 import { Card } from '@/ui/card'
 import { Slider } from '@/ui/slider'
 import { Label } from '@/ui/label'
+import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
+import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { MediaPicker } from '@/screens/panels/library/media/exports'
+import AnimationSelector from '../themesEditor/animationSelector'
 import { PresentationSchema, PresentationFormValues } from './schema'
 import TextStyleToolbar from './components/textStyleToolbar'
 import BibleTextPicker from './bibleTextPicker'
@@ -51,6 +56,7 @@ import { buildBibleAccessData, parseBibleAccessData } from './utils/bibleAccessD
 import {
   buildPrimaryItemFromSlide,
   createTextSlide,
+  defaultTransitionSettingsString,
   ensureSlideItems,
   parseCanvasItemStyle,
   PresentationSlide
@@ -69,7 +75,14 @@ export default function PresentationEditor() {
   )
   const [isBiblePickerOpen, setIsBiblePickerOpen] = useState(false)
   const [isCanvasDragging, setIsCanvasDragging] = useState(false)
+  const [animationPreviewKey, setAnimationPreviewKey] = useState(0)
   const shouldSeedHistoryRef = useRef(false)
+  const previewAreaRef = useRef<HTMLDivElement>(null)
+
+  const { height: previewAreaHeight } = useResizeObserver({
+    ref: previewAreaRef as React.RefObject<HTMLDivElement>
+  })
+  const liveScreenSize = useScreenSize(previewAreaHeight || 0)
 
   const form = useForm<PresentationFormValues>({
     resolver: zodResolver(PresentationSchema),
@@ -121,6 +134,7 @@ export default function PresentationEditor() {
       const normalizedSlides = (presentation.slides as PresentationFormValues['slides']).map(
         (slide) => ({
           ...slide,
+          transitionSettings: slide.transitionSettings || defaultTransitionSettingsString,
           items: ensureSlideItems(slide)
         })
       )
@@ -160,6 +174,32 @@ export default function PresentationEditor() {
   const selectedItemStyle = selectedItem
     ? parseCanvasItemStyle(selectedItem.customStyle, selectedItem.type)
     : undefined
+
+  const selectedSlideTransitionSettings = useMemo<AnimationSettings>(() => {
+    if (!selectedSlide?.transitionSettings) return defaultAnimationSettings
+
+    try {
+      return {
+        ...defaultAnimationSettings,
+        ...JSON.parse(selectedSlide.transitionSettings)
+      }
+    } catch {
+      return defaultAnimationSettings
+    }
+  }, [selectedSlide?.transitionSettings])
+
+  const selectedItemAnimationSettings = useMemo<AnimationSettings>(() => {
+    if (!selectedItem?.animationSettings) return defaultAnimationSettings
+
+    try {
+      return {
+        ...defaultAnimationSettings,
+        ...JSON.parse(selectedItem.animationSettings)
+      }
+    } catch {
+      return defaultAnimationSettings
+    }
+  }, [selectedItem?.animationSettings])
 
   const selectedMediaId = useMemo(() => {
     if (!selectedItem || selectedItem.type !== 'MEDIA') return undefined
@@ -239,6 +279,24 @@ export default function PresentationEditor() {
     onRedo: redoHistory
   })
 
+  const handleSelectedItemAnimationChange = (settings: AnimationSettings) => {
+    if (!selectedItem || selectedItem.type === 'MEDIA') return
+    updateSelectedItem({ animationSettings: JSON.stringify(settings) })
+    setAnimationPreviewKey((current) => current + 1)
+  }
+
+  const handleAnimationPreview = () => {
+    setAnimationPreviewKey((current) => current + 1)
+  }
+
+  const handleSelectedSlideTransitionChange = (settings: AnimationSettings) => {
+    if (!selectedSlide) return
+
+    setValue(`slides.${selectedSlideIndex}.transitionSettings`, JSON.stringify(settings), {
+      shouldDirty: true
+    })
+  }
+
   const handleSlidesDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -276,6 +334,7 @@ export default function PresentationEditor() {
 
         return {
           ...slide,
+          transitionSettings: slide.transitionSettings || defaultTransitionSettingsString,
           items,
           type: (primary.type === 'MEDIA'
             ? 'MEDIA'
@@ -327,13 +386,57 @@ export default function PresentationEditor() {
             </div>
           </div>
 
-          <div className="h-16 w-px mx-1 bg-border" />
+          {selectedItem && selectedItem.type !== 'MEDIA' && selectedItemStyle ? (
+            <>
+              <div className="h-16 w-px mx-1 bg-border" />
+              <div className="min-w-0 overflow-x-auto">
+                <TextStyleToolbar
+                  value={{
+                    fontFamily: selectedItemStyle.fontFamily,
+                    fontSize: selectedItemStyle.fontSize,
+                    color: selectedItemStyle.color,
+                    fontWeight: selectedItemStyle.fontWeight,
+                    fontStyle: selectedItemStyle.fontStyle,
+                    textDecoration: selectedItemStyle.textDecoration,
+                    lineHeight: selectedItemStyle.lineHeight,
+                    letterSpacing: selectedItemStyle.letterSpacing,
+                    textAlign: selectedItemStyle.textAlign,
+                    verticalAlign: selectedItemStyle.verticalAlign,
+                    offsetX: selectedItemStyle.x - 220,
+                    offsetY: selectedItemStyle.y - 180
+                  }}
+                  onChange={(updates) => updateSelectedTextStyle(updates)}
+                  containerClassName="p-0 border-0 flex-nowrap w-max"
+                />
+              </div>
+              <div className="h-16 w-px mx-1 bg-border" />
+              <AnimationSelector
+                settings={selectedItemAnimationSettings}
+                onChange={handleSelectedItemAnimationChange}
+                onPreview={handleAnimationPreview}
+                label="Animación texto:"
+              />
+            </>
+          ) : null}
+
+          {selectedSlide ? (
+            <>
+              <div className="h-16 w-px mx-1 bg-border" />
+              <AnimationSelector
+                settings={selectedSlideTransitionSettings}
+                onChange={handleSelectedSlideTransitionChange}
+                label="Transición slide:"
+              />
+            </>
+          ) : null}
+
+          <div className="h-16 w-px mx-0.5 bg-border" />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" size="sm" variant="outline" className="gap-2">
-                <Plus className="size-4" />
-                Insertar
+                <Paperclip className="size-4" />
+                Insertar medios
                 <ChevronDown className="size-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -353,26 +456,6 @@ export default function PresentationEditor() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-        {selectedItem && selectedItem.type !== 'MEDIA' && selectedItemStyle ? (
-          <TextStyleToolbar
-            value={{
-              fontFamily: selectedItemStyle.fontFamily,
-              fontSize: selectedItemStyle.fontSize,
-              color: selectedItemStyle.color,
-              fontWeight: selectedItemStyle.fontWeight,
-              fontStyle: selectedItemStyle.fontStyle,
-              textDecoration: selectedItemStyle.textDecoration,
-              lineHeight: selectedItemStyle.lineHeight,
-              letterSpacing: selectedItemStyle.letterSpacing,
-              textAlign: selectedItemStyle.textAlign,
-              offsetX: selectedItemStyle.x - 220,
-              offsetY: selectedItemStyle.y - 180
-            }}
-            onChange={(updates) => updateSelectedTextStyle(updates)}
-            onInsertMedia={insertMediaItem}
-          />
-        ) : null}
 
         {selectedItem?.type === 'MEDIA' && selectedItemStyle ? (
           <MediaSlideControls
@@ -458,12 +541,16 @@ export default function PresentationEditor() {
         ) : null}
       </div>
 
-      <div className="flex-1 min-h-0 bg-muted flex items-center justify-center p-4 overflow-auto">
-        <div className="w-full max-w-6xl aspect-video">
+      <div
+        ref={previewAreaRef as React.RefObject<HTMLDivElement>}
+        className="flex-1 min-h-0 bg-muted flex items-center justify-center p-4 overflow-auto"
+      >
+        <div className="w-full max-w-6xl" style={{ aspectRatio: liveScreenSize.aspectRatio }}>
           {selectedSlide ? (
             <EditorCanvas
               slide={selectedSlide}
               mediaById={mediaById}
+              animationPreviewKey={animationPreviewKey}
               selectedItemId={selectedItemId}
               onSelectItem={setSelectedItemId}
               onDuplicateItem={duplicateItemById}
@@ -491,14 +578,14 @@ export default function PresentationEditor() {
         </div>
       </div>
 
-      <div className="flex-shrink-0 p-3 bg-muted/50 flex items-center gap-2 overflow-x-auto">
+      <div className="flex-shrink-0 p-2 bg-muted/50 flex items-center gap-1.5 overflow-x-auto">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleSlidesDragEnd}
         >
           <SortableContext items={slideSortableIndex} strategy={horizontalListSortingStrategy}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {slides.map((slide, index) => (
                 <SortableSlideCard
                   key={slide.id}
@@ -517,12 +604,12 @@ export default function PresentationEditor() {
               ))}
 
               <Card
-                className="w-56 shrink-0 p-2 h-full min-h-36 border-dashed cursor-pointer hover:border-primary/70 transition-colors"
+                className="w-44 shrink-0 p-1.5 h-full min-h-28 border-dashed cursor-pointer hover:border-primary/70 transition-colors"
                 onClick={addEmptySlide}
               >
-                <div className="h-full min-h-28 flex flex-col items-center justify-center text-muted-foreground gap-2">
-                  <Plus className="size-6" />
-                  <span className="text-sm">Nueva diapositiva</span>
+                <div className="h-full min-h-20 flex flex-col items-center justify-center text-muted-foreground gap-1.5">
+                  <Plus className="size-5" />
+                  <span className="text-xs">Nueva diapositiva</span>
                 </div>
               </Card>
             </div>

@@ -10,12 +10,14 @@ type AnimationSelectorProps = {
   settings: AnimationSettings
   onChange: (settings: AnimationSettings) => void
   onPreview?: () => void
+  label?: string
 }
 
 const AnimationSelector = memo(function AnimationSelector({
   settings,
   onChange,
-  onPreview
+  onPreview,
+  label = 'Animación:'
 }: AnimationSelectorProps) {
   const handleTypeChange = useCallback(
     (val: string) => onChange({ ...settings, type: val }),
@@ -24,7 +26,7 @@ const AnimationSelector = memo(function AnimationSelector({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-xs text-muted-foreground whitespace-nowrap">Animación:</span>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{label}</span>
       <div className="flex items-center gap-2">
         <Select value={settings.type} onValueChange={handleTypeChange}>
           <SelectTrigger size="sm" className="w-[180px] !h-9">

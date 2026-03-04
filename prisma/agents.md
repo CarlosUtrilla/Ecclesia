@@ -8,7 +8,7 @@ Este modulo define el schema completo de la base de datos SQLite usando Prisma O
 
 ## Archivos
 
-```
+```text
 prisma/
 ├── schema.prisma    # Definicion de modelos y relaciones
 ├── dev.db           # Base de datos SQLite (desarrollo)
@@ -76,6 +76,7 @@ model Themes {
   backgroundMedia             Media?  @relation(...)
   textStyle                   String  // JSON: { fontSize, fontFamily, fontWeight, color, textAlign, ... }
   animationSettings           String  // JSON: { type, duration, delay, easing }
+  transitionSettings          String  // JSON: transición al cambiar de tema (default fade)
   previewImage                String  // Imagen de preview del tema
   useDefaultBibleSettings     Boolean @default(true)
   biblePresentationSettingsId Int?
@@ -85,7 +86,8 @@ model Themes {
 
 - `background` tiene 3 modos: color HEX directo, gradient CSS, o el string literal `"media"` que indica usar `backgroundMedia`.
 - `textStyle` es un JSON string con propiedades CSS para el texto.
-- `animationSettings` es un JSON con config de Framer Motion: `{ type: "fade"|"slide"|"scale"|..., duration: 0.4, delay: 0, easing: "easeInOut" }`.
+- `animationSettings` es un JSON con config de animación de contenido.
+- `transitionSettings` es un JSON con config de transición de tema (se ejecuta solo cuando cambia de tema).
 
 ### Media (Medios)
 
@@ -243,7 +245,7 @@ model Setting {
 ## Enums
 
 | Enum | Valores | Uso |
-|------|---------|-----|
+| ---- | ------- | --- |
 | `MediaType` | IMAGE, VIDEO | Tipo de medio |
 | `TestamentEnum` | Old, New | Antiguo/Nuevo Testamento |
 | `BibleDescriptionMode` | short, complete | Nombre corto/completo del libro |

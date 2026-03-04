@@ -45,12 +45,12 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
   }, [])
 
   return (
-    <div className="overflow-hidden w-full">
+    <div className="overflow-hidden bg-black w-full h-full">
       <PresentationView
-        key={themeKey}
         items={content?.content || []}
         theme={selectedTheme}
         currentIndex={itemIndex}
+        themeTransitionKey={themeKey}
         live
         displayId={displayId && !isPreview ? parseInt(displayId) : undefined}
       />

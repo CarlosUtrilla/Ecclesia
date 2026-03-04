@@ -38,6 +38,7 @@ export const PresentationSlideSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['TEXT', 'BIBLE', 'MEDIA']),
   items: z.array(SlideItemSchema).optional(),
+  transitionSettings: z.string().optional(),
   text: z.string().optional(),
   mediaId: z.number().optional(),
   bible: SlideBibleSchema.optional(),

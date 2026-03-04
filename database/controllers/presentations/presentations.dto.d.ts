@@ -38,6 +38,7 @@ export type PresentationSlideTextStyle = {
 export type PresentationSlide = {
   id: string
   items?: PresentationSlideItem[]
+  transitionSettings?: string | PresentationItemAnimationSettings
   type: PresentationSlideType
   text?: string
   mediaId?: number

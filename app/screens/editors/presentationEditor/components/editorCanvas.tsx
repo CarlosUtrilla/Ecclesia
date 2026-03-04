@@ -11,8 +11,9 @@ import CanvasItemNode from './canvasItemNode'
 type Props = {
   slide: PresentationFormValues['slides'][number]
   mediaById: Map<number, Media>
+  animationPreviewKey?: number
   selectedItemId?: string
-  onSelectItem: (itemId: string) => void
+  onSelectItem: (itemId?: string) => void
   onItemStyleChange: (itemId: string, next: Partial<CanvasItemStyle>) => void
   onItemTextChange?: (itemId: string, nextText: string) => void
   onDuplicateItem?: (itemId: string) => void
@@ -25,6 +26,7 @@ type Props = {
 export default function EditorCanvas({
   slide,
   mediaById,
+  animationPreviewKey = 0,
   selectedItemId,
   onSelectItem,
   onItemStyleChange,
@@ -38,6 +40,7 @@ export default function EditorCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null)
 
   useEffect(() => {
     if (editingItemId && editingItemId !== selectedItemId) {
@@ -69,7 +72,7 @@ export default function EditorCanvas({
     containerRef,
     parsedItems
   })
-  const { handlePointerMove } = useCanvasTransform({
+  const { handlePointerMove, flushPendingTransform, cancelPendingTransform } = useCanvasTransform({
     dragRef,
     onItemStyleChange,
     clearSnapGuides,
@@ -81,10 +84,18 @@ export default function EditorCanvas({
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const activeDrag = dragRef.current
     if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
+    flushPendingTransform()
     dragRef.current = null
+    setActiveDragItemId(null)
     onDragStateChange?.(false)
     clearSnapGuides()
     event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const handleCanvasPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return
+    setEditingItemId(null)
+    onSelectItem(undefined)
   }
 
   const startDrag = (
@@ -109,6 +120,7 @@ export default function EditorCanvas({
       startY: event.clientY,
       initialStyle: style
     }
+    setActiveDragItemId(item.id)
     onDragStateChange?.(true)
     onSelectItem(item.id)
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -117,14 +129,17 @@ export default function EditorCanvas({
 
   useEffect(() => {
     return () => {
+      cancelPendingTransform()
+      setActiveDragItemId(null)
       onDragStateChange?.(false)
     }
-  }, [onDragStateChange])
+  }, [cancelPendingTransform, onDragStateChange])
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative bg-black rounded-lg overflow-visible border"
+      className="w-full h-full relative bg-white rounded-lg overflow-visible border"
+      onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
@@ -133,7 +148,7 @@ export default function EditorCanvas({
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)',
+            'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.08) 1px, transparent 0)',
           backgroundSize: '20px 20px'
         }}
       />
@@ -172,6 +187,8 @@ export default function EditorCanvas({
             isSelected={isSelected}
             isSnapTarget={isSnapTarget}
             isEditingText={isEditingText}
+            isDragging={activeDragItemId === item.id}
+            animationPreviewKey={animationPreviewKey}
             onSelectItem={onSelectItem}
             onSetEditingItemId={setEditingItemId}
             onStartDrag={startDrag}

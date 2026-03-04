@@ -54,6 +54,7 @@ export function ScreenSizeProvider({ children }: { children: ReactNode }) {
       const [arWidthRaw, arHeightRaw] = aspectRatio.split('/').map((n) => parseFloat(n.trim()))
       const arWidth = Number.isFinite(arWidthRaw) && arWidthRaw > 0 ? arWidthRaw : 16
       const arHeight = Number.isFinite(arHeightRaw) && arHeightRaw > 0 ? arHeightRaw : 9
+
       const width = Math.round(maxHeight * (arWidth / arHeight))
 
       const screenSize: ScreenSize = {

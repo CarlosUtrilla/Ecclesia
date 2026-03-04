@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Button } from '@/ui/button'
@@ -28,8 +28,7 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
   const [selectedVersion, setSelectedVersion] = useState('RVR1960')
   const [selectedBook, setSelectedBook] = useState(43)
   const [selectedChapter, setSelectedChapter] = useState(3)
-  const [selectedVerse, setSelectedVerse] = useState<number[]>([16])
-  const anchorIndexRef = useRef<number | null>(null)
+  const [selectedVerse, setSelectedVerse] = useState<number>(16)
 
   const selectedBookData = useMemo(
     () => bibleSchema.find((book) => book.book_id === selectedBook),
@@ -51,43 +50,28 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
   const handleChangeBook = (bookId: number) => {
     setSelectedBook(bookId)
     setSelectedChapter(1)
-    setSelectedVerse([1])
-    anchorIndexRef.current = 0
+    setSelectedVerse(1)
   }
 
   const handleChangeChapter = (chapter: number) => {
     setSelectedChapter(chapter)
-    setSelectedVerse([1])
-    anchorIndexRef.current = 0
+    setSelectedVerse(1)
   }
 
-  const handleVerseClick = (verseNumber: number, verseIndex: number, withRange: boolean) => {
-    if (withRange && anchorIndexRef.current !== null) {
-      const start = Math.min(anchorIndexRef.current, verseIndex)
-      const end = Math.max(anchorIndexRef.current, verseIndex)
-      const nextSelection = completeChapter.slice(start, end + 1).map((verse) => verse.verse)
-      setSelectedVerse(nextSelection)
-      return
-    }
-
-    anchorIndexRef.current = verseIndex
-    setSelectedVerse([verseNumber])
+  const handleVerseClick = (verseNumber: number) => {
+    setSelectedVerse(verseNumber)
   }
 
   const handleAdd = () => {
-    if (selectedVerse.length === 0) return
+    const selectedVerseItem = completeChapter.find((verse) => verse.verse === selectedVerse)
+    if (!selectedVerseItem) return
 
-    const sortedVerses = [...selectedVerse].sort((a, b) => a - b)
-    const text = completeChapter
-      .filter((verse) => sortedVerses.includes(verse.verse))
-      .map((verse) => `${verse.verse}. ${verse.text}`)
-      .join('<br/>')
+    const text = `${selectedVerseItem.verse}. ${selectedVerseItem.text}`
 
     onAddToPresentation({
       bookId: selectedBook,
       chapter: selectedChapter,
-      verseStart: sortedVerses[0],
-      verseEnd: sortedVerses.length > 1 ? sortedVerses[sortedVerses.length - 1] : undefined,
+      verseStart: selectedVerseItem.verse,
       version: selectedVersion,
       text
     })
@@ -107,11 +91,11 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
             <VerseSearch
               book={selectedBook}
               cap={String(selectedChapter)}
-              vers={String(selectedVerse[0] || 1)}
+              vers={String(selectedVerse || 1)}
               onChaneVerseSearch={(book, cap, vers) => {
                 setSelectedBook(book)
                 setSelectedChapter(Number(cap || 1))
-                setSelectedVerse([Number(vers || 1)])
+                setSelectedVerse(Number(vers || 1))
               }}
             />
 
@@ -178,22 +162,22 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {completeChapter.map((verse, verseIndex) => (
+              {completeChapter.map((verse) => (
                 <div
                   key={verse.verse}
                   className={cn(
                     'flex border-b py-0.5 items-baseline hover:bg-muted/40 cursor-pointer',
                     {
-                      'bg-secondary/20 hover:bg-secondary/10': selectedVerse.includes(verse.verse)
+                      'bg-secondary/20 hover:bg-secondary/10': selectedVerse === verse.verse
                     }
                   )}
                   role="button"
                   tabIndex={0}
-                  onClick={(event) => handleVerseClick(verse.verse, verseIndex, event.shiftKey)}
+                  onClick={() => handleVerseClick(verse.verse)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault()
-                      handleVerseClick(verse.verse, verseIndex, event.shiftKey)
+                      handleVerseClick(verse.verse)
                     }
                   }}
                 >
@@ -209,15 +193,14 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
 
         <div className="border-t px-4 py-3 flex items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">
-            {selectedVerse.length > 1
-              ? `Rango seleccionado: ${Math.min(...selectedVerse)}-${Math.max(...selectedVerse)}`
-              : `Verso seleccionado: ${selectedVerse[0] || 1}`}
+            Verso seleccionado: {selectedBookData?.book || `Libro ${selectedBook}`}{' '}
+            {selectedChapter}:{selectedVerse || 1} ({selectedVersion})
           </p>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleAdd} disabled={selectedVerse.length === 0}>
+            <Button onClick={handleAdd} disabled={!selectedVerse}>
               Agregar a la presentación
             </Button>
           </div>

@@ -15,6 +15,8 @@ type Props = {
   isSelected: boolean
   isSnapTarget: boolean
   isEditingText: boolean
+  isDragging: boolean
+  animationPreviewKey?: number
   onSelectItem: (itemId: string) => void
   onSetEditingItemId: (itemId: string | null) => void
   onStartDrag: (
@@ -37,6 +39,8 @@ export default function CanvasItemNode({
   isSelected,
   isSnapTarget,
   isEditingText,
+  isDragging,
+  animationPreviewKey = 0,
   onSelectItem,
   onSetEditingItemId,
   onStartDrag,
@@ -92,9 +96,14 @@ export default function CanvasItemNode({
         <TextCanvasItem
           itemId={item.id}
           text={item.text || ''}
+          type={item.type}
+          accessData={item.accessData}
+          animationSettings={item.animationSettings}
           layer={Number(item.layer || 0)}
           style={style}
           isSelected={isSelected}
+          isDragging={isDragging}
+          animationPreviewKey={animationPreviewKey}
           highlightSnapTarget={isSnapTarget}
           isEditing={isEditingText}
           onSelect={() => onSelectItem(item.id)}

@@ -6,6 +6,7 @@ export const CreateThemeSchema = z.object({
   backgroundMediaId: z.number().nullable(),
   textStyle: z.custom<React.CSSProperties>(),
   animationSettings: z.string(),
+  transitionSettings: z.string(),
   previewImage: z.string(),
   useDefaultBibleSettings: z.boolean(),
   biblePresentationSettingsId: z.number().nullable().optional(),

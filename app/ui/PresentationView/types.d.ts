@@ -18,6 +18,7 @@ export type PresentationViewProps = {
   theme: ThemeWithMedia
   live?: boolean
   currentIndex?: number
+  themeTransitionKey?: number
   items: PresentationViewItems[]
   onClick?: (e?: React.MouseEvent) => void
   selected?: boolean
@@ -38,6 +39,7 @@ export type PresentationViewItems = {
   text: string
   customStyle?: string
   animationSettings?: string
+  transitionSettings?: string
   layer?: number
   media?: {
     id: number

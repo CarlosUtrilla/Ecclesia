@@ -1,5 +1,5 @@
 import { getPrisma } from '../../../electron/main/prisma'
-import { AddScheduleItemDto, ScheduleWithItems } from './schedule.dto'
+import { AddScheduleItemDto, ScheduleWithItems, UpdateScheduleDto } from './schedule.dto'
 
 export class ScheduleService {
   prisma = getPrisma()
@@ -59,7 +59,7 @@ export class ScheduleService {
     })
   }
 
-  updateSchedule(id: number, data: { title?: string; date?: Date; items?: AddScheduleItemDto[] }) {
+  updateSchedule(id: number, data: UpdateScheduleDto) {
     const { items, ...rest } = data
     return this.prisma.$transaction(async (prisma) => {
       // Eliminar todos los items actuales del schedule

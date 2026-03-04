@@ -7,6 +7,9 @@ import type {
 } from './presentations.dto'
 
 export class PresentationsService {
+  private readonly defaultTransitionSettings =
+    '{"type":"fade","duration":0.4,"delay":0,"easing":"easeInOut"}'
+
   private prisma = getPrisma()
 
   private buildLegacyStyleFromSlide(slide: any): string {
@@ -125,6 +128,7 @@ export class PresentationsService {
 
       return {
         id: slide?.id || `slide-${index}`,
+        transitionSettings: slide?.transitionSettings || this.defaultTransitionSettings,
         items: normalizedItems,
         ...this.buildLegacyShapeFromItem(firstItem),
         textStyle: slide?.textStyle

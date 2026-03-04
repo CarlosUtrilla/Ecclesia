@@ -62,6 +62,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       String(updatedSelectedTheme.updatedAt) !== String(selectedTheme.updatedAt) ||
       updatedSelectedTheme.textStyle !== selectedTheme.textStyle ||
       updatedSelectedTheme.animationSettings !== selectedTheme.animationSettings ||
+      updatedSelectedTheme.transitionSettings !== selectedTheme.transitionSettings ||
       updatedSelectedTheme.background !== selectedTheme.background ||
       updatedSelectedTheme.backgroundMediaId !== selectedTheme.backgroundMediaId
     ) {

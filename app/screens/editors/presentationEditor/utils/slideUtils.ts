@@ -1,8 +1,13 @@
-import { generateUniqueId } from '@/lib/utils'
-import { PresentationFormValues } from './schema'
+import { generateUniqueId, sanitizeHTML } from '@/lib/utils'
+import { PresentationFormValues } from '../schema'
 
 export type PresentationSlide = PresentationFormValues['slides'][number]
 export type PresentationSlideItem = NonNullable<PresentationSlide['items']>[number]
+
+const BASE_CANVAS_WIDTH = 1280
+const BASE_CANVAS_HEIGHT = 720
+export const defaultTransitionSettingsString =
+  '{"type":"fade","duration":0.4,"delay":0,"easing":"easeInOut"}'
 
 export type CanvasItemStyle = {
   x: number
@@ -16,6 +21,7 @@ export type CanvasItemStyle = {
   letterSpacing: number
   color: string
   textAlign: 'left' | 'center' | 'right' | 'justify'
+  verticalAlign: 'top' | 'center' | 'bottom'
   fontWeight: 'normal' | 'bold'
   fontStyle: 'normal' | 'italic'
   textDecoration: 'none' | 'underline'
@@ -26,7 +32,7 @@ export const baseTextStyle = {
   fontFamily: 'Arial',
   lineHeight: 1.2,
   letterSpacing: 0,
-  color: '#ffffff',
+  color: '#000000',
   textAlign: 'center' as const,
   fontWeight: 'normal' as const,
   fontStyle: 'normal' as const,
@@ -47,8 +53,9 @@ const defaultTextCanvasStyle: CanvasItemStyle = {
   fontFamily: 'Arial',
   lineHeight: 1.2,
   letterSpacing: 0,
-  color: '#ffffff',
+  color: '#000000',
   textAlign: 'center',
+  verticalAlign: 'center',
   fontWeight: 'normal',
   fontStyle: 'normal',
   textDecoration: 'none'
@@ -61,6 +68,71 @@ const defaultMediaCanvasStyle: CanvasItemStyle = {
   width: 640,
   height: 360
 }
+
+const estimateTextHeightWithDOM = (text: string, style: CanvasItemStyle) => {
+  if (typeof document === 'undefined') return style.height
+
+  const measurementNode = document.createElement('div')
+  measurementNode.style.position = 'absolute'
+  measurementNode.style.visibility = 'hidden'
+  measurementNode.style.pointerEvents = 'none'
+  measurementNode.style.left = '-99999px'
+  measurementNode.style.top = '-99999px'
+  measurementNode.style.width = `${Math.max(80, Math.round(style.width))}px`
+  measurementNode.style.boxSizing = 'border-box'
+  measurementNode.style.padding = '8px'
+  measurementNode.style.fontSize = `${style.fontSize}px`
+  measurementNode.style.fontFamily = style.fontFamily
+  measurementNode.style.lineHeight = String(style.lineHeight)
+  measurementNode.style.letterSpacing = `${style.letterSpacing}px`
+  measurementNode.style.fontWeight = style.fontWeight
+  measurementNode.style.fontStyle = style.fontStyle
+  measurementNode.style.textDecoration = style.textDecoration
+  measurementNode.style.whiteSpace = 'normal'
+  measurementNode.style.wordBreak = 'break-word'
+  measurementNode.style.overflowWrap = 'anywhere'
+  measurementNode.innerHTML = sanitizeHTML(text || '') || '&nbsp;'
+
+  document.body.appendChild(measurementNode)
+  const measuredHeight = measurementNode.scrollHeight
+  document.body.removeChild(measurementNode)
+
+  return Number.isFinite(measuredHeight) ? measuredHeight : style.height
+}
+
+export const getAutoSizedTextStyle = (
+  text: string,
+  baseStyle?: Partial<CanvasItemStyle>,
+  options?: {
+    centerInCanvas?: boolean
+  }
+): CanvasItemStyle => {
+  const mergedStyle: CanvasItemStyle = {
+    ...defaultTextCanvasStyle,
+    ...baseStyle
+  }
+
+  const measuredHeight = estimateTextHeightWithDOM(text, mergedStyle)
+  const nextHeight = Math.max(60, Math.min(620, Math.ceil(measuredHeight)))
+
+  const centeredX = Math.round((BASE_CANVAS_WIDTH - mergedStyle.width) / 2)
+  const centeredY = Math.round((BASE_CANVAS_HEIGHT - nextHeight) / 2)
+
+  return {
+    ...mergedStyle,
+    height: nextHeight,
+    x: options?.centerInCanvas ? centeredX : mergedStyle.x,
+    y: options?.centerInCanvas ? centeredY : mergedStyle.y
+  }
+}
+
+export const buildAutoSizedTextCanvasItemStyle = (
+  text: string,
+  baseStyle?: Partial<CanvasItemStyle>,
+  options?: {
+    centerInCanvas?: boolean
+  }
+) => buildCanvasItemStyle(getAutoSizedTextStyle(text, baseStyle, options), 'TEXT')
 
 const parseInlineStyle = (styleText?: string) => {
   if (!styleText) return {} as Record<string, string>
@@ -118,6 +190,12 @@ export const parseCanvasItemStyle = (
     letterSpacing: parsePx(styleMap['letter-spacing'], base.letterSpacing),
     color: styleMap.color || base.color,
     textAlign: (styleMap['text-align'] as CanvasItemStyle['textAlign']) || base.textAlign,
+    verticalAlign:
+      styleMap['align-items'] === 'flex-start'
+        ? 'top'
+        : styleMap['align-items'] === 'flex-end'
+          ? 'bottom'
+          : base.verticalAlign,
     fontWeight: (styleMap['font-weight'] as CanvasItemStyle['fontWeight']) || base.fontWeight,
     fontStyle: (styleMap['font-style'] as CanvasItemStyle['fontStyle']) || base.fontStyle,
     textDecoration:
@@ -146,7 +224,13 @@ export const buildCanvasItemStyle = (
   return [
     ...common,
     'display: flex',
-    'align-items: center',
+    `align-items: ${
+      style.verticalAlign === 'top'
+        ? 'flex-start'
+        : style.verticalAlign === 'bottom'
+          ? 'flex-end'
+          : 'center'
+    }`,
     'justify-content: center',
     `font-size: ${style.fontSize}px`,
     `font-family: ${style.fontFamily}`,
@@ -201,11 +285,15 @@ export const getNextLayer = (items: PresentationSlideItem[]) => {
 export const createTextSlide = () => ({
   id: generateUniqueId(),
   type: 'TEXT' as const,
+  transitionSettings: defaultTransitionSettingsString,
   text: 'Nuevo texto',
   items: [
     createSlideItem('TEXT', {
       text: 'Nuevo texto',
-      layer: 0
+      layer: 0,
+      customStyle: buildAutoSizedTextCanvasItemStyle('Nuevo texto', undefined, {
+        centerInCanvas: true
+      })
     })
   ],
   textStyle: { ...baseTextStyle }
@@ -214,6 +302,7 @@ export const createTextSlide = () => ({
 export const createMediaSlide = (mediaId?: number) => ({
   id: generateUniqueId(),
   type: 'MEDIA' as const,
+  transitionSettings: defaultTransitionSettingsString,
   text: '',
   mediaId,
   items: [
