@@ -4,14 +4,16 @@ import { ScheduleItem } from '@prisma/client'
 import { BookPlusIcon, FileSliders, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from '../types'
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useMediaServer } from '../../MediaServerContext'
 import { presentationSlideToViewItem } from '@/lib/presentationSlides'
+import { useThemes } from '@/hooks/useThemes'
 
 export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteVerseText } = useBibleSchema()
   const { buildMediaUrl } = useMediaServer()
+  const { themes } = useThemes()
   const accessDataKey = currentSchedule?.items.map((item) => parseInt(item.accessData))
 
   const { data: songs = [] } = useQuery({
@@ -27,7 +29,7 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
     enabled: !!currentSchedule
   })
 
-  const { data: media = [] } = useQuery({
+  const { data: media = [], refetch: refetchMedia } = useQuery({
     queryKey: ['mediaByIds', accessDataKey],
     queryFn: async () => {
       if (!currentSchedule) return []
@@ -40,7 +42,7 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
     enabled: !!currentSchedule
   })
 
-  const { data: presentations = [] } = useQuery({
+  const { data: presentations = [], refetch: refetchPresentationsByIds } = useQuery({
     queryKey: ['presentationsByIds', accessDataKey],
     queryFn: async () => {
       if (!currentSchedule) return []
@@ -55,6 +57,15 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
     },
     enabled: !!currentSchedule
   })
+
+  useEffect(() => {
+    const unsubscribe = window.electron.ipcRenderer.on('presentation-saved', () => {
+      refetchPresentationsByIds()
+      refetchMedia()
+    })
+
+    return unsubscribe
+  }, [refetchMedia, refetchPresentationsByIds])
 
   const getScheduleItemIcon = (item: ScheduleItem) => {
     const { accessData, type } = item
@@ -246,12 +257,19 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         })
 
         const mediaItems =
-          mediaIds.length > 0 ? await window.api.media.getMediaByIds(Array.from(new Set(mediaIds))) : []
+          mediaIds.length > 0
+            ? await window.api.media.getMediaByIds(Array.from(new Set(mediaIds)))
+            : []
         const mediaById = new Map(mediaItems.map((mediaItem) => [mediaItem.id, mediaItem]))
+        const themeById = new Map(themes.map((theme) => [theme.id, theme]))
+
+        const mappedSlides = presentation.slides.map((slide) =>
+          presentationSlideToViewItem(slide, mediaById, themeById)
+        )
 
         return {
           title: presentation.title,
-          content: presentation.slides.map((slide) => presentationSlideToViewItem(slide, mediaById))
+          content: mappedSlides
         }
       }
       return {
@@ -259,7 +277,7 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         content: [{ text: accessData, resourceType: item.type }]
       }
     },
-    [media, presentations, songs]
+    [media, presentations, songs, themes]
   )
 
   return {

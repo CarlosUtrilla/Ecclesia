@@ -70,6 +70,7 @@ SchedulePanel (index.tsx)
 - `useDroppable` en el contenedor para drops al final.
 - Overlay animado cuando se arrastra sobre el area (usa `LazyMotion` + `m`).
 - Al seleccionar un item, muestra `PreviewSchedule` en la parte inferior.
+- Si el item seleccionado es `PRESENTATION`, escucha `presentation-saved` y refresca `itemContent` para que la preview del cronograma se actualice al guardar cambios de diapositivas en el editor.
 - `useKeyboardShortcuts` para Delete y click outside.
 
 ### ScheduleItemComponent (`scheduleContent/scheduleItem.tsx`)

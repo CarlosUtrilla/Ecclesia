@@ -37,8 +37,10 @@ export const SlideItemSchema = z.object({
 export const PresentationSlideSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['TEXT', 'BIBLE', 'MEDIA']),
+  themeId: z.number().nullable().optional(),
   items: z.array(SlideItemSchema).optional(),
   transitionSettings: z.string().optional(),
+  videoLiveBehavior: z.enum(['auto', 'manual']).optional(),
   text: z.string().optional(),
   mediaId: z.number().optional(),
   bible: SlideBibleSchema.optional(),
@@ -50,4 +52,4 @@ export const PresentationSchema = z.object({
   slides: z.array(PresentationSlideSchema).min(1, 'Debes agregar al menos una diapositiva')
 })
 
-export type PresentationFormValues = z.infer<typeof PresentationSchema>
+export type PresentationFormValues = z.input<typeof PresentationSchema>

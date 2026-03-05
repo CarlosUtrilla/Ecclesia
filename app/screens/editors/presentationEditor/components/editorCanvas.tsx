@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Media } from '@prisma/client'
 import { cn } from '@/lib/utils'
+import { ThemeWithMedia } from '@/ui/PresentationView/types'
+import { usePresentationBackground } from '@/ui/PresentationView/hooks/usePresentationBackground'
+import { useMediaServer } from '@/contexts/MediaServerContext'
 import { PresentationFormValues } from '../schema'
 import { CanvasItemStyle, parseCanvasItemStyle, PresentationSlideItem } from '../utils/slideUtils'
 import useCanvasSnapping from '../hooks/useCanvasSnapping'
@@ -13,6 +16,7 @@ type Props = {
   mediaById: Map<number, Media>
   canvasScale?: number
   animationPreviewKey?: number
+  theme: ThemeWithMedia
   selectedItemId?: string
   onSelectItem: (itemId?: string) => void
   onItemStyleChange: (itemId: string, next: Partial<CanvasItemStyle>) => void
@@ -29,6 +33,7 @@ export default function EditorCanvas({
   mediaById,
   canvasScale = 1,
   animationPreviewKey = 0,
+  theme,
   selectedItemId,
   onSelectItem,
   onItemStyleChange,
@@ -44,6 +49,12 @@ export default function EditorCanvas({
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null)
   const [activeDragMode, setActiveDragMode] = useState<DragState['mode'] | null>(null)
+  const versePreviewByItemRef = useRef<Map<string, number>>(new Map())
+  const { buildMediaUrl } = useMediaServer()
+  const { background, backgroundType, backgroundUrl, thumbnailUrl, fallbackUrl, videoError, setVideoError } =
+    usePresentationBackground({ theme, buildMediaUrl })
+
+  const resolvedBackground = background === 'media' ? '#ffffff' : background
 
   useEffect(() => {
     if (editingItemId && editingItemId !== selectedItemId) {
@@ -146,14 +157,50 @@ export default function EditorCanvas({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative bg-white rounded-lg overflow-visible border"
+      className="w-full h-full relative rounded-lg overflow-visible border"
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 pointer-events-none z-0"
+        style={{
+          background:
+            backgroundType === 'color' || backgroundType === 'gradient'
+              ? resolvedBackground
+              : 'transparent'
+        }}
+      />
+
+      {backgroundType === 'image' && backgroundUrl ? (
+        <img
+          src={backgroundUrl}
+          alt="Fondo del tema"
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover pointer-events-none z-0"
+        />
+      ) : null}
+
+      {backgroundType === 'video' ? (
+        <img
+          src={thumbnailUrl || fallbackUrl || ''}
+          alt="Fondo de video del tema"
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover pointer-events-none z-0"
+          onError={() => {
+            setVideoError(true)
+          }}
+          style={{ opacity: thumbnailUrl || fallbackUrl ? 1 : 0 }}
+        />
+      ) : null}
+
+      {backgroundType === 'video' && videoError ? (
+        <div className="absolute inset-0 pointer-events-none z-0 bg-black/15" />
+      ) : null}
+
+      <div
+        className="absolute inset-0 pointer-events-none z-10"
         style={{
           backgroundImage:
             'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.08) 1px, transparent 0)',
@@ -185,7 +232,7 @@ export default function EditorCanvas({
         const isSelected = selectedItemId === item.id
         const isSnapTarget =
           snapGuides.xTargetItemId === item.id || snapGuides.yTargetItemId === item.id
-        const isEditingText = isSelected && item.type !== 'MEDIA' && editingItemId === item.id
+        const isEditingText = isSelected && item.type === 'TEXT' && editingItemId === item.id
         const isRotating = activeDragItemId === item.id && activeDragMode === 'rotate'
         return (
           <CanvasItemNode
@@ -199,6 +246,7 @@ export default function EditorCanvas({
             isDragging={activeDragItemId === item.id}
             isRotating={isRotating}
             animationPreviewKey={animationPreviewKey}
+            theme={theme}
             onSelectItem={onSelectItem}
             onSetEditingItemId={setEditingItemId}
             onStartDrag={startDrag}
@@ -207,6 +255,10 @@ export default function EditorCanvas({
             onDeleteItem={onDeleteItem}
             onLayerUpItem={onLayerUpItem}
             onLayerDownItem={onLayerDownItem}
+            persistedVerse={versePreviewByItemRef.current.get(item.id)}
+            onPersistVerse={(nextVerse) => {
+              versePreviewByItemRef.current.set(item.id, nextVerse)
+            }}
           />
         )
       })}

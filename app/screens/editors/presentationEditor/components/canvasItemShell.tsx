@@ -41,15 +41,12 @@ export default function CanvasItemShell({
   return (
     <div
       key={itemId}
-      className={cn(
-        'absolute border-2 rounded-md bg-transparent overflow-visible cursor-move select-none',
-        {
-          'border-primary shadow-[0_0_0_1px_hsl(var(--primary))]': isSelected,
-          'border-sky-400/90 shadow-[0_0_0_1px_rgba(56,189,248,0.9)]':
-            !isSelected && highlightSnapTarget,
-          'border-transparent hover:border-primary/60': !isSelected
-        }
-      )}
+      className={cn('absolute bg-transparent overflow-visible cursor-move select-none', {
+        'outline-2 outline-primary shadow-[0_0_0_1px_hsl(var(--primary))]': isSelected,
+        'outline-2 outline-sky-400/90 shadow-[0_0_0_1px_rgba(56,189,248,0.9)]':
+          !isSelected && highlightSnapTarget,
+        'hover:outline-2 hover:outline-primary/60': !isSelected
+      })}
       style={itemStyle}
       onClick={onSelect}
       onDoubleClick={onDoubleClick}

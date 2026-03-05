@@ -2,11 +2,7 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useMediaServer } from '@/contexts/MediaServerContext'
-import { Play, Pause, Rewind, RotateCcw, Volume1 } from 'lucide-react'
-import { Volume2, VolumeX } from 'lucide-react'
-import { Popover, PopoverTrigger, PopoverContent } from '@/ui/popover'
-import { Button } from '@/ui/button'
-import { Slider } from '@/ui/slider'
+import VideoLiveControls from './VideoLiveControls'
 
 export const RenderMedia = () => {
   const { itemOnLive, media } = useSchedule()
@@ -48,8 +44,7 @@ export const RenderMedia = () => {
     sendLiveMediaState({ action: 'pause', time: videoRef.current?.currentTime || 0 })
     videoRef.current?.pause()
   }
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = Number(e.target.value)
+  const handleSeek = (time: number) => {
     setCurrentTime(time)
     if (videoRef.current) {
       videoRef.current.currentTime = time
@@ -128,90 +123,20 @@ export const RenderMedia = () => {
             onEnded={handleEnded}
           />
         </div>
-        <div className="flex items-center gap-2 w-full px-28 bg-background/80 p-2 rounded shadow z-10">
-          {/* Control de volumen con popover */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" title="Volumen">
-                {volume === 0 ? (
-                  <VolumeX className="w-5 h-5" />
-                ) : volume < 0.5 ? (
-                  <Volume1 className="w-5 h-5" />
-                ) : (
-                  <Volume2 className="w-5 h-5" />
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 flex flex-col items-center gap-2">
-              <span className="text-xs">Volumen</span>
-              <Slider
-                min={0}
-                max={1}
-                step={0.01}
-                value={[volume]}
-                onValueChange={([val]) => handleVolumeChange(val)}
-                className="w-full"
-              />
-              <span className="text-xs">{Math.round(volume * 100)}%</span>
-            </PopoverContent>
-          </Popover>
-          <Button
-            variant={autoRewind ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setAutoRewind((v) => !v)}
-            title="Rebobinación automática"
-            aria-label={
-              autoRewind ? 'Desactivar rebobinación automática' : 'Activar rebobinación automática'
-            }
-            aria-pressed={autoRewind}
-          >
-            <RotateCcw className="w-5 h-5" />
-          </Button>
-          {/* Reinicio manual */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRestart}
-            title="Reiniciar video"
-            aria-label="Reiniciar video"
-          >
-            <Rewind className="w-5 h-5" />
-          </Button>
-          {/* Play/Pause */}
-          {isPlaying ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePause}
-              title="Pausar video"
-              aria-label="Pausar video"
-            >
-              <Pause className="w-5 h-5" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePlay}
-              title="Reproducir video"
-              aria-label="Reproducir video"
-            >
-              <Play className="w-5 h-5" />
-            </Button>
-          )}
-          {/* Barra de progreso */}
-          <Slider
-            min={0}
-            max={duration}
-            step={0.01}
-            value={[currentTime]}
-            onValueChange={([val]) => handleSeek({ target: { value: val } } as any)}
-            className="flex-1"
-          />
-          <div className="text-xs w-20 text-right tabular-nums items-center whitespace-nowrap">
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </div>
-        </div>
+        <VideoLiveControls
+          className="flex items-center gap-2 w-full px-28 bg-background/80 p-2 rounded shadow z-10"
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          volume={volume}
+          autoRewind={autoRewind}
+          onToggleAutoRewind={() => setAutoRewind((prev) => !prev)}
+          onVolumeChange={handleVolumeChange}
+          onSeek={handleSeek}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onRestart={handleRestart}
+        />
       </div>
     )
   }
@@ -223,11 +148,3 @@ export const RenderMedia = () => {
   )
 }
 
-// Formatea segundos a mm:ss:ms (ms máximo 60)
-function formatTime(time: number) {
-  const minutes = Math.floor(time / 60)
-  const seconds = Math.floor(time % 60)
-  // Calcular centésimas de segundo (0-59)
-  const centiseconds = Math.floor((time - Math.floor(time)) * 60)
-  return `${minutes}:${seconds.toString().padStart(2, '0')}:${centiseconds.toString().padStart(2, '0')}`
-}

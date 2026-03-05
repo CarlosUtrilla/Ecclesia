@@ -110,6 +110,7 @@ MediaServerProvider          (top-level, sin dependencias)
 |--------|------|-------------|
 | `itemIndex` | `number` | Indice del slide actual |
 | `setItemIndex` | `function` | Cambia slide actual |
+| `liveContentVersion` | `number` | Versión incremental del envío a live (cambia en cada `showItemOnLiveScreen`) |
 | `itemOnLive` | `ScheduleItem \| null` | Item mostrandose en vivo |
 | `liveScreens` | `DisplayWithUsage[]` | Pantallas en modo live |
 | `showLiveScreen` | `boolean` | Si hay pantalla live activa |
@@ -122,6 +123,7 @@ MediaServerProvider          (top-level, sin dependencias)
 - Escucha `live-screen-ready` para saber cuando la ventana esta lista.
 - Tecla ESC cierra las pantallas live.
 - Depende de `useSchedule()` y `useDisplays()`.
+- `showItemOnLiveScreen` incrementa una versión (`liveContentVersion`) para que consumidores como `items-on-live` puedan refetchear contenido incluso al reenviar el mismo item.
 
 ### DragAndDropSchedule
 

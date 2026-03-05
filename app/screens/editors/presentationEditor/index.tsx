@@ -5,13 +5,15 @@ import { useParams } from 'react-router-dom'
 import {
   BookText,
   ChevronDown,
+  Palette,
   Minus,
   FileImage,
   Paperclip,
   Plus as PlusIcon,
   Plus,
   Save,
-  TextCursorInput
+  TextCursorInput,
+  Zap
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Media } from '@prisma/client'
@@ -35,9 +37,12 @@ import {
 import { Card } from '@/ui/card'
 import { Slider } from '@/ui/slider'
 import { Label } from '@/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
+import { BlankTheme, useThemes } from '@/hooks/useThemes'
 import { MediaPicker } from '@/screens/panels/library/media/exports'
 import AnimationSelector from '../themesEditor/animationSelector'
+import ThemePicker from './themePicker'
 import { PresentationSchema, PresentationFormValues } from './schema'
 import TextStyleToolbar from './components/textStyleToolbar'
 import BibleTextPicker from './bibleTextPicker'
@@ -61,6 +66,18 @@ import {
 } from './utils/slideUtils'
 import { BibleSlideControls, MediaSlideControls } from './components/slideControls'
 
+const getUniformThemeId = (slides: PresentationFormValues['slides']): number | null => {
+  if (slides.length === 0) return null
+
+  const themeIds = new Set<number | null>(
+    slides.map((slide) =>
+      slide.themeId === undefined || slide.themeId === null ? null : slide.themeId
+    )
+  )
+
+  return themeIds.size === 1 ? (Array.from(themeIds)[0] ?? null) : null
+}
+
 export default function PresentationEditor() {
   const { id } = useParams()
   const isCreating = !id || id === 'new'
@@ -75,8 +92,11 @@ export default function PresentationEditor() {
   const [isCanvasDragging, setIsCanvasDragging] = useState(false)
   const [animationPreviewKey, setAnimationPreviewKey] = useState(0)
   const [canvasZoom, setCanvasZoom] = useState(100)
+  const [globalThemeId, setGlobalThemeId] = useState<number | null>(null)
+  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false)
   const shouldSeedHistoryRef = useRef(false)
   const previewAreaRef = useRef<HTMLDivElement>(null)
+  const { themes } = useThemes()
 
   const form = useForm<PresentationFormValues>({
     resolver: zodResolver(PresentationSchema),
@@ -97,7 +117,15 @@ export default function PresentationEditor() {
 
   const title = watch('title')
   const slides = watch('slides')
+  const themeById = useMemo(() => new Map(themes.map((theme) => [theme.id, theme])), [themes])
+  const activePresentationTheme =
+    globalThemeId === null ? BlankTheme : (themeById.get(globalThemeId) ?? BlankTheme)
   const selectedSlide = slides[selectedSlideIndex]
+  const selectedSlideHasVideo = useMemo(() => {
+    if (!selectedSlide) return false
+    const items = ensureSlideItems(selectedSlide)
+    return items.some((item) => item.type === 'MEDIA')
+  }, [selectedSlide])
   const minCanvasZoom = 50
   const maxCanvasZoom = 200
   const zoomScale = canvasZoom / 100
@@ -147,6 +175,7 @@ export default function PresentationEditor() {
       const normalizedSlides = (presentation.slides as PresentationFormValues['slides']).map(
         (slide) => ({
           ...slide,
+          videoLiveBehavior: slide.videoLiveBehavior || 'manual',
           transitionSettings: slide.transitionSettings || defaultTransitionSettingsString,
           items: ensureSlideItems(slide)
         })
@@ -156,6 +185,7 @@ export default function PresentationEditor() {
         title: presentation.title,
         slides: normalizedSlides.length > 0 ? normalizedSlides : [createTextSlide()]
       })
+      setGlobalThemeId(getUniformThemeId(normalizedSlides))
       shouldSeedHistoryRef.current = true
 
       return presentation
@@ -273,6 +303,7 @@ export default function PresentationEditor() {
     selectedItem,
     selectedItemStyle,
     mediaPickerMode,
+    globalThemeId,
     slidesLength: slides.length,
     fieldsLength: fields.length,
     setValue,
@@ -346,6 +377,7 @@ export default function PresentationEditor() {
 
         return {
           ...slide,
+          videoLiveBehavior: slide.videoLiveBehavior || 'manual',
           transitionSettings: slide.transitionSettings || defaultTransitionSettingsString,
           items,
           type: (primary.type === 'MEDIA'
@@ -370,6 +402,18 @@ export default function PresentationEditor() {
     window.electron.ipcRenderer.send('presentation-saved')
     window.windowAPI.closeCurrentWindow()
   })
+
+  const applyGlobalTheme = (nextThemeId: number | null) => {
+    setGlobalThemeId(nextThemeId)
+    setValue(
+      'slides',
+      slides.map((slide) => ({
+        ...slide,
+        themeId: nextThemeId
+      })),
+      { shouldDirty: true }
+    )
+  }
 
   return (
     <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
@@ -433,12 +477,50 @@ export default function PresentationEditor() {
 
           {selectedSlide ? (
             <>
+              <div className="w-52">
+                <Label className="text-xs text-muted-foreground">Tema global:</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start gap-2 mt-1"
+                  onClick={() => setIsThemePickerOpen(true)}
+                >
+                  <Palette className="size-4" />
+                  {globalThemeId === null
+                    ? 'Sin tema'
+                    : (themes.find((theme) => theme.id === globalThemeId)?.name ??
+                      'Seleccionar tema')}
+                </Button>
+              </div>
               <div className="h-16 w-px mx-1 bg-border" />
               <AnimationSelector
                 settings={selectedSlideTransitionSettings}
                 onChange={handleSelectedSlideTransitionChange}
                 label="Transición slide:"
               />
+              <div className="w-44">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Zap className="size-3.5" />
+                  Video en live:
+                </Label>
+                <Select
+                  value={selectedSlide.videoLiveBehavior || 'manual'}
+                  onValueChange={(value: 'auto' | 'manual') => {
+                    setValue(`slides.${selectedSlideIndex}.videoLiveBehavior`, value, {
+                      shouldDirty: true
+                    })
+                  }}
+                >
+                  <SelectTrigger className="h-8" disabled={!selectedSlideHasVideo}>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Inicio manual</SelectItem>
+                    <SelectItem value="auto">Inicio automático</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </>
           ) : null}
 
@@ -526,6 +608,11 @@ export default function PresentationEditor() {
         ref={previewAreaRef as React.RefObject<HTMLDivElement>}
         className="flex-1 min-h-0 bg-muted flex items-center justify-center p-5 md:p-6 overflow-auto"
         onWheel={handleCanvasZoomByWheel}
+        onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setSelectedItemId(undefined)
+          }
+        }}
       >
         <div className="relative shrink-0 rounded-xl border border-border/60 bg-background/40 p-2 shadow-sm">
           <div
@@ -548,6 +635,7 @@ export default function PresentationEditor() {
                 <EditorCanvas
                   slide={selectedSlide}
                   mediaById={mediaById}
+                  theme={activePresentationTheme}
                   canvasScale={zoomScale}
                   animationPreviewKey={animationPreviewKey}
                   selectedItemId={selectedItemId}
@@ -595,6 +683,8 @@ export default function PresentationEditor() {
                       slide={slide}
                       index={index}
                       mediaById={mediaById}
+                      themeById={themeById}
+                      activeTheme={activePresentationTheme}
                       isSelected={selectedSlideIndex === index}
                       onSelect={() => {
                         setSelectedSlideIndex(index)
@@ -668,6 +758,14 @@ export default function PresentationEditor() {
         open={isBiblePickerOpen}
         onOpenChange={setIsBiblePickerOpen}
         onAddToPresentation={handleAddBibleToPresentation}
+      />
+
+      <ThemePicker
+        open={isThemePickerOpen}
+        onOpenChange={setIsThemePickerOpen}
+        themes={themes}
+        selectedThemeId={globalThemeId}
+        onSelect={applyGlobalTheme}
       />
     </div>
   )

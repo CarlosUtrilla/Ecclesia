@@ -24,6 +24,9 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
   const [selectedTheme, setSelectedTheme] = useState<ThemeWithMedia>(BlankTheme)
   const [itemIndex, setItemIndex] = useState(0)
   const [content, setContent] = useState<ContentScreen | null>(null)
+  const [presentationVerseBySlideKey, setPresentationVerseBySlideKey] = useState<
+    Record<string, number>
+  >({})
   const [themeKey, setThemeKey] = useState(0)
   const lastThemeTransitionSignatureRef = useRef(getThemeTransitionSignature(BlankTheme))
 
@@ -35,6 +38,7 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
         console.log('Received live screen update:', data)
         setItemIndex(data.itemIndex)
         setContent(data.contentScreen)
+        setPresentationVerseBySlideKey(data.presentationVerseBySlideKey || {})
       }
     )
     const unsuscribeThemes = window.electron.ipcRenderer.on(
@@ -70,6 +74,7 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
         theme={selectedTheme}
         currentIndex={itemIndex}
         themeTransitionKey={themeKey}
+        presentationVerseBySlideKey={presentationVerseBySlideKey}
         live
         displayId={displayId && !isPreview ? parseInt(displayId) : undefined}
       />

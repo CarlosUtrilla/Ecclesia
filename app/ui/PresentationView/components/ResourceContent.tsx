@@ -9,6 +9,8 @@ import { PresentationViewProps, TextBoundsValues } from '../types'
 type Props = {
   currentItem: PresentationViewProps['items'][number]
   isLive: boolean
+  currentIndex: number
+  presentationVerseBySlideKey?: Record<string, number>
   animationType: AnimationType
   variants: Variants
   textStyle: React.CSSProperties
@@ -41,6 +43,8 @@ type Props = {
 function ResourceContentComponent({
   currentItem,
   isLive,
+  currentIndex,
+  presentationVerseBySlideKey,
   animationType,
   variants,
   textStyle,
@@ -72,6 +76,10 @@ function ResourceContentComponent({
     return (
       <PresentationRender
         item={currentItem}
+        currentIndex={currentIndex}
+        presentationVerseBySlideKey={presentationVerseBySlideKey}
+        theme={theme}
+        smallFontSize={calculatedSmallFontSize}
         animationType={animationType}
         variants={variants}
         textStyle={textStyle}
@@ -140,6 +148,8 @@ function areResourceContentPropsEqual(prevProps: Props, nextProps: Props) {
   return (
     prevProps.currentItem === nextProps.currentItem &&
     prevProps.isLive === nextProps.isLive &&
+    prevProps.currentIndex === nextProps.currentIndex &&
+    prevProps.presentationVerseBySlideKey === nextProps.presentationVerseBySlideKey &&
     prevProps.animationType === nextProps.animationType &&
     prevProps.variants === nextProps.variants &&
     prevProps.textStyle === nextProps.textStyle &&

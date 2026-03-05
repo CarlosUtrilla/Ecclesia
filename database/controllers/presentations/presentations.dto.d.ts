@@ -1,4 +1,5 @@
 export type PresentationSlideType = 'TEXT' | 'BIBLE' | 'MEDIA'
+export type PresentationVideoLiveBehavior = 'auto' | 'manual'
 
 export type PresentationSlideItemType = 'TEXT' | 'BIBLE' | 'SONG' | 'MEDIA' | 'GROUP'
 
@@ -37,8 +38,10 @@ export type PresentationSlideTextStyle = {
 
 export type PresentationSlide = {
   id: string
+  themeId?: number | null
   items?: PresentationSlideItem[]
   transitionSettings?: string | PresentationItemAnimationSettings
+  videoLiveBehavior?: PresentationVideoLiveBehavior
   type: PresentationSlideType
   text?: string
   mediaId?: number

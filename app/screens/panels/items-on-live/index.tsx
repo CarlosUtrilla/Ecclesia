@@ -8,11 +8,14 @@ import { useState } from 'react'
 import { Button } from '@/ui/button'
 import { ViewModeTypes } from './types'
 import RenderGridMode from './components/RenderGridMode'
+import RenderPresentationLiveController from './components/RenderPresentationLiveController'
+import { useLive } from '../../../contexts/ScheduleContext/utils/liveContext'
 export default function LivePanel() {
   const { itemOnLive, getScheduleItemContentScreen } = useSchedule()
+  const { liveContentVersion } = useLive()
   const [viewMode, setViewMode] = useState<ViewModeTypes>('list')
   const { data } = useQuery({
-    queryKey: ['liveItemContent', itemOnLive?.accessData],
+    queryKey: ['liveItemContent', itemOnLive?.accessData, liveContentVersion],
     queryFn: () => {
       return getScheduleItemContentScreen(itemOnLive!)
     },
@@ -21,7 +24,11 @@ export default function LivePanel() {
 
   const renderContent = () => {
     const content = data!.content
-    if (viewMode === 'grid' && itemOnLive!.type !== 'MEDIA') {
+    if (
+      viewMode === 'grid' &&
+      itemOnLive!.type !== 'MEDIA' &&
+      itemOnLive!.type !== 'PRESENTATION'
+    ) {
       return <RenderGridMode data={content} />
     }
     switch (itemOnLive!.type) {
@@ -32,7 +39,7 @@ export default function LivePanel() {
       case 'MEDIA':
         return <RenderMedia />
       case 'PRESENTATION':
-        return <RenderGridMode data={content} />
+        return <RenderPresentationLiveController data={content} />
       default:
         return <div className="p-4 text-sm text-muted-foreground">Vista previa no disponible.</div>
     }
@@ -52,9 +59,9 @@ export default function LivePanel() {
                       ? 'Biblia'
                       : itemOnLive.type === 'MEDIA'
                         ? 'Multimedia'
-                            : itemOnLive.type === 'PRESENTATION'
-                              ? 'Presentación'
-                        : 'Otro contenido'}
+                        : itemOnLive.type === 'PRESENTATION'
+                          ? 'Presentación'
+                          : 'Otro contenido'}
                 </>
               ) : (
                 'Ningún elemento en vivo'

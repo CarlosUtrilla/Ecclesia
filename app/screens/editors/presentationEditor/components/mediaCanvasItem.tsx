@@ -43,21 +43,35 @@ export default function MediaCanvasItem({
         event.stopPropagation()
         onSelectItem(item.id)
       }}
-      onPointerDown={onStartMove}
+      onPointerDown={(event) => {
+        const target = event.target as HTMLElement
+        const videoElement = target.closest('video') as HTMLVideoElement | null
+        if (videoElement) {
+          const videoRect = videoElement.getBoundingClientRect()
+          const controlsZoneHeight = 44
+          const isInControlsZone = event.clientY >= videoRect.bottom - controlsZoneHeight
+
+          if (isInControlsZone) {
+            return
+          }
+        }
+        onStartMove(event)
+      }}
       handles={
         isSelected ? (
           <CanvasTransformHandles onStartRotate={onStartRotate} onStartResize={onStartResize} />
         ) : null
       }
     >
-      <div className="w-full h-full rounded-[inherit] overflow-hidden">
+      <div className="w-full h-full overflow-hidden">
         {mediaItem ? (
           mediaItem.type === 'VIDEO' ? (
             <video
               src={buildMediaUrl(mediaItem.filePath)}
-              className="w-full h-full object-contain pointer-events-none"
+              className="w-full h-full object-contain"
               muted
-              controls={false}
+              controls
+              playsInline
               preload="metadata"
             />
           ) : (

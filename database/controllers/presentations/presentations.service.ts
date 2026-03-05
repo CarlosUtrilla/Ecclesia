@@ -128,7 +128,12 @@ export class PresentationsService {
 
       return {
         id: slide?.id || `slide-${index}`,
+        themeId:
+          slide?.themeId === null || slide?.themeId === undefined
+            ? null
+            : Number(slide.themeId) || null,
         transitionSettings: slide?.transitionSettings || this.defaultTransitionSettings,
+        videoLiveBehavior: slide?.videoLiveBehavior === 'auto' ? 'auto' : 'manual',
         items: normalizedItems,
         ...this.buildLegacyShapeFromItem(firstItem),
         textStyle: slide?.textStyle

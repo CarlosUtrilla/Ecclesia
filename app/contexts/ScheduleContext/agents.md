@@ -16,7 +16,11 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
   - **indexDataItems.tsx**: Helpers para obtener iconos, etiquetas y contenido de items (canciones, medios, biblias).
     - Incluye soporte MVP para `PRESENTATION`: resuelve título, ícono y contenido por diapositiva.
     - Para slides legacy de tipo `MEDIA` y para slides mixtos (`items[]`), carga los `Media` requeridos y los mapea a `PresentationViewItems`.
+    - En ese mapeo también resuelve `themeId` por slide (desde `useThemes`) para que la proyección respete tema global de presentación cuando existe.
+    - Para PRESENTATION en live, conserva una diapositiva lógica por slide (sin expansión por rango) y delega el avance bíblico a un controlador interno de verso por slide.
+    - Escucha `presentation-saved` para refetch de queries de presentaciones/medios asociados al cronograma y evitar labels/previews desactualizados.
   - **liveContext.tsx**: Sub-contexto para gestión de pantallas en vivo y sincronización de contenido.
+    - Mantiene `presentationVerseBySlideKey` para sincronizar el verso activo de cada slide de presentación entre el panel `items-on-live` y las ventanas `live-screen`.
   - **LibraryItemPreview.tsx**: Vista previa de items durante drag & drop.
 
 ---
@@ -74,6 +78,7 @@ Ver detalles de implementación y convenciones en los agents de [schedule](../..
 - Sincroniza el contenido y tema visual en tiempo real con las pantallas conectadas.
 - Expone helpers para mostrar un item en vivo, cambiar de item, y actualizar el tema.
 - Escucha eventos IPC para saber cuándo las pantallas están listas o deben ocultarse.
+- Regla actual para `PRESENTATION`: en live se fuerza `BlankTheme` como base (fondo blanco) mientras no exista tema explícito por diapositiva; para otros tipos se mantiene `selectedTheme`.
 
 ### 4. Integración con recursos
 

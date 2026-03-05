@@ -27,3 +27,44 @@
 6. [ ] gestionar las pantalla de stage, e implementar en el editor de temas la opcion de poder usar recursos varios sobre la pantalla de stage, como un cronometro, una caja para mandar mensajes al predicador, un temporizador, un preview de la siguiente diapositiva, verso, letra, etc del recurso presentado en vivo, el tiempo del video que se esta viendo, etc, para que las personas de estage puedan ver lo necesario para comunicarse con ellos, al estilo vista del presentador de powerpoint pero con super mega poderes
 7. [ ] despues de resolver todos estos puntos debemos conseguir que los apuntadores (los que se usan para poner diapositiva siguiente y anteriir) sean compatibles con la app
 8. [ ] Guardar configuracion del layaout de como lo acomodo el usuario para que sea mas comodo para el, asi al abrir se abre tal cual lo dejo configurado y no tiene que mover de nuevo, lo mismo para el videMode del items-on-live, debe guardarse la preferencia del usuario
+
+## Nuevo requerimiento iniciado: controlador especial para PRESENTATION en items-on-live
+
+> Estado: MVP completado, pendiente persistencia/configuración avanzada
+
+### MVP (primera fase)
+
+1. [X] Crear un render específico para `PRESENTATION` en `items-on-live` (por ejemplo `RenderPresentationLiveController`) en lugar de usar directamente `RenderGridMode`.
+2. [X] Reutilizar internamente `RenderGridMode` para seleccionar visualmente la diapositiva activa que se enviará al live.
+3. [X] Agregar un controlador inferior siempre visible para presentaciones con:
+
+- botón `Anterior diapositiva`
+- botón `Siguiente diapositiva`
+- indicador de índice actual (`n / total`)
+
+1. [X] Detectar si la diapositiva activa contiene video y, solo en ese caso, mostrar controles de reproducción a un lado del controlador principal:
+
+- `Play`
+- `Pausa`
+- `Reiniciar`
+- barra de progreso/seek
+- control de volumen
+- UI compuesta y compartida con `RenderMedia` para mantener consistencia visual (`VideoLiveControls`)
+
+1. [X] Conectar la acción de avance de diapositiva con el flujo actual de live (`siguiente` desde controlador = comportamiento equivalente a avanzar slide en vivo).
+
+### Persistencia / configuración
+
+1. [X] Definir configuración por diapositiva (o por item de diapositiva) para comportamiento de video en live, por ejemplo:
+
+- iniciar automático al entrar en vivo
+- iniciar manualmente con play
+
+1. [X] Persistir esa configuración en los datos de presentación (DB) para que se conserve entre sesiones.
+2. [X] Exponer edición de esa configuración en el editor de presentaciones (toolbar de media y/o menú contextual).
+
+### Fase siguiente (versos en rango dentro de una slide)
+
+1. [X] Detectar slides con contenido bíblico en rango (ej. `Mateo 2:1-6`) y tratarlas como sub-pasos navegables.
+2. [X] Hacer que `Anterior/Siguiente` recorran versos internos cuando la slide activa tenga rango, antes de pasar a la siguiente diapositiva.
+3. [ ] Diseñar modelo de datos para sub-índice interno por slide (verso actual dentro del rango) y su sincronización en live.

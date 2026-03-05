@@ -18,6 +18,7 @@ export type PresentationViewProps = {
   theme: ThemeWithMedia
   live?: boolean
   currentIndex?: number
+  presentationVerseBySlideKey?: Record<string, number>
   themeTransitionKey?: number
   items: PresentationViewItems[]
   onClick?: (e?: React.MouseEvent) => void
@@ -25,6 +26,7 @@ export type PresentationViewProps = {
   tagSongId?: number | null
   className?: string
   displayId?: number
+  customAspectRatio?: string
   style?: React.CSSProperties
   showTextBounds?: boolean
   textBoundsIsSelected?: boolean
@@ -37,6 +39,8 @@ export type PresentationViewProps = {
 export type PresentationViewItems = {
   id?: string
   text: string
+  theme?: ThemeWithMedia
+  videoLiveBehavior?: 'auto' | 'manual'
   customStyle?: string
   animationSettings?: string
   transitionSettings?: string
@@ -46,6 +50,7 @@ export type PresentationViewItems = {
     name: string
     type: 'IMAGE' | 'VIDEO'
     filePath: string
+    duration?: number | null
     thumbnail?: string | null
     format?: string
   }
@@ -54,6 +59,7 @@ export type PresentationViewItems = {
     bookId: number
     chapter: number
     verse: number
+    verseEnd?: number
     version: string
   }
   resourceType: ScheduleItemType | 'TEXT'

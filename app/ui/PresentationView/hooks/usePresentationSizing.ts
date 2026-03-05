@@ -8,6 +8,7 @@ type UsePresentationSizingParams = {
   presentationHeight?: number
   maxHeight?: number
   displayId?: number
+  customAspectRatio?: string
 }
 
 export function usePresentationSizing({
@@ -15,7 +16,8 @@ export function usePresentationSizing({
   live,
   presentationHeight,
   maxHeight,
-  displayId
+  displayId,
+  customAspectRatio
 }: UsePresentationSizingParams) {
   const [lastMeasuredHeight, setLastMeasuredHeight] = useState(0)
   const { height = 0 } = useResizeObserver({
@@ -47,7 +49,27 @@ export function usePresentationSizing({
 
   const measuredHeight = height > 0 ? height : lastMeasuredHeight
   const effectiveHeight = measuredHeight || presentationHeight || maxHeight || 0
-  const screenSize = useScreenSize(effectiveHeight, displayId)
+  const defaultScreenSize = useScreenSize(effectiveHeight, displayId)
+
+  const parsedAspect = customAspectRatio
+    ?.split('/')
+    .map((part) => Number(part.trim()))
+    .filter((part) => Number.isFinite(part) && part > 0)
+
+  const hasValidCustomAspect = Boolean(parsedAspect && parsedAspect.length === 2)
+  const customAspectWidth = hasValidCustomAspect ? parsedAspect?.[0] || 16 : 16
+  const customAspectHeight = hasValidCustomAspect ? parsedAspect?.[1] || 9 : 9
+  const customAspectRatioCss = hasValidCustomAspect
+    ? `${customAspectWidth} / ${customAspectHeight}`
+    : defaultScreenSize.aspectRatio
+
+  const screenSize = hasValidCustomAspect
+    ? {
+        width: Math.round(effectiveHeight * (customAspectWidth / customAspectHeight)),
+        height: effectiveHeight,
+        aspectRatio: customAspectRatioCss
+      }
+    : defaultScreenSize
 
   return {
     screenSize,

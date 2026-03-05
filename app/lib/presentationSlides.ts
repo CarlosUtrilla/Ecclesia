@@ -1,9 +1,95 @@
 import { Media } from '@prisma/client'
 import { PresentationLayerItem, PresentationViewItems } from '@/ui/PresentationView/types'
+import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 import {
   PresentationSlide,
   PresentationSlideItem
 } from 'database/controllers/presentations/presentations.dto'
+
+const BASE_CANVAS_WIDTH = 1280
+const BASE_CANVAS_HEIGHT = 720
+const EDGE_CLAMP_THRESHOLD = 2
+
+const normalizeCanvasStyleToRelative = (customStyle?: string) => {
+  if (!customStyle) return customStyle
+
+  const declarations = customStyle
+    .split(';')
+    .map((declaration) => declaration.trim())
+    .filter(Boolean)
+
+  if (declarations.length === 0) return customStyle
+
+  const styleMap = declarations.reduce<Record<string, string>>((acc, declaration) => {
+    const [rawProperty, ...valueParts] = declaration.split(':')
+    const property = rawProperty?.trim()
+    const value = valueParts.join(':').trim()
+    if (!property || !value) return acc
+    acc[property] = value
+    return acc
+  }, {})
+
+  const leftPx = Number((styleMap.left || '').replace('px', '').trim())
+  const topPx = Number((styleMap.top || '').replace('px', '').trim())
+  const widthPx = Number((styleMap.width || '').replace('px', '').trim())
+  const heightPx = Number((styleMap.height || '').replace('px', '').trim())
+
+  const normalizedLeftPx =
+    Number.isFinite(leftPx) && Math.abs(leftPx) <= EDGE_CLAMP_THRESHOLD ? 0 : leftPx
+  const normalizedTopPx =
+    Number.isFinite(topPx) && Math.abs(topPx) <= EDGE_CLAMP_THRESHOLD ? 0 : topPx
+
+  let normalizedWidthPx = widthPx
+  let normalizedHeightPx = heightPx
+
+  if (
+    Number.isFinite(normalizedLeftPx) &&
+    Number.isFinite(widthPx) &&
+    Math.abs(BASE_CANVAS_WIDTH - (normalizedLeftPx + widthPx)) <= EDGE_CLAMP_THRESHOLD
+  ) {
+    normalizedWidthPx = BASE_CANVAS_WIDTH - normalizedLeftPx
+  }
+
+  if (
+    Number.isFinite(normalizedTopPx) &&
+    Number.isFinite(heightPx) &&
+    Math.abs(BASE_CANVAS_HEIGHT - (normalizedTopPx + heightPx)) <= EDGE_CLAMP_THRESHOLD
+  ) {
+    normalizedHeightPx = BASE_CANVAS_HEIGHT - normalizedTopPx
+  }
+
+  const nextDeclarations = declarations.map((declaration) => {
+    const [rawProperty, ...valueParts] = declaration.split(':')
+    const property = rawProperty?.trim().toLowerCase()
+    const value = valueParts.join(':').trim()
+
+    if (!property || !value) return declaration
+
+    if (property === 'left' && Number.isFinite(normalizedLeftPx)) {
+      const relative = (normalizedLeftPx / BASE_CANVAS_WIDTH) * 100
+      return `${property}: ${relative}%`
+    }
+
+    if (property === 'top' && Number.isFinite(normalizedTopPx)) {
+      const relative = (normalizedTopPx / BASE_CANVAS_HEIGHT) * 100
+      return `${property}: ${relative}%`
+    }
+
+    if (property === 'width' && Number.isFinite(normalizedWidthPx)) {
+      const relative = (normalizedWidthPx / BASE_CANVAS_WIDTH) * 100
+      return `${property}: ${relative}%`
+    }
+
+    if (property === 'height' && Number.isFinite(normalizedHeightPx)) {
+      const relative = (normalizedHeightPx / BASE_CANVAS_HEIGHT) * 100
+      return `${property}: ${relative}%`
+    }
+
+    return declaration
+  })
+
+  return nextDeclarations.join('; ')
+}
 
 const buildCustomStyle = (slide: PresentationSlide) => {
   if (!slide.textStyle) return ''
@@ -46,7 +132,7 @@ const buildMediaStyle = (slide: PresentationSlide) => {
 const parseBibleAccessData = (accessData?: string) => {
   if (!accessData) return undefined
   const [bookRaw, chapterRaw, verseRangeRaw, versionRaw] = accessData.split(',')
-  const [verseStartRaw] = (verseRangeRaw || '').split('-')
+  const [verseStartRaw, verseEndRaw] = (verseRangeRaw || '').split('-')
 
   const bookId = Number(bookRaw)
   const chapter = Number(chapterRaw)
@@ -60,6 +146,7 @@ const parseBibleAccessData = (accessData?: string) => {
     bookId,
     chapter,
     verse,
+    verseEnd: verseEndRaw ? Number(verseEndRaw) : undefined,
     version: versionRaw || 'RVR1960'
   }
 }
@@ -75,7 +162,7 @@ const mapPresentationItemToLayer = (
     return {
       id: item.id,
       text: '',
-      customStyle: item.customStyle,
+      customStyle: normalizeCanvasStyleToRelative(item.customStyle),
       animationSettings:
         typeof item.animationSettings === 'string'
           ? item.animationSettings
@@ -89,6 +176,7 @@ const mapPresentationItemToLayer = (
             name: media.name,
             type: media.type,
             filePath: media.filePath,
+            duration: media.duration,
             thumbnail: media.thumbnail,
             format: media.format
           }
@@ -100,7 +188,7 @@ const mapPresentationItemToLayer = (
   return {
     id: item.id,
     text: item.text || '',
-    customStyle: item.customStyle,
+    customStyle: normalizeCanvasStyleToRelative(item.customStyle),
     animationSettings:
       typeof item.animationSettings === 'string'
         ? item.animationSettings
@@ -116,8 +204,14 @@ const mapPresentationItemToLayer = (
 
 export const presentationSlideToViewItem = (
   slide: PresentationSlide,
-  mediaById: Map<number, Media>
+  mediaById: Map<number, Media>,
+  themeById?: Map<number, ThemeWithMedia>
 ): PresentationViewItems => {
+  const slideTheme =
+    slide.themeId !== undefined && slide.themeId !== null
+      ? themeById?.get(Number(slide.themeId))
+      : undefined
+
   if (Array.isArray(slide.items)) {
     const layeredItems = slide.items
       .map((item) => mapPresentationItemToLayer(item, mediaById))
@@ -126,12 +220,14 @@ export const presentationSlideToViewItem = (
     return {
       id: slide.id,
       text: '',
+      videoLiveBehavior: slide.videoLiveBehavior,
       transitionSettings:
         typeof slide.transitionSettings === 'string'
           ? slide.transitionSettings
           : slide.transitionSettings
             ? JSON.stringify(slide.transitionSettings)
             : undefined,
+      theme: slideTheme,
       resourceType: 'PRESENTATION',
       presentationItems: layeredItems
     }
@@ -144,12 +240,14 @@ export const presentationSlideToViewItem = (
       return {
         ...(media as unknown as PresentationViewItems),
         text: '',
+        videoLiveBehavior: slide.videoLiveBehavior,
         transitionSettings:
           typeof slide.transitionSettings === 'string'
             ? slide.transitionSettings
             : slide.transitionSettings
               ? JSON.stringify(slide.transitionSettings)
               : undefined,
+        theme: slideTheme,
         customStyle: buildMediaStyle(slide),
         resourceType: 'MEDIA'
       }
@@ -158,18 +256,21 @@ export const presentationSlideToViewItem = (
 
   return {
     text: slide.text || '',
+    videoLiveBehavior: slide.videoLiveBehavior,
     transitionSettings:
       typeof slide.transitionSettings === 'string'
         ? slide.transitionSettings
         : slide.transitionSettings
           ? JSON.stringify(slide.transitionSettings)
           : undefined,
+    theme: slideTheme,
     customStyle: buildCustomStyle(slide),
     verse: slide.bible
       ? {
           bookId: slide.bible.bookId,
           chapter: slide.bible.chapter,
           verse: slide.bible.verseStart,
+          verseEnd: slide.bible.verseEnd,
           version: slide.bible.version
         }
       : undefined,

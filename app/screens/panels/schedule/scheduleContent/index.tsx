@@ -2,7 +2,7 @@ import { Button } from '@/ui/button'
 import { AnimatePresence, m, LazyMotion, domAnimation } from 'framer-motion'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { Save, CalendarSearch, Upload } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ScheduleItem } from '@prisma/client'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
@@ -43,18 +43,28 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
   const previewRef = useReactRef<HTMLDivElement>(null)
   const themeSelectorRef = useReactRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    if (selectedItem) {
-      const fetchContent = async () => {
-        const content = await getScheduleItemContentScreen(selectedItem)
-        console.log(content)
-        setItemContent(content.content)
-      }
-      fetchContent()
-    } else {
+  const refreshSelectedItemContent = useCallback(async () => {
+    if (!selectedItem) {
       setItemContent(null)
+      return
     }
-  }, [selectedItem])
+
+    const content = await getScheduleItemContentScreen(selectedItem)
+    setItemContent(content.content)
+  }, [getScheduleItemContentScreen, selectedItem])
+
+  useEffect(() => {
+    refreshSelectedItemContent()
+  }, [refreshSelectedItemContent])
+
+  useEffect(() => {
+    const unsubscribe = window.electron.ipcRenderer.on('presentation-saved', () => {
+      if (selectedItem?.type !== 'PRESENTATION') return
+      refreshSelectedItemContent()
+    })
+
+    return unsubscribe
+  }, [refreshSelectedItemContent, selectedItem?.type])
 
   useLayoutEffect(() => {
     const el = document.getElementById('theme-selector') as HTMLDivElement

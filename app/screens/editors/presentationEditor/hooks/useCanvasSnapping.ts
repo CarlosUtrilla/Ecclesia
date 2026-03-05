@@ -112,13 +112,16 @@ export default function useCanvasSnapping({
   }
 
   const getPointerPositionInCanvas = (event: PointerEvent<HTMLDivElement>) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return { x: 0, y: 0 }
+    const container = containerRef.current
+    const rect = container?.getBoundingClientRect()
+    if (!container || !rect) return { x: 0, y: 0 }
     const safeScale = Number.isFinite(canvasScale) && canvasScale > 0 ? canvasScale : 1
+    const clientLeft = container.clientLeft
+    const clientTop = container.clientTop
 
     return {
-      x: (event.clientX - rect.left) / safeScale,
-      y: (event.clientY - rect.top) / safeScale
+      x: (event.clientX - (rect.left + clientLeft)) / safeScale,
+      y: (event.clientY - (rect.top + clientTop)) / safeScale
     }
   }
 
@@ -129,8 +132,8 @@ export default function useCanvasSnapping({
     width: number,
     height: number
   ): SnappedMovePosition => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) {
+    const container = containerRef.current
+    if (!container) {
       return {
         x: Math.round(proposedX),
         y: Math.round(proposedY),
@@ -142,8 +145,8 @@ export default function useCanvasSnapping({
     }
 
     const safeScale = Number.isFinite(canvasScale) && canvasScale > 0 ? canvasScale : 1
-    const baseWidth = rect.width / safeScale
-    const baseHeight = rect.height / safeScale
+    const baseWidth = container.clientWidth / safeScale
+    const baseHeight = container.clientHeight / safeScale
 
     const movingAnchorsX = [{ offset: 0 }, { offset: width / 2 }, { offset: width }]
     const movingAnchorsY = [{ offset: 0 }, { offset: height / 2 }, { offset: height }]

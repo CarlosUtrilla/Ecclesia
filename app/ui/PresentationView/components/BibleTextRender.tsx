@@ -194,8 +194,17 @@ export function BibleTextRender({
     return `<span style="font-size: ${smallFontSize}">${verseText}</span>`
   }, [verseText, smallFontSize])
 
+  const normalizedRawText = useMemo(() => {
+    const baseText = rawText || ''
+    if (!verse) return baseText
+    if (selectedBiblePresentationSettings?.showVerseNumber) return baseText
+
+    const versePrefixRegex = new RegExp(`^\\s*${verse.verse}\\.?\\s+`)
+    return baseText.replace(versePrefixRegex, '')
+  }, [rawText, verse, selectedBiblePresentationSettings?.showVerseNumber])
+
   const text = useMemo(() => {
-    let finalText = rawText || ''
+    let finalText = normalizedRawText
     if (verse && selectedBiblePresentationSettings?.showVerseNumber) {
       finalText = `${verse.verse} ${finalText}`
     }
@@ -218,7 +227,7 @@ export function BibleTextRender({
     }
 
     return finalText
-  }, [rawText, isScreenModeVerse, verse, formattedVerseText, selectedBiblePresentationSettings])
+  }, [normalizedRawText, isScreenModeVerse, verse, formattedVerseText, selectedBiblePresentationSettings])
 
   const verseTextStyle = useMemo(
     () => ({

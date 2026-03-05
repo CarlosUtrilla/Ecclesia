@@ -39,6 +39,7 @@ type Params = {
   selectedItem: PresentationSlideItem | undefined
   selectedItemStyle: CanvasItemStyle | undefined
   mediaPickerMode: 'insert-current' | 'replace-current'
+  globalThemeId: number | null
   slidesLength: number
   fieldsLength: number
   setValue: UseFormSetValue<PresentationFormValues>
@@ -60,6 +61,7 @@ export default function usePresentationEditorActions({
   selectedItem,
   selectedItemStyle,
   mediaPickerMode,
+  globalThemeId,
   slidesLength,
   fieldsLength,
   setValue,
@@ -218,7 +220,7 @@ export default function usePresentationEditorActions({
 
   const handleSelectMedia = (selectedMedia: PickerMedia) => {
     if (!selectedSlide) {
-      appendSlide(createMediaSlide(selectedMedia.id))
+      appendSlide(createMediaSlide(selectedMedia.id, globalThemeId))
       setSelectedSlideIndex(fieldsLength)
       return
     }
@@ -256,7 +258,7 @@ export default function usePresentationEditorActions({
   }
 
   const addEmptySlide = () => {
-    appendSlide(createTextSlide())
+    appendSlide(createTextSlide(globalThemeId))
     setSelectedSlideIndex(slidesLength)
   }
 
@@ -318,7 +320,7 @@ export default function usePresentationEditorActions({
   }
 
   const removeItemById = (itemId: string) => {
-    if (!selectedSlide?.items || selectedSlide.items.length <= 1) return
+    if (!selectedSlide?.items) return
     const nextItems = selectedSlide.items.filter((item) => item.id !== itemId)
     setValue(`slides.${selectedSlideIndex}.items`, nextItems, { shouldDirty: true })
     setSelectedItemId(nextItems[nextItems.length - 1]?.id)

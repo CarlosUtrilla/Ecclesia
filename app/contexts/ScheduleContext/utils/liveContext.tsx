@@ -3,6 +3,7 @@ import { ContentScreen, ILiveContext } from '../types'
 import { useSchedule } from '..'
 import { DisplayWithUsage, useDisplays } from '../../displayContext'
 import { ScheduleItem } from '@prisma/client'
+import { BlankTheme } from '@/hooks/useThemes'
 
 // Extensión: stub para sincronización de media
 type LiveMediaState = { action: 'play' | 'pause' | 'seek' | 'restart'; time: number }
@@ -18,6 +19,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const { displays, mainDisplay } = useDisplays()
   const [itemIndex, setItemIndex] = useState(0)
   const [showLiveScreen, setShowLiveScreen] = useState(false)
+  const [presentationVerseBySlideKey, setPresentationVerseBySlideKeyState] = useState<
+    Record<string, number>
+  >({})
   const [liveScreens, setLiveScreens] = useState<DisplayWithUsage[]>([])
   const [contentScreen, setContentScreen] = useState<ContentScreen | null>(null)
   const [windowsLiveScreenOpens, setWindowsLiveScreenOpens] = useState<number[]>([])
@@ -91,7 +95,8 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     const sendUpdateToLiveScreens = async () => {
       await window.displayAPI.updateLiveScreenContent({
         itemIndex,
-        contentScreen
+        contentScreen,
+        presentationVerseBySlideKey
       })
     }
     sendUpdateToLiveScreens()
@@ -99,6 +104,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     itemIndex,
     itemOnLive,
     contentScreen,
+    presentationVerseBySlideKey,
     windowsLiveScreenOpens,
     liveScreensReady,
     showedItemKey
@@ -112,10 +118,11 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     }
     console.log('Sending theme update to live screens')
     const sendThemeToLiveScreens = async () => {
-      await window.displayAPI.updateLiveScreenTheme(selectedTheme)
+      const liveTheme = itemOnLive?.type === 'PRESENTATION' ? BlankTheme : selectedTheme
+      await window.displayAPI.updateLiveScreenTheme(liveTheme)
     }
     sendThemeToLiveScreens()
-  }, [showLiveScreen, windowsLiveScreenOpens, liveScreensReady, showedItemKey])
+  }, [showLiveScreen, windowsLiveScreenOpens, liveScreensReady, showedItemKey, itemOnLive])
 
   useEffect(() => {
     if (!showLiveScreen) return
@@ -131,17 +138,30 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   }, [showLiveScreen])
 
   const showItemOnLiveScreen = async (item: ScheduleItem, index?: number) => {
-    setItemOnLive(item)
+    setItemOnLive({ ...item })
+    setPresentationVerseBySlideKeyState({})
     if (typeof index === 'number') {
       setItemIndex(index)
     }
     setShowedItemKey((prev) => prev + 1)
   }
+
+  const setPresentationVerseBySlideKey: ILiveContext['setPresentationVerseBySlideKey'] = (
+    updater
+  ) => {
+    setPresentationVerseBySlideKeyState((previous) =>
+      typeof updater === 'function' ? updater(previous) : updater
+    )
+  }
+
   return (
     <LiveContext.Provider
       value={{
         itemIndex,
         setItemIndex,
+        liveContentVersion: showedItemKey,
+        presentationVerseBySlideKey,
+        setPresentationVerseBySlideKey,
         itemOnLive,
         liveScreens,
         showLiveScreen,

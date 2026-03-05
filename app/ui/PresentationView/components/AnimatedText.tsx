@@ -62,6 +62,7 @@ function AnimatedTextComponent({
   onEditableTargetSelect
 }: AnimatedTextProps) {
   const { text: rawText } = item
+  const text = rawText || ''
 
   const shouldShowBounds = showTextBounds && textBoundsIsSelected
 
@@ -86,7 +87,6 @@ function AnimatedTextComponent({
     onTextBoundsChange
   })
 
-  const text = rawText || ''
   const sanitizedText = useMemo(() => sanitizeHTML(text), [text])
 
   const splitSanitizedLines = useMemo(
@@ -114,6 +114,7 @@ function AnimatedTextComponent({
           animate="animate"
           exit="exit"
           style={textStyle}
+          className="w-full"
         >
           {splitSanitizedLines.map((words, lineIndex) => (
             <div key={lineIndex}>

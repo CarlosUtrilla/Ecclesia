@@ -43,7 +43,10 @@ app/screens/panels/library/
     ├── verseSearch.tsx        # Busqueda rapida: Libro Cap. Vers.
     └── viewVerses.tsx         # Lista de versiculos con seleccion multiple y drag
 └── presentations/
-    └── index.tsx              # PresentationsPanel: lista, preview, drag & drop y acciones CRUD
+    ├── index.tsx              # PresentationsPanel: composición principal (búsqueda + lista + preview)
+    └── components/
+        ├── PresentationLibraryItem.tsx  # Item draggable/context menu de presentación
+        └── PresentationPreview.tsx      # Preview lateral de diapositivas de presentación
 ```
 
 ## Songs (Canciones)
@@ -151,6 +154,8 @@ Los tres tipos de items de biblioteca son draggables con dnd-kit:
 - Acciones por context menu: editar, añadir al cronograma, presentar en vivo y eliminar.
 - Preview lateral con miniaturas de diapositivas usando `PresentationView`.
 - En previews, resuelve medios de slides legacy y de slides mixtos (`items[]` con `type: 'MEDIA'`) para renderizar capas correctamente.
+- En previews, también resuelve `themeId` por diapositiva para que miniaturas de presentación reflejen el tema global guardado (si existe).
+- Escucha `presentation-saved` para refrescar la lista de presentaciones y el mapeo de medios del preview en caliente.
 
 El `DragAndDropSchedule` (en ScheduleContext) detecta estos drags y los inserta en el cronograma.
 

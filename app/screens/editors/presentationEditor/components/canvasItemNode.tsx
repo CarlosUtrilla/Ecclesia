@@ -1,5 +1,6 @@
 import { PointerEvent } from 'react'
 import { Media } from '@prisma/client'
+import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { PresentationSlideItem, CanvasItemStyle } from '../utils/slideUtils'
 import CanvasItemContextMenu from './canvasItemContextMenu'
 import CanvasTransformHandles, { ResizeHandle } from './canvasTransformHandles'
@@ -18,6 +19,7 @@ type Props = {
   isDragging: boolean
   isRotating: boolean
   animationPreviewKey?: number
+  theme: ThemeWithMedia
   onSelectItem: (itemId: string) => void
   onSetEditingItemId: (itemId: string | null) => void
   onStartDrag: (
@@ -31,6 +33,8 @@ type Props = {
   onDeleteItem?: (itemId: string) => void
   onLayerUpItem?: (itemId: string) => void
   onLayerDownItem?: (itemId: string) => void
+  persistedVerse?: number
+  onPersistVerse?: (nextVerse: number) => void
 }
 
 export default function CanvasItemNode({
@@ -43,6 +47,7 @@ export default function CanvasItemNode({
   isDragging,
   isRotating,
   animationPreviewKey = 0,
+  theme,
   onSelectItem,
   onSetEditingItemId,
   onStartDrag,
@@ -50,11 +55,20 @@ export default function CanvasItemNode({
   onDuplicateItem,
   onDeleteItem,
   onLayerUpItem,
-  onLayerDownItem
+  onLayerDownItem,
+  persistedVerse,
+  onPersistVerse
 }: Props) {
   const withSelection = (action?: (itemId: string) => void) => () => {
     onSelectItem(item.id)
     action?.(item.id)
+  }
+
+  const requestTextEdit = () => {
+    onSelectItem(item.id)
+    queueMicrotask(() => {
+      onSetEditingItemId(item.id)
+    })
   }
 
   if (item.type === 'MEDIA') {
@@ -68,28 +82,27 @@ export default function CanvasItemNode({
         onDuplicate={withSelection(onDuplicateItem)}
         onDelete={withSelection(onDeleteItem)}
       >
-        <MediaCanvasItem
-          item={item}
-          style={style}
-          mediaItem={mediaItem}
-          isSelected={isSelected}
-          isRotating={isRotating}
-          highlightSnapTarget={isSnapTarget}
-          onSelectItem={onSelectItem}
-          onStartMove={(event) => onStartDrag(event, item, 'move')}
-          onStartRotate={(event) => onStartDrag(event, item, 'rotate')}
-          onStartResize={(event, corner) => onStartDrag(event, item, 'resize', corner)}
-        />
+        <div>
+          <MediaCanvasItem
+            item={item}
+            style={style}
+            mediaItem={mediaItem}
+            isSelected={isSelected}
+            isRotating={isRotating}
+            highlightSnapTarget={isSnapTarget}
+            onSelectItem={onSelectItem}
+            onStartMove={(event) => onStartDrag(event, item, 'move')}
+            onStartRotate={(event) => onStartDrag(event, item, 'rotate')}
+            onStartResize={(event, corner) => onStartDrag(event, item, 'resize', corner)}
+          />
+        </div>
       </CanvasItemContextMenu>
     )
   }
 
   return (
     <CanvasItemContextMenu
-      onEditText={() => {
-        onSelectItem(item.id)
-        onSetEditingItemId(item.id)
-      }}
+      onEditText={item.type === 'TEXT' ? requestTextEdit : undefined}
       onLayerUp={withSelection(onLayerUpItem)}
       onLayerDown={withSelection(onLayerDownItem)}
       onDuplicate={withSelection(onDuplicateItem)}
@@ -108,13 +121,17 @@ export default function CanvasItemNode({
           isDragging={isDragging}
           isRotating={isRotating}
           animationPreviewKey={animationPreviewKey}
+          theme={theme}
+          isEditable={item.type === 'TEXT'}
           highlightSnapTarget={isSnapTarget}
           isEditing={isEditingText}
           onSelect={() => onSelectItem(item.id)}
           onStartMove={(event) => onStartDrag(event, item, 'move')}
-          onRequestEdit={() => onSetEditingItemId(item.id)}
+          onRequestEdit={requestTextEdit}
           onExitEdit={() => onSetEditingItemId(null)}
           onTextChange={(nextText) => onItemTextChange?.(item.id, nextText)}
+          persistedVerse={persistedVerse}
+          onPersistVerse={onPersistVerse}
           handles={
             isSelected ? (
               <CanvasTransformHandles

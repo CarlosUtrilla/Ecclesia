@@ -28,7 +28,8 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
   const [selectedVersion, setSelectedVersion] = useState('RVR1960')
   const [selectedBook, setSelectedBook] = useState(43)
   const [selectedChapter, setSelectedChapter] = useState(3)
-  const [selectedVerse, setSelectedVerse] = useState<number>(16)
+  const [selectedVerseStart, setSelectedVerseStart] = useState<number>(16)
+  const [selectedVerseEnd, setSelectedVerseEnd] = useState<number>(16)
 
   const selectedBookData = useMemo(
     () => bibleSchema.find((book) => book.book_id === selectedBook),
@@ -50,28 +51,52 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
   const handleChangeBook = (bookId: number) => {
     setSelectedBook(bookId)
     setSelectedChapter(1)
-    setSelectedVerse(1)
+    setSelectedVerseStart(1)
+    setSelectedVerseEnd(1)
   }
 
   const handleChangeChapter = (chapter: number) => {
     setSelectedChapter(chapter)
-    setSelectedVerse(1)
+    setSelectedVerseStart(1)
+    setSelectedVerseEnd(1)
   }
 
-  const handleVerseClick = (verseNumber: number) => {
-    setSelectedVerse(verseNumber)
+  const handleVerseClick = (verseNumber: number, useRangeExtension = false) => {
+    if (useRangeExtension) {
+      setSelectedVerseEnd(verseNumber)
+      return
+    }
+
+    setSelectedVerseStart(verseNumber)
+    setSelectedVerseEnd(verseNumber)
   }
+
+  const verseRange = useMemo(() => {
+    const start = Math.min(selectedVerseStart, selectedVerseEnd)
+    const end = Math.max(selectedVerseStart, selectedVerseEnd)
+    return { start, end }
+  }, [selectedVerseStart, selectedVerseEnd])
+
+  const selectedVerses = useMemo(
+    () =>
+      completeChapter.filter(
+        (verse) => verse.verse >= verseRange.start && verse.verse <= verseRange.end
+      ),
+    [completeChapter, verseRange.end, verseRange.start]
+  )
 
   const handleAdd = () => {
-    const selectedVerseItem = completeChapter.find((verse) => verse.verse === selectedVerse)
-    if (!selectedVerseItem) return
+    if (selectedVerses.length === 0) return
 
-    const text = `${selectedVerseItem.verse}. ${selectedVerseItem.text}`
+    const text = selectedVerses.map((verse) => `${verse.verse}. ${verse.text}`).join('<br/>')
+    const startVerse = selectedVerses[0].verse
+    const endVerse = selectedVerses[selectedVerses.length - 1].verse
 
     onAddToPresentation({
       bookId: selectedBook,
       chapter: selectedChapter,
-      verseStart: selectedVerseItem.verse,
+      verseStart: startVerse,
+      verseEnd: endVerse > startVerse ? endVerse : undefined,
       version: selectedVersion,
       text
     })
@@ -91,11 +116,13 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
             <VerseSearch
               book={selectedBook}
               cap={String(selectedChapter)}
-              vers={String(selectedVerse || 1)}
+              vers={String(selectedVerseStart || 1)}
               onChaneVerseSearch={(book, cap, vers) => {
                 setSelectedBook(book)
                 setSelectedChapter(Number(cap || 1))
-                setSelectedVerse(Number(vers || 1))
+                const parsedVerse = Number(vers || 1)
+                setSelectedVerseStart(parsedVerse)
+                setSelectedVerseEnd(parsedVerse)
               }}
             />
 
@@ -168,12 +195,13 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
                   className={cn(
                     'flex border-b py-0.5 items-baseline hover:bg-muted/40 cursor-pointer',
                     {
-                      'bg-secondary/20 hover:bg-secondary/10': selectedVerse === verse.verse
+                      'bg-secondary/20 hover:bg-secondary/10':
+                        verse.verse >= verseRange.start && verse.verse <= verseRange.end
                     }
                   )}
                   role="button"
                   tabIndex={0}
-                  onClick={() => handleVerseClick(verse.verse)}
+                  onClick={(event) => handleVerseClick(verse.verse, event.shiftKey)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault()
@@ -193,14 +221,15 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
 
         <div className="border-t px-4 py-3 flex items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">
-            Verso seleccionado: {selectedBookData?.book || `Libro ${selectedBook}`}{' '}
-            {selectedChapter}:{selectedVerse || 1} ({selectedVersion})
+            Versos seleccionados: {selectedBookData?.book || `Libro ${selectedBook}`}{' '}
+            {selectedChapter}:{verseRange.start}
+            {verseRange.end > verseRange.start ? `-${verseRange.end}` : ''} ({selectedVersion})
           </p>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleAdd} disabled={!selectedVerse}>
+            <Button onClick={handleAdd} disabled={selectedVerses.length === 0}>
               Agregar a la presentación
             </Button>
           </div>

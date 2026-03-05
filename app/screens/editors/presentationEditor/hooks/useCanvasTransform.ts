@@ -57,6 +57,8 @@ export default function useCanvasTransform({
   getPointerPositionInCanvas,
   getSnappedMovePosition
 }: Params) {
+  const resizeSnapThreshold = 12
+
   const pendingStyleUpdateRef = useRef<{ itemId: string; next: Partial<CanvasItemStyle> } | null>(
     null
   )
@@ -136,24 +138,74 @@ export default function useCanvasTransform({
     }
 
     if (activeDrag.mode === 'resize') {
-      clearSnapGuides()
+      const boundsWidth = event.currentTarget.clientWidth / safeScale
+      const boundsHeight = event.currentTarget.clientHeight / safeScale
+
+      const getSnappedEdge = (value: number, max: number) => {
+        if (event.altKey) {
+          return { value, guide: null as number | null }
+        }
+
+        if (Math.abs(value) <= resizeSnapThreshold) {
+          return { value: 0, guide: 0 }
+        }
+
+        if (Math.abs(max - value) <= resizeSnapThreshold) {
+          return { value: max, guide: max }
+        }
+
+        return { value, guide: null as number | null }
+      }
+
+      const syncResizeGuides = (
+        guideX: number | null,
+        guideY: number | null,
+        nextX: number,
+        nextY: number
+      ) => {
+        if (guideX === null && guideY === null) {
+          clearSnapGuides()
+          return
+        }
+
+        syncSnapGuides({
+          x: Math.round(nextX),
+          y: Math.round(nextY),
+          guideX,
+          guideY,
+          guideXSource: guideX !== null ? 'slide' : null,
+          guideYSource: guideY !== null ? 'slide' : null,
+          guideXTargetItemId: undefined,
+          guideYTargetItemId: undefined
+        })
+      }
 
       const corner = activeDrag.resizeCorner || 'bottom-right'
       const minWidth = 80
       const minHeight = 60
+      const initialLeft = activeDrag.initialStyle.x
+      const initialTop = activeDrag.initialStyle.y
+      const initialRight = activeDrag.initialStyle.x + activeDrag.initialStyle.width
+      const initialBottom = activeDrag.initialStyle.y + activeDrag.initialStyle.height
 
       if (corner === 'right') {
+        const proposedRight = initialRight + deltaX
+        const snappedRight = getSnappedEdge(proposedRight, boundsWidth)
+        const nextWidth = Math.max(minWidth, Math.round(snappedRight.value - initialLeft))
+        syncResizeGuides(snappedRight.guide, null, initialLeft, initialTop)
+
         scheduleStyleUpdate(activeDrag.itemId, {
-          width: Math.max(minWidth, Math.round(activeDrag.initialStyle.width + deltaX))
+          width: nextWidth
         })
         return
       }
 
       if (corner === 'left') {
-        const nextWidth = Math.max(minWidth, Math.round(activeDrag.initialStyle.width - deltaX))
-        const nextX = Math.round(
-          activeDrag.initialStyle.x + (activeDrag.initialStyle.width - nextWidth)
-        )
+        const proposedLeft = initialLeft + deltaX
+        const snappedLeft = getSnappedEdge(proposedLeft, boundsWidth)
+        const nextWidth = Math.max(minWidth, Math.round(initialRight - snappedLeft.value))
+        const nextX = Math.round(initialRight - nextWidth)
+        syncResizeGuides(snappedLeft.guide, null, nextX, initialTop)
 
         scheduleStyleUpdate(activeDrag.itemId, {
           x: nextX,
@@ -163,17 +215,23 @@ export default function useCanvasTransform({
       }
 
       if (corner === 'bottom') {
+        const proposedBottom = initialBottom + deltaY
+        const snappedBottom = getSnappedEdge(proposedBottom, boundsHeight)
+        const nextHeight = Math.max(minHeight, Math.round(snappedBottom.value - initialTop))
+        syncResizeGuides(null, snappedBottom.guide, initialLeft, initialTop)
+
         scheduleStyleUpdate(activeDrag.itemId, {
-          height: Math.max(minHeight, Math.round(activeDrag.initialStyle.height + deltaY))
+          height: nextHeight
         })
         return
       }
 
       if (corner === 'top') {
-        const nextHeight = Math.max(minHeight, Math.round(activeDrag.initialStyle.height - deltaY))
-        const nextY = Math.round(
-          activeDrag.initialStyle.y + (activeDrag.initialStyle.height - nextHeight)
-        )
+        const proposedTop = initialTop + deltaY
+        const snappedTop = getSnappedEdge(proposedTop, boundsHeight)
+        const nextHeight = Math.max(minHeight, Math.round(initialBottom - snappedTop.value))
+        const nextY = Math.round(initialBottom - nextHeight)
+        syncResizeGuides(null, snappedTop.guide, initialLeft, nextY)
 
         scheduleStyleUpdate(activeDrag.itemId, {
           y: nextY,
@@ -183,49 +241,66 @@ export default function useCanvasTransform({
       }
 
       if (corner === 'bottom-right') {
-        scheduleStyleUpdate(activeDrag.itemId, {
-          width: Math.max(minWidth, Math.round(activeDrag.initialStyle.width + deltaX)),
-          height: Math.max(minHeight, Math.round(activeDrag.initialStyle.height + deltaY))
-        })
-        return
-      }
-
-      if (corner === 'bottom-left') {
-        const nextWidth = Math.max(minWidth, Math.round(activeDrag.initialStyle.width - deltaX))
-        const nextX = Math.round(
-          activeDrag.initialStyle.x + (activeDrag.initialStyle.width - nextWidth)
-        )
+        const proposedRight = initialRight + deltaX
+        const proposedBottom = initialBottom + deltaY
+        const snappedRight = getSnappedEdge(proposedRight, boundsWidth)
+        const snappedBottom = getSnappedEdge(proposedBottom, boundsHeight)
+        const nextWidth = Math.max(minWidth, Math.round(snappedRight.value - initialLeft))
+        const nextHeight = Math.max(minHeight, Math.round(snappedBottom.value - initialTop))
+        syncResizeGuides(snappedRight.guide, snappedBottom.guide, initialLeft, initialTop)
 
         scheduleStyleUpdate(activeDrag.itemId, {
-          x: nextX,
           width: nextWidth,
-          height: Math.max(minHeight, Math.round(activeDrag.initialStyle.height + deltaY))
-        })
-        return
-      }
-
-      if (corner === 'top-right') {
-        const nextHeight = Math.max(minHeight, Math.round(activeDrag.initialStyle.height - deltaY))
-        const nextY = Math.round(
-          activeDrag.initialStyle.y + (activeDrag.initialStyle.height - nextHeight)
-        )
-
-        scheduleStyleUpdate(activeDrag.itemId, {
-          y: nextY,
-          width: Math.max(minWidth, Math.round(activeDrag.initialStyle.width + deltaX)),
           height: nextHeight
         })
         return
       }
 
-      const nextWidth = Math.max(minWidth, Math.round(activeDrag.initialStyle.width - deltaX))
-      const nextHeight = Math.max(minHeight, Math.round(activeDrag.initialStyle.height - deltaY))
-      const nextX = Math.round(
-        activeDrag.initialStyle.x + (activeDrag.initialStyle.width - nextWidth)
-      )
-      const nextY = Math.round(
-        activeDrag.initialStyle.y + (activeDrag.initialStyle.height - nextHeight)
-      )
+      if (corner === 'bottom-left') {
+        const proposedLeft = initialLeft + deltaX
+        const proposedBottom = initialBottom + deltaY
+        const snappedLeft = getSnappedEdge(proposedLeft, boundsWidth)
+        const snappedBottom = getSnappedEdge(proposedBottom, boundsHeight)
+        const nextWidth = Math.max(minWidth, Math.round(initialRight - snappedLeft.value))
+        const nextX = Math.round(initialRight - nextWidth)
+        const nextHeight = Math.max(minHeight, Math.round(snappedBottom.value - initialTop))
+        syncResizeGuides(snappedLeft.guide, snappedBottom.guide, nextX, initialTop)
+
+        scheduleStyleUpdate(activeDrag.itemId, {
+          x: nextX,
+          width: nextWidth,
+          height: nextHeight
+        })
+        return
+      }
+
+      if (corner === 'top-right') {
+        const proposedTop = initialTop + deltaY
+        const proposedRight = initialRight + deltaX
+        const snappedTop = getSnappedEdge(proposedTop, boundsHeight)
+        const snappedRight = getSnappedEdge(proposedRight, boundsWidth)
+        const nextHeight = Math.max(minHeight, Math.round(initialBottom - snappedTop.value))
+        const nextY = Math.round(initialBottom - nextHeight)
+        const nextWidth = Math.max(minWidth, Math.round(snappedRight.value - initialLeft))
+        syncResizeGuides(snappedRight.guide, snappedTop.guide, initialLeft, nextY)
+
+        scheduleStyleUpdate(activeDrag.itemId, {
+          y: nextY,
+          width: nextWidth,
+          height: nextHeight
+        })
+        return
+      }
+
+      const proposedLeft = initialLeft + deltaX
+      const proposedTop = initialTop + deltaY
+      const snappedLeft = getSnappedEdge(proposedLeft, boundsWidth)
+      const snappedTop = getSnappedEdge(proposedTop, boundsHeight)
+      const nextWidth = Math.max(minWidth, Math.round(initialRight - snappedLeft.value))
+      const nextHeight = Math.max(minHeight, Math.round(initialBottom - snappedTop.value))
+      const nextX = Math.round(initialRight - nextWidth)
+      const nextY = Math.round(initialBottom - nextHeight)
+      syncResizeGuides(snappedLeft.guide, snappedTop.guide, nextX, nextY)
 
       scheduleStyleUpdate(activeDrag.itemId, {
         x: nextX,

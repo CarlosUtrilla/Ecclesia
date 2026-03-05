@@ -60,6 +60,7 @@ type Props = {
   onBibleVersePositionChange: PresentationViewProps['onBibleVersePositionChange']
   onEditableTargetSelect: PresentationViewProps['onEditableTargetSelect']
   currentIndex: number
+  presentationVerseBySlideKey?: Record<string, number>
 }
 
 function PresentationBodyComponent({
@@ -97,7 +98,8 @@ function PresentationBodyComponent({
   onTextBoundsChange,
   onBibleVersePositionChange,
   onEditableTargetSelect,
-  currentIndex
+  currentIndex,
+  presentationVerseBySlideKey
 }: Props) {
   const backgroundLayer = !isMediaItem ? (
     <>
@@ -156,6 +158,8 @@ function PresentationBodyComponent({
       <ResourceContent
         currentItem={currentItem}
         isLive={live}
+        currentIndex={currentIndex}
+        presentationVerseBySlideKey={presentationVerseBySlideKey}
         animationType={animationType}
         variants={variants}
         textStyle={textStyle}
@@ -253,7 +257,8 @@ function arePresentationBodyPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
     prevProps.onBibleVersePositionChange === nextProps.onBibleVersePositionChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
-    prevProps.currentIndex === nextProps.currentIndex
+    prevProps.currentIndex === nextProps.currentIndex &&
+    prevProps.presentationVerseBySlideKey === nextProps.presentationVerseBySlideKey
   )
 }
 

@@ -92,14 +92,18 @@ interface PresentationViewProps {
   className?: string
   style?: React.CSSProperties
   displayId?: string                 // ID del display para calcular aspect ratio
+  customAspectRatio?: string         // Aspect ratio opcional (ej. "16 / 9") para forzar cálculo relativo
 }
 
 interface PresentationViewItems {
   text: string                       // Contenido HTML del slide
+  videoLiveBehavior?: 'auto' | 'manual' // Preferencia por diapositiva para reproducción de video en live
+  media?: { duration?: number | null }   // Metadata opcional para fallback de duración en controladores live
   verse?: {                          // Datos de versiculo (opcional)
     bookId: number
     chapter: number
     verse: string
+    verseEnd?: number
     version: string
   }
 }
@@ -129,11 +133,18 @@ PresentationView (index.tsx)
 ```
 
 - `PresentationRender` interpreta `presentationItems` ordenados por `layer` y aplica `animationSettings` por item para entradas independientes.
+- En `PresentationRender`, los layers de texto se renderizan mediante `AnimatedText` (preview y live), en lugar de HTML crudo, para mantener consistencia de sanitización, alineación y animación con el resto del sistema.
+- En `PresentationRender`, cuando un layer es bíblico (`resourceType: 'BIBLE'`) y contiene rango, el texto se resuelve con el verso activo provisto por `presentationVerseBySlideKey`, manteniendo un único slide lógico con contenido dinámico.
+- Los layers bíblicos de `PRESENTATION` usan `BibleTextRender` para respetar la configuración de ubicación/formato del versículo: primero configuración global (`useDefaultBibleSettings`), y si el tema de la diapositiva define settings propios, se usan esos.
+- En `PresentationRender`, los layers de texto heredan `textStyle` desde `usePresentationTextLayout` y aplican overrides de `customStyle`; para tipografía por layer (`font-size`, `line-height`, `letter-spacing`), la escala se normaliza al baseline real `1280x720` del editor de presentaciones, evitando sobreescalado por diferencias de baseline histórico.
+- En `PresentationRender` (live), los layers `MEDIA` de tipo video usan sincronización por `live-media-state` (`window.liveMediaAPI.onMediaState`) para que controles externos (panel live) puedan reproducir/pausar/reiniciar también videos embebidos en diapositivas de presentación.
 - En `PresentationView/index.tsx`, el branch no-`PRESENTATION` separa `BIBLE` (con `BibleTextRender`) de `SONG/otros` (con `AnimatedText` genérico).
 - `PresentationView` aplica transición por slide con `items[n].transitionSettings` (default `fade`) al cambiar `currentIndex`.
+- `PresentationView` admite `presentationVerseBySlideKey` para controlar el verso activo por slide sin cambiar `currentIndex`.
 - `PresentationView` también soporta transición por cambio de tema con `theme.transitionSettings` + `themeTransitionKey` (default `fade`).
 - `PresentationView` interpreta `theme.textStyle.justifyContent` para alineación vertical del bloque de texto (`flex-start`/`center`/`flex-end`); si no existe, usa centrado por defecto.
 - `PresentationView` prioriza `presentationHeight`/`maxHeight` cuando se proveen (por ejemplo en previews embebidos), y usa `ResizeObserver` como fallback para calcular `screenSize`.
+- `PresentationView` acepta `customAspectRatio` opcional para forzar el cálculo interno de `screenSize` (ancho/alto relativos) con una relación específica en previews o contenedores controlados.
 - La medición de altura en `PresentationView` usa `useResizeObserver` con `box: 'border-box'` y estabiliza el valor reutilizando la última altura válida cuando el observer reporta `0` temporalmente.
 - Para evitar saltos de escala durante transiciones (`AnimatePresence`), `PresentationView` conserva la última altura no-cero observada del contenedor y la reutiliza cuando el observer reporta `0` temporalmente.
 - En modo `live`, la estabilización de altura está simplificada en un solo efecto: primero usa `ResizeObserver` y, si arranca en `0`, hace medición directa de `containerRef.getBoundingClientRect().height` con un ciclo corto en `requestAnimationFrame` hasta obtener un valor válido.
@@ -142,6 +153,10 @@ PresentationView (index.tsx)
 - La transición de tema en `PresentationView` usa `AnimatePresence` en `mode="sync"` con capas superpuestas (`absolute inset-0`) para evitar frames vacíos/negros entre salida y entrada.
 - La animación del tema entrante se aplica tanto al `enter` como al `exit` (cross animation), de modo que el tema saliente y el entrante comparten el mismo patrón de transición configurado en el nuevo tema.
 - `PresentationView` tiene dos paths de render: `live` (completo, con transiciones y video en reproducción) y `preview` (`!live`) estático, sin `AnimatePresence` ni wrappers `m.*` a nivel raíz/slide.
+- Para slides con `resourceType: PRESENTATION`, `PresentationView` aplica `effectiveTheme`: usa `item.theme` si existe (override explícito por slide) y, si no existe, fuerza `BlankTheme` (fondo blanco) en lugar de heredar el tema global; esta regla aplica tanto en `live` como en `preview` (`!live`).
+- En `preview` (`!live`), `PresentationView` muestra un badge superior derecho para rangos bíblicos (`vX-Y`) cuando el item o un layer bíblico de `PRESENTATION` incluye `verseEnd`; así se identifica rápido que esa tarjeta representa un rango.
+- En cambios de verso interno (`presentationVerseBySlideKey`), `PresentationView` mantiene estable el key del slide live para evitar re-animar capas no bíblicas; solo el layer bíblico actualiza/animación su contenido.
+- Cuando cambia el verso interno, el layer bíblico se remonta con key por verso para re-disparar su animación configurada sin afectar la animación de los demás layers del mismo slide.
 - En `preview`, los videos (fondo y capas de presentación) no se reproducen: se renderizan thumbnails estáticos para reducir CPU/GPU cuando hay muchas instancias simultáneas.
 - Las transiciones de tema/slide (`useMemo` + `AnimatePresence` + `m.div`) se encapsulan en shells solo de `live`, evitando cálculo/instanciación en `preview`.
 - En `preview`, fondos de imagen y thumbnails de video usan `<img>` estático (`loading="lazy"`) en lugar de componentes animados, para minimizar costo de render masivo.
@@ -194,6 +209,7 @@ Renderiza texto genérico del slide con animaciones:
 
 - Encapsula solo la lógica bíblica específica (referencia con libro/capítulo/verso, versión y ubicación según settings).
 - Reutiliza `AnimatedText` para el render/base interactiva del bloque de texto y mantiene en este componente solo la edición/posición del verso en modo pantalla.
+- Si el contenido entrante del verso ya trae prefijo numérico (`"16. ..."`) y `showVerseNumber` está desactivado, `BibleTextRender` elimina ese prefijo para respetar la configuración visual del tema/global.
 
 ### Estado interno de PresentationView
 

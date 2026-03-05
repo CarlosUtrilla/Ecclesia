@@ -9,6 +9,13 @@ import { UseFormReturn } from 'react-hook-form'
 export type ILiveContext = {
   itemIndex: number
   setItemIndex: (index: number) => void
+  liveContentVersion: number
+  presentationVerseBySlideKey: Record<string, number>
+  setPresentationVerseBySlideKey: (
+    updater:
+      | Record<string, number>
+      | ((previous: Record<string, number>) => Record<string, number>)
+  ) => void
   itemOnLive: ScheduleItem | null
   liveScreens: DisplayWithUsage[]
   showLiveScreen: boolean

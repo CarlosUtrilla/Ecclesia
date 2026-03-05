@@ -5,6 +5,7 @@ import { PresentationViewProps } from './types'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
 import { useMediaServer } from '@/contexts/MediaServerContext'
+import { BlankTheme } from '@/hooks/useThemes'
 import useTagSongs from '@/hooks/useTagSongs'
 import { usePresentationSizing } from './hooks/usePresentationSizing'
 import { usePresentationBackground } from './hooks/usePresentationBackground'
@@ -26,6 +27,7 @@ function PresentationViewComponent({
   maxHeight,
   presentationHeight,
   currentIndex = 0,
+  presentationVerseBySlideKey,
   themeTransitionKey,
   onClick,
   selected,
@@ -33,6 +35,7 @@ function PresentationViewComponent({
   className,
   style,
   displayId,
+  customAspectRatio,
   showTextBounds = false,
   textBoundsIsSelected = true,
   bibleVerseIsSelected = false,
@@ -48,8 +51,47 @@ function PresentationViewComponent({
     live,
     presentationHeight,
     maxHeight,
-    displayId
+    displayId,
+    customAspectRatio
   })
+
+  const currentItem = items[currentIndex] ?? items[0]
+  const previewVerseRangeBadge = useMemo(() => {
+    if (live || !currentItem) return null
+
+    if (
+      currentItem.verse &&
+      currentItem.verse.verseEnd !== undefined &&
+      currentItem.verse.verseEnd > currentItem.verse.verse
+    ) {
+      return `v${currentItem.verse.verse}-${currentItem.verse.verseEnd}`
+    }
+
+    if (
+      currentItem.resourceType === 'PRESENTATION' &&
+      Array.isArray(currentItem.presentationItems)
+    ) {
+      const rangedLayer = currentItem.presentationItems.find(
+        (layer) =>
+          layer.verse &&
+          layer.verse.verseEnd !== undefined &&
+          layer.verse.verseEnd > layer.verse.verse
+      )
+
+      if (rangedLayer?.verse) {
+        return `v${rangedLayer.verse.verse}-${rangedLayer.verse.verseEnd}`
+      }
+    }
+
+    return null
+  }, [currentItem, live])
+  const isMediaItem = currentItem?.resourceType === 'MEDIA'
+  const slideTheme =
+    currentItem?.resourceType === 'PRESENTATION' && currentItem && 'theme' in currentItem
+      ? (currentItem as { theme?: typeof theme }).theme
+      : undefined
+  const effectiveTheme =
+    slideTheme || (currentItem?.resourceType === 'PRESENTATION' ? BlankTheme : theme)
 
   const {
     background,
@@ -61,15 +103,12 @@ function PresentationViewComponent({
     videoLoaded,
     setVideoLoaded,
     setVideoError
-  } = usePresentationBackground({ theme, buildMediaUrl })
-
-  const currentItem = items[currentIndex] ?? items[0]
-  const isMediaItem = currentItem?.resourceType === 'MEDIA'
+  } = usePresentationBackground({ theme: effectiveTheme, buildMediaUrl })
 
   const animationSettings = useMemo<AnimationSettings>(() => {
     if (!live) return defaultAnimationSettings
-    return parseAnimationSettings(theme.animationSettings)
-  }, [live, theme.animationSettings])
+    return parseAnimationSettings(effectiveTheme.animationSettings)
+  }, [live, effectiveTheme.animationSettings])
 
   const animationType = (live ? animationSettings.type || 'fade' : 'none') as AnimationType
 
@@ -82,7 +121,7 @@ function PresentationViewComponent({
     textContainerOffset,
     textBoundsScale,
     textBoundsBaseValues
-  } = usePresentationTextLayout({ theme, screenSize })
+  } = usePresentationTextLayout({ theme: effectiveTheme, screenSize })
 
   const variants = useMemo(
     () =>
@@ -146,7 +185,7 @@ function PresentationViewComponent({
       animationType={animationType}
       variants={variants}
       textStyle={textStyle}
-      theme={theme}
+      theme={effectiveTheme}
       calculatedSmallFontSize={calculatedSmallFontSize}
       textContainerPadding={textContainerPadding}
       textContainerOffset={textContainerOffset}
@@ -162,6 +201,7 @@ function PresentationViewComponent({
       onBibleVersePositionChange={onBibleVersePositionChange}
       onEditableTargetSelect={onEditableTargetSelect}
       currentIndex={currentIndex}
+      presentationVerseBySlideKey={presentationVerseBySlideKey}
     />
   )
 
@@ -183,6 +223,11 @@ function PresentationViewComponent({
         )}
       >
         {viewContent}
+        {previewVerseRangeBadge ? (
+          <div className="pointer-events-none absolute right-1.5 top-1.5 rounded-sm border border-border/60 bg-background/85 px-1.5 py-0.5 text-[10px] font-medium leading-none text-foreground">
+            {previewVerseRangeBadge}
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -204,9 +249,9 @@ function PresentationViewComponent({
       )}
     >
       <LiveThemeTransitionShell
-        themeTransitionRaw={(theme as { transitionSettings?: string }).transitionSettings}
+        themeTransitionRaw={(effectiveTheme as { transitionSettings?: string }).transitionSettings}
         themeTransitionKey={themeTransitionKey}
-        themeId={theme.id}
+        themeId={effectiveTheme.id}
       >
         {viewContent}
       </LiveThemeTransitionShell>
@@ -223,12 +268,14 @@ function arePresentationViewPropsEqual(
     prevProps.maxHeight === nextProps.maxHeight &&
     prevProps.presentationHeight === nextProps.presentationHeight &&
     prevProps.currentIndex === nextProps.currentIndex &&
+    prevProps.presentationVerseBySlideKey === nextProps.presentationVerseBySlideKey &&
     prevProps.themeTransitionKey === nextProps.themeTransitionKey &&
     prevProps.onClick === nextProps.onClick &&
     prevProps.selected === nextProps.selected &&
     prevProps.tagSongId === nextProps.tagSongId &&
     prevProps.className === nextProps.className &&
     prevProps.displayId === nextProps.displayId &&
+    prevProps.customAspectRatio === nextProps.customAspectRatio &&
     prevProps.style === nextProps.style &&
     prevProps.showTextBounds === nextProps.showTextBounds &&
     prevProps.textBoundsIsSelected === nextProps.textBoundsIsSelected &&

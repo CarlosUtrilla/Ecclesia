@@ -260,7 +260,11 @@ export const createSlideItem = (
 })
 
 export const ensureSlideItems = (slide: PresentationSlide): PresentationSlideItem[] => {
-  if (Array.isArray(slide.items) && slide.items.length > 0) {
+  if (Array.isArray(slide.items)) {
+    if (slide.items.length === 0) {
+      return []
+    }
+
     return slide.items.map((item, index) => ({
       ...item,
       id: item.id || `${slide.id}-item-${index}`,
@@ -282,10 +286,12 @@ export const getNextLayer = (items: PresentationSlideItem[]) => {
   return layers.length > 0 ? Math.max(...layers) + 1 : 0
 }
 
-export const createTextSlide = () => ({
+export const createTextSlide = (themeId?: number | null) => ({
   id: generateUniqueId(),
   type: 'TEXT' as const,
+  themeId: themeId ?? null,
   transitionSettings: defaultTransitionSettingsString,
+  videoLiveBehavior: 'manual' as const,
   text: 'Nuevo texto',
   items: [
     createSlideItem('TEXT', {
@@ -299,10 +305,12 @@ export const createTextSlide = () => ({
   textStyle: { ...baseTextStyle }
 })
 
-export const createMediaSlide = (mediaId?: number) => ({
+export const createMediaSlide = (mediaId?: number, themeId?: number | null) => ({
   id: generateUniqueId(),
   type: 'MEDIA' as const,
+  themeId: themeId ?? null,
   transitionSettings: defaultTransitionSettingsString,
+  videoLiveBehavior: 'manual' as const,
   text: '',
   mediaId,
   items: [
