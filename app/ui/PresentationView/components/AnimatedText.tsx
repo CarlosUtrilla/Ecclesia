@@ -32,6 +32,7 @@ export interface AnimatedTextProps {
   }
   onTextBoundsChange?: (next: TextBoundsValues) => void
   onEditableTargetSelect?: (target: EditableBoundsTarget) => void
+  hideTextInLive?: boolean
 }
 
 const CORNER_HANDLE_STYLE: React.CSSProperties = {
@@ -59,7 +60,8 @@ function AnimatedTextComponent({
   textBoundsBaseValues,
   textBoundsScale,
   onTextBoundsChange,
-  onEditableTargetSelect
+  onEditableTargetSelect,
+  hideTextInLive = false
 }: AnimatedTextProps) {
   const { text: rawText } = item
   const text = rawText || ''
@@ -87,6 +89,8 @@ function AnimatedTextComponent({
     onTextBoundsChange
   })
 
+  const shouldHideInLive = hideTextInLive && !isPreview
+
   const sanitizedText = useMemo(() => sanitizeHTML(text), [text])
 
   const splitSanitizedLines = useMemo(
@@ -102,6 +106,10 @@ function AnimatedTextComponent({
   )
 
   const content = useMemo(() => {
+    if (shouldHideInLive) {
+      return null
+    }
+
     if (isPreview) {
       return <div style={textStyle} dangerouslySetInnerHTML={{ __html: sanitizedText }} />
     }
@@ -143,7 +151,15 @@ function AnimatedTextComponent({
         dangerouslySetInnerHTML={{ __html: sanitizedText }}
       />
     )
-  }, [isPreview, textStyle, sanitizedText, animationType, variants, splitSanitizedLines])
+  }, [
+    shouldHideInLive,
+    isPreview,
+    textStyle,
+    sanitizedText,
+    animationType,
+    variants,
+    splitSanitizedLines
+  ])
 
   const handleSelectTarget = useCallback(
     (target: EditableBoundsTarget) => {
@@ -154,6 +170,10 @@ function AnimatedTextComponent({
 
   const verticalAlignItems =
     verticalAlign === 'top' ? 'flex-start' : verticalAlign === 'bottom' ? 'flex-end' : 'center'
+
+  if (shouldHideInLive) {
+    return null
+  }
 
   return (
     <>
@@ -280,7 +300,8 @@ function areAnimatedTextPropsEqual(prevProps: AnimatedTextProps, nextProps: Anim
     prevProps.textBoundsBaseValues === nextProps.textBoundsBaseValues &&
     prevProps.textBoundsScale === nextProps.textBoundsScale &&
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
-    prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect
+    prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
+    prevProps.hideTextInLive === nextProps.hideTextInLive
   )
 }
 

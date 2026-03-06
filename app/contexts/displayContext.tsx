@@ -96,7 +96,11 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
 
   return (
     <DisplaysContext.Provider value={{ displays, refresh, mainDisplay }}>
-      <NewDisplayConected open={openNewDisplay} onOpenChange={setOpenNewDisplay} />
+      <NewDisplayConected
+        open={openNewDisplay}
+        onOpenChange={setOpenNewDisplay}
+        onSaved={fetchDisplays}
+      />
       {children}
     </DisplaysContext.Provider>
   )

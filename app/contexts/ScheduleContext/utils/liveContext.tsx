@@ -27,6 +27,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const [windowsLiveScreenOpens, setWindowsLiveScreenOpens] = useState<number[]>([])
   const [liveScreensReady, setLiveScreensReady] = useState(false)
   const [showedItemKey, setShowedItemKey] = useState(0)
+  const [hideTextOnLive, setHideTextOnLive] = useState(false)
+  const [showLogoOnLive, setShowLogoOnLive] = useState(false)
+  const [blackScreenOnLive, setBlackScreenOnLive] = useState(false)
 
   useEffect(() => {
     if (!showLiveScreen && itemOnLive) {
@@ -96,7 +99,12 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       await window.displayAPI.updateLiveScreenContent({
         itemIndex,
         contentScreen,
-        presentationVerseBySlideKey
+        presentationVerseBySlideKey,
+        liveControls: {
+          hideText: hideTextOnLive,
+          showLogo: showLogoOnLive,
+          blackScreen: blackScreenOnLive
+        }
       })
     }
     sendUpdateToLiveScreens()
@@ -105,6 +113,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     itemOnLive,
     contentScreen,
     presentationVerseBySlideKey,
+    hideTextOnLive,
+    showLogoOnLive,
+    blackScreenOnLive,
     windowsLiveScreenOpens,
     liveScreensReady,
     showedItemKey
@@ -125,17 +136,65 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   }, [showLiveScreen, windowsLiveScreenOpens, liveScreensReady, showedItemKey, itemOnLive])
 
   useEffect(() => {
-    if (!showLiveScreen) return
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowLiveScreen(false)
+    const handleKeyUp = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target) {
+        const tagName = target.tagName?.toLowerCase()
+        const isEditableField =
+          target.isContentEditable || tagName === 'input' || tagName === 'textarea'
+        if (isEditableField) return
+      }
+
+      if (event.key === 'F7') {
+        event.preventDefault()
+        setShowLiveScreen((prev) => !prev)
+        return
+      }
+
+      if (!showLiveScreen) return
+
+      if (event.key === 'F9') {
+        event.preventDefault()
+        setHideTextOnLive((prev) => !prev)
+        return
+      }
+
+      if (event.key === 'F10') {
+        event.preventDefault()
+        setShowLogoOnLive((prev) => {
+          const next = !prev
+          if (next) {
+            setBlackScreenOnLive(false)
+          }
+          return next
+        })
+        return
+      }
+
+      if (event.key === 'F11') {
+        event.preventDefault()
+        setBlackScreenOnLive((prev) => {
+          const next = !prev
+          if (next) {
+            setShowLogoOnLive(false)
+          }
+          return next
+        })
+        return
+      }
+
+      if (event.key === 'Escape' && itemOnLive) {
+        setItemOnLive(null)
+        setPresentationVerseBySlideKeyState({})
+        setItemIndex(0)
       }
     }
+
     addEventListener('keyup', handleKeyUp)
     return () => {
       removeEventListener('keyup', handleKeyUp)
     }
-  }, [showLiveScreen])
+  }, [showLiveScreen, itemOnLive, setItemOnLive])
 
   const showItemOnLiveScreen = async (item: ScheduleItem, index?: number) => {
     setItemOnLive({ ...item })
@@ -169,7 +228,13 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
         contentScreen,
         showItemOnLiveScreen,
         sendLiveMediaState,
-        liveScreensReady
+        liveScreensReady,
+        hideTextOnLive,
+        showLogoOnLive,
+        blackScreenOnLive,
+        setHideTextOnLive,
+        setShowLogoOnLive,
+        setBlackScreenOnLive
       }}
     >
       {children}

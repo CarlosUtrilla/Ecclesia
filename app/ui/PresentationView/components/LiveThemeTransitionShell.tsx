@@ -53,13 +53,64 @@ export function LiveThemeTransitionShell({
     ]
   )
 
+  const composedThemeTransitionVariants = useMemo(() => {
+    // Para transiciones live evitamos huecos de opacidad entre salida/entrada
+    // para que no se vea negro durante el cambio de item/tema.
+    const shouldForceSolidOpacity = [
+      'slideLeft',
+      'slideRight',
+      'slideUp',
+      'slideDown',
+      'zoomIn',
+      'zoomOut',
+      'scale'
+    ].includes(themeTransitionType)
+
+    if (!shouldForceSolidOpacity) {
+      return themeTransitionVariants
+    }
+
+    const initial = (themeTransitionVariants.initial as Record<string, unknown>) ?? {}
+    const animate = (themeTransitionVariants.animate as Record<string, unknown>) ?? {}
+    const exit = (themeTransitionVariants.exit as Record<string, unknown>) ?? {}
+
+    const animateTransition = (animate.transition as Record<string, unknown> | undefined) ?? {}
+    const exitTransition = (exit.transition as Record<string, unknown> | undefined) ?? {}
+
+    return {
+      ...themeTransitionVariants,
+      initial: {
+        ...initial,
+        opacity: 1
+      },
+      animate: {
+        ...animate,
+        opacity: 1,
+        transition: {
+          ...animateTransition,
+          duration: themeTransitionSettings.duration,
+          delay: themeTransitionSettings.delay
+        }
+      },
+      exit: {
+        ...exit,
+        opacity: 1,
+        transition: {
+          ...exitTransition,
+          duration: themeTransitionSettings.duration,
+          delay: 0
+        }
+      }
+    }
+  }, [themeTransitionType, themeTransitionVariants, themeTransitionSettings])
+
   const themePresenceCustom = useMemo<ThemePresenceVariantsCustom>(
     () => ({
-      initial: (themeTransitionVariants.initial ?? {}) as TargetAndTransition,
-      animate: (themeTransitionVariants.animate ?? {}) as TargetAndTransition,
-      exit: (themeTransitionVariants.exit ?? {}) as TargetAndTransition
+      initial: (composedThemeTransitionVariants.initial ?? {}) as TargetAndTransition,
+      animate: (composedThemeTransitionVariants.animate ?? {}) as TargetAndTransition,
+      exit: (composedThemeTransitionVariants.exit ?? {}) as TargetAndTransition
     }),
-    [themeTransitionVariants]
+    [composedThemeTransitionVariants]
   )
 
   const themePresenceVariants = useMemo<Variants>(
@@ -75,7 +126,7 @@ export function LiveThemeTransitionShell({
 
   return (
     <LazyMotion features={domAnimation}>
-      <AnimatePresence mode="sync" initial={false} custom={themePresenceCustom}>
+      <AnimatePresence mode="sync" custom={themePresenceCustom}>
         <m.div
           key={`theme-${resolvedThemeTransitionKey}`}
           custom={themePresenceCustom}
@@ -83,7 +134,7 @@ export function LiveThemeTransitionShell({
           initial="initial"
           animate="animate"
           exit="exit"
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 w-full h-full overflow-hidden"
         >
           {children}
         </m.div>

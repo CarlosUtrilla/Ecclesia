@@ -29,6 +29,7 @@ function PresentationViewComponent({
   currentIndex = 0,
   presentationVerseBySlideKey,
   themeTransitionKey,
+  hideTextInLive = false,
   onClick,
   selected,
   tagSongId,
@@ -202,6 +203,7 @@ function PresentationViewComponent({
       onEditableTargetSelect={onEditableTargetSelect}
       currentIndex={currentIndex}
       presentationVerseBySlideKey={presentationVerseBySlideKey}
+      hideTextInLive={hideTextInLive}
     />
   )
 

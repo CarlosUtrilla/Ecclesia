@@ -14,6 +14,7 @@ Actualmente incluye:
 - La UI muestra solo controles esenciales (activar, workspace, conectar/subir/descargar); la configuración avanzada se mantiene con valores internos por defecto.
 - El control de conexión es un único botón contextual (`Conectar Google` / `Desconectar`) según estado de sesión.
 - El botón principal de acción en el footer es `Sincronizar ahora`: persiste ajustes actuales y ejecuta `pushNow` inmediato cuando hay conexión activa.
+- **Logo / Pantalla de fondo**: permite seleccionar un recurso multimedia (imagen o video) de la biblioteca como fondo permanente en las pantallas en vivo, más un color de respaldo. Persistido en la DB via `window.api.setttings` usando los keys `LOGO_FALLBACK_MEDIA_ID` y `LOGO_FALLBACK_COLOR`.
 
 ## Archivos
 
@@ -22,8 +23,9 @@ app/screens/settings/
 ├── index.tsx      # Contenedor de ajustes + navegación lateral
 ├── schema.ts      # Zod schema + tipos del formulario de sincronizacion
 ├── components/
-│   ├── colorSettingsSection.tsx  # Lógica/UI del menú Tema de colores
-│   └── syncSettingsSection.tsx   # Lógica/UI del menú Sincronización
+│   ├── colorSettingsSection.tsx    # Lógica/UI del menú Tema de colores
+│   ├── syncSettingsSection.tsx     # Lógica/UI del menú Sincronización
+│   └── logoFallbackSection.tsx     # Lógica/UI del menú Logo / Pantalla de fondo
 └── agents.md
 ```
 

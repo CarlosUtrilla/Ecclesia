@@ -20,6 +20,7 @@ export type PresentationViewProps = {
   currentIndex?: number
   presentationVerseBySlideKey?: Record<string, number>
   themeTransitionKey?: number
+  hideTextInLive?: boolean
   items: PresentationViewItems[]
   onClick?: (e?: React.MouseEvent) => void
   selected?: boolean

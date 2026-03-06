@@ -16,10 +16,12 @@ interface DisplayConfig {
 
 export default function NewDisplayConected({
   open,
-  onOpenChange
+  onOpenChange,
+  onSaved
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSaved?: () => void
 }) {
   const [displayConfigs, setDisplayConfigs] = useState<DisplayConfig[]>([])
   const [saving, setSaving] = useState(false)
@@ -44,7 +46,7 @@ export default function NewDisplayConected({
     }
   }
 
-  const handleRoleChange = (displayId: number, role: ScreenRol) => {
+  const handleRoleChange = (displayId: number, role: ScreenRol | 'NO_USE') => {
     setDisplayConfigs((prev) =>
       prev.map((config) =>
         config.display.id === displayId ? { ...config, selectedRole: role } : config
@@ -53,41 +55,44 @@ export default function NewDisplayConected({
   }
 
   const handleSaveScreens = async () => {
-    const configsToSave = displayConfigs.filter((config) => config.selectedRole)
-
-    if (configsToSave.length === 0) {
-      return
-    }
+    const configsToSave = displayConfigs.filter((config) => config.selectedRole !== undefined)
 
     setSaving(true)
     try {
       const savePromises = configsToSave.map((config) => {
+        const normalizedRole = config.selectedRole === 'NO_USE' ? null : config.selectedRole
+
         const screenData = {
           screenId: config.display.id,
           screenName: config.display.label,
-          // Para update: solo enviar undefined si es NO_USE
-          rol: config.selectedRole === 'NO_USE' ? undefined : config.selectedRole
+          rol: normalizedRole
         }
+
+        if (config.selectedRole === 'NO_USE') {
+          if (config.configured && config.id) {
+            return window.api.selectedScreens.updateSelectedScreen({
+              id: config.id,
+              ...screenData
+            })
+          }
+          return window.api.selectedScreens.createSelectedScreen(screenData)
+        }
+
         if (config.configured && config.id) {
-          // Actualizar pantalla existente (requiere id)
           return window.api.selectedScreens.updateSelectedScreen({
             id: config.id,
             ...screenData
           })
-        } else {
-          // Crear nueva pantalla
-          // Para create: puede ser null
-          return window.api.selectedScreens.createSelectedScreen({
-            ...screenData,
-            rol: config.selectedRole === 'NO_USE' ? null : config.selectedRole
-          })
         }
+
+        return window.api.selectedScreens.createSelectedScreen(screenData)
       })
 
       await Promise.all(savePromises)
 
       // Refrescar la lista después de guardar
       await fetchDisplays()
+      onSaved?.()
       onOpenChange(false)
     } catch (error) {
       console.error('Error saving screens:', error)
@@ -123,7 +128,7 @@ export default function NewDisplayConected({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Monitor className="w-5 h-5" />
-            Configurar Pantallas Nuevas
+            Configurar Pantallas
             <Badge variant="secondary">{displayConfigs.length}</Badge>
           </DialogTitle>
         </DialogHeader>
@@ -146,7 +151,9 @@ export default function NewDisplayConected({
 
               <Select
                 value={config.selectedRole || ''}
-                onValueChange={(value) => handleRoleChange(config.display.id, value as ScreenRol)}
+                onValueChange={(value) =>
+                  handleRoleChange(config.display.id, value as ScreenRol | 'NO_USE')
+                }
               >
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Seleccionar uso..." />

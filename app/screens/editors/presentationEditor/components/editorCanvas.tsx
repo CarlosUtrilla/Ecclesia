@@ -44,6 +44,7 @@ export default function EditorCanvas({
   onLayerDownItem,
   onDragStateChange
 }: Props) {
+  const moveActivationDistance = 4
   const containerRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -51,16 +52,24 @@ export default function EditorCanvas({
   const [activeDragMode, setActiveDragMode] = useState<DragState['mode'] | null>(null)
   const versePreviewByItemRef = useRef<Map<string, number>>(new Map())
   const { buildMediaUrl } = useMediaServer()
-  const { background, backgroundType, backgroundUrl, thumbnailUrl, fallbackUrl, videoError, setVideoError } =
-    usePresentationBackground({ theme, buildMediaUrl })
+  const {
+    background,
+    backgroundType,
+    backgroundUrl,
+    thumbnailUrl,
+    fallbackUrl,
+    videoError,
+    setVideoError
+  } = usePresentationBackground({ theme, buildMediaUrl })
 
   const resolvedBackground = background === 'media' ? '#ffffff' : background
 
-  useEffect(() => {
-    if (editingItemId && editingItemId !== selectedItemId) {
+  const handleSelectItem = (itemId?: string) => {
+    if (!itemId || (editingItemId && editingItemId !== itemId)) {
       setEditingItemId(null)
     }
-  }, [editingItemId, selectedItemId])
+    onSelectItem(itemId)
+  }
 
   const sortedItems = useMemo(
     () => [...(slide.items || [])].sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0)),
@@ -97,6 +106,30 @@ export default function EditorCanvas({
     getSnappedMovePosition
   })
 
+  const handlePointerMoveCanvas = (event: React.PointerEvent<HTMLDivElement>) => {
+    const activeDrag = dragRef.current
+
+    if (
+      activeDrag &&
+      activeDrag.mode === 'move' &&
+      (activeDragItemId === null || activeDragMode !== 'move')
+    ) {
+      const deltaX = event.clientX - activeDrag.startX
+      const deltaY = event.clientY - activeDrag.startY
+      const distance = Math.hypot(deltaX, deltaY)
+
+      if (distance < moveActivationDistance) {
+        return
+      }
+
+      setActiveDragItemId(activeDrag.itemId)
+      setActiveDragMode('move')
+      onDragStateChange?.(true)
+    }
+
+    handlePointerMove(event)
+  }
+
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const activeDrag = dragRef.current
     if (!activeDrag || activeDrag.pointerId !== event.pointerId) return
@@ -112,7 +145,7 @@ export default function EditorCanvas({
   const handleCanvasPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return
     setEditingItemId(null)
-    onSelectItem(undefined)
+    handleSelectItem(undefined)
   }
 
   const startDrag = (
@@ -138,9 +171,11 @@ export default function EditorCanvas({
       initialStyle: style
     }
     setActiveDragItemId(item.id)
-    setActiveDragMode(mode)
-    onDragStateChange?.(true)
-    onSelectItem(item.id)
+    if (mode !== 'move') {
+      setActiveDragMode(mode)
+      onDragStateChange?.(true)
+    }
+    handleSelectItem(item.id)
     event.currentTarget.setPointerCapture(event.pointerId)
     event.stopPropagation()
   }
@@ -159,7 +194,7 @@ export default function EditorCanvas({
       ref={containerRef}
       className="w-full h-full relative rounded-lg overflow-visible border"
       onPointerDown={handleCanvasPointerDown}
-      onPointerMove={handlePointerMove}
+      onPointerMove={handlePointerMoveCanvas}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
@@ -247,7 +282,7 @@ export default function EditorCanvas({
             isRotating={isRotating}
             animationPreviewKey={animationPreviewKey}
             theme={theme}
-            onSelectItem={onSelectItem}
+            onSelectItem={handleSelectItem}
             onSetEditingItemId={setEditingItemId}
             onStartDrag={startDrag}
             onItemTextChange={onItemTextChange}

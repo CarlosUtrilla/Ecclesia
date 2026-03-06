@@ -175,10 +175,12 @@ El frontend construye URLs como `http://localhost:{port}/{filePath}` usando `use
 - Detecta pantallas conectadas al sistema usando `screen.getAllDisplays()`.
 - Guarda configuracion de pantallas en `SelectedScreens` (ver `/prisma/agents.md`).
 - Envia evento `display-update` al renderer cuando cambian las pantallas.
+- El canal `show-new-display-connected` envia `open-new-display-connected` a la ventana que invoco el handler (caller window), evitando que el dialog aparezca sobre una ventana `live-screen` por error.
 - Gestiona ventanas de live screen:
   - `showLiveScreen(displayId)` -> Crea ventana fullscreen en el display especificado
   - `closeLiveScreen(windowId)` -> Cierra ventana de live
   - `updateLiveScreenContent(windowId, content)` -> Actualiza contenido mostrado
+    - Soporta flags `liveControls` en el payload (`hideText`, `showLogo`, `blackScreen`) para controles de emergencia en la salida live.
   - `updateLiveScreenTheme(windowId, theme)` -> Actualiza tema visual
 
 ### Prisma Initialization (`prisma.ts`)

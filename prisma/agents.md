@@ -252,7 +252,7 @@ model Setting {
 | `BibleDescriptionPosition` | beforeText, afterText, underText, overText, upScreen, downScreen | Posicion de referencia biblica |
 | `ScheduleItemType` | BIBLE, SONG, MEDIA, PRESENTATION, GROUP | Tipo de item en cronograma |
 | `ScreenRol` | LIVE_SCREEN, STAGE_SCREEN | Rol de pantalla conectada |
-| `SettingOptions` | SALES_DAILY, SALES_MONTHLY | Claves de configuracion |
+| `SettingOptions` | SALES_DAILY, SALES_MONTHLY, LOGO_FALLBACK_MEDIA_ID, LOGO_FALLBACK_COLOR | Claves de configuracion |
 
 ## Convenciones
 

@@ -68,14 +68,8 @@ database/
 │       ├── selectedScreens.controller.ts
 │       ├── selectedScreens.service.ts
 │       └── selectedScreens.dto.d.ts
-├── decorators/
-│   └── withRole.ts    # @WithRole('owner', 'admin') decorator
 ├── middleware/
-│   ├── decimal.ts     # Serializacion Decimal/Date para IPC
-│   └── withRole.ts    # Middleware de autorizacion por rol
-└── stores/
-    ├── authStore.ts   # Sesiones de usuario por frameId
-    └── frameIdStore.ts
+│   └── decimal.ts     # Serializacion Decimal/Date para IPC
 ```
 
 ## Namespaces IPC registrados
@@ -91,7 +85,7 @@ Definidos en `routes.ts`:
 | `bible` | BibleController | `getBibleSchema`, `getVerses`, `getCompleteChapter`, `getAvailableBibles`, `importBible`, `searchTextFragment`, `getDefaultBibleSettings`, `updateDefaultBibleSettings` |
 | `schedule` | ScheduleController | `createSchedule`, `getAllSchedules`, `getScheduleById`, `updateSchedule`, `deleteSchedule`, `getActualSchedule`, `addItemToSchedule`, `getAllGroupTemplates`, `createGroupTemplate`, `updateGroupTemplate`, `deleteGroupTemplate`, `getGroupTemplateById` |
 | `presentations` | PresentationsController | `createPresentation`, `getPresentations`, `getPresentationsByIds`, `getPresentationById`, `updatePresentation`, `deletePresentation` |
-| `setttings` | SettingsController | `getSettings`, `updateSettings` |
+| `setttings` | SettingsController | `getSettings`, `updateSettings` (usa `upsert` internamente) |
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
 | `fonts` | FontsController | `addFont`, `getAllFonts`, `deleteFont` |
 
@@ -163,12 +157,6 @@ En `middleware/decimal.ts`:
 - `Decimal` de Prisma se serializa como `{ __decimal__: string }` y se restaura al deserializar.
 - `Date` se serializa como `{ __date__: ISO string }` y se restaura automaticamente.
 - Esto previene corrupcion de datos al cruzar la frontera entre procesos.
-
-## Control de acceso
-
-- Decorator `@WithRole('owner', 'admin')` en metodos del controller.
-- Middleware verifica el rol del usuario usando `authStore` basado en el `frameId` de Electron.
-- Sesion se limpia automaticamente cuando la ventana se destruye.
 
 ## Como agregar un nuevo controller
 

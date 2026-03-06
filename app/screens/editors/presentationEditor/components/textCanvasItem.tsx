@@ -253,17 +253,64 @@ export default function TextCanvasItem({
       onSelect={(event) => {
         event.stopPropagation()
         onSelect()
-      }}
-      onDoubleClick={(event) => {
-        event.stopPropagation()
-        onSelect()
-        if (isEditable) {
+        if (isEditable && event.detail >= 2) {
           onRequestEdit()
         }
       }}
       onPointerDown={(event) => {
-        if (isEditing || event.detail > 1) return
-        onStartMove(event)
+        if (isEditing) return
+
+        // If item is not editable, start move immediately.
+        if (!isEditable) {
+          onStartMove(event)
+          return
+        }
+
+        // Editable items: delay starting move until the pointer has moved
+        // beyond a small threshold. This allows single-click + drag to move
+        // while keeping double-click for editing.
+        const startX = event.clientX
+        const startY = event.clientY
+        const pointerId = (event as React.PointerEvent).pointerId
+        let moved = false
+        const threshold = 6
+
+        try {
+          ;(event.currentTarget as Element).setPointerCapture?.(pointerId as any)
+        } catch (error) {
+          console.error('Error setting pointer capture:', error)
+        }
+
+        const onPointerMove = (moveEvent: PointerEvent) => {
+          const dx = moveEvent.clientX - startX
+          const dy = moveEvent.clientY - startY
+          if (!moved && Math.hypot(dx, dy) > threshold) {
+            moved = true
+            // Forward the original pointerdown event (not the global move
+            // event) to the move handler so `currentTarget` is the
+            // CanvasItemShell element. This allows the drag starter to
+            // call `setPointerCapture` on the correct element.
+            onStartMove(event as unknown as React.PointerEvent<HTMLDivElement>)
+            cleanup()
+          }
+        }
+
+        const onPointerUp = () => {
+          cleanup()
+        }
+
+        const cleanup = () => {
+          window.removeEventListener('pointermove', onPointerMove)
+          window.removeEventListener('pointerup', onPointerUp)
+          try {
+            ;(event.currentTarget as Element).releasePointerCapture?.(pointerId as any)
+          } catch (error) {
+            console.error('Error releasing pointer capture:', error)
+          }
+        }
+
+        window.addEventListener('pointermove', onPointerMove)
+        window.addEventListener('pointerup', onPointerUp)
       }}
       handles={handles}
     >
@@ -272,10 +319,7 @@ export default function TextCanvasItem({
           ref={editableRef}
           className={cn(
             'w-full h-full p-2 break-words overflow-hidden rounded-[inherit] outline-none',
-            {
-              'cursor-text': isSelected,
-              'cursor-move select-none': !isEditing
-            }
+            { 'cursor-text': isSelected }
           )}
           style={textStyle}
           contentEditable
@@ -332,14 +376,11 @@ export default function TextCanvasItem({
         <LazyMotion features={domAnimation}>
           <div
             className="w-full h-full break-words overflow-hidden rounded-[inherit]"
+            title={isEditable ? 'Doble click: editar. Click y arrastra para mover.' : undefined}
             onClick={(event) => {
               event.stopPropagation()
               onSelect()
-            }}
-            onDoubleClick={(event) => {
-              event.stopPropagation()
-              onSelect()
-              if (isEditable) {
+              if (isEditable && event.detail >= 2) {
                 onRequestEdit()
               }
             }}

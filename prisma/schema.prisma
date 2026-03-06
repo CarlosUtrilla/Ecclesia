@@ -75,8 +75,10 @@ model Themes {
 }
 
 enum SettingOptions {
-  SALES_DAILY   @map("goals.daily")
-  SALES_MONTHLY @map("goals.monthly")
+  SALES_DAILY            @map("goals.daily")
+  SALES_MONTHLY          @map("goals.monthly")
+  LOGO_FALLBACK_MEDIA_ID @map("logo.fallback.mediaId")
+  LOGO_FALLBACK_COLOR    @map("logo.fallback.color")
 }
 
 model Setting {

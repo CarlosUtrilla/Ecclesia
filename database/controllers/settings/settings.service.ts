@@ -16,13 +16,10 @@ class SettingsService {
   async updateSetting(settings: SettingsUpdateDTO[]) {
     const prisma = getPrisma()
     const updatePromises = settings.map((setting) =>
-      prisma.setting.update({
-        where: {
-          key: setting.key
-        },
-        data: {
-          value: setting.value
-        }
+      prisma.setting.upsert({
+        where: { key: setting.key },
+        update: { value: setting.value },
+        create: { key: setting.key, value: setting.value }
       })
     )
     return await prisma.$transaction(updatePromises)

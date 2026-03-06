@@ -140,6 +140,8 @@ PresentationView (index.tsx)
 - En `PresentationRender` (live), los layers `MEDIA` de tipo video usan sincronización por `live-media-state` (`window.liveMediaAPI.onMediaState`) para que controles externos (panel live) puedan reproducir/pausar/reiniciar también videos embebidos en diapositivas de presentación.
 - En `PresentationView/index.tsx`, el branch no-`PRESENTATION` separa `BIBLE` (con `BibleTextRender`) de `SONG/otros` (con `AnimatedText` genérico).
 - `PresentationView` aplica transición por slide con `items[n].transitionSettings` (default `fade`) al cambiar `currentIndex`.
+- En `live`, la transición por slide usa capas superpuestas (`AnimatePresence mode="sync"`) para que el item entrante y saliente se animen al mismo tiempo, evitando frames negros entre items.
+- Cuando live pasa de estado vacío a primer item, la transición de slide aplica animación de entrada inicial (no se suprime `initial`) para evitar aparición brusca.
 - `PresentationView` admite `presentationVerseBySlideKey` para controlar el verso activo por slide sin cambiar `currentIndex`.
 - `PresentationView` también soporta transición por cambio de tema con `theme.transitionSettings` + `themeTransitionKey` (default `fade`).
 - `PresentationView` interpreta `theme.textStyle.justifyContent` para alineación vertical del bloque de texto (`flex-start`/`center`/`flex-end`); si no existe, usa centrado por defecto.
@@ -151,7 +153,11 @@ PresentationView (index.tsx)
 - El render de fondo (imagen/video/color) vive fuera del contenedor animado por slide; así, cambiar texto/slide no desmonta ni recarga el fondo en `live`.
 - El estado de fondo/video solo se reinicia cuando cambia la fuente real del fondo (`background`, `backgroundMedia.filePath`, `thumbnail`, `fallback`), evitando flashes negros por cambios de objeto sin cambio real de asset.
 - La transición de tema en `PresentationView` usa `AnimatePresence` en `mode="sync"` con capas superpuestas (`absolute inset-0`) para evitar frames vacíos/negros entre salida y entrada.
+- En live, la primera entrada de contenido también ejecuta la transición de tema configurada (no se suprime `initial` en la shell de tema), para evitar aparición brusca al pasar de vacío a item.
 - La animación del tema entrante se aplica tanto al `enter` como al `exit` (cross animation), de modo que el tema saliente y el entrante comparten el mismo patrón de transición configurado en el nuevo tema.
+- En transiciones de tema tipo slide/zoom/scale en `live`, se fuerza `opacity: 1` durante `initial/animate/exit` para impedir que aparezca fondo negro entre capas animadas.
+- `PresentationView` soporta `hideTextInLive` para ocultar solo capas textuales en modo `live` (SONG/BIBLE/TEXT y layers textuales de `PRESENTATION`) manteniendo capas de media y fondo.
+- En `AnimatedText`, el modo `hideTextInLive` nunca debe retornar antes de completar hooks; la ocultación se resuelve después de declarar hooks para evitar errores de React por orden de hooks.
 - `PresentationView` tiene dos paths de render: `live` (completo, con transiciones y video en reproducción) y `preview` (`!live`) estático, sin `AnimatePresence` ni wrappers `m.*` a nivel raíz/slide.
 - Para slides con `resourceType: PRESENTATION`, `PresentationView` aplica `effectiveTheme`: usa `item.theme` si existe (override explícito por slide) y, si no existe, fuerza `BlankTheme` (fondo blanco) en lugar de heredar el tema global; esta regla aplica tanto en `live` como en `preview` (`!live`).
 - En `preview` (`!live`), `PresentationView` muestra un badge superior derecho para rangos bíblicos (`vX-Y`) cuando el item o un layer bíblico de `PRESENTATION` incluye `verseEnd`; así se identifica rápido que esa tarjeta representa un rango.
@@ -187,6 +193,7 @@ Renderiza texto genérico del slide con animaciones:
 
 - El contenedor del texto aplica padding configurable por tema (`textStyle.paddingInline` y `textStyle.paddingBlock`), permitiendo ajustar márgenes desde el editor de temas.
 - El contenedor también admite desplazamiento configurable mediante `textStyle.translate` (string CSS) para mover el bloque de texto en ambos ejes.
+- El cálculo de `fontSize`/`padding` en `PresentationView` acepta números y strings con unidad (ej. `"64px"`) usando parseo robusto; así evita `NaNpx` y discrepancias de tamaño entre editor y salida live.
 - Márgenes y desplazamiento se escalan por eje para mantener consistencia visual entre previews pequeños y pantallas grandes: valores horizontales (`paddingInline`, `translateX`) en función del ancho, y verticales (`paddingBlock`, `translateY`) en función del alto.
 - El recálculo de estos valores depende explícitamente de cambios en ancho y alto del viewport renderizado para evitar desalineaciones al redimensionar o cambiar de display.
 - Soporta guía visual opcional del área de texto (`showTextBounds`) para mostrar el contenedor efectivo con borde punteado en modos de edición/preview.

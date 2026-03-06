@@ -7,6 +7,7 @@ import UploadFontDialog from './uploadFontDialog'
 type FontFamilyProps = {
   onChange: (value: string) => void
   value: string
+  className?: string
 }
 
 type FontFamily = {
@@ -14,7 +15,7 @@ type FontFamily = {
   value: string
 }
 
-export default function FontFamilySelector({ onChange, value }: FontFamilyProps) {
+export default function FontFamilySelector({ onChange, value, className }: FontFamilyProps) {
   const [fontFamilies, setFontFamilies] = useState<FontFamily[]>([])
   const { fonts: customFonts } = useFontsContext()
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
@@ -40,7 +41,9 @@ export default function FontFamilySelector({ onChange, value }: FontFamilyProps)
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger
           size="sm"
-          className="w-[200px] border-primary/40 focus:border-primary bg-background/80"
+          className={
+            className ?? 'w-[200px] border-primary/40 focus:border-primary bg-background/80'
+          }
         >
           <SelectValue placeholder="Seleccionar fuente" />
         </SelectTrigger>

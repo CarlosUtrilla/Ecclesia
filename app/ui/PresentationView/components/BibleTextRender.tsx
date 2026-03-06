@@ -43,6 +43,7 @@ interface BibleTextRenderProps {
   onTextBoundsChange?: (next: TextBoundsValues) => void
   onBibleVersePositionChange?: (next: number) => void
   onEditableTargetSelect?: (target: EditableBoundsTarget) => void
+  hideTextInLive?: boolean
 }
 
 type ActiveVerseInteraction = {
@@ -73,7 +74,8 @@ export function BibleTextRender({
   textBoundsScale,
   onTextBoundsChange,
   onBibleVersePositionChange,
-  onEditableTargetSelect
+  onEditableTargetSelect,
+  hideTextInLive = false
 }: BibleTextRenderProps) {
   const activeVerseInteractionRef = useRef<ActiveVerseInteraction | null>(null)
   const [verseCursor, setVerseCursor] = useState<React.CSSProperties['cursor']>('move')
@@ -324,9 +326,10 @@ export function BibleTextRender({
         textBoundsScale={textBoundsScale}
         onTextBoundsChange={onTextBoundsChange}
         onEditableTargetSelect={onEditableTargetSelect}
+        hideTextInLive={hideTextInLive}
       />
 
-      {isScreenModeVerse && verseText && (
+      {isScreenModeVerse && verseText && !(hideTextInLive && !isPreview) && (
         <div
           style={{
             position: 'absolute',

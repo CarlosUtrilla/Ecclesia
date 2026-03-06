@@ -170,7 +170,6 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 *   Metodos del controller son `async`, reciben argumentos directamente (no req/res).
 *   Canal IPC: `{namespace}.{method}`. Se genera automaticamente al registrar en routes.
 *   DTOs definen la forma de los datos de entrada/salida.
-*   Agregar `@WithRole()` solo en metodos que requieran autorizacion.
 
 ### Drag & Drop
 
@@ -185,6 +184,11 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 *   NUNCA loguear datos sensibles del usuario.
 *   Validar inputs con Zod antes de enviar al backend.
 *   Los archivos de medios se sirven via servidor HTTP local (localhost), no directamente del filesystem.
+
+### IPC / API desde el renderer
+
+*   En componentes React (renderer), SIEMPRE usar `window.api.namespace.method()` para llamar al backend. NUNCA importar `api from 'database/api'` directamente en el renderer — ese módulo asume `window.api` internamente pero su import directo no está disponible correctamente en todas las ventanas Electron.
+*   Los imports de **tipos** (`.dto.d.ts`) sí están permitidos en el renderer.
 
 ### Antes de modificar codigo
 
@@ -257,6 +261,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 *   La carpeta `app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
 *   Los items de biblioteca (songs, media, bible) se agregan al cronograma por drag & drop o acciones directas (click/context menu), usando los métodos del contexto (`addItemToSchedule`, etc.).
 *   Ver detalles y flujos completos en los agents de cada módulo.
+*   Controles de emergencia en live desde teclado del operador: `F7` (activar live), `F9` (ocultar texto solo en live), `F10` (mostrar logo/fallback sin quitar item), `F11` (pantalla negra), `Escape` (limpiar item live sin cerrar ventana).
 
 ```
 role="button"

@@ -14,24 +14,41 @@ type UsePresentationTextLayoutParams = {
 }
 
 export function usePresentationTextLayout({ theme, screenSize }: UsePresentationTextLayoutParams) {
-  const calculatedFontSize = theme.textStyle?.fontSize
-    ? `${(screenSize.height * Number(theme.textStyle.fontSize)) / BASE_PRESENTATION_HEIGHT}px`
-    : 'inherit'
+  const toFiniteNumber = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value
+    }
 
-  const calculatedSmallFontSize = theme.textStyle?.fontSize
-    ? `${(screenSize.height * (Number(theme.textStyle.fontSize) * 0.85)) / BASE_PRESENTATION_HEIGHT}px`
-    : 'inherit'
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+
+    return null
+  }
+
+  const baseFontSize = toFiniteNumber(theme.textStyle?.fontSize)
+
+  const calculatedFontSize =
+    baseFontSize !== null
+      ? `${(screenSize.height * baseFontSize) / BASE_PRESENTATION_HEIGHT}px`
+      : 'inherit'
+
+  const calculatedSmallFontSize =
+    baseFontSize !== null
+      ? `${(screenSize.height * (baseFontSize * 0.85)) / BASE_PRESENTATION_HEIGHT}px`
+      : 'inherit'
 
   const scaleFactor = useMemo(() => {
     const factor = screenSize.height / BASE_PRESENTATION_HEIGHT
     return Number.isFinite(factor) && factor > 0 ? factor : 1
   }, [screenSize.height])
 
-  const basePaddingInline = Number(theme.textStyle?.paddingInline ?? 16)
-  const basePaddingBlock = Number(theme.textStyle?.paddingBlock ?? 16)
+  const basePaddingInline = toFiniteNumber(theme.textStyle?.paddingInline)
+  const basePaddingBlock = toFiniteNumber(theme.textStyle?.paddingBlock)
 
-  const safePaddingInline = Number.isFinite(basePaddingInline) ? basePaddingInline : 16
-  const safePaddingBlock = Number.isFinite(basePaddingBlock) ? basePaddingBlock : 16
+  const safePaddingInline = basePaddingInline ?? 16
+  const safePaddingBlock = basePaddingBlock ?? 16
 
   const textContainerPadding = useMemo(() => {
     const horizontal = Number.isFinite(safePaddingInline)

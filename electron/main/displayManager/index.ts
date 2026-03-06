@@ -167,13 +167,19 @@ export function initializeDisplayManager() {
     })
   })
   // Handler para abrir la ventana de gestión de pantallas
-  ipcMain.handle('show-new-display-connected', () => {
-    // Aquí deberías abrir la ventana de gestión de pantallas
-    // Por ejemplo, puedes reutilizar o crear una nueva ventana
-    // TODO: Implementar UI específica para gestión de pantallas
-    const mainWindow = BrowserWindow.getAllWindows()[0]
-    if (mainWindow) {
-      mainWindow.webContents.send('open-new-display-connected')
+  ipcMain.handle('show-new-display-connected', (event) => {
+    const callerWindow = BrowserWindow.fromWebContents(event.sender)
+    if (callerWindow) {
+      callerWindow.webContents.send('open-new-display-connected')
+      return
+    }
+
+    // Fallback defensivo: usa una ventana no-live si existe.
+    const targetWindow = BrowserWindow.getAllWindows().find(
+      (win) => !win.webContents.getURL().includes('/live-screen/')
+    )
+    if (targetWindow) {
+      targetWindow.webContents.send('open-new-display-connected')
     }
     return
   })

@@ -10,7 +10,7 @@ export type UpdateSelectedScreenDTO = {
   id: number
   screenId?: number
   screenName?: string
-  rol?: ScreenRol
+  rol?: ScreenRol | null
 }
 
 export type SelectedScreenFilter = {

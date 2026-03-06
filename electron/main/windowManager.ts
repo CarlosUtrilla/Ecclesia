@@ -101,8 +101,8 @@ export function createSongWindow(songId?: number): BrowserWindow {
 export function createThemeWindow(themeId?: number): BrowserWindow {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   const themeWindow = new BrowserWindow({
-    width: Math.round(width * 0.8),
-    height: Math.round(height * 0.8),
+    width: Math.round(width * 0.95),
+    height: Math.round(height * 0.95),
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),

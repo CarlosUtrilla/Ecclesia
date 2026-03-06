@@ -38,6 +38,7 @@ type Props = {
   onTextBoundsChange: PresentationViewProps['onTextBoundsChange']
   onBibleVersePositionChange: PresentationViewProps['onBibleVersePositionChange']
   onEditableTargetSelect: PresentationViewProps['onEditableTargetSelect']
+  hideTextInLive: boolean
 }
 
 function ResourceContentComponent({
@@ -62,7 +63,8 @@ function ResourceContentComponent({
   textBoundsScale,
   onTextBoundsChange,
   onBibleVersePositionChange,
-  onEditableTargetSelect
+  onEditableTargetSelect,
+  hideTextInLive
 }: Props) {
   const nonBibleAnimatedItem = useMemo(
     () => ({
@@ -93,6 +95,7 @@ function ResourceContentComponent({
         textBoundsScale={textBoundsScale}
         onTextBoundsChange={onTextBoundsChange}
         onEditableTargetSelect={onEditableTargetSelect}
+        hideTextInLive={hideTextInLive}
       />
     )
   }
@@ -120,6 +123,7 @@ function ResourceContentComponent({
         onTextBoundsChange={onTextBoundsChange}
         onBibleVersePositionChange={onBibleVersePositionChange}
         onEditableTargetSelect={onEditableTargetSelect}
+        hideTextInLive={hideTextInLive}
       />
     )
   }
@@ -140,6 +144,7 @@ function ResourceContentComponent({
       textBoundsScale={textBoundsScale}
       onTextBoundsChange={onTextBoundsChange}
       onEditableTargetSelect={onEditableTargetSelect}
+      hideTextInLive={hideTextInLive}
     />
   )
 }
@@ -169,7 +174,8 @@ function areResourceContentPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.textBoundsScale === nextProps.textBoundsScale &&
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
     prevProps.onBibleVersePositionChange === nextProps.onBibleVersePositionChange &&
-    prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect
+    prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
+    prevProps.hideTextInLive === nextProps.hideTextInLive
   )
 }
 

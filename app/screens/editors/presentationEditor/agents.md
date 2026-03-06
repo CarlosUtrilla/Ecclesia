@@ -126,3 +126,8 @@ app/screens/editors/presentationEditor/
 
 - La selección de `Tema global` ahora se hace con un dialog `ThemePicker` con buscador y previews visuales.
 - La edición inline en canvas queda habilitada solo para items `TEXT`; los items `BIBLE` no permiten escritura manual.
+- La activación de edición por doble click en `TEXT` usa sincronización local de selección en `EditorCanvas` para evitar que el modo edición se cancele por race condition al cambiar de item.
+- La entrada a modo edición en `TEXT` también se dispara por `click.detail >= 2` para mantener compatibilidad con el flujo de drag por `pointer capture` del canvas.
+- Para convivir con edición por doble click, el drag `move` en canvas se activa con umbral de desplazamiento (no en `pointerdown` inmediato), evitando conflicto entre clic/edición y arrastre.
+- En items `TEXT` editables, el `pointerdown` no inicia arrastre de movimiento; se prioriza edición inline por doble click para evitar bloqueos de entrada a edición.
+- Para conservar movimiento de items `TEXT` sin romper la edición inline, el arrastre se habilita con `Alt + drag` sobre el texto.

@@ -141,7 +141,8 @@ function PresentationLayer({
   baseTextStyle,
   baseVerticalAlign,
   textBoundsScale,
-  isPreview = false
+  isPreview = false,
+  hideTextInLive = false
 }: {
   item: PresentationLayerItem
   activeVerse?: number
@@ -154,6 +155,7 @@ function PresentationLayer({
     y: number
   }
   isPreview?: boolean
+  hideTextInLive?: boolean
 }) {
   const { buildMediaUrl } = useMediaServer()
 
@@ -254,6 +256,10 @@ function PresentationLayer({
   }
 
   if (item.resourceType === 'BIBLE' && item.verse && theme) {
+    if (hideTextInLive && !isPreview) {
+      return null
+    }
+
     const resolvedVerse = activeVerse ?? item.verse.verse
     const resolvedText = getBibleVerseText(item.text, resolvedVerse) ?? item.text ?? ''
 
@@ -282,9 +288,14 @@ function PresentationLayer({
           scaleFactor={1}
           presentationHeight={BASE_PRESENTATION_HEIGHT}
           showTextBounds={false}
+          hideTextInLive={hideTextInLive}
         />
       </div>
     )
+  }
+
+  if (hideTextInLive && !isPreview) {
+    return null
   }
 
   return (
@@ -314,6 +325,7 @@ function PresentationLayer({
         textContainerOffset={{ x: 0, y: 0 }}
         verticalAlign={layerVerticalAlign}
         showTextBounds={false}
+        hideTextInLive={hideTextInLive}
       />
     </div>
   )
@@ -355,6 +367,7 @@ export default function PresentationRender(props: Props) {
           baseTextStyle={textStyle}
           baseVerticalAlign={verticalAlign}
           textBoundsScale={textBoundsScale}
+          hideTextInLive={props.hideTextInLive}
         />
       ))}
     </>

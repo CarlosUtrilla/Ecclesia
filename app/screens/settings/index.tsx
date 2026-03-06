@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Button } from '@/ui/button'
-import { CloudCog, Palette, Settings, X } from 'lucide-react'
+import { CloudCog, ImagePlay, Palette, Settings, X } from 'lucide-react'
 import ColorSettingsSection from './components/colorSettingsSection'
 import SyncSettingsSection from './components/syncSettingsSection'
+import LogoFallbackSection from './components/logoFallbackSection'
 
-type SettingsSection = 'colors' | 'sync'
+type SettingsSection = 'colors' | 'sync' | 'logoFallback'
 
 export default function SettingsScreen() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('colors')
@@ -32,6 +33,14 @@ export default function SettingsScreen() {
           <CloudCog className="size-4" /> Sincronización
         </Button>
 
+        <Button
+          variant={activeSection === 'logoFallback' ? 'secondary' : 'ghost'}
+          className="justify-start"
+          onClick={() => setActiveSection('logoFallback')}
+        >
+          <ImagePlay className="size-4" /> Logo / Pantalla de fondo
+        </Button>
+
         <div className="mt-auto">
           <Button
             className="w-full"
@@ -47,6 +56,7 @@ export default function SettingsScreen() {
         <div className="max-w-3xl mx-auto space-y-4">
           {activeSection === 'colors' ? <ColorSettingsSection /> : null}
           {activeSection === 'sync' ? <SyncSettingsSection /> : null}
+          {activeSection === 'logoFallback' ? <LogoFallbackSection /> : null}
         </div>
       </main>
     </div>

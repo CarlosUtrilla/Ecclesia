@@ -49,6 +49,7 @@ MediaServerProvider          (top-level, sin dependencias)
 - Llama a `window.displayAPI.getDisplays()` al montar.
 - Escucha evento IPC `display-update` para actualizarse automaticamente.
 - Muestra modal `NewDisplayConnected` cuando detecta pantallas sin configurar.
+- Cuando se guarda la configuracion en `NewDisplayConnected`, ejecuta `fetchDisplays()` via callback `onSaved` para refrescar `displays` y `mainDisplay` en caliente.
 
 ### ScreenSizeContext
 
@@ -121,7 +122,7 @@ MediaServerProvider          (top-level, sin dependencias)
 - Abre/cierra ventanas de Electron en cada display con rol `LIVE_SCREEN`.
 - Envia contenido y tema via IPC: `updateLiveScreenContent`, `updateLiveScreenTheme`.
 - Escucha `live-screen-ready` para saber cuando la ventana esta lista.
-- Tecla ESC cierra las pantallas live.
+- Si hay item en vivo, `Escape` limpia el item (`setItemOnLive(null)`) y deja la pantalla live abierta mostrando fondo.
 - Depende de `useSchedule()` y `useDisplays()`.
 - `showItemOnLiveScreen` incrementa una versión (`liveContentVersion`) para que consumidores como `items-on-live` puedan refetchear contenido incluso al reenviar el mismo item.
 

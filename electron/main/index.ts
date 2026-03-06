@@ -12,7 +12,6 @@ import {
   createThemeWindow
 } from './windowManager'
 import 'reflect-metadata'
-import { authStore } from '../../database/stores/authStore'
 import fontList from 'font-list'
 import { initializeBibleManager } from './bibleManager'
 import { initializeMediaManager } from './mediaManager'
@@ -149,18 +148,6 @@ app.whenReady().then(async () => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
-  })
-
-  app.on('web-contents-created', (_event, contents) => {
-    // Capturar el frameId ANTES de que se destruya
-    const frameId = (contents.mainFrame as any)?.frameId
-
-    contents.on('destroyed', () => {
-      if (frameId) {
-        console.log(`🧹 Limpiando sesión para frameId ${frameId} desde main.ts`)
-        authStore.clear(frameId)
-      }
-    })
   })
 })
 
