@@ -1,13 +1,302 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, SyncOperation } from '@prisma/client'
 import path from 'path'
 import fs from 'fs-extra'
 import { app } from 'electron'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { AsyncLocalStorage } from 'async_hooks'
 import log from 'electron-log'
 
 const execAsync = promisify(exec)
 let prisma: PrismaClient | null = null
+const outboxContext = new AsyncLocalStorage<{ skipOutbox: boolean }>()
+
+const SYNC_CONFIG_DIR_NAME = 'sync'
+const SYNC_CONFIG_FILE_NAME = 'google-drive-config.json'
+const OUTBOX_CACHE_TTL_MS = 5000
+const OUTBOX_TRACKED_ACTIONS = new Set([
+  'create',
+  'update',
+  'upsert',
+  'delete',
+  'deleteMany',
+  'updateMany',
+  'createMany',
+  'createManyAndReturn'
+])
+const OUTBOX_EXCLUDED_MODELS = new Set(['SyncOutboxChange', 'SyncInboxChange', 'SyncState'])
+
+type SyncIdentity = {
+  workspaceId: string
+  deviceId: string
+}
+
+type SyncConfigSnapshot = {
+  enabled?: boolean
+  workspaceId?: string
+  deviceName?: string
+}
+
+type CachedSyncIdentity = {
+  loadedAt: number
+  value: SyncIdentity | null
+}
+
+let cachedSyncIdentity: CachedSyncIdentity = {
+  loadedAt: 0,
+  value: null
+}
+
+function getSyncConfigPath() {
+  return path.join(app.getPath('userData'), SYNC_CONFIG_DIR_NAME, SYNC_CONFIG_FILE_NAME)
+}
+
+async function getSyncIdentityCached(): Promise<SyncIdentity | null> {
+  const now = Date.now()
+  if (now - cachedSyncIdentity.loadedAt < OUTBOX_CACHE_TTL_MS) {
+    return cachedSyncIdentity.value
+  }
+
+  const config = await readJsonSafe<SyncConfigSnapshot>(getSyncConfigPath())
+  if (!config?.enabled) {
+    cachedSyncIdentity = { loadedAt: now, value: null }
+    return null
+  }
+
+  const workspaceId = config.workspaceId?.trim()
+  const deviceId = config.deviceName?.trim()
+  if (!workspaceId || !deviceId) {
+    cachedSyncIdentity = { loadedAt: now, value: null }
+    return null
+  }
+
+  const value = { workspaceId, deviceId }
+  cachedSyncIdentity = { loadedAt: now, value }
+  return value
+}
+
+function getUpdatedAtFromRecord(record: unknown) {
+  if (!record || typeof record !== 'object') return null
+  const value = (record as Record<string, unknown>).updatedAt
+  if (value instanceof Date) return value
+  if (typeof value === 'string') {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+  return null
+}
+
+function toRecordId(model: string, args: Record<string, unknown>, result: unknown) {
+  if (result && typeof result === 'object') {
+    const maybeId = (result as Record<string, unknown>).id
+    if (typeof maybeId === 'string' || typeof maybeId === 'number') {
+      return String(maybeId)
+    }
+  }
+
+  const where = args.where
+  if (where && typeof where === 'object') {
+    const entries = Object.entries(where as Record<string, unknown>)
+    for (const [, value] of entries) {
+      if (typeof value === 'string' || typeof value === 'number') {
+        return String(value)
+      }
+    }
+  }
+
+  const data = args.data
+  if (data && typeof data === 'object') {
+    const maybeId = (data as Record<string, unknown>).id
+    if (typeof maybeId === 'string' || typeof maybeId === 'number') {
+      return String(maybeId)
+    }
+  }
+
+  if (model === 'ScheduleItem' && where && typeof where === 'object') {
+    const id = (where as Record<string, unknown>).id
+    if (typeof id === 'string') return id
+  }
+
+  return null
+}
+
+function toPayloadString(args: Record<string, unknown>, result: unknown) {
+  const payloadBase = result && typeof result === 'object' ? result : args.data ?? args.where ?? {}
+  return JSON.stringify(payloadBase)
+}
+
+function toOperation(action: string): SyncOperation | null {
+  if (action === 'create') return SyncOperation.CREATE
+  if (action === 'createMany' || action === 'createManyAndReturn') return SyncOperation.CREATE
+  if (action === 'update' || action === 'upsert') return SyncOperation.UPDATE
+  if (action === 'updateMany') return SyncOperation.UPDATE
+  if (action === 'delete') return SyncOperation.DELETE
+  if (action === 'deleteMany') return SyncOperation.DELETE
+  return null
+}
+
+function toDelegateName(model: string) {
+  return `${model.charAt(0).toLowerCase()}${model.slice(1)}`
+}
+
+function isRecordWithId(value: unknown): value is { id: string | number; updatedAt?: Date | string | null } {
+  if (!value || typeof value !== 'object') return false
+  const id = (value as Record<string, unknown>).id
+  return typeof id === 'string' || typeof id === 'number'
+}
+
+function normalizeDataArray(value: unknown) {
+  if (Array.isArray(value)) return value
+  if (value && typeof value === 'object') return [value]
+  return []
+}
+
+async function appendOutboxEntry(
+  client: PrismaClient,
+  identity: SyncIdentity,
+  data: {
+    tableName: string
+    recordId: string
+    operation: SyncOperation
+    payload: string
+    entityUpdatedAt: Date
+    deletedAt?: Date | null
+  }
+) {
+  try {
+    await client.syncOutboxChange.create({
+      data: {
+        workspaceId: identity.workspaceId,
+        deviceId: identity.deviceId,
+        tableName: data.tableName,
+        recordId: data.recordId,
+        operation: data.operation,
+        payload: data.payload,
+        entityUpdatedAt: data.entityUpdatedAt,
+        deletedAt: data.deletedAt ?? null
+      }
+    })
+  } catch (error) {
+    log.error(`[sync-outbox] No se pudo registrar cambio ${data.tableName}.${data.operation}:`, error)
+  }
+}
+
+export async function runWithoutSyncOutboxTracking<T>(fn: () => Promise<T>): Promise<T> {
+  return await outboxContext.run({ skipOutbox: true }, fn)
+}
+
+function registerOutboxMiddleware(client: PrismaClient) {
+  client.$use(async (params, next) => {
+    const action = params.action
+    const model = params.model
+
+    if (!model || !OUTBOX_TRACKED_ACTIONS.has(action) || OUTBOX_EXCLUDED_MODELS.has(model)) {
+      return await next(params)
+    }
+
+    const args = (params.args ?? {}) as Record<string, unknown>
+    const delegateName = toDelegateName(model)
+    const delegate = (client as Record<string, unknown>)[delegateName] as
+      | {
+          findMany: (args: Record<string, unknown>) => Promise<unknown[]>
+        }
+      | undefined
+
+    let bulkTargetsBefore: Array<{ id: string; updatedAt?: Date | string | null }> = []
+    if ((action === 'deleteMany' || action === 'updateMany') && delegate?.findMany) {
+      try {
+        const matches = await delegate.findMany({
+          where: args.where,
+          select: { id: true, updatedAt: true }
+        })
+        bulkTargetsBefore = matches
+          .filter(isRecordWithId)
+          .map((row) => ({ id: String(row.id), updatedAt: row.updatedAt }))
+      } catch (error) {
+        log.error(`[sync-outbox] No se pudo pre-capturar registros para ${model}.${action}:`, error)
+      }
+    }
+
+    const result = await next(params)
+
+    if (outboxContext.getStore()?.skipOutbox) {
+      return result
+    }
+
+    const identity = await getSyncIdentityCached()
+    if (!identity) {
+      return result
+    }
+
+    const operation = toOperation(action)
+    if (!operation) {
+      return result
+    }
+
+    if (action === 'deleteMany') {
+      const deletedAt = new Date()
+      for (const target of bulkTargetsBefore) {
+        await appendOutboxEntry(client, identity, {
+          tableName: model,
+          recordId: target.id,
+          operation,
+          payload: JSON.stringify({ id: target.id, deletedAt: deletedAt.toISOString() }),
+          entityUpdatedAt: deletedAt,
+          deletedAt
+        })
+      }
+      return result
+    }
+
+    if (action === 'updateMany') {
+      const dataPatch = args.data && typeof args.data === 'object' ? args.data : {}
+      for (const target of bulkTargetsBefore) {
+        await appendOutboxEntry(client, identity, {
+          tableName: model,
+          recordId: target.id,
+          operation,
+          payload: JSON.stringify({ id: target.id, ...dataPatch }),
+          entityUpdatedAt: new Date()
+        })
+      }
+      return result
+    }
+
+    if (action === 'createMany' || action === 'createManyAndReturn') {
+      const rows = normalizeDataArray(args.data)
+      for (const row of rows) {
+        if (!isRecordWithId(row)) continue
+        await appendOutboxEntry(client, identity, {
+          tableName: model,
+          recordId: String(row.id),
+          operation,
+          payload: JSON.stringify(row),
+          entityUpdatedAt: new Date()
+        })
+      }
+      return result
+    }
+
+    const recordId = toRecordId(model, args, result)
+    if (!recordId) {
+      return result
+    }
+
+    const entityUpdatedAt = getUpdatedAtFromRecord(result) ?? new Date()
+    const deletedAt = operation === SyncOperation.DELETE ? new Date() : null
+
+    await appendOutboxEntry(client, identity, {
+      tableName: model,
+      recordId,
+      operation,
+      payload: toPayloadString(args, result),
+      entityUpdatedAt,
+      deletedAt
+    })
+
+    return result
+  })
+}
 
 /**
  * Hace un backup de la base de datos actual usando SQLite backup API
@@ -666,6 +955,7 @@ async function initPrisma() {
     prisma = new PrismaClient({
       datasources: { db: { url: `file:${destDbPath.replace(/\\/g, '/')}` } }
     })
+    registerOutboxMiddleware(prisma)
     await prisma.$connect()
     log.info('✅ Prisma conectado a la base de datos')
     return prisma

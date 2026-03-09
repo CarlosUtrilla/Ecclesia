@@ -24,7 +24,7 @@
 3. [X] añadir una configuracion para que siempre que haya una pantalla en vivo pero no haya un recurso cargado mostrandose, se muestre como fallback un video o imagen seleccionado por el usuario que sera considerado como “logo” que puede servir como pantalla de fondo al quitar un recurso, este siempre estara debajo de los fondos de los temas para que al ocultar los recursos siempre haya una pantalla de fondo y no se vea en blanco o negro
 4. [X] Ademas, añador un listener de botones para elegir si mostrar el logo rapidamente por ejemplo con la tecla F10, o si ocultar el texto pero sin quitar el fondo pro ejemplo con F9, o mostrar una pantalla en negro por ejemplo con F11, o quitar la pantalla en vivo con F7
 5. [X] en el editor de temas añadir una manera de hacer crecer o achicar el contenedor del texto, de manera que tenga “margenes” o “padding” desde el borde de la pantalla, lo mismo para el verso cuando esta seleccionado en “mostrar debajo de la pantalla o arriba” para poder elegir que tan cerca del borde se quiere ue este el texto
-6. [ ] gestionar las pantalla de stage, e implementar en el editor de temas la opcion de poder usar recursos varios sobre la pantalla de stage, como un cronometro, una caja para mandar mensajes al predicador, un temporizador, un preview de la siguiente diapositiva, verso, letra, etc del recurso presentado en vivo, el tiempo del video que se esta viendo, etc, para que las personas de estage puedan ver lo necesario para comunicarse con ellos, al estilo vista del presentador de powerpoint pero con super mega poderes
+6. [X] gestionar las pantalla de stage, e implementar en el editor de temas la opcion de poder usar recursos varios sobre la pantalla de stage, como un cronometro, una caja para mandar mensajes al predicador, un temporizador, un preview de la siguiente diapositiva, verso, letra, etc del recurso presentado en vivo, el tiempo del video que se esta viendo, etc, para que las personas de estage puedan ver lo necesario para comunicarse con ellos, al estilo vista del presentador de powerpoint pero con super mega poderes
 7. [ ] despues de resolver todos estos puntos debemos conseguir que los apuntadores (los que se usan para poner diapositiva siguiente y anteriir) sean compatibles con la app
 8. [ ] Guardar configuracion del layaout de como lo acomodo el usuario para que sea mas comodo para el, asi al abrir se abre tal cual lo dejo configurado y no tiene que mover de nuevo, lo mismo para el videMode del items-on-live, debe guardarse la preferencia del usuario
 
@@ -68,3 +68,98 @@
 1. [X] Detectar slides con contenido bíblico en rango (ej. `Mateo 2:1-6`) y tratarlas como sub-pasos navegables.
 2. [X] Hacer que `Anterior/Siguiente` recorran versos internos cuando la slide activa tenga rango, antes de pasar a la siguiente diapositiva.
 3. [X] Diseñar modelo de datos para sub-índice interno por slide (verso actual dentro del rango) y su sincronización en live.
+
+## Nueva actualización planificada: sincronización avanzada diferencial (DB + archivos)
+
+> Objetivo: dejar de sincronizar por ZIP completo y pasar a una sincronización inteligente por cambios, evitando pérdida de datos cuando hay 2 PCs editando en paralelo.
+>
+> Decisión tomada: usar almacenamiento oculto de app en Google Drive (`appDataFolder`, estilo WhatsApp) y eliminar el flujo ZIP legado sin mantener compatibilidad hacia atrás.
+
+### Fase 0 - Definición de modelo de sincronización
+
+1. [ ] Definir estrategia oficial de merge por entidad para DB (no sobreescribir toda la base):
+
+- Canciones, temas, medios, settings, schedules, etc. se comparan por registro (no por archivo DB completo).
+- Cada entidad debe tener metadatos mínimos de sync: `updatedAt`, `deletedAt` (soft delete), `updatedByDevice`, `version` (entero incremental o vector simplificado).
+
+1. [ ] Definir reglas de conflicto por tabla (matriz de resolución):
+
+- `lastWriteWins` por campo cuando sea seguro.
+- `askBeforeOverwrite` para colisiones sensibles (ej. edición concurrente del mismo tema).
+- `merge automático` cuando son cambios independientes (ej. PC A crea canción y PC B crea tema).
+
+1. [ ] Crear documento de contratos de sincronización (payload, orden, idempotencia, retries, rollback).
+
+### Fase 1 - Sincronización diferencial de base de datos
+
+1. [X] Crear tabla local `sync_state` (o equivalente) para checkpoints por dispositivo:
+
+- `lastPulledAt`, `lastPushedAt`, `lastAckedChangeId`, `deviceId`, `workspaceId`.
+
+1. [X] Crear log de cambios por entidad (outbox/inbox):
+
+- Registrar `create/update/delete` por fila y tabla.
+- Generar `changeId` monotónico y payload mínimo por cambio.
+
+1. [X] Implementar `push` de cambios pendientes (solo difs desde último ack).
+2. [X] Implementar `pull` de cambios remotos (solo difs nuevos) con aplicación transaccional por lotes.
+3. [X] Asegurar merge por registro para el caso multi-PC (A crea canción, B crea tema) sin pérdida de datos.
+4. [X] Soportar tombstones (`deletedAt`) para propagar eliminaciones correctamente.
+
+### Fase 2 - Sincronización diferencial de archivos (sin ZIP completo)
+
+1. [X] Construir índice de archivos sincronizables (`media_manifest`) con:
+
+- `path`, `size`, `checksum` (sha256), `mtime`, `deletedAt`, `lastSyncedAt`.
+
+1. [X] Subir solo archivos nuevos o modificados comparando manifest local vs remoto.
+2. [X] Descargar solo archivos faltantes o desactualizados.
+3. [X] Propagar eliminaciones de archivos mediante tombstones (no re-subir archivos borrados).
+4. [X] Evitar re-subida de binarios idénticos (dedupe por checksum).
+5. [X] Implementar almacenamiento remoto en `appDataFolder` (oculto para el usuario en Drive) para reducir riesgo de borrado/manipulación accidental.
+
+### Fase 3 - Scheduler y observabilidad operativa
+
+1. [X] Mantener auto-sync cada 5 minutos como scheduler principal para push/pull diferencial.
+2. [X] Añadir estado visible del ciclo de sync:
+
+- próxima ejecución,
+- cambios pendientes locales,
+- cambios remotos pendientes,
+- último resultado (ok/error) con detalle.
+
+Estado actual: se exponen en `sync:google-drive:status` `pendingOutboxChanges`, `pendingInboxChanges`, `nextRunAt`, `lastRunStatus`, `lastRunReason`, `lastRunAt`, `lastRunError`, `retryCount`, `nextRetryAt`, `schedulerHealthy` y `lastSchedulerHeartbeatAt`.
+
+1. [X] Reintentos con backoff y cola persistente si falla internet/Drive.
+2. [X] Health checks para detectar scheduler detenido o config inválida.
+3. [X] Diseñar estrategia para ocultar/aislar la carpeta de Ecclesia en Google Drive (estilo WhatsApp) y minimizar borrados/cambios accidentales del usuario.
+4. [X] Definir permisos/estructura recomendada (carpetas de app, nombres internos, y validaciones de integridad) para evitar manipulación manual.
+
+Estado actual: sincronización diferencial persistida en `appDataFolder` con nombres internos por workspace/dispositivo (`ecclesia-diff-manifest-*`, `ecclesia-diff-changes-*`, `ecclesia-media-manifest-*`, `ecclesia-media-blob-*`) y validación estricta de `schemaVersion`, `workspaceId`, fechas y estructura antes de ingerir cambios o manifests remotos.
+
+### Fase 4 - Migración segura desde el modelo actual
+
+1. [X] Eliminar código y dependencias del flujo ZIP actual (`archiver`, `unzipper`, restore por zip) en el manager de sync.
+2. [X] Reemplazar endpoints de sync actuales para que trabajen exclusivamente con diffs (DB + media manifest).
+3. [X] Agregar comando de reconciliación manual (re-index DB y media) para bootstrap inicial en instalaciones nuevas.
+
+### Fase 5 - Testing y validación de escenarios reales
+
+Estado actual: infraestructura base de testing habilitada con Vitest (`npm run test`, `npm run test:watch`, `npm run test:coverage`), setup global en `tests/setup/vitest.setup.ts`, pruebas de seguridad/regresión en `app/lib/utils.security.test.ts` y `app/lib/utils.test.ts`, cobertura inicial del módulo de sincronización en `database/controllers/sync/sync.service.test.ts` y `database/controllers/sync/sync.controller.test.ts`, y pruebas de integración ligera en `database/controllers/sync/sync.service.integration.test.ts` para flujos inbox/outbox.
+
+1. [X] Tests de concurrencia multi-dispositivo:
+
+- PC A crea canción + PC B crea tema,
+- PC A edita tema X + PC B edita el mismo tema X,
+- eliminaciones cruzadas,
+- cortes de red y recuperación.
+
+Cobertura: `database/controllers/sync/sync.service.integration.test.ts` cubre altas independientes, conflicto sobre mismo tema y eliminaciones cruzadas idempotentes; `electron/main/googleDriveSyncManager/googleDriveSyncManager.test.ts` cubre helpers de backoff (`calculateRetryDelayMs`, `buildRetryBackoffState`) y `electron/main/googleDriveSyncManager/googleDriveSyncManager.scheduler.test.ts` cubre falla inicial + retry automático por timer + recuperación del ciclo.
+
+1. [X] Tests de integridad de media (hash, duplicados, borrados).
+2. [X] Test de performance para confirmar reducción de transferencia frente al ZIP completo.
+3. [X] Checklist de salida a producción con métricas mínimas de confiabilidad.
+
+Cobertura media/performance: `electron/main/googleDriveSyncManager/googleDriveSyncManager.media.test.ts` valida dedupe por checksum, descarga diferencial, propagación de tombstones, rechazo de manifest remoto inválido y transferencia por delta (sin re-subida de blobs cuando no hay cambios).
+
+Referencia: `docs/SYNC_FASE5_CHECKLIST.md` (matriz multi-dispositivo, integridad de media, performance y criterios de salida).

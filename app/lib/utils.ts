@@ -15,7 +15,7 @@ export function cn(...inputs: ClassValue[]) {
  * @returns string -> HTML limpio y seguro
  */
 export function sanitizeHTML(html: string): string {
-  return DOMPurify.sanitize(html, {
+  const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ['p', 'strong', 'em', 'u', 'span', 'br'],
     ALLOWED_ATTR: ['style'],
     ALLOWED_STYLES: {
@@ -23,6 +23,29 @@ export function sanitizeHTML(html: string): string {
         'font-size': [/^[\d.]+em$/]
       }
     }
+  })
+
+  // Refuerzo defensivo: conservar solo font-size en em y remover cualquier otra propiedad inline.
+  return sanitized.replace(/\sstyle="([^"]*)"/g, (_fullMatch, styleContent: string) => {
+    const allowed = styleContent
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const [rawName, rawValue] = part.split(':')
+        return {
+          name: rawName?.trim().toLowerCase(),
+          value: rawValue?.trim() || ''
+        }
+      })
+      .filter((entry) => entry.name === 'font-size' && /^[\d.]+em$/i.test(entry.value))
+      .map((entry) => `font-size: ${entry.value}`)
+
+    if (allowed.length === 0) {
+      return ''
+    }
+
+    return ` style="${allowed.join('; ')}"`
   })
 }
 

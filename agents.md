@@ -28,6 +28,18 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 *   **Backend:** Electron, Prisma ORM, SQLite (better-sqlite3)
 *   **Build:** Vite + electron-vite
 *   **Idioma principal del codigo:** Espanol (comentarios, nombres de variables UI), Ingles (nombres de modelos, controladores, tipos)
+*   **Testing:** Vitest (`node` por defecto + `jsdom` por archivo), Testing Library para pruebas UI.
+
+## Testing (base minima obligatoria)
+
+- Comandos disponibles:
+  - `npm run test`
+  - `npm run test:watch`
+  - `npm run test:coverage`
+- Configuracion central: `vitest.config.ts`.
+- Setup global de matchers: `tests/setup/vitest.setup.ts`.
+- Para pruebas de componentes/DOM usar `// @vitest-environment jsdom` en el archivo de test.
+- Priorizar cobertura de seguridad en utilidades críticas (ej. sanitización HTML) y regresiones de lógica en módulos compartidos.
 
 ## Auto-invoke: Consulta SIEMPRE el agent antes de actuar
 

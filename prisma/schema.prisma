@@ -55,6 +55,7 @@ model Font {
   fileName  String
   filePath  String
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Themes {
@@ -135,6 +136,7 @@ model BibleSchema {
   book_short String
   testament  TestamentEnum
   chapter    BibleVerses[]
+  updatedAt  DateTime      @default(now()) @updatedAt
 }
 
 model BibleVerses {
@@ -143,6 +145,7 @@ model BibleVerses {
   verses        Int
   bibleSchema   BibleSchema? @relation(fields: [bibleSchemaId], references: [id])
   bibleSchemaId Int?
+  updatedAt     DateTime     @default(now()) @updatedAt
 }
 
 enum BibleDescriptionMode {
@@ -169,20 +172,23 @@ model BiblePresentationSettings {
   positionStyle   Float?
   defaultTheme    Int?
   themes          Themes[]
+  updatedAt       DateTime                 @default(now()) @updatedAt
 }
 
 model Schedule {
-  id       Int            @id @default(autoincrement())
-  title    String
-  dateFrom DateTime?
-  dateTo   DateTime?
-  items    ScheduleItem[]
+  id        Int            @id @default(autoincrement())
+  title     String
+  dateFrom  DateTime?
+  dateTo    DateTime?
+  items     ScheduleItem[]
+  updatedAt DateTime       @default(now()) @updatedAt
 }
 
 model ScheduleGroupTemplate {
-  id    Int    @id @default(autoincrement())
-  name  String
-  color String
+  id        Int      @id @default(autoincrement())
+  name      String
+  color     String
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 enum ScheduleItemType {
@@ -208,6 +214,7 @@ model ScheduleItem {
   accessData String
   scheduleId Int
   schedule   Schedule         @relation(fields: [scheduleId], references: [id])
+  updatedAt  DateTime         @default(now()) @updatedAt
 }
 
 enum ScreenRol {
@@ -221,6 +228,7 @@ model SelectedScreens {
   screenName  String
   rol         ScreenRol?
   stageConfig StageScreenConfig?
+  updatedAt   DateTime           @default(now()) @updatedAt
 }
 
 model StageScreenConfig {
@@ -233,4 +241,62 @@ model StageScreenConfig {
   state            String          @default("{\"message\":null,\"timers\":[]}")
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
+
+  @@index([themeId])
+}
+
+enum SyncOperation {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model SyncState {
+  id                Int       @id @default(autoincrement())
+  workspaceId       String
+  deviceId          String
+  lastPulledAt      DateTime?
+  lastPushedAt      DateTime?
+  lastAckedChangeId Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([workspaceId, deviceId])
+}
+
+model SyncOutboxChange {
+  id              Int           @id @default(autoincrement())
+  workspaceId     String
+  deviceId        String
+  tableName       String
+  recordId        String
+  operation       SyncOperation
+  payload         String
+  entityUpdatedAt DateTime?
+  deletedAt       DateTime?
+  ackedAt         DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @default(now()) @updatedAt
+
+  @@index([workspaceId, deviceId, ackedAt, id])
+  @@index([workspaceId, id])
+}
+
+model SyncInboxChange {
+  id              Int           @id @default(autoincrement())
+  workspaceId     String
+  sourceDeviceId  String
+  remoteChangeId  String
+  tableName       String
+  recordId        String
+  operation       SyncOperation
+  payload         String
+  entityUpdatedAt DateTime?
+  deletedAt       DateTime?
+  appliedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @default(now()) @updatedAt
+
+  @@unique([workspaceId, sourceDeviceId, remoteChangeId])
+  @@index([workspaceId, appliedAt, id])
 }

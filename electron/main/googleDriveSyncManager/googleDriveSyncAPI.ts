@@ -19,6 +19,7 @@ export const googleDriveSyncAPI = {
   disconnect: () => ipcRenderer.invoke('sync:google-drive:disconnect'),
   pushNow: () => ipcRenderer.invoke('sync:google-drive:push'),
   pullNow: () => ipcRenderer.invoke('sync:google-drive:pull'),
+  reconcileNow: () => ipcRenderer.invoke('sync:google-drive:reconcile'),
   notifyAutoSaveEvent: () => ipcRenderer.send('sync:google-drive:auto-save-event'),
   onSyncStateChange: (callback: (data: { syncing: boolean; progress: number }) => void) => {
     const listener = (_event: unknown, data: { syncing: boolean; progress: number }) => callback(data)

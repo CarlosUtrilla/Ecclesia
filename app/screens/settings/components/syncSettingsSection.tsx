@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { CheckCircle2, Download, Link2, RefreshCcw, Upload } from 'lucide-react'
@@ -50,18 +50,20 @@ export default function SyncSettingsSection() {
   const [statusMessage, setStatusMessage] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
 
+  const storedSettings = useMemo(() => getStoredSyncSettings(), [])
+
   const syncForm = useForm<SyncSettingsForm>({
     resolver: zodResolver(SyncSettingsSchema),
     mode: 'onChange',
-    defaultValues: getStoredSyncSettings()
+    defaultValues: storedSettings
   })
 
   const isSyncEnabled = syncForm.watch('enabled')
 
-  const persistSyncSettings = (values: SyncSettingsForm) => {
+  const persistSyncSettings = useCallback(async (values: SyncSettingsForm) => {
     localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(values))
-    window.googleDriveSyncAPI.configure(values)
-  }
+    await window.googleDriveSyncAPI.configure(values)
+  }, [])
 
   const refreshStatus = async () => {
     const nextStatus = await window.googleDriveSyncAPI.getStatus()
@@ -157,10 +159,31 @@ export default function SyncSettingsSection() {
   }
 
   useEffect(() => {
+    persistSyncSettings(storedSettings).catch(() => {
+      // noop: la conexión real se valida con getStatus/connect
+    })
+
     refreshStatus().catch(() => {
       setStatusMessage('No se pudo consultar el estado de sincronización')
     })
-  }, [])
+  }, [persistSyncSettings, storedSettings])
+
+  const watchedValues = syncForm.watch()
+
+  useEffect(() => {
+    const parsed = SyncSettingsSchema.safeParse(watchedValues)
+    if (!parsed.success) return
+
+    const timer = window.setTimeout(() => {
+      persistSyncSettings(parsed.data).catch(() => {
+        // noop: evitar ruido en UI durante escritura de config local
+      })
+    }, 400)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [persistSyncSettings, watchedValues])
 
   return (
     <Card>
@@ -251,7 +274,7 @@ export default function SyncSettingsSection() {
         >
           <Upload className="size-4" /> Subir
         </Button>
-        <Button variant="outline" onClick={() => syncForm.reset(getStoredSyncSettings())}>
+        <Button variant="outline" onClick={() => syncForm.reset(storedSettings)}>
           <RefreshCcw className="size-4" /> Restablecer
         </Button>
         <Button

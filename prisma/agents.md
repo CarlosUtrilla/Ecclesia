@@ -258,7 +258,69 @@ model Setting {
   key   SettingOptions @unique
   value String                    // JSON string
 }
+
+### SyncState / SyncOutboxChange / SyncInboxChange (Fase 1 sync diferencial)
+
+```prisma
+enum SyncOperation {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model SyncState {
+  id                Int      @id @default(autoincrement())
+  workspaceId       String
+  deviceId          String
+  lastPulledAt      DateTime?
+  lastPushedAt      DateTime?
+  lastAckedChangeId Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([workspaceId, deviceId])
+}
+
+model SyncOutboxChange {
+  id              Int           @id @default(autoincrement())
+  workspaceId     String
+  deviceId        String
+  tableName       String
+  recordId        String
+  operation       SyncOperation
+  payload         String
+  entityUpdatedAt DateTime?
+  deletedAt       DateTime?
+  ackedAt         DateTime?
+  createdAt       DateTime      @default(now())
+}
+
+model SyncInboxChange {
+  id              Int           @id @default(autoincrement())
+  workspaceId     String
+  sourceDeviceId  String
+  remoteChangeId  String
+  tableName       String
+  recordId        String
+  operation       SyncOperation
+  payload         String
+  entityUpdatedAt DateTime?
+  deletedAt       DateTime?
+  appliedAt       DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@unique([workspaceId, sourceDeviceId, remoteChangeId])
+}
 ```
+
+- `SyncState` guarda checkpoint por `workspaceId + deviceId`.
+- `SyncOutboxChange` registra cambios locales pendientes por entidad para empuje incremental.
+- `SyncInboxChange` recibe cambios remotos deduplicados antes de aplicar merge.
+
+### Regla de sincronización aplicada (9-Mar-2026)
+
+- Todos los modelos de la base Prisma cuentan con `updatedAt` para soportar reconciliación completa y evitar pérdida de datos por cambios concurrentes entre dispositivos.
+- En modelos que no lo tenían (`Font`, `BibleSchema`, `BibleVerses`, `BiblePresentationSettings`, `Schedule`, `ScheduleGroupTemplate`, `ScheduleItem`, `SelectedScreens`, `SyncOutboxChange`, `SyncInboxChange`) se añadió `updatedAt` con `@default(now()) @updatedAt`.
 
 - Almacena configuraciones globales de la aplicacion como pares clave-valor.
 
