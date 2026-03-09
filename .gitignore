@@ -8,6 +8,8 @@ out
 
 /generated/prisma
 .env
+.env.local
+.env.*.local
 
 # Archivos de caché de VS Code y herramientas
 .vscode/.history
