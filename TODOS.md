@@ -26,7 +26,9 @@
 5. [X] en el editor de temas añadir una manera de hacer crecer o achicar el contenedor del texto, de manera que tenga “margenes” o “padding” desde el borde de la pantalla, lo mismo para el verso cuando esta seleccionado en “mostrar debajo de la pantalla o arriba” para poder elegir que tan cerca del borde se quiere ue este el texto
 6. [X] gestionar las pantalla de stage, e implementar en el editor de temas la opcion de poder usar recursos varios sobre la pantalla de stage, como un cronometro, una caja para mandar mensajes al predicador, un temporizador, un preview de la siguiente diapositiva, verso, letra, etc del recurso presentado en vivo, el tiempo del video que se esta viendo, etc, para que las personas de estage puedan ver lo necesario para comunicarse con ellos, al estilo vista del presentador de powerpoint pero con super mega poderes
 7. [ ] despues de resolver todos estos puntos debemos conseguir que los apuntadores (los que se usan para poner diapositiva siguiente y anteriir) sean compatibles con la app
-8. [ ] Guardar configuracion del layaout de como lo acomodo el usuario para que sea mas comodo para el, asi al abrir se abre tal cual lo dejo configurado y no tiene que mover de nuevo, lo mismo para el videMode del items-on-live, debe guardarse la preferencia del usuario
+8. [X] Guardar configuracion del layaout de como lo acomodo el usuario para que sea mas comodo para el, asi al abrir se abre tal cual lo dejo configurado y no tiene que mover de nuevo, lo mismo para el videMode del items-on-live, debe guardarse la preferencia del usuario
+
+Implementado: `ResizablePanelGroup` principal con `autoSaveId` para persistir tamaños de paneles entre sesiones y persistencia de `viewMode` (`list/grid`) de `items-on-live` en `localStorage`.
 
 ## Nuevo requerimiento iniciado: controlador especial para PRESENTATION en items-on-live
 

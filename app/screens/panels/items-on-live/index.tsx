@@ -4,23 +4,57 @@ import { LayoutGrid, List, Radio } from 'lucide-react'
 import { RenderSongLyrics } from './components/RenderSongLyrics'
 import RenderBibleVerses from './components/RenderBibleVerses'
 import { RenderMedia } from './components/RenderMedia'
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
 import { ViewModeTypes } from './types'
 import RenderGridMode from './components/RenderGridMode'
 import RenderPresentationLiveController from './components/RenderPresentationLiveController'
 import { useLive } from '../../../contexts/ScheduleContext/utils/liveContext'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+
+const LIVE_VIEW_MODE_KEY = 'items-on-live-view-mode'
+
+function getInitialViewMode(): ViewModeTypes {
+  const savedMode = localStorage.getItem(LIVE_VIEW_MODE_KEY)
+  return savedMode === 'grid' ? 'grid' : 'list'
+}
 
 export default function LivePanel() {
   const { itemOnLive, getScheduleItemContentScreen } = useSchedule()
-  const { liveContentVersion } = useLive()
-  const [viewMode, setViewMode] = useState<ViewModeTypes>('list')
+  const { liveContentVersion, itemIndex, setItemIndex } = useLive()
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [viewMode, setViewMode] = useState<ViewModeTypes>(getInitialViewMode)
+
+  useEffect(() => {
+    localStorage.setItem(LIVE_VIEW_MODE_KEY, viewMode)
+  }, [viewMode])
+
   const { data } = useQuery({
     queryKey: ['liveItemContent', itemOnLive?.accessData, liveContentVersion],
     queryFn: () => {
       return getScheduleItemContentScreen(itemOnLive!)
     },
     enabled: !!itemOnLive
+  })
+
+  const slideCount = useMemo(() => {
+    if (!Array.isArray(data?.content)) return 0
+    return data.content.length
+  }, [data?.content])
+
+  useKeyboardShortcuts(containerRef, {
+    onNavigate: (direction) => {
+      if (!itemOnLive || slideCount <= 1) return
+
+      if (direction === 'left' || direction === 'up') {
+        setItemIndex(Math.max(0, itemIndex - 1))
+        return
+      }
+
+      if (direction === 'right' || direction === 'down') {
+        setItemIndex(Math.min(slideCount - 1, itemIndex + 1))
+      }
+    }
   })
 
   const renderContent = () => {
@@ -47,7 +81,11 @@ export default function LivePanel() {
   }
 
   return (
-    <div className="h-full min-w-1/3 flex flex-col min-h-0 overflow-hidden">
+    <div
+      ref={containerRef}
+      className="h-full min-w-1/3 flex flex-col min-h-0 overflow-hidden"
+      onMouseDown={() => containerRef.current?.focus()}
+    >
       <div className="shrink-0">
         <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2 text-sm">
           <div className="text-muted-foreground italic">

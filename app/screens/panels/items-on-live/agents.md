@@ -46,6 +46,8 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - Al entrar o reingresar a una diapositiva con video en modo `auto`, el controlador envía una secuencia corta de reintentos `seek(0)+play` para evitar que se pierda el comando durante el remount del video en live.
 - Al entrar o reingresar a cualquier diapositiva con video, el controlador reinicia explícitamente el video local y live a `0s` (inicio) antes de aplicar `play`/`pause` según la configuración (`auto`/`manual`).
 - Para mantener consistencia visual con proyección, `RenderGridMode` admite `themeOverride`; en PRESENTATION usa `BlankTheme` por defecto (fondo blanco cuando no hay tema por slide).
+- El selector de vista del panel (`list/grid`) se persiste en `localStorage` (`items-on-live-view-mode`) para restaurar la preferencia del operador al reiniciar la app.
+- El contenedor principal usa `useKeyboardShortcuts` para navegación por teclado con foco: `ArrowLeft/ArrowUp` retrocede slide y `ArrowRight/ArrowDown` avanza slide cuando hay item en vivo con múltiples diapositivas.
 
 ## Nota Stage
 

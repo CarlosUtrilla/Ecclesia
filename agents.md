@@ -87,6 +87,7 @@ app/main.tsx (entry point React)
                       -> DragAndDropSchedule (drag & drop con dnd-kit)
                       -> Layout con ResizablePanels:
                           [SchedulePanel | LivePanels | LiveScreens]
+                      - Tamaños del layout principal persistidos entre sesiones con `defaultLayout` + `onLayoutChanged` (localStorage) y `id` estable por panel.
                           [LibraryPanel (songs/media/bible)]
               "/song/:id"     -> SongEditor (ventana separada)
               "/theme/:id"    -> ThemesEditor (ventana separada)
