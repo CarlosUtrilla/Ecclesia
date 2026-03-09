@@ -11,6 +11,7 @@ import RenderGridMode from './components/RenderGridMode'
 import RenderPresentationLiveController from './components/RenderPresentationLiveController'
 import { useLive } from '../../../contexts/ScheduleContext/utils/liveContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { resolveSlideVerse } from '@/lib/presentationVerseController'
 
 const LIVE_VIEW_MODE_KEY = 'items-on-live-view-mode'
 
@@ -21,7 +22,13 @@ function getInitialViewMode(): ViewModeTypes {
 
 export default function LivePanel() {
   const { itemOnLive, getScheduleItemContentScreen } = useSchedule()
-  const { liveContentVersion, itemIndex, setItemIndex } = useLive()
+  const {
+    liveContentVersion,
+    itemIndex,
+    setItemIndex,
+    presentationVerseBySlideKey,
+    setPresentationVerseBySlideKey
+  } = useLive()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [viewMode, setViewMode] = useState<ViewModeTypes>(getInitialViewMode)
 
@@ -44,14 +51,42 @@ export default function LivePanel() {
 
   useKeyboardShortcuts(containerRef, {
     onNavigate: (direction) => {
-      if (!itemOnLive || slideCount <= 1) return
+      if (!itemOnLive || slideCount <= 0) return
 
-      if (direction === 'left' || direction === 'up') {
+      const isBackward = direction === 'left' || direction === 'up'
+      const isForward = direction === 'right' || direction === 'down'
+      if (!isBackward && !isForward) return
+
+      if (itemOnLive.type === 'PRESENTATION' && Array.isArray(data?.content)) {
+        const safeIndex = Math.max(0, Math.min(itemIndex, slideCount - 1))
+        const activeSlide = data.content[safeIndex]
+        const verseController = resolveSlideVerse(activeSlide, safeIndex, presentationVerseBySlideKey)
+
+        if (verseController) {
+          if (isForward && verseController.current < verseController.end) {
+            setPresentationVerseBySlideKey((previous) => ({
+              ...previous,
+              [verseController.slideKey]: verseController.current + 1
+            }))
+            return
+          }
+
+          if (isBackward && verseController.current > verseController.start) {
+            setPresentationVerseBySlideKey((previous) => ({
+              ...previous,
+              [verseController.slideKey]: verseController.current - 1
+            }))
+            return
+          }
+        }
+      }
+
+      if (isBackward) {
         setItemIndex(Math.max(0, itemIndex - 1))
         return
       }
 
-      if (direction === 'right' || direction === 'down') {
+      if (isForward) {
         setItemIndex(Math.min(slideCount - 1, itemIndex + 1))
       }
     }

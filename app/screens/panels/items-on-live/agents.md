@@ -48,6 +48,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - Para mantener consistencia visual con proyección, `RenderGridMode` admite `themeOverride`; en PRESENTATION usa `BlankTheme` por defecto (fondo blanco cuando no hay tema por slide).
 - El selector de vista del panel (`list/grid`) se persiste en `localStorage` (`items-on-live-view-mode`) para restaurar la preferencia del operador al reiniciar la app.
 - El contenedor principal usa `useKeyboardShortcuts` para navegación por teclado con foco: `ArrowLeft/ArrowUp` retrocede slide y `ArrowRight/ArrowDown` avanza slide cuando hay item en vivo con múltiples diapositivas.
+- En `PRESENTATION`, la navegación con flechas respeta rangos bíblicos por slide: primero avanza/retrocede versículos internos y solo cambia de diapositiva al llegar al final/inicio del rango.
 
 ## Nota Stage
 
