@@ -218,7 +218,7 @@ export function initializeDisplayManager() {
   })
 
   // Cerrar ventana por su ID
-  ipcMain.handle('close-live-screen', (event, windowId: number) => {
+  ipcMain.handle('close-live-screen', (_event, windowId: number) => {
     const window = BrowserWindow.fromId(windowId)
 
     if (!window) {

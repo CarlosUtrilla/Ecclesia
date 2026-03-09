@@ -56,7 +56,7 @@ export default function ThemeSelector({ selectedTheme, setSelectedTheme }: Props
           <PresentationView
             className="max-w-48"
             theme={theme}
-            items={[{ text: theme.name }]}
+            items={[{ resourceType: 'TEXT' as const, text: theme.name }]}
             onClick={() => setSelectedTheme(theme)}
             selected={selectedTheme?.id === theme.id}
             key={theme.id}

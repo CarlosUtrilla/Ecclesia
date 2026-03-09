@@ -1,4 +1,3 @@
-import React from 'react'
 
 export default function FlipIcon({ className }: { className?: string }) {
   return (

@@ -241,7 +241,7 @@ export default function ThemesEditor() {
         await window.api.themes.updateTheme(themeId, data as any)
       } else {
         // Create new theme
-        await window.api.themes.createTheme(data)
+        await window.api.themes.createTheme(data as any)
       }
       // cerrar ventana
       window.electron.ipcRenderer.send('theme-saved')

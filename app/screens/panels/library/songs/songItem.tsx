@@ -40,8 +40,6 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
             'bg-secondary/20 hover:bg-secondary/10': selectedSong?.id === song.id,
             'opacity-50 bg-muted ': isDragging
           })}
-          role="button"
-          tabIndex={0}
           ref={setNodeRef}
           {...listeners}
           {...attributes}
@@ -82,7 +80,8 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
                 type: 'SONG',
                 id: generateUniqueId(),
                 order: -1,
-                scheduleId: -1
+                scheduleId: -1,
+                updatedAt: new Date()
               },
               0
             )

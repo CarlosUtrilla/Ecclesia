@@ -31,7 +31,7 @@ const DEFAULT_BIBLE_EDGE_OFFSET = 10
 type Props = {
   hideTooltip?: boolean
   customTheme?: ThemeWithMedia
-  customBibleSettings?: Omit<BiblePresentationSettings, 'id' | 'isGlobal' | 'defaultTheme'> & {
+  customBibleSettings?: Omit<BiblePresentationSettings, 'id' | 'isGlobal' | 'defaultTheme' | 'updatedAt'> & {
     id?: number
   }
   setCustomBibleSettings?: (value: BiblePresentationSettings) => void
@@ -239,7 +239,8 @@ export default function BiblePresentationConfiguration({
                     ...values,
                     id: -1,
                     isGlobal: true,
-                    defaultTheme: null
+                    defaultTheme: null,
+                    updatedAt: new Date()
                   },
                   useDefaultBibleSettings: false
                 }}

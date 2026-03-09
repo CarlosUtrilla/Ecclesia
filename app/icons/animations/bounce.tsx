@@ -1,4 +1,3 @@
-import React from 'react'
 
 export default function BounceIcon({ className }: { className?: string }) {
   return (

@@ -23,7 +23,7 @@ jobs:
       - name: Build and publish (macOS)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: npm run build:mac -- --publish always
+        run: npm run build:ci:mac -- --publish always
 
   build-windows:
     runs-on: windows-latest
@@ -42,4 +42,4 @@ jobs:
       - name: Build and publish (Windows)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: npm run build:win -- --publish always
+        run: npm run build:ci:win -- --publish always

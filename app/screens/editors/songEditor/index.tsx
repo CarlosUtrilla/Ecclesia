@@ -145,6 +145,7 @@ export default function SongEditor() {
             <PresentationView
               items={[
                 {
+                  resourceType: 'TEXT' as const,
                   text: `${values.title || '(Título de la canción)'}
                           <br/>${values.author ? `${values.author}${values.copyright ? ` - ${values.copyright}` : ''}` : ''}`
                 }
@@ -157,6 +158,7 @@ export default function SongEditor() {
                 key={`lyric-${lyric.tagSongsId}-${index}`}
                 items={[
                   {
+                    resourceType: 'TEXT' as const,
                     text: lyric.content
                   }
                 ]}

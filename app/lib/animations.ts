@@ -138,7 +138,8 @@ export const getAnimationVariants = (
   const easingConfig = easingOptions.find((e) => e.value === easing)
   const easeCurve = easingConfig?.curve || [0.43, 0.13, 0.23, 0.96]
 
-  const baseTransition = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const baseTransition: any = {
     duration,
     delay,
     ease: easeCurve

@@ -23,7 +23,7 @@ export function sanitizeHTML(html: string): string {
         'font-size': [/^[\d.]+em$/]
       }
     }
-  })
+  } as unknown as DOMPurify.Config)
 
   // Refuerzo defensivo: conservar solo font-size en em y remover cualquier otra propiedad inline.
   return sanitized.replace(/\sstyle="([^"]*)"/g, (_fullMatch, styleContent: string) => {

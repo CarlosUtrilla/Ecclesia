@@ -1,6 +1,6 @@
 import { restoreDecimals, serializeDecimals } from './middleware/decimal'
 import { RoutesTypes } from './routeTypes'
-const Api = window.api
+const Api = (window as Window & typeof globalThis & { api: RoutesTypes }).api
 
 export const wrapApi = (api: any): any => {
   const result: Record<string, any> = {}

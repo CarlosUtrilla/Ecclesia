@@ -150,9 +150,9 @@ class SongsService {
     const songs = await this.prisma.song.findMany({
       where: {
         OR: [
-          { title: { contains: query, mode: 'insensitive' as const } },
-          { artist: { contains: query, mode: 'insensitive' as const } },
-          { author: { contains: query, mode: 'insensitive' as const } }
+          { title: { contains: query } },
+          { author: { contains: query } },
+          { fullText: { contains: query } }
         ]
       },
       take: limit,

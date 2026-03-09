@@ -26,10 +26,10 @@ export default function PreviewSong({ song, onDelete }: Props) {
   const dataForLive = {
     type: 'SONG' as ScheduleItemType,
     accessData: song?.id.toString() || '',
-    id: -1,
+    id: '-1',
     order: -1,
-    scheduleGroupId: null,
-    scheduleId: -1
+    scheduleId: -1,
+    updatedAt: new Date()
   }
 
   if (!song) {

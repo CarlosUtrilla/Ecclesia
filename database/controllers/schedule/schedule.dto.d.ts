@@ -15,6 +15,6 @@ export type ScheduleWithItems = Omit<Schedule, 'id'> & {
   id?: number
 }
 
-export type AddScheduleItemDto = Omit<ScheduleItem, 'id' | 'scheduleId'>
+export type AddScheduleItemDto = Omit<ScheduleItem, 'id' | 'scheduleId' | 'updatedAt'>
 
 export type ScheduleGroupTemplateDTO = ScheduleGroupTemplate

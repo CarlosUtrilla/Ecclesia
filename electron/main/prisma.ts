@@ -26,6 +26,15 @@ const OUTBOX_TRACKED_ACTIONS = new Set([
 ])
 const OUTBOX_EXCLUDED_MODELS = new Set(['SyncOutboxChange', 'SyncInboxChange', 'SyncState'])
 
+async function readJsonSafe<T>(filePath: string): Promise<T | null> {
+  try {
+    if (!(await fs.pathExists(filePath))) return null
+    return (await fs.readJSON(filePath)) as T
+  } catch {
+    return null
+  }
+}
+
 type SyncIdentity = {
   workspaceId: string
   deviceId: string
@@ -196,7 +205,7 @@ function registerOutboxMiddleware(client: PrismaClient) {
 
     const args = (params.args ?? {}) as Record<string, unknown>
     const delegateName = toDelegateName(model)
-    const delegate = (client as Record<string, unknown>)[delegateName] as
+    const delegate = (client as unknown as Record<string, unknown>)[delegateName] as
       | {
           findMany: (args: Record<string, unknown>) => Promise<unknown[]>
         }
@@ -317,7 +326,7 @@ async function backupDatabase(dbPath: string): Promise<string | null> {
 
       try {
         // Crear backup usando el comando SQLite VACUUM INTO
-        const backupDb = sourceDb.prepare(`VACUUM INTO ?`).run(backupPath)
+        sourceDb.prepare(`VACUUM INTO ?`).run(backupPath)
         sourceDb.close()
 
         log.info(`💾 Backup de base de datos creado en: ${backupPath}`)
@@ -584,18 +593,6 @@ async function validateDatabaseSchema(dbPath: string): Promise<boolean> {
     const db = sqlite3.default(dbPath)
 
     try {
-      // Verificar todas las tablas esperadas del schema
-      const expectedTables = [
-        'Song',
-        'Lyrics',
-        'Setting',
-        'Themes',
-        'Media',
-        'TagSongs',
-        'BibleSchema',
-        'BibleVerses'
-      ]
-
       const existingTables = db
         .prepare(
           "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%'"
@@ -619,7 +616,6 @@ async function validateDatabaseSchema(dbPath: string): Promise<boolean> {
       // Verificar columnas problemáticas conocidas en Lyrics
       if (tableNames.includes('Lyrics')) {
         const lyricsInfo = db.prepare('PRAGMA table_info(Lyrics)').all() as any[]
-        const hasNewColumn = lyricsInfo.some((col: any) => col.name === 'tagSongsId')
         const hasOldColumn = lyricsInfo.some((col: any) => col.name === 'songsTagsId')
 
         if (hasOldColumn) {

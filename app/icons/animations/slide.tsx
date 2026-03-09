@@ -1,4 +1,3 @@
-import React from 'react'
 
 export function SlideLeftIcon({ className }: { className?: string }) {
   return (

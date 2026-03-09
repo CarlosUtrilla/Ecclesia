@@ -12,7 +12,7 @@ export function registerRoutes() {
     for (const method of methodNames) {
       const channel = `${namespace}.${method}`
 
-      ipcMain.handle(channel, async (event, args) => {
+      ipcMain.handle(channel, async (_event, args) => {
         const instance = new ControllerClass()
         const handler = instance[method].bind(instance)
         const restoresArgs = restoreDecimals(args)

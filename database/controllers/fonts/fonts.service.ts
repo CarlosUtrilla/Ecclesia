@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { AddFontDTO, DeleteFontDTO } from './fonts.dto.d.ts'
+import type { AddFontDTO, DeleteFontDTO } from './fonts.dto'
 
 const prisma = new PrismaClient()
 

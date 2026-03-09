@@ -102,7 +102,8 @@ export default function PresentationsPanel() {
                       type: 'PRESENTATION',
                       accessData: presentation.id.toString(),
                       order: -1,
-                      scheduleId: -1
+                      scheduleId: -1,
+                      updatedAt: new Date()
                     },
                     0
                   )

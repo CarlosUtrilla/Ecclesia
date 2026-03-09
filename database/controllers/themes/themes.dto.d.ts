@@ -7,7 +7,7 @@ export type CreateThemeDto = Omit<UpdateThemeDto, 'biblePresentationSettingsId'>
 export type UpdateThemeDto = Omit<Themes, 'createdAt' | 'updatedAt' | 'id' | 'textStyle'> & {
   biblePresentationSettings?: Omit<
     BiblePresentationSettings,
-    'id' | 'isGlobal' | 'defaultTheme'
+    'id' | 'isGlobal' | 'defaultTheme' | 'updatedAt'
   > | null
   textStyle: React.CSSProperties
 }

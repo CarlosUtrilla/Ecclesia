@@ -16,6 +16,7 @@
   "compilerOptions": {
     "composite": true,
     "experimentalDecorators": true,
+    "moduleResolution": "bundler",
     "types": [
       "electron-vite/node"
     ],

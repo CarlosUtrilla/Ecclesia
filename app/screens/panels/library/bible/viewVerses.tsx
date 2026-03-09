@@ -189,19 +189,19 @@ export default function ViewVerses({
       showItemOnLiveScreen({
         type: 'BIBLE',
         accessData: `${bookData?.id},${chapter},${verseRange},${version}`,
-        id: -1,
+        id: '-1',
         order: -1,
-        scheduleGroupId: null,
-        scheduleId: -1
+        scheduleId: -1,
+        updatedAt: new Date()
       })
     } else {
       showItemOnLiveScreen({
         type: 'BIBLE',
         accessData: `${bookData?.id},${chapter},${verseNumber},${version}`,
-        id: -1,
+        id: '-1',
         order: -1,
-        scheduleGroupId: null,
-        scheduleId: -1
+        scheduleId: -1,
+        updatedAt: new Date()
       })
     }
   }
@@ -259,7 +259,7 @@ function VerseItem({
 }) {
   const verseRange = selectedVerses.length === 1 ? selectedVerses[0] : `${Math.min(...selectedVerses)}-${Math.max(...selectedVerses)}`
   
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { listeners, setNodeRef, isDragging } = useDraggable({
     id: `verse-${v.verse}-${chapter}-${bookData?.id}`,
     data: {
       type: 'BIBLE',
@@ -283,7 +283,6 @@ function VerseItem({
             }
           )}
           role="button"
-          tabIndex={0}
           onClick={(e) => onItemClick({ verseNumber: v.verse, index }, e)}
           onDoubleClick={() => onShowOnLive(v.verse)}
           onKeyDown={(e) => {
@@ -293,7 +292,6 @@ function VerseItem({
             }
           }}
           {...listeners}
-          {...attributes}
         >
           <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">
             {v.verse}

@@ -91,7 +91,8 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         order: 0, // Se recalcula abajo
         type: item.type,
         accessData: String(item.accessData),
-        scheduleId: formData.id || -1
+        scheduleId: formData.id || -1,
+        updatedAt: new Date()
       }
 
       const updatedItems = [...formData.items]

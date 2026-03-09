@@ -1,5 +1,6 @@
 import FontsService from './fonts.service'
-import { AddFontDTO, DeleteFontDTO } from './fonts.dto.d.ts'
+import type { AddFontDTO, DeleteFontDTO } from './fonts.dto'
+import { BrowserWindow } from 'electron'
 
 export default class FontsController {
   private fontsService = new FontsService()
@@ -16,11 +17,12 @@ export default class FontsController {
     const result = await this.fontsService.deleteFont(data)
     // Emitir evento a todas las ventanas
     try {
-      const { BrowserWindow } = require('electron')
       BrowserWindow.getAllWindows().forEach((win: any) => {
         win.webContents.send('font-deleted')
       })
-    } catch {}
+    } catch (e) {
+      console.error('Error al emitir evento de font-deleted:', e)
+    }
     return result
   }
 }

@@ -65,7 +65,8 @@ export function MediaCard({
         order: 0,
         type: 'MEDIA',
         accessData: String(media.id),
-        scheduleId: -1 // temporalm,
+        scheduleId: -1,
+        updatedAt: new Date()
       })
     }
   }
