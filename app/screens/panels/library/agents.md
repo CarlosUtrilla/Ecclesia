@@ -6,11 +6,12 @@
 
 Panel de biblioteca que ocupa la parte inferior de la aplicacion. Contiene cuatro secciones en tabs: Canciones, Medios, Biblia y Presentaciones. Permite buscar, explorar y arrastrar recursos al cronograma.
 En el extremo derecho del header de tabs incluye un botón `Ajustes` que abre la ventana de configuración.
+Al lado de `Ajustes` incluye acceso rápido a `Control Stage` para abrir la ventana operativa de stage sin salir del flujo principal.
 Cuando hay una operación activa de sync con Google Drive, muestra la etiqueta `Sincronizando X%` junto al botón (fallback `Sincronizando...` mientras inicializa el progreso).
 
 ## Archivos
 
-```
+```text
 app/screens/panels/library/
 ├── index.tsx                  # LibraryPanel: tabs de Songs/Media/Bible/Presentations
 ├── songs/
@@ -85,7 +86,7 @@ app/screens/panels/library/
 ### Hooks de Media
 
 | Hook | Proposito |
-|------|-----------|
+| ---- | --------- |
 | `useMediaOperations` | Importar, eliminar, renombrar medios y carpetas (mutations de React Query) |
 | `useSelection` | Seleccion multiple (click, Shift+click, Ctrl+click). Tipo `SelectableItem = Media \| string` |
 | `useClipboard` | Estado de clipboard interno (copiar/cortar medios/carpetas) |
@@ -138,7 +139,7 @@ app/screens/panels/library/
 Los tres tipos de items de biblioteca son draggables con dnd-kit:
 
 | Tipo | Data de drag | accessData |
-|------|-------------|------------|
+| ---- | ----------- | ---------- |
 | Song | `{ type: 'SONG', accessData: songId }` | ID numerico del Song |
 | Media | `{ type: 'MEDIA', accessData: mediaId }` | ID numerico del Media |
 | Bible | `{ type: 'BIBLE', accessData: "bookId,chapter,verseRange,version" }` | String compuesto |

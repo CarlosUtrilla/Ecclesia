@@ -10,6 +10,7 @@ import { ViewModeTypes } from './types'
 import RenderGridMode from './components/RenderGridMode'
 import RenderPresentationLiveController from './components/RenderPresentationLiveController'
 import { useLive } from '../../../contexts/ScheduleContext/utils/liveContext'
+
 export default function LivePanel() {
   const { itemOnLive, getScheduleItemContentScreen } = useSchedule()
   const { liveContentVersion } = useLive()

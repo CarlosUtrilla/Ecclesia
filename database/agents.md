@@ -68,6 +68,11 @@ database/
 │       ├── selectedScreens.controller.ts
 │       ├── selectedScreens.service.ts
 │       └── selectedScreens.dto.d.ts
+│   ├── stageScreenConfig/
+│   │   ├── index.ts
+│   │   ├── stageScreenConfig.controller.ts
+│   │   ├── stageScreenConfig.service.ts
+│   │   └── stageScreenConfig.dto.d.ts
 ├── middleware/
 │   └── decimal.ts     # Serializacion Decimal/Date para IPC
 ```
@@ -88,6 +93,7 @@ Definidos en `routes.ts`:
 | `setttings` | SettingsController | `getSettings`, `updateSettings` (usa `upsert` internamente) |
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
 | `fonts` | FontsController | `addFont`, `getAllFonts`, `deleteFont` |
+| `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
 
 **Nota:** El namespace `setttings` tiene un typo historico (3 t's). No cambiar sin actualizar todos los puntos de referencia.
 

@@ -100,6 +100,8 @@ MediaServerProvider          (top-level, sin dependencias)
 - `utils/indexDataItems.tsx` - Queries de React Query para songs/media/presentations, funciones de display
 - `utils/LibraryItemPreview.tsx` - Componente de preview para drag overlay
 
+- `utils/indexDataItems.tsx` incluye un cache reactivo local para recursos enviados directo a live (sin estar en schedule), evitando mutaciones in-place de arrays de React Query y garantizando que `items-on-live` hydrate título/icono/contenido correctamente.
+
 **Tipos de items soportados:** BIBLE, SONG, MEDIA, PRESENTATION, GROUP
 
 ### LiveContext
@@ -114,12 +116,13 @@ MediaServerProvider          (top-level, sin dependencias)
 | `liveContentVersion` | `number` | Versión incremental del envío a live (cambia en cada `showItemOnLiveScreen`) |
 | `itemOnLive` | `ScheduleItem \| null` | Item mostrandose en vivo |
 | `liveScreens` | `DisplayWithUsage[]` | Pantallas en modo live |
+| `stageScreens` | `DisplayWithUsage[]` | Pantallas en modo stage |
 | `showLiveScreen` | `boolean` | Si hay pantalla live activa |
 | `setShowLiveScreen` | `function` | Activa/desactiva pantalla live |
 | `contentScreen` | `ContentScreen \| null` | Contenido actual del live |
 | `showItemOnLiveScreen(item, index?)` | `async function` | Presenta item en pantallas |
 
-- Abre/cierra ventanas de Electron en cada display con rol `LIVE_SCREEN`.
+- Abre/cierra ventanas de Electron en displays con rol `LIVE_SCREEN` y `STAGE_SCREEN` cuando se activa/desactiva `showLiveScreen`.
 - Envia contenido y tema via IPC: `updateLiveScreenContent`, `updateLiveScreenTheme`.
 - Escucha `live-screen-ready` para saber cuando la ventana esta lista.
 - Si hay item en vivo, `Escape` limpia el item (`setItemOnLive(null)`) y deja la pantalla live abierta mostrando fondo.
@@ -235,6 +238,25 @@ const { handleItemClick } = useKeyboardShortcuts(containerRef, {
 - Soporta: Copy, Cut, Paste, Delete, SelectAll, Navigate (flechas), ClickOutside.
 - Detecta Mac vs Windows para Cmd/Ctrl.
 - Auto-configura `tabIndex` y estilos de outline en el contenedor.
+
+### useCanvasWidgetTransform
+
+**Archivo:** `app/hooks/useCanvasWidgetTransform.ts`
+
+```typescript
+const { startMove, startResize } = useCanvasWidgetTransform({
+  canvasRef,
+  minWidth: 8,
+  minHeight: 6,
+  snap: snapToGrid,
+  onUpdateWidgetRect: (widgetId, nextRect) => { ... }
+})
+```
+
+- Hook compartido para mover y redimensionar widgets rectangulares dentro de un canvas.
+- Soporta handles de esquinas y bordes (`top-left`, `right`, `bottom`, etc.).
+- Trabaja en coordenadas porcentuales y aplica clamp a limites del canvas.
+- Permite configurar `snap` y tamanos minimos para reuso en editores visuales.
 
 ## Convenciones
 

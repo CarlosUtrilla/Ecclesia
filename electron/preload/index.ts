@@ -23,6 +23,8 @@ const windowAPI = {
     ipcRenderer.send('open-presentation-window', presentationId),
   openTagSongsWindow: () => ipcRenderer.send('open-tag-songs-window'),
   openSettingsWindow: () => ipcRenderer.send('open-settings-window'),
+  openStageControlWindow: () => ipcRenderer.send('open-stage-control-window'),
+  openStageLayoutWindow: () => ipcRenderer.send('open-stage-layout-window'),
   closeCurrentWindow: () => ipcRenderer.send('close-current-window')
 }
 

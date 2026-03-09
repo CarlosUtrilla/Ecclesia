@@ -2,6 +2,20 @@ import { BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { ThemeWithMedia } from '../../../database/controllers/themes/themes.dto'
+import { StageScreenConfigUpdate } from './displayType'
+
+const liveScreensByDisplayId = new Map<number, BrowserWindow>()
+const stageScreensByDisplayId = new Map<number, BrowserWindow>()
+
+function focusDisplayWindow(windowRef: BrowserWindow): number {
+  if (windowRef.isMinimized()) {
+    windowRef.restore()
+  }
+  windowRef.show()
+  windowRef.focus()
+  windowRef.setAlwaysOnTop(true, 'screen-saver')
+  return windowRef.id
+}
 
 export function initializeDisplayManager() {
   // Obtener todas las pantallas disponibles
@@ -38,6 +52,11 @@ export function initializeDisplayManager() {
 
   // Abrir ventana en pantalla completa en la pantalla especificada
   ipcMain.handle('show-live-screen', (event, displayId: number) => {
+    const existingLiveScreen = liveScreensByDisplayId.get(displayId)
+    if (existingLiveScreen && !existingLiveScreen.isDestroyed()) {
+      return focusDisplayWindow(existingLiveScreen)
+    }
+
     const mainWindow = BrowserWindow.fromWebContents(event.sender)
     if (!mainWindow) {
       throw new Error('No se pudo obtener la ventana principal')
@@ -93,6 +112,11 @@ export function initializeDisplayManager() {
 
     const route = '/live-screen/' + displayId
 
+    liveScreensByDisplayId.set(displayId, liveScreen)
+    liveScreen.on('closed', () => {
+      liveScreensByDisplayId.delete(displayId)
+    })
+
     const loadPromise = new Promise<number>((resolve) => {
       liveScreen.webContents.once('did-finish-load', () => {
         // Enviar evento a la ventana principal indicando que esta live screen está lista
@@ -112,6 +136,87 @@ export function initializeDisplayManager() {
     return loadPromise
   })
 
+  ipcMain.handle('show-stage-screen', (event, displayId: number) => {
+    const existingStageScreen = stageScreensByDisplayId.get(displayId)
+    if (existingStageScreen && !existingStageScreen.isDestroyed()) {
+      return focusDisplayWindow(existingStageScreen)
+    }
+
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!mainWindow) {
+      throw new Error('No se pudo obtener la ventana principal')
+    }
+
+    const displays = screen.getAllDisplays()
+    const targetDisplay = displays.find((display) => display.id === displayId)
+
+    if (!targetDisplay) {
+      throw new Error(`Display con ID ${displayId} no encontrado`)
+    }
+
+    const stageScreen = new BrowserWindow({
+      x: targetDisplay.bounds.x,
+      y: targetDisplay.bounds.y,
+      width: targetDisplay.bounds.width,
+      height: targetDisplay.bounds.height,
+      show: false,
+      autoHideMenuBar: true,
+      frame: false,
+      alwaysOnTop: true,
+      resizable: false,
+      closable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreen: true,
+      simpleFullscreen: true,
+      webPreferences: {
+        preload: join(__dirname, '../preload/index.js'),
+        sandbox: false,
+        backgroundThrottling: false
+      }
+    })
+
+    stageScreen.once('ready-to-show', () => {
+      stageScreen.show()
+      stageScreen.focus()
+      stageScreen.setAlwaysOnTop(true, 'screen-saver')
+
+      if (process.platform === 'darwin') {
+        stageScreen.setSimpleFullScreen(true)
+        stageScreen.setAutoHideMenuBar(true)
+      }
+
+      setTimeout(() => {
+        mainWindow.focus()
+        mainWindow.show()
+      }, 250)
+    })
+
+    const route = '/stage-screen/' + displayId
+
+    stageScreensByDisplayId.set(displayId, stageScreen)
+    stageScreen.on('closed', () => {
+      stageScreensByDisplayId.delete(displayId)
+    })
+
+    const loadPromise = new Promise<number>((resolve) => {
+      stageScreen.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.send('stage-screen-ready', stageScreen.id)
+        resolve(stageScreen.id)
+      })
+    })
+
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      stageScreen.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
+    } else {
+      stageScreen.loadFile(join(__dirname, '../renderer/index.html'), {
+        hash: route
+      })
+    }
+
+    return loadPromise
+  })
+
   // Cerrar ventana por su ID
   ipcMain.handle('close-live-screen', (event, windowId: number) => {
     const window = BrowserWindow.fromId(windowId)
@@ -122,6 +227,13 @@ export function initializeDisplayManager() {
 
     // Enfoque más agresivo para cerrar ventanas fullscreen
     try {
+      for (const [displayId, liveScreen] of liveScreensByDisplayId.entries()) {
+        if (liveScreen.id === windowId) {
+          liveScreensByDisplayId.delete(displayId)
+          break
+        }
+      }
+
       // Salir del fullscreen y restaurar configuraciones antes de cerrar
       if (process.platform === 'darwin') {
         window.setSimpleFullScreen(false)
@@ -146,6 +258,41 @@ export function initializeDisplayManager() {
     }
   })
 
+  ipcMain.handle('close-stage-screen', (_event, windowId: number) => {
+    const window = BrowserWindow.fromId(windowId)
+
+    if (!window) {
+      throw new Error(`Ventana con ID ${windowId} no encontrada`)
+    }
+
+    try {
+      for (const [displayId, stageScreen] of stageScreensByDisplayId.entries()) {
+        if (stageScreen.id === windowId) {
+          stageScreensByDisplayId.delete(displayId)
+          break
+        }
+      }
+
+      if (process.platform === 'darwin') {
+        window.setSimpleFullScreen(false)
+      }
+      window.setFullScreen(false)
+      window.setAlwaysOnTop(false)
+      window.setClosable(true)
+      window.destroy()
+      return true
+    } catch (error) {
+      console.error('Error closing stage screen:', error)
+      try {
+        window.destroy()
+        return true
+      } catch (destroyError) {
+        console.error('Error destroying stage screen:', destroyError)
+        return false
+      }
+    }
+  })
+
   ipcMain.handle('liveScreen-update', (_event, data) => {
     const allWindows = BrowserWindow.getAllWindows()
     allWindows.forEach((win) => {
@@ -157,6 +304,13 @@ export function initializeDisplayManager() {
     const allWindows = BrowserWindow.getAllWindows()
     allWindows.forEach((win) => {
       win.webContents.send('liveScreen-update-theme', themeId)
+    })
+  })
+
+  ipcMain.handle('stageScreen-config-update', (_event, data: StageScreenConfigUpdate) => {
+    const allWindows = BrowserWindow.getAllWindows()
+    allWindows.forEach((win) => {
+      win.webContents.send('stageScreen-config-updated', data)
     })
   })
 
@@ -176,7 +330,9 @@ export function initializeDisplayManager() {
 
     // Fallback defensivo: usa una ventana no-live si existe.
     const targetWindow = BrowserWindow.getAllWindows().find(
-      (win) => !win.webContents.getURL().includes('/live-screen/')
+      (win) =>
+        !win.webContents.getURL().includes('/live-screen/') &&
+        !win.webContents.getURL().includes('/stage-screen/')
     )
     if (targetWindow) {
       targetWindow.webContents.send('open-new-display-connected')

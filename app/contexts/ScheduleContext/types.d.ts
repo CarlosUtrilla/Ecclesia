@@ -18,6 +18,7 @@ export type ILiveContext = {
   ) => void
   itemOnLive: ScheduleItem | null
   liveScreens: DisplayWithUsage[]
+  stageScreens: DisplayWithUsage[]
   showLiveScreen: boolean
   setShowLiveScreen: (show: boolean) => void
   contentScreen?: ContentScreen | null

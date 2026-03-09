@@ -47,6 +47,10 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - Al entrar o reingresar a cualquier diapositiva con video, el controlador reinicia explícitamente el video local y live a `0s` (inicio) antes de aplicar `play`/`pause` según la configuración (`auto`/`manual`).
 - Para mantener consistencia visual con proyección, `RenderGridMode` admite `themeOverride`; en PRESENTATION usa `BlankTheme` por defecto (fondo blanco cuando no hay tema por slide).
 
+## Nota Stage
+
+- Los controles operativos stage fueron movidos a ventanas dedicadas (`/stage-control` y `/stage-layout`) para no mezclar responsabilidades en este panel.
+
 Para sincronización avanzada multi-display, la lógica de `sendLiveMediaState` está implementada en el manager dedicado `liveMediaController` (Electron main), expuesto vía preload como `liveMediaAPI`. El canal `live-media-state` es modular y documentado en agents.md de Electron.
 
 **Patrón modular:**

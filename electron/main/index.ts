@@ -2,12 +2,14 @@ import { initializeLiveMediaManager } from './liveMediaController/liveMediaContr
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerRoutes } from '../../database'
-import { initPrisma } from './prisma'
+import { getPrisma, initPrisma } from './prisma'
 import {
   createMainWindow,
   createPresentationWindow,
   createSettingsWindow,
   createSongWindow,
+  createStageControlWindow,
+  createStageLayoutWindow,
   createTagsSongWindow,
   createThemeWindow
 } from './windowManager'
@@ -23,6 +25,57 @@ import {
   initializeGoogleDriveSyncManager
 } from './googleDriveSyncManager/googleDriveSyncManager'
 import { loadAppEnv } from './loadEnv'
+
+let isQuittingAfterStageTimersCleanup = false
+
+async function clearPersistedStageTimersOnShutdown() {
+  try {
+    const prisma = getPrisma()
+    const configs = await prisma.stageScreenConfig.findMany({
+      select: {
+        id: true,
+        state: true
+      }
+    })
+
+    const updates = configs.flatMap((config) => {
+      try {
+        const parsedState = JSON.parse(config.state) as {
+          message?: string | null
+          timers?: unknown[]
+          clock?: {
+            hourFormat?: '12' | '24'
+            showMeridiem?: boolean
+          }
+        }
+
+        if (!Array.isArray(parsedState.timers) || parsedState.timers.length === 0) {
+          return []
+        }
+
+        return [
+          prisma.stageScreenConfig.update({
+            where: { id: config.id },
+            data: {
+              state: JSON.stringify({
+                ...parsedState,
+                timers: []
+              })
+            }
+          })
+        ]
+      } catch {
+        return []
+      }
+    })
+
+    if (updates.length > 0) {
+      await prisma.$transaction(updates)
+    }
+  } catch (error) {
+    console.error('Error al limpiar timers stage al cerrar la aplicación:', error)
+  }
+}
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -95,6 +148,14 @@ app.whenReady().then(async () => {
     createSettingsWindow()
   })
 
+  ipcMain.on('open-stage-control-window', () => {
+    createStageControlWindow()
+  })
+
+  ipcMain.on('open-stage-layout-window', () => {
+    createStageLayoutWindow()
+  })
+
   // Cerrar ventana actual
   ipcMain.on('close-current-window', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
@@ -157,6 +218,18 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   stopMediaServer()
   app.quit()
+})
+
+app.on('before-quit', (event) => {
+  if (isQuittingAfterStageTimersCleanup) {
+    return
+  }
+
+  event.preventDefault()
+  void clearPersistedStageTimersOnShutdown().finally(() => {
+    isQuittingAfterStageTimersCleanup = true
+    app.quit()
+  })
 })
 
 // In this file you can include the rest of your app's specific main process

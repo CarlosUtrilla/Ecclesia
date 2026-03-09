@@ -7,7 +7,7 @@ import PresentationsPanel from './presentations'
 import { useEffect, useState } from 'react'
 import { ThemesSidePanel } from './themesSidePanel'
 import { Button } from '@/ui/button'
-import { Settings } from 'lucide-react'
+import { MonitorCog, Settings } from 'lucide-react'
 
 export default function LibraryPanel() {
   const [activeTab, setActiveTab] = useState('songs')
@@ -40,15 +40,25 @@ export default function LibraryPanel() {
               <TabsTrigger value="presentations">Presentaciones</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button size="sm" variant="ghost" onClick={() => window.windowAPI.openSettingsWindow()}>
-            <Settings className="h-4 w-4" />
-            Ajustes
-            {isSyncing ? (
-              <span className="text-xs text-primary">
-                {syncProgress > 0 ? `Sincronizando ${syncProgress}%` : 'Sincronizando...'}
-              </span>
-            ) : null}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => window.windowAPI.openStageControlWindow()}
+            >
+              <MonitorCog className="h-4 w-4" />
+              Control Stage
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => window.windowAPI.openSettingsWindow()}>
+              <Settings className="h-4 w-4" />
+              Ajustes
+              {isSyncing ? (
+                <span className="text-xs text-primary">
+                  {syncProgress > 0 ? `Sincronizando ${syncProgress}%` : 'Sincronizando...'}
+                </span>
+              ) : null}
+            </Button>
+          </div>
         </div>
 
         {/* Renderizar todos los componentes pero mostrar solo el activo */}

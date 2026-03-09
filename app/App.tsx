@@ -15,6 +15,9 @@ import LiveScreen from './screens/live-screen'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from './ui/resizable'
 import SettingsScreen from './screens/settings'
 import PresentationEditor from './screens/editors/presentationEditor'
+import StageScreen from './screens/stage-screen'
+import StageControlScreen from './screens/stage-control'
+import StageLayoutScreen from './screens/stage-layout'
 
 function App() {
   return (
@@ -66,6 +69,9 @@ function App() {
         <Route path="/presentation/:id" element={<PresentationEditor />} />
 
         <Route path="/live-screen/:displayId" element={<LiveScreen />} />
+        <Route path="/stage-screen/:displayId" element={<StageScreen />} />
+        <Route path="/stage-control" element={<StageControlScreen />} />
+        <Route path="/stage-layout" element={<StageLayoutScreen />} />
       </Routes>
     </MainApp>
   )

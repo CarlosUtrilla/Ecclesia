@@ -72,6 +72,7 @@ model Themes {
   biblePresentationSettings   BiblePresentationSettings? @relation(fields: [biblePresentationSettingsId], references: [id])
   useDefaultBibleSettings     Boolean                    @default(true)
   biblePresentationSettingsId Int?
+  stageScreenConfigs          StageScreenConfig[]        @relation("StageScreenTheme")
 }
 
 enum SettingOptions {
@@ -215,8 +216,21 @@ enum ScreenRol {
 }
 
 model SelectedScreens {
-  id         Int        @id @default(autoincrement())
-  screenId   Int        @unique
-  screenName String
-  rol        ScreenRol?
+  id          Int                @id @default(autoincrement())
+  screenId    Int                @unique
+  screenName  String
+  rol         ScreenRol?
+  stageConfig StageScreenConfig?
+}
+
+model StageScreenConfig {
+  id               Int             @id @default(autoincrement())
+  selectedScreenId Int             @unique
+  selectedScreen   SelectedScreens @relation(fields: [selectedScreenId], references: [id], onDelete: Cascade)
+  themeId          Int?
+  theme            Themes?         @relation("StageScreenTheme", fields: [themeId], references: [id], onDelete: SetNull)
+  layout           String          @default("{\"version\":1,\"items\":[]}")
+  state            String          @default("{\"message\":null,\"timers\":[]}")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 }

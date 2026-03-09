@@ -23,8 +23,10 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     Record<string, number>
   >({})
   const [liveScreens, setLiveScreens] = useState<DisplayWithUsage[]>([])
+  const [stageScreens, setStageScreens] = useState<DisplayWithUsage[]>([])
   const [contentScreen, setContentScreen] = useState<ContentScreen | null>(null)
   const [windowsLiveScreenOpens, setWindowsLiveScreenOpens] = useState<number[]>([])
+  const [windowsStageScreenOpens, setWindowsStageScreenOpens] = useState<number[]>([])
   const [liveScreensReady, setLiveScreensReady] = useState(false)
   const [showedItemKey, setShowedItemKey] = useState(0)
   const [hideTextOnLive, setHideTextOnLive] = useState(false)
@@ -40,12 +42,14 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     // Detectar si las pantallas live han cambiado y asignarlas al state interno
     if (displays && displays.length > 0) {
-      setLiveScreens(displays)
+      setLiveScreens(displays.filter((display) => display.type === 'LIVE_SCREEN'))
+      setStageScreens(displays.filter((display) => display.type === 'STAGE_SCREEN'))
     } else {
       // Si no hay pantallas live configuradas, usar la principal como demo
       setLiveScreens(mainDisplay ? [mainDisplay] : [])
+      setStageScreens([])
     }
-  }, [displays])
+  }, [displays, mainDisplay])
 
   useEffect(() => {
     const fetchContentScreen = async () => {
@@ -60,19 +64,31 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   }, [itemOnLive])
 
   useEffect(() => {
-    if (liveScreens.length > 0 && showLiveScreen) {
+    if ((liveScreens.length > 0 || stageScreens.length > 0) && showLiveScreen) {
+      if (windowsLiveScreenOpens.length > 0 || windowsStageScreenOpens.length > 0) {
+        return
+      }
+
       // Mostrar contenido en pantallas live
       const showScreens = async () => {
         setLiveScreensReady(false)
-        // Abrir todas las pantallas en paralelo
-        const windowsIds = await Promise.all(
+        // Abrir pantallas live y stage en paralelo
+        const windowsLiveIds = await Promise.all(
           liveScreens.map(async (display) => await window.displayAPI.showLiveScreen(display.id))
         )
+        const windowsStageIds = await Promise.all(
+          stageScreens.map(async (display) => await window.displayAPI.showStageScreen(display.id))
+        )
         setLiveScreensReady(true)
-        setWindowsLiveScreenOpens(windowsIds)
+        setWindowsLiveScreenOpens(windowsLiveIds)
+        setWindowsStageScreenOpens(windowsStageIds)
       }
       showScreens()
     } else if (!showLiveScreen) {
+      if (windowsLiveScreenOpens.length === 0 && windowsStageScreenOpens.length === 0) {
+        return
+      }
+
       // Cerrar ventanas live
       setLiveScreensReady(false)
       const closeScreens = async () => {
@@ -81,16 +97,25 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
             async (windowId) => await window.displayAPI.closeLiveScreen(windowId)
           )
         )
+        await Promise.all(
+          windowsStageScreenOpens.map(
+            async (windowId) => await window.displayAPI.closeStageScreen(windowId)
+          )
+        )
         setWindowsLiveScreenOpens([])
+        setWindowsStageScreenOpens([])
       }
       closeScreens()
     }
-  }, [showLiveScreen])
+  }, [showLiveScreen, liveScreens, stageScreens, windowsLiveScreenOpens, windowsStageScreenOpens])
 
   //USEEFFECT QUE CONTROLA EL MANDO DE LAS PANTALLAS LIVE AL CAMBIAR EL ITEM ON LIVE
   useEffect(() => {
     // Solo enviar updates si las pantallas están listas y hay ventanas abiertas
-    if (!liveScreensReady || windowsLiveScreenOpens.length === 0) {
+    if (
+      !liveScreensReady ||
+      windowsLiveScreenOpens.length + windowsStageScreenOpens.length === 0
+    ) {
       return
     }
 
@@ -117,6 +142,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     showLogoOnLive,
     blackScreenOnLive,
     windowsLiveScreenOpens,
+    windowsStageScreenOpens,
     liveScreensReady,
     showedItemKey
   ])
@@ -124,7 +150,10 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     // Solo enviar updates si las pantallas están listas y hay ventanas abiertas
     // no mandar si el tema cambio, solo mandar el cambio de tema al reeniviar otro item
-    if (!liveScreensReady || windowsLiveScreenOpens.length === 0) {
+    if (
+      !liveScreensReady ||
+      windowsLiveScreenOpens.length + windowsStageScreenOpens.length === 0
+    ) {
       return
     }
     console.log('Sending theme update to live screens')
@@ -133,7 +162,14 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       await window.displayAPI.updateLiveScreenTheme(liveTheme)
     }
     sendThemeToLiveScreens()
-  }, [showLiveScreen, windowsLiveScreenOpens, liveScreensReady, showedItemKey, itemOnLive])
+  }, [
+    showLiveScreen,
+    windowsLiveScreenOpens,
+    windowsStageScreenOpens,
+    liveScreensReady,
+    showedItemKey,
+    itemOnLive
+  ])
 
   useEffect(() => {
     const handleKeyUp = (event: KeyboardEvent) => {
@@ -223,6 +259,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
         setPresentationVerseBySlideKey,
         itemOnLive,
         liveScreens,
+        stageScreens,
         showLiveScreen,
         setShowLiveScreen,
         contentScreen,

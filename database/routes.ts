@@ -8,6 +8,7 @@ import { ScheduleController } from './controllers/schedule/schedule.controller'
 import SelectedScreensController from './controllers/selectedScreens/selectedScreens.controller'
 import FontsController from './controllers/fonts/fonts.controller'
 import { PresentationsController } from './controllers/presentations/presentations.controller'
+import StageScreenConfigController from './controllers/stageScreenConfig/stageScreenConfig.controller'
 
 export const routes = {
   setttings: SettingsController,
@@ -19,5 +20,6 @@ export const routes = {
   schedule: ScheduleController,
   presentations: PresentationsController,
   selectedScreens: SelectedScreensController,
-  fonts: FontsController
+  fonts: FontsController,
+  stageScreenConfig: StageScreenConfigController
 }

@@ -106,6 +106,10 @@ Gestiona todas las ventanas de la aplicacion:
 | `createPresentationWindow(presentationId?)` | `/presentation/new` o `/presentation/:id` | Editor de presentaciones (ventana modal) |
 | `createTagsSongWindow()` | `/tagSongEditor` | Editor de tags de canciones |
 | `createSettingsWindow()` | `/settings` | Ventana de ajustes (tema de colores y sincronización) |
+| `createStageControlWindow()` | `/stage-control` | Ventana de control operativo stage |
+| `createStageLayoutWindow()` | `/stage-layout` | Ventana de layout stage |
+
+- `settings`, `stage-control` y `stage-layout` se manejan como ventana única: si ya existe una instancia, se restaura/enfoca en lugar de abrir duplicados.
 
 Ventanas modales se abren via IPC:
 - `ipcMain.on('open-song-window', ...)` -> `window.windowAPI.openSongWindow(id)`
@@ -113,6 +117,8 @@ Ventanas modales se abren via IPC:
 - `ipcMain.on('open-presentation-window', ...)` -> `window.windowAPI.openPresentationWindow(id)`
 - `ipcMain.on('open-tag-songs-window', ...)` -> `window.windowAPI.openTagsSongWindow()`
 - `ipcMain.on('open-settings-window', ...)` -> `window.windowAPI.openSettingsWindow()`
+- `ipcMain.on('open-stage-control-window', ...)` -> `window.windowAPI.openStageControlWindow()`
+- `ipcMain.on('open-stage-layout-window', ...)` -> `window.windowAPI.openStageLayoutWindow()`
 
 ### Media Manager (`mediaManager/`)
 
@@ -131,6 +137,11 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 7. Registra IPC handlers locales (fonts, ventanas, notificaciones)
 8. createMainWindow()        -> Crea la ventana principal
 ```
+
+## Flujo de cierre
+
+- En `before-quit` se limpian los timers persistidos de `StageScreenConfig.state` para que cada sesión inicie sin cronómetros activos.
+- Solo se vacía `state.timers`; `message` y `clock` se conservan.
 
 ## Modulos
 
@@ -179,9 +190,13 @@ El frontend construye URLs como `http://localhost:{port}/{filePath}` usando `use
 - Gestiona ventanas de live screen:
   - `showLiveScreen(displayId)` -> Crea ventana fullscreen en el display especificado
   - `closeLiveScreen(windowId)` -> Cierra ventana de live
+  - `showStageScreen(displayId)` -> Crea ventana fullscreen de escenario (`/stage-screen/:displayId`)
+  - `closeStageScreen(windowId)` -> Cierra ventana de escenario
   - `updateLiveScreenContent(windowId, content)` -> Actualiza contenido mostrado
     - Soporta flags `liveControls` en el payload (`hideText`, `showLogo`, `blackScreen`) para controles de emergencia en la salida live.
   - `updateLiveScreenTheme(windowId, theme)` -> Actualiza tema visual
+
+- `showLiveScreen(displayId)` y `showStageScreen(displayId)` validan instancia por `displayId`: si ya existe ventana para ese display, se reusa (focus/restore) y no se crea otra.
 
 ### Prisma Initialization (`prisma.ts`)
 
@@ -217,8 +232,8 @@ Definidas en `electron/preload/index.ts`:
 |-----------|-------------------|
 | `window.api` | Todos los namespaces de `database/routes.ts` |
 | `window.mediaAPI` | `getMediaServerPort()`, `importMedia()` |
-| `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()` |
-| `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `closeCurrentWindow()` |
+| `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `showStageScreen()`, `closeStageScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()`, `updateStageScreenConfig()` |
+| `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `openStageLayoutWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wraps del bible controller |
 | `window.googleDriveSyncAPI` | `getStatus()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()` |
 

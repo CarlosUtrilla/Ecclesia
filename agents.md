@@ -81,6 +81,9 @@ app/main.tsx (entry point React)
               "/tagSongEditor" -> TagSongsEditor (ventana separada)
               "/settings" -> SettingsScreen (ventana separada)
               "/live-screen/:displayId" -> LiveScreen (ventana de proyeccion)
+              "/stage-screen/:displayId" -> StageScreen (ventana de escenario)
+              "/stage-control" -> StageControlScreen (ventana de control stage)
+              "/stage-layout" -> StageLayoutScreen (ventana de layout stage)
 ```
 
 ## Flujo de datos (IPC)

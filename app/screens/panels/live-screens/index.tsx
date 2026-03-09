@@ -3,12 +3,14 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/ui/button'
 import { Radio } from 'lucide-react'
 import LiveScreen from '@/screens/live-screen'
+import StageScreen from '@/screens/stage-screen'
 
 export default function LiveScreens() {
   const {
     showLiveScreen,
     setShowLiveScreen,
     liveScreens,
+    stageScreens,
     contentScreen,
     hideTextOnLive,
     showLogoOnLive,
@@ -53,6 +55,32 @@ export default function LiveScreens() {
             ))
           ) : (
             <div>No hay contenido para mostrar</div>
+          )}
+        </div>
+
+        <div className="p-2 bg-muted/40 border-t">Pantallas stage</div>
+        <div className="flex gap-2 p-2">
+          {stageScreens.length > 0 ? (
+            stageScreens.map((screen, idx) => (
+              <div
+                key={`stage-screen-${(screen as any)?.id ?? idx}`}
+                className="w-full max-w-[360px] rounded-md border bg-background/70 overflow-hidden"
+              >
+                <div className="px-2 py-1 text-xs text-muted-foreground border-b bg-muted/30">
+                  {(screen as any)?.label || `Stage ${(screen as any)?.id ?? idx}`}
+                </div>
+                <div
+                  className="bg-black"
+                  style={{
+                    aspectRatio: (screen as any)?.aspectRatioCss || '16 / 9'
+                  }}
+                >
+                  <StageScreen isPreview previewDisplayId={(screen as any)?.id} />
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-muted-foreground">No hay pantallas stage configuradas</div>
           )}
         </div>
       </div>

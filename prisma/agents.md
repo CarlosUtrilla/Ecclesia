@@ -223,12 +223,32 @@ model SelectedScreens {
   screenId   Int        @unique       // ID del display de Electron
   screenName String
   rol        ScreenRol?               // LIVE_SCREEN | STAGE_SCREEN | null
+  stageConfig StageScreenConfig?
 }
 ```
 
 - Guarda la configuracion de pantallas conectadas.
 - `LIVE_SCREEN` = pantalla de proyeccion publica.
 - `STAGE_SCREEN` = pantalla para musicos/predicador.
+
+### StageScreenConfig
+
+```prisma
+model StageScreenConfig {
+  id               Int             @id @default(autoincrement())
+  selectedScreenId Int             @unique
+  selectedScreen   SelectedScreens @relation(...)
+  themeId          Int?
+  theme            Themes?         @relation("StageScreenTheme", ...)
+  layout           String          // JSON del layout editable de widgets stage
+  state            String          // JSON de estado operativo (mensaje persistente y timers múltiples)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+```
+
+- Modelo dedicado para configuración altamente customizable de cada pantalla stage.
+- Se relaciona 1:1 con `SelectedScreens` para separar infraestructura de display vs configuración stage.
 
 ### Setting
 
@@ -262,10 +282,11 @@ model Setting {
 - `@unique` se usa en campos que necesitan ser buscados directamente (filePath, name de tema, etc.).
 - Las relaciones opcionales usan `?` tanto en el campo FK como en la relacion.
 - `Presentation` no modela tablas hijas en MVP; la estructura interna se serializa en `slides` para iterar rápido en editor/biblioteca.
+- Stage también usa serialización JSON para evolucionar rápido en MVP: `layout` (widgets) y `state` (mensaje persistente y múltiples timers).
 
 ## Migraciones
 
-- Hay 44 migraciones desde `20260105` hasta `20260218`.
+- Hay 46 migraciones desde `20260105` hasta `20260307`.
 - Para crear una nueva migracion: `npx prisma migrate dev --name nombre_descriptivo`
 - Para aplicar migraciones pendientes: `npx prisma migrate deploy`
 - El sistema tiene migracion automatica con backup en produccion (ver `/electron/agents.md`).

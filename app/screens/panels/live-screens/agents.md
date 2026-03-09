@@ -9,6 +9,7 @@ Panel de monitoreo de pantallas live en la vista principal. Permite activar/desa
 ## Archivo principal
 
 - `index.tsx`: toolbar de control (`En Vivo`, `Gestionar pantallas`) y lista de previews `LiveScreen` en modo `isPreview`.
+- `index.tsx` también muestra la sección `Pantallas stage` con preview visual embebido por display (no solo nombre), reutilizando `StageScreen` en modo `isPreview`.
 
 ## Convenciones UI
 

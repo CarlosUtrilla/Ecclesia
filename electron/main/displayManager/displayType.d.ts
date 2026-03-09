@@ -30,3 +30,7 @@ export type ScreenContentUpdate = {
     blackScreen?: boolean
   }
 }
+
+export type StageScreenConfigUpdate = {
+  selectedScreenId: number
+}

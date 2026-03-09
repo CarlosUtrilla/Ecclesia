@@ -3,6 +3,19 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+let settingsWindowRef: BrowserWindow | null = null
+let stageControlWindowRef: BrowserWindow | null = null
+let stageLayoutWindowRef: BrowserWindow | null = null
+
+function focusExistingWindow(windowRef: BrowserWindow): BrowserWindow {
+  if (windowRef.isMinimized()) {
+    windowRef.restore()
+  }
+  windowRef.show()
+  windowRef.focus()
+  return windowRef
+}
+
 export function createMainWindow(): BrowserWindow {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -192,6 +205,10 @@ export function createTagsSongWindow(): BrowserWindow {
 }
 
 export function createSettingsWindow(): BrowserWindow {
+  if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
+    return focusExistingWindow(settingsWindowRef)
+  }
+
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   const settingsWindow = new BrowserWindow({
     title: 'Ajustes',
@@ -212,6 +229,10 @@ export function createSettingsWindow(): BrowserWindow {
     settingsWindow.show()
   })
 
+  settingsWindow.on('closed', () => {
+    settingsWindowRef = null
+  })
+
   const route = '/settings'
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -222,5 +243,92 @@ export function createSettingsWindow(): BrowserWindow {
     })
   }
 
+  settingsWindowRef = settingsWindow
   return settingsWindow
+}
+
+export function createStageControlWindow(): BrowserWindow {
+  if (stageControlWindowRef && !stageControlWindowRef.isDestroyed()) {
+    return focusExistingWindow(stageControlWindowRef)
+  }
+
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  const stageControlWindow = new BrowserWindow({
+    title: 'Control de Escenario',
+    width: Math.round(width * 0.6),
+    height: Math.round(height * 0.75),
+    minWidth: 900,
+    minHeight: 620,
+    show: false,
+    autoHideMenuBar: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  stageControlWindow.on('ready-to-show', () => {
+    stageControlWindow.show()
+  })
+
+  stageControlWindow.on('closed', () => {
+    stageControlWindowRef = null
+  })
+
+  const route = '/stage-control'
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    stageControlWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
+  } else {
+    stageControlWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      hash: route
+    })
+  }
+
+  stageControlWindowRef = stageControlWindow
+  return stageControlWindow
+}
+
+export function createStageLayoutWindow(): BrowserWindow {
+  if (stageLayoutWindowRef && !stageLayoutWindowRef.isDestroyed()) {
+    return focusExistingWindow(stageLayoutWindowRef)
+  }
+
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  const stageLayoutWindow = new BrowserWindow({
+    title: 'Layout de Escenario',
+    width: Math.round(width * 0.75),
+    height: Math.round(height * 0.85),
+    minWidth: 1000,
+    minHeight: 700,
+    show: false,
+    autoHideMenuBar: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  stageLayoutWindow.on('ready-to-show', () => {
+    stageLayoutWindow.show()
+  })
+
+  stageLayoutWindow.on('closed', () => {
+    stageLayoutWindowRef = null
+  })
+
+  const route = '/stage-layout'
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    stageLayoutWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
+  } else {
+    stageLayoutWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      hash: route
+    })
+  }
+
+  stageLayoutWindowRef = stageLayoutWindow
+  return stageLayoutWindow
 }
