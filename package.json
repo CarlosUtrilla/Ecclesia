@@ -1,11 +1,11 @@
 {
   "name": "ecclesia",
   "productName": "Ecclesia",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "version": "0.1.0-beta.1",
+  "description": "Plataforma de presentación para cultos religiosos",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Carlos Utrilla",
+  "homepage": "https://github.com/CarlosUtrilla/Ecclesia",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

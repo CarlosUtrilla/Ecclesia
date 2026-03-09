@@ -1,8 +1,0 @@
--- CreateTable
-CREATE TABLE "Font" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "name" TEXT NOT NULL,
-    "fileName" TEXT NOT NULL,
-    "filePath" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);

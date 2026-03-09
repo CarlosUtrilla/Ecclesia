@@ -15,6 +15,9 @@ electron/
 │   ├── windowManager.ts
 │   ├── prisma.ts
 │   ├── liveMediaController.ts
+│   ├── updaterManager/
+│   │   ├── updaterManager.ts    # Auto-update con electron-updater (canal beta)
+│   │   └── updaterAPI.ts        # IPC API expuesta al renderer
 │   ├── googleDriveSyncManager/
 │   ├── bibleManager/
 │   ├── displayManager/
@@ -59,14 +62,15 @@ Patron obligatorio para managers:
 En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 ```text
-1. initPrisma()                 -> Inicializa DB y migraciones
-2. initializeMediaManager()     -> Inicia servidor HTTP de medios
-3. registerRoutes()             -> Registra IPC handlers de database/
-4. initializeBibleManager()     -> Registra IPC handlers de biblia
-5. initializeDisplayManager()   -> Registra IPC handlers de pantallas
-6. initializeLiveMediaManager() -> Registra canal IPC de media en vivo
-7. Registra IPC locales         -> Fuentes, ventanas, notificaciones
-8. createMainWindow()           -> Crea ventana principal
+1. initPrisma()                   -> Inicializa DB y migraciones
+2. initializeMediaManager()       -> Inicia servidor HTTP de medios
+3. registerRoutes()               -> Registra IPC handlers de database/
+4. initializeBibleManager()       -> Registra IPC handlers de biblia
+5. initializeDisplayManager()     -> Registra IPC handlers de pantallas
+6. initializeLiveMediaManager()   -> Registra canal IPC de media en vivo
+7. initializeUpdaterManager()     -> Registra auto-updater (canal beta, check a los 10s)
+8. Registra IPC locales           -> Fuentes, ventanas, notificaciones
+9. createMainWindow()             -> Crea ventana principal
 ```
 
 ## Flujo de cierre
@@ -132,6 +136,21 @@ Gestiona todas las ventanas de la aplicacion:
 - Manager dedicado para media en vivo.
 - Canal IPC: `live-media-state`.
 - Expone API en preload como `liveMediaAPI`.
+
+### Updater Manager (`updaterManager/`)
+
+- `updaterManager.ts`: logica de auto-update usando `electron-updater`.
+  - Canal configurado: `beta`.
+  - `autoDownload: false` — el usuario decide cuando descargar.
+  - Verifica actualizaciones automaticamente 10 segundos despues del arranque.
+  - Emite eventos IPC a todas las ventanas: `updater:checking-for-update`, `updater:update-available`, `updater:update-not-available`, `updater:error`, `updater:download-progress`, `updater:update-downloaded`.
+  - Canales IPC manejados:
+    - `updater:check` (invoke) — verificacion manual
+    - `updater:download` (invoke) — iniciar descarga
+    - `updater:install` (on) — instalar y reiniciar
+    - `updater:get-version` (invoke) — version actual
+- `updaterAPI.ts`: API expuesta al renderer via contextBridge en `window.updaterAPI`.
+- La configuracion del proveedor esta en `electron-builder.yml` (GitHub, canal beta).
 
 ### Media Manager (`mediaManager/`)
 
@@ -209,6 +228,7 @@ Definidas en `electron/preload/index.ts`:
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `openStageLayoutWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wrappers del bible manager |
 | `window.googleDriveSyncAPI` | `getStatus()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()` |
+| `window.updaterAPI` | `checkForUpdates()`, `downloadUpdate()`, `installUpdate()`, `getVersion()`, `onUpdateAvailable()`, `onUpdateDownloaded()`, `onDownloadProgress()` |
 
 ## Convenciones
 

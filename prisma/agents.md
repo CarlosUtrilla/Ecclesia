@@ -13,7 +13,9 @@ prisma/
 ├── schema.prisma    # Definicion de modelos y relaciones
 ├── dev.db           # Base de datos SQLite (desarrollo)
 ├── seed.ts          # Script de seed inicial
-└── migrations/      # Historial de migraciones (44 actualmente)
+└── migrations/
+    └── 20260309000000_beta_v1_baseline/   # Migración única (baseline consolidada para beta)
+        └── migration.sql
 ```
 
 ## Modelos

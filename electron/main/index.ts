@@ -25,6 +25,7 @@ import {
   initializeGoogleDriveSyncManager
 } from './googleDriveSyncManager/googleDriveSyncManager'
 import { loadAppEnv } from './loadEnv'
+import { initializeUpdaterManager } from './updaterManager/updaterManager'
 
 let isQuittingAfterStageTimersCleanup = false
 
@@ -112,6 +113,8 @@ app.whenReady().then(async () => {
   initializeLiveMediaManager()
   // Inicializar manager de sincronización con Google Drive
   initializeGoogleDriveSyncManager()
+  // Inicializar manager de actualizaciones automáticas
+  initializeUpdaterManager()
 
   // Obtener fuentes del sistema
   ipcMain.handle('get-system-fonts', async () => {

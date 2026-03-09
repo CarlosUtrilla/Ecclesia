@@ -1,6 +1,60 @@
-# Lista de pendientes y features esperadas para el MVP
+# Lista de pendientes y features esperadas
 
 > La lista va en orden de prioridades y debe de considerarse resolver los problemas que estan mas arriba primero
+
+---
+
+## 🚀 PRIMER RELEASE BETA — Checklist de deploy
+
+> Estado: **EN PREPARACIÓN** · Versión: `0.1.0-beta.1`
+
+### Infraestructura (hacer una sola vez)
+
+- [ ] Crear repositorio público en GitHub bajo `CarlosUtrilla/Ecclesia` (si no existe) o habilitarlo para releases.
+- [ ] Generar un **GitHub Personal Access Token** con scope `repo` y guardarlo localmente.
+  - `GH_TOKEN=ghp_xxx` en `.env` local (no commitear) para que `electron-builder` pueda subir el release.
+- [ ] Verificar configuración de code signing para macOS (`notarize: false` por ahora en `electron-builder.yml`). Para distribución real fuera de la App Store se necesitará al menos un Developer ID.
+  - Mínimo para beta interna: puede distribuirse sin notarizar (usuarios deberán pasar bypass de Gatekeeper).
+- [ ] Para Windows (futuro): generar certificado de firma o usar modo sin firma para beta interna.
+
+### Antes de buildear
+
+- [ ] Revisar que no haya errores de TypeScript: `npm run typecheck`
+- [ ] Ejecutar tests: `npm run test`
+- [ ] Asegurarse de que `prisma/migrations/` solo tenga la migración `20260309000000_beta_v1_baseline`.
+- [ ] Verificar que los assets de build estén completos (`build/entitlements.mac.plist`, íconos, etc.).
+  - [ ] Agregar `icon.icns` (macOS), `icon.ico` (Windows) e `icon.png` (Linux) en la carpeta `build/`.
+- [ ] Actualizar `CHANGELOG.md` con los cambios del beta (crear el archivo si no existe).
+
+### Crear el build y publicar
+
+```bash
+# Build para macOS (desde macOS)
+GH_TOKEN=ghp_xxx npm run build:mac -- --publish always
+
+# Build para Windows (desde Windows o usando cross-compilation)
+GH_TOKEN=ghx_xxx npm run build:win -- --publish always
+```
+
+- El flag `--publish always` sube automáticamente el artefacto como GitHub Release pre-release (canal `beta`).
+- Electron Builder subirá: el instalador, el archivo `latest-mac.yml` / `latest.yml` (manifest de update).
+
+### Después del primer release
+
+- [ ] En GitHub, editar el draft release creado automáticamente, agregar notas de versión y publicarlo.
+- [ ] Verificar que el canal de auto-update funcione: instalar la versión publicada en una máquina de prueba y esperar que el updater detecte la siguiente versión.
+- [ ] Para cada nueva versión: `npm version prerelease --preid=beta` (incrementa a `0.1.0-beta.2`, etc.) antes de hacer el build.
+
+### Flujo de versiones
+
+```
+0.1.0-beta.1  ← primer release beta (actual)
+0.1.0-beta.2  ← siguiente iteración
+...
+0.1.0         ← release estable cuando se considere listo
+```
+
+---
 
 1. [X] Añadir a la lista de elementos excluidos del schedule, el componente de temas para poder dar click a un tema y ver el preview sin que se quite el preview
 2. [X] Al hacer click en un nuevo tema, no se debe mandar el nuevo tema al live, hasta que se mande desde el schedule
