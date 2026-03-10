@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import { cn } from '@/lib/utils'
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { usePresentationBackground } from '@/ui/PresentationView/hooks/usePresentationBackground'

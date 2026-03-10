@@ -15,7 +15,7 @@ import { PropsWithChildren, useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { BiblePresentationSchema } from './schema'
 import { Tooltip } from '@/ui/tooltip'
-import {
+import type {
   BibleDescriptionMode,
   BibleDescriptionPosition,
   BiblePresentationSettings

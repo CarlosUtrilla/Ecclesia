@@ -14,7 +14,7 @@ import { useSchedule } from '..'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import LibraryItemPreview from './LibraryItemPreview'
 import { ScheduleGroupTemplateDTO } from 'database/controllers/schedule/schedule.dto'
-import { ScheduleItem } from '@prisma/client'
+import type { ScheduleItem } from '@prisma/client'
 import { ScheduleItemComponent } from '@/screens/panels/schedule/scheduleContent/scheduleItem'
 
 // Helper: Detecta si es un drag externo (biblioteca o group template)

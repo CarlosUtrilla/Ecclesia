@@ -1,10 +1,11 @@
-import { BibleDescriptionMode, BibleDescriptionPosition } from '@prisma/client'
+import type { BibleDescriptionMode, BibleDescriptionPosition } from '@prisma/client'
 import z from 'zod'
 
 export const BiblePresentationSchema = z.object({
   id: z.number().optional(),
-  description: z.union(Object.values(BibleDescriptionMode).map((mode) => z.literal(mode))),
-  position: z.union(Object.values(BibleDescriptionPosition).map((mode) => z.literal(mode))),
+  description: z.enum(['short', 'complete'] as [BibleDescriptionMode, BibleDescriptionMode]),
+  position: z.enum(['beforeText', 'afterText', 'underText', 'overText', 'upScreen'] as [BibleDescriptionPosition, ...BibleDescriptionPosition[]]),
+
   showVersion: z.boolean(),
   showVerseNumber: z.boolean(),
   positionStyle: z.number().nullable()

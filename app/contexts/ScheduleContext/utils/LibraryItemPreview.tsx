@@ -1,5 +1,5 @@
 import { useSchedule } from '..'
-import { ScheduleItem } from '@prisma/client'
+import type { ScheduleItem } from '@prisma/client'
 import { useEffect, useState } from 'react'
 
 interface LibraryItemPreviewProps {

@@ -1,5 +1,5 @@
 import { PointerEvent } from 'react'
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { PresentationSlideItem, CanvasItemStyle } from '../utils/slideUtils'
 import CanvasItemContextMenu from './canvasItemContextMenu'

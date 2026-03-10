@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Media } from '../types'
-import { MediaType } from '@prisma/client'
+import type { MediaType } from '@prisma/client'
 import { ImportBibleResult } from '../../../../../../electron/main/bibleManager/bibleManager'
 
 // Tipo para el DTO de Media

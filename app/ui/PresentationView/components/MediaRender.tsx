@@ -1,5 +1,5 @@
 import { PresentationViewItems } from '../types'
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { getMediaType } from '@/lib/utils'
 import { CSSProperties, useId, useLayoutEffect, useMemo } from 'react'

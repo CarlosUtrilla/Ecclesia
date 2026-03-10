@@ -1,4 +1,4 @@
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'

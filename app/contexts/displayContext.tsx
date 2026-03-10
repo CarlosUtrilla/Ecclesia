@@ -1,5 +1,5 @@
 import NewDisplayConected from '@/screens/new-display-connected'
-import { ScreenRol } from '@prisma/client'
+import type { ScreenRol } from '@prisma/client'
 import { DisplayInfo } from 'electron/main/displayManager/displayType'
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react'
 

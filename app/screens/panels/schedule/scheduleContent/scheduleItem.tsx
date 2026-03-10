@@ -11,7 +11,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable'
 import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { ScheduleItem } from '@prisma/client'
+import type { ScheduleItem } from '@prisma/client'
 import { Radio, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 

@@ -1,4 +1,4 @@
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Label } from '@/ui/label'

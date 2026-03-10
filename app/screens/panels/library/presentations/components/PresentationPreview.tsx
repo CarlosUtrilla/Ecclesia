@@ -1,5 +1,5 @@
 import { Edit2 } from 'lucide-react'
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import { Button } from '@/ui/button'
 import { BlankTheme } from '@/hooks/useThemes'
 import { useThemes } from '@/hooks/useThemes'

@@ -1,4 +1,4 @@
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import CanvasItemShell from './canvasItemShell'
 import CanvasTransformHandles, { ResizeHandle } from './canvasTransformHandles'
 import { CanvasItemStyle, PresentationSlideItem } from '../utils/slideUtils'

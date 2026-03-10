@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { ScheduleSchemaType } from '../schema'
-import { ScheduleItem } from '@prisma/client'
+import type { ScheduleItem } from '@prisma/client'
 import { BookPlusIcon, FileSliders, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from '../types'

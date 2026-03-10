@@ -1,4 +1,4 @@
-import { Lyrics } from '@prisma/client'
+import type { Lyrics } from '@prisma/client'
 import { clsx, type ClassValue } from 'clsx'
 import DOMPurify from 'dompurify'
 import { twMerge } from 'tailwind-merge'

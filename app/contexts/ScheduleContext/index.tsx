@@ -13,7 +13,7 @@ import {
 import { useForm } from 'react-hook-form'
 import { ScheduleSchema } from './schema'
 
-import { ScheduleItem } from '@prisma/client'
+import type { ScheduleItem } from '@prisma/client'
 import { useIndexDataItems } from './utils/indexDataItems'
 import { LiveProvider } from './utils/liveContext'
 import { AddItemToSchedule, IScheduleContext } from './types'

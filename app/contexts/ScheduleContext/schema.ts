@@ -1,4 +1,4 @@
-import { ScheduleItem } from '@prisma/client'
+import type { ScheduleItem } from '@prisma/client'
 import z from 'zod'
 
 export const ScheduleSchema = z.object({

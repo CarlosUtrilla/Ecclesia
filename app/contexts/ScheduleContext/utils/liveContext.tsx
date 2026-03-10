@@ -2,7 +2,7 @@ import { createContext, PropsWithChildren, useContext, useEffect, useState } fro
 import { ContentScreen, ILiveContext } from '../types'
 import { useSchedule } from '..'
 import { DisplayWithUsage, useDisplays } from '../../displayContext'
-import { ScheduleItem } from '@prisma/client'
+import type { ScheduleItem } from '@prisma/client'
 import { BlankTheme } from '@/hooks/useThemes'
 
 // Extensión: stub para sincronización de media

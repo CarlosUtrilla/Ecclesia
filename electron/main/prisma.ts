@@ -453,9 +453,34 @@ async function applyMigrationManually(
     const db = sqlite3.default(dbPath)
 
     try {
-      // Ejecutar el SQL de la migración
-      db.exec(sql)
-      log.info(`✅ SQL de migración ${migrationName} ejecutado correctamente`)
+      // Ejecutar cada statement individualmente para que ALTER TABLE que ya existan
+      // no interrumpan el resto de la migración (ej: columnas ya presentes en upgrades).
+      const statements = sql
+        .split(';')
+        .map((s) => {
+          // Remover líneas de comentario sin eliminar el statement completo
+          const lines = s.split('\n').filter((line) => !line.trim().startsWith('--'))
+          return lines.join('\n').trim()
+        })
+        .filter((s) => s.length > 0)
+
+      let failedCount = 0
+      for (const statement of statements) {
+        try {
+          db.exec(statement + ';')
+        } catch (stmtError: any) {
+          // Ignorar errores esperados de idempotencia (columna/índice ya existe, etc.)
+          log.warn(`⚠️ Statement skipped (${migrationName}): ${stmtError.message}`)
+          failedCount++
+        }
+      }
+
+      if (failedCount === statements.length) {
+        log.error(`❌ Todos los statements de ${migrationName} fallaron`)
+        return false
+      }
+
+      log.info(`✅ SQL de migración ${migrationName} ejecutado (${failedCount} statements omitidos)`)
 
       // Marcar como aplicada
       await markMigrationAsApplied(dbPath, migrationName)

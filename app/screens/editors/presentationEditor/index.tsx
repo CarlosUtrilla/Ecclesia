@@ -27,7 +27,7 @@ import {
   Zap
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import {
   closestCenter,
   DndContext,

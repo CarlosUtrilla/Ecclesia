@@ -1,7 +1,7 @@
 import { Button } from '@/ui/button'
 import { PresentationView } from '@/ui/PresentationView'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
-import { ScheduleItem } from '@prisma/client'
+import type { ScheduleItem } from '@prisma/client'
 import { Radio } from 'lucide-react'
 import { useState } from 'react'
 

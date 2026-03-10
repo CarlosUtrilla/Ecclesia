@@ -1,4 +1,4 @@
-import { Media } from '@prisma/client'
+import type { Media } from '@prisma/client'
 import { PresentationLayerItem, PresentationViewItems } from '@/ui/PresentationView/types'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 import {

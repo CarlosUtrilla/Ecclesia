@@ -1,6 +1,6 @@
 import { DisplayInfo } from 'electron/main/displayManager/displayType'
 import { useEffect, useState } from 'react'
-import { ScreenRol } from '@prisma/client'
+import type { ScreenRol } from '@prisma/client'
 import { Button } from '../../ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { Badge } from '../../ui/badge'

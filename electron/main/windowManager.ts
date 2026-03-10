@@ -76,6 +76,22 @@ export function createMainWindow(): BrowserWindow {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  // Loguear errores del renderer al log principal para diagnóstico en producción
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    const log = require('electron-log')
+    log.error(`[renderer] did-fail-load: ${code} ${desc} ${url}`)
+  })
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    const log = require('electron-log')
+    log.error(`[renderer] process-gone: reason=${details.reason} exitCode=${details.exitCode}`)
+  })
+  mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {
+    if (level >= 2) { // 2=warning, 3=error
+      const log = require('electron-log')
+      log.warn(`[renderer] ${message} (${source}:${line})`)
+    }
+  })
+
   return mainWindow
 }
 
