@@ -7,12 +7,20 @@ import PresentationsPanel from './presentations'
 import { useEffect, useState } from 'react'
 import { ThemesSidePanel } from './themesSidePanel'
 import { Button } from '@/ui/button'
-import { MonitorCog, Settings } from 'lucide-react'
+import { CheckCircle2, MonitorCog, Settings } from 'lucide-react'
 
 export default function LibraryPanel() {
   const [activeTab, setActiveTab] = useState('songs')
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState(0)
+  const [isConnected, setIsConnected] = useState(false)
+
+  useEffect(() => {
+    window.googleDriveSyncAPI
+      .getStatus()
+      .then((s: { connected?: boolean } | null) => setIsConnected(!!s?.connected))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const unsubscribe = window.googleDriveSyncAPI.onSyncStateChange(({ syncing, progress }) => {
@@ -41,6 +49,24 @@ export default function LibraryPanel() {
             </TabsList>
           </Tabs>
           <div className="flex items-center gap-1">
+            {isConnected ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => !isSyncing && window.googleDriveSyncAPI.pushNow()}
+              >
+                {isSyncing ? (
+                  <span className="text-xs text-primary">
+                    {syncProgress > 0 ? `Sincronizando ${syncProgress}%` : 'Sincronizando...'}
+                  </span>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span className="text-xs">Sync</span>
+                  </>
+                )}
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="ghost"
@@ -52,11 +78,6 @@ export default function LibraryPanel() {
             <Button size="sm" variant="ghost" onClick={() => window.windowAPI.openSettingsWindow()}>
               <Settings className="h-4 w-4" />
               Ajustes
-              {isSyncing ? (
-                <span className="text-xs text-primary">
-                  {syncProgress > 0 ? `Sincronizando ${syncProgress}%` : 'Sincronizando...'}
-                </span>
-              ) : null}
             </Button>
           </div>
         </div>

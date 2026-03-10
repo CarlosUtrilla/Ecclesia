@@ -1,5 +1,4 @@
 import { Prisma, SyncOperation } from '@prisma/client'
-import log from 'electron-log'
 import { getPrisma, runWithoutSyncOutboxTracking } from '../../../electron/main/prisma'
 import {
   ApplyPendingInboxBatchDTO,
@@ -436,7 +435,7 @@ class SyncService {
             // diferente (campo requerido que no existe en el origen). Omitir silenciosamente.
             // P2006/P2009: tipo de dato incompatible entre versiones del schema.
             if (code === 'P2011' || code === 'P2006' || code === 'P2009') {
-              log.warn(
+              console.warn(
                 `[applySnapshot] Schema mismatch en tabla=${tableName} id=${recordId} code=${code} meta=${metaStr} - omitido (incompatibilidad de versiones)`
               )
               skipped += 1
@@ -489,7 +488,7 @@ class SyncService {
                     }
                   }
                 } catch (fallbackErr) {
-                  log.warn(
+                  console.warn(
                     `[applySnapshot] Fallback por id falló en tabla=${tableName} id=${recordId}:`,
                     fallbackErr
                   )
@@ -497,7 +496,7 @@ class SyncService {
               }
             }
 
-            log.error(
+            console.error(
               `[applySnapshot] Error en tabla=${tableName} id=${recordId} code=${code} meta=${metaStr}: ${msg}`
             )
             failed += 1

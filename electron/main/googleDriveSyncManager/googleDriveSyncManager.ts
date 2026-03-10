@@ -7,7 +7,7 @@ import { createHash, randomUUID } from 'crypto'
 import { google } from 'googleapis'
 import log from 'electron-log'
 import SyncService from '../../../database/controllers/sync/sync.service'
-import { getPrisma } from '../prisma'
+import { getPrisma, setOnOutboxWriteCallback, setOnMediaChangeCallback } from '../prisma'
 import { getBiblesResourcesPath } from '../bibleManager/bibleManager'
 
 type GoogleDriveSyncConfig = {
@@ -200,6 +200,8 @@ let autoSyncInterval: NodeJS.Timeout | null = null
 let retrySyncTimeout: NodeJS.Timeout | null = null
 let schedulerHealthInterval: NodeJS.Timeout | null = null
 let lastSchedulerHeartbeat = 0
+let microPushTimer: ReturnType<typeof setTimeout> | null = null
+let mediaMicroPushTimer: ReturnType<typeof setTimeout> | null = null
 
 function clampSyncProgress(progress: number) {
   return Math.max(0, Math.min(100, Math.round(progress)))
@@ -552,32 +554,40 @@ async function buildLocalMediaManifest(
 
 const DRIVE_FOLDER_NAME = 'Ecclesia'
 let cachedDriveFolderId: string | null = null
+let folderCreationPromise: Promise<string> | null = null
 
 async function getOrCreateEcclesiaFolder(drive: ReturnType<typeof google.drive>): Promise<string> {
   if (cachedDriveFolderId) return cachedDriveFolderId
+  if (folderCreationPromise) return folderCreationPromise
 
-  const search = await drive.files.list({
-    q: `name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed = false`,
-    spaces: 'drive',
-    fields: 'files(id)',
-    pageSize: 1
-  })
+  folderCreationPromise = (async () => {
+    const search = await drive.files.list({
+      q: `name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed = false`,
+      spaces: 'drive',
+      fields: 'files(id)',
+      pageSize: 1
+    })
 
-  if (search.data.files?.[0]?.id) {
-    cachedDriveFolderId = search.data.files[0].id
+    if (search.data.files?.[0]?.id) {
+      cachedDriveFolderId = search.data.files[0].id
+      return cachedDriveFolderId
+    }
+
+    const created = await drive.files.create({
+      requestBody: {
+        name: DRIVE_FOLDER_NAME,
+        mimeType: 'application/vnd.google-apps.folder'
+      },
+      fields: 'id'
+    })
+
+    cachedDriveFolderId = created.data.id!
     return cachedDriveFolderId
-  }
-
-  const created = await drive.files.create({
-    requestBody: {
-      name: DRIVE_FOLDER_NAME,
-      mimeType: 'application/vnd.google-apps.folder'
-    },
-    fields: 'id'
+  })().finally(() => {
+    folderCreationPromise = null
   })
 
-  cachedDriveFolderId = created.data.id!
-  return cachedDriveFolderId
+  return folderCreationPromise
 }
 
 async function getRemoteMediaManifestMetadata(
@@ -1554,7 +1564,7 @@ async function syncDifferential(reason: SyncReason) {
 
   if (config.conflictStrategy === 'primaryDevice' && config.primaryDeviceName) {
     if (config.deviceName !== config.primaryDeviceName) {
-      notifySyncState(true, 100)
+      notifySyncState(false)
       return { synced: false, reason, skipped: 'secondary-device' as const }
     }
   }
@@ -2007,6 +2017,57 @@ async function getRemoteDriveData(): Promise<RemoteDriveData> {
   }
 }
 
+async function pushSnapshotOnly(): Promise<void> {
+  const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
+  if (!config?.enabled) return
+  const token = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
+  if (!token) return
+  if (isSyncing) return
+  if (!config.workspaceId) config.workspaceId = 'default'
+  if (!config.deviceName) config.deviceName = os.hostname() || 'Este dispositivo'
+  try {
+    const { drive } = await getDriveClient()
+    const appInstanceId = await getOrCreateAppInstanceId()
+    const snapshot = await buildSnapshot(config, appInstanceId)
+    await uploadSnapshot(drive, config, snapshot)
+  } catch (err) {
+    log.error('[sync] pushSnapshotOnly falló:', err)
+  }
+}
+
+async function pushMediaOnly(): Promise<void> {
+  const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
+  if (!config?.enabled) return
+  const token = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
+  if (!token) return
+  if (isSyncing) return
+  if (!config.workspaceId) config.workspaceId = 'default'
+  if (!config.deviceName) config.deviceName = os.hostname() || 'Este dispositivo'
+  try {
+    const { drive } = await getDriveClient()
+    const appInstanceId = await getOrCreateAppInstanceId()
+    await syncMediaManifest(drive, config, 'push', appInstanceId)
+  } catch (err) {
+    log.error('[sync] pushMediaOnly falló:', err)
+  }
+}
+
+export function scheduleMicroPush(): void {
+  if (microPushTimer) clearTimeout(microPushTimer)
+  microPushTimer = setTimeout(() => {
+    microPushTimer = null
+    pushSnapshotOnly().catch(() => {})
+  }, 1000)
+}
+
+export function scheduleMicroMediaPush(): void {
+  if (mediaMicroPushTimer) clearTimeout(mediaMicroPushTimer)
+  mediaMicroPushTimer = setTimeout(() => {
+    mediaMicroPushTimer = null
+    pushMediaOnly().catch(() => {})
+  }, 1000)
+}
+
 export function initializeGoogleDriveSyncManager() {
   lastSchedulerHeartbeat = Date.now()
   updateLocalSyncState({
@@ -2084,10 +2145,20 @@ export function initializeGoogleDriveSyncManager() {
     return await getRemoteDriveData()
   })
 
+  // Registrar micro-push en el middleware de Prisma
+  setOnOutboxWriteCallback(() => scheduleMicroPush())
+  // Al cambiar Media/Font: subir el archivo Y el snapshot (el registro de BD con la URL del medio)
+  setOnMediaChangeCallback(() => {
+    scheduleMicroMediaPush()
+    scheduleMicroPush()
+  })
+
   ipcMain.on('sync:google-drive:auto-save-event', () => {
-    executeSyncCycle('save').catch(() => {
-      notifySyncState(false)
-    })
+    scheduleMicroPush()
+  })
+
+  ipcMain.handle('sync:google-drive:micro-push-media', () => {
+    scheduleMicroMediaPush()
   })
 
   app.on('before-quit', () => {

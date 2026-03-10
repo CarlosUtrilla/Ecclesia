@@ -117,10 +117,22 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 - Helpers puros de retry exportados: `calculateRetryDelayMs()` y `buildRetryBackoffState()`.
 - `executeSyncCycle()` se exporta para pruebas de recovery del scheduler.
 
-#### Limitaciones conocidas
+#### Micro-sync (push diferencial inmediato)
 
-- Los **deletes no se sincronizan**: registros borrados en un dispositivo persisten en los demás (solo se sincronizan creates/updates, no deletes).
-- Un dispositivo nuevo necesita al menos un ciclo de push antes de que otros puedan ver sus datos.
+- **`scheduleMicroPush()`**: Debounce de 1 s → llama `pushSnapshotOnly()`. Se dispara desde `setOnOutboxWriteCallback` (cualquier write a BD).
+- **`scheduleMicroMediaPush()`**: Debounce de 1 s → llama `pushMediaOnly()`. Se dispara desde `setOnMediaChangeCallback` (writes a `Media` o `Font`). Llama también a `scheduleMicroPush()`.
+- `pushSnapshotOnly` / `pushMediaOnly`: leen config y token del disco, aplican defaults de `workspaceId`/`deviceName`, verifican `!isSyncing`, luego ejecutan. Loguean errores via `log.error` (nunca silenciosos).
+- **`getOrCreateEcclesiaFolder`**: usa `cachedDriveFolderId` + `folderCreationPromise` (mutex de promise) para evitar race condition en llamadas concurrentes cuando la carpeta no existe.
+
+#### Bug crítico corregido: `notifySyncState` en dispositivo secundario
+
+- Antes: si `conflictStrategy=primaryDevice` y el dispositivo era secundario, se llamaba `notifySyncState(true, 100)` sin el correspondiente `notifySyncState(false)`, dejando `isSyncing=true` permanentemente.
+- Ahora: se llama `notifySyncState(false)` antes de retornar en ese caso.
+
+#### IMPORTANTE: electron-log solo en main
+
+- `electron-log` NO debe importarse en archivos del directorio `database/` porque esos archivos se bundlean en el preload (renderer). Usar `console.warn`/`console.error` en su lugar.
+- Solo los archivos en `electron/main/` usan `electron-log`.
 
 #### Cobertura de tests
 

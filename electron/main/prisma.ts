@@ -26,6 +26,17 @@ const OUTBOX_TRACKED_ACTIONS = new Set([
 ])
 const OUTBOX_EXCLUDED_MODELS = new Set(['SyncOutboxChange', 'SyncInboxChange', 'SyncState'])
 
+let onOutboxWriteCallback: (() => void) | null = null
+let onMediaChangeCallback: (() => void) | null = null
+
+export function setOnOutboxWriteCallback(fn: () => void): void {
+  onOutboxWriteCallback = fn
+}
+
+export function setOnMediaChangeCallback(fn: () => void): void {
+  onMediaChangeCallback = fn
+}
+
 async function readJsonSafe<T>(filePath: string): Promise<T | null> {
   try {
     if (!(await fs.pathExists(filePath))) return null
@@ -130,7 +141,8 @@ function toRecordId(model: string, args: Record<string, unknown>, result: unknow
 }
 
 function toPayloadString(args: Record<string, unknown>, result: unknown) {
-  const payloadBase = result && typeof result === 'object' ? result : args.data ?? args.where ?? {}
+  const payloadBase =
+    result && typeof result === 'object' ? result : (args.data ?? args.where ?? {})
   return JSON.stringify(payloadBase)
 }
 
@@ -148,7 +160,9 @@ function toDelegateName(model: string) {
   return `${model.charAt(0).toLowerCase()}${model.slice(1)}`
 }
 
-function isRecordWithId(value: unknown): value is { id: string | number; updatedAt?: Date | string | null } {
+function isRecordWithId(
+  value: unknown
+): value is { id: string | number; updatedAt?: Date | string | null } {
   if (!value || typeof value !== 'object') return false
   const id = (value as Record<string, unknown>).id
   return typeof id === 'string' || typeof id === 'number'
@@ -185,8 +199,12 @@ async function appendOutboxEntry(
         deletedAt: data.deletedAt ?? null
       }
     })
+    onOutboxWriteCallback?.()
   } catch (error) {
-    log.error(`[sync-outbox] No se pudo registrar cambio ${data.tableName}.${data.operation}:`, error)
+    log.error(
+      `[sync-outbox] No se pudo registrar cambio ${data.tableName}.${data.operation}:`,
+      error
+    )
   }
 }
 
@@ -227,6 +245,11 @@ function registerOutboxMiddleware(client: PrismaClient) {
     }
 
     const result = await next(params)
+
+    // Notificar cambios de Media/Font para micro-push (ignorar escrituras del proceso de sync)
+    if ((model === 'Media' || model === 'Font') && !outboxContext.getStore()?.skipOutbox) {
+      onMediaChangeCallback?.()
+    }
 
     if (outboxContext.getStore()?.skipOutbox) {
       return result
@@ -480,7 +503,9 @@ async function applyMigrationManually(
         return false
       }
 
-      log.info(`✅ SQL de migración ${migrationName} ejecutado (${failedCount} statements omitidos)`)
+      log.info(
+        `✅ SQL de migración ${migrationName} ejecutado (${failedCount} statements omitidos)`
+      )
 
       // Marcar como aplicada
       await markMigrationAsApplied(dbPath, migrationName)

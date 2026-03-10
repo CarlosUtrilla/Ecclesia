@@ -86,7 +86,12 @@ export function createMainWindow(): BrowserWindow {
     log.error(`[renderer] process-gone: reason=${details.reason} exitCode=${details.exitCode}`)
   })
   mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {
-    if (level >= 2) { // 2=warning, 3=error
+    if (level >= 3) {
+      // Sólo errores (level 3) se loguean siempre
+      const log = require('electron-log')
+      log.error(`[renderer] ${message} (${source}:${line})`)
+    } else if (level === 2 && message) {
+      // Warnings con mensaje no vacío
       const log = require('electron-log')
       log.warn(`[renderer] ${message} (${source}:${line})`)
     }
