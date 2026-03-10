@@ -82,7 +82,7 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 ### GoogleDriveSyncManager (`googleDriveSyncManager/`)
 
-- Manager dedicado para sincronizacion diferencial con Google Drive usando `appDataFolder`.
+- Manager dedicado para sincronizacion **snapshot-based** con Google Drive usando `appDataFolder`.
 - El login OAuth se abre en ventana interna de Electron.
 - Canales IPC:
   - `sync:google-drive:status`
@@ -94,24 +94,41 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
   - `sync:google-drive:reconcile`
 - Evento IPC adicional: `sync:google-drive:auto-save-event` para autosync al guardar.
 - Emite `sync-state` al renderer con `{ syncing, progress }`.
-- `push` y `pull` operan sobre pipeline diferencial real de DB con `SyncOutboxChange` y `SyncInboxChange`.
-- Fase media: sincroniza blobs por checksum con `ecclesia-media-manifest-*`.
+
+#### Arquitectura snapshot-based (actual)
+
+- **Flujo push**: `reconcileSyncData()` → `buildSnapshot()` (todos los modelos de BD) → `uploadSnapshot()` → `syncMediaManifest push` → `syncBibleFiles push` → `writeRemoteManifest`.
+- **Flujo pull**: `pullAllRemoteSnapshots()` → descarga snapshots de otros dispositivos → `applySnapshotRows()` (lastWriteWins por `updatedAt`) → `syncMediaManifest pull` → `syncBibleFiles pull`.
+- **Ping-pong fix**: Prisma `@updatedAt` auto-incrementa en cada write. Se usa `$executeRawUnsafe` dentro de `prisma.$transaction` para restaurar el `updatedAt` original del snapshot después de cada apply.
+- **Archivos en Drive**: `ecclesia-snapshot-{workspaceId}-{deviceId}.json` (un snapshot por dispositivo).
+- **deviceId / deviceName**: basado en `os.hostname()`; dos dispositivos con el mismo hostname no pueden sincronizarse correctamente.
+
+#### Sincronizacion de archivos
+
+- **Media (imágenes/videos)**: Manifest `ecclesia-media-manifest-{workspaceId}.json` con checksum SHA-256. Incluye también archivos de fuentes (`Font` model, `userData/media/fonts/`).
+- **Biblias importadas**: Manifest `ecclesia-bible-manifest-{workspaceId}.json` + blobs `ecclesia-bible-blob-{workspaceId}-{checksum}.bin`. Las biblias bundled en `resources/bibles/` se excluyen de la sincronización.
 - `media_manifest` propaga tombstones (`deletedAt`) para borrado remoto/local.
-- Preserva orden logico por `changeId` para reducir conflictos por dependencias.
-- El flujo ZIP fue removido; `applyPendingDriveRestoreOnStartup()` permanece como no-op temporal.
+
+#### Observabilidad y scheduler
+
 - OAuth se carga con `loadAppEnv()` (`.env`, `.env.local` o `userData/.env`).
-- `status` reporta observabilidad: `pendingOutboxChanges`, `pendingInboxChanges`, `nextRunAt`, `lastRunStatus`, `lastRunReason`, `lastRunAt`, `lastRunError`.
+- `status` reporta: `nextRunAt`, `lastRunStatus`, `lastRunReason`, `lastRunAt`, `lastRunError`, `deviceName`, `systemHostname`.
 - El scheduler tiene backoff exponencial persistido: `retryCount`, `nextRetryAt`, `schedulerHealthy`, `lastSchedulerHeartbeatAt`.
 - Helpers puros de retry exportados: `calculateRetryDelayMs()` y `buildRetryBackoffState()`.
 - `executeSyncCycle()` se exporta para pruebas de recovery del scheduler.
-- Cobertura relacionada:
-  - `electron/main/googleDriveSyncManager/googleDriveSyncManager.test.ts`
-  - `electron/main/googleDriveSyncManager/googleDriveSyncManager.scheduler.test.ts`
-    - Incluye escenario de retry disparado por temporizador (sin invocacion manual del ciclo).
-  - `electron/main/googleDriveSyncManager/googleDriveSyncManager.media.test.ts`
-    - Valida integridad de media (dedupe por checksum, descarga diferencial, tombstones, manifest remoto invalido) y transferencia por delta.
-- `reconcile` reconstruye outbox y regenera `media_manifest` local para bootstrap controlado.
-- Valida integridad remota (`schemaVersion`, `workspaceId`, fechas, estructura) antes de ingerir diffs/manifests.
+
+#### Limitaciones conocidas
+
+- Los **deletes no se sincronizan**: registros borrados en un dispositivo persisten en los demás (solo se sincronizan creates/updates, no deletes).
+- Un dispositivo nuevo necesita al menos un ciclo de push antes de que otros puedan ver sus datos.
+
+#### Cobertura de tests
+
+- `electron/main/googleDriveSyncManager/googleDriveSyncManager.test.ts`
+- `electron/main/googleDriveSyncManager/googleDriveSyncManager.scheduler.test.ts`
+  - Incluye escenario de retry disparado por temporizador (sin invocacion manual del ciclo).
+- `electron/main/googleDriveSyncManager/googleDriveSyncManager.media.test.ts`
+  - Valida integridad de media (dedupe por checksum, descarga diferencial, tombstones, manifest remoto invalido) y transferencia por delta.
 
 ### Window Manager (`windowManager.ts`)
 

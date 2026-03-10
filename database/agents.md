@@ -98,7 +98,7 @@ Definidos en `routes.ts`:
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
 | `fonts` | FontsController | `addFont`, `getAllFonts`, `deleteFont` |
 | `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
-| `sync` | SyncController | `getSyncState`, `upsertSyncState`, `appendOutboxChange`, `getPendingOutboxChanges`, `acknowledgeOutboxChanges`, `ingestRemoteChanges`, `getPendingInboxChanges`, `markInboxChangesApplied`, `applyPendingInboxBatch` |
+| `sync` | SyncController | `getSyncState`, `upsertSyncState`, `appendOutboxChange`, `getPendingOutboxChanges`, `acknowledgeOutboxChanges`, `ingestRemoteChanges`, `getPendingInboxChanges`, `markInboxChangesApplied`, `applyPendingInboxBatch`, `applySnapshotRows` |
 
 **Nota:** El namespace `setttings` tiene un typo historico (3 t's). No cambiar sin actualizar todos los puntos de referencia.
 
@@ -160,14 +160,10 @@ export interface CreateSongDTO {
 - Cada slide de `presentations.slides` también soporta `videoLiveBehavior` (`auto` | `manual`) para controlar si videos de la diapositiva inician automáticamente al entrar en live o quedan en espera de play manual.
 - Cada slide de `presentations.slides` también puede incluir `themeId` opcional (`number | null`) para aplicar un tema global de presentación en runtime.
 - `schedule.updateSchedule` usa `dateFrom` y `dateTo` (no `date`) para mantener consistencia con el modelo Prisma y el estado del formulario en frontend.
-- El módulo `sync` implementa la base de Fase 1 para sincronización diferencial de DB: checkpoint por dispositivo (`SyncState`) + cola de salida (`SyncOutboxChange`) + cola de entrada (`SyncInboxChange`) con deduplicación por cambio remoto.
-- `sync` exige `entityUpdatedAt` válido en cada cambio (`appendOutboxChange` e `ingestRemoteChanges`). Si un cambio remoto llega sin ese campo, se rechaza y se reporta como inválido para evitar merges inseguros.
-- El outbox de sync ahora se instrumenta de forma automática desde middleware Prisma en `electron/main/prisma.ts` para mutaciones de dominio (`create/update/upsert/delete`) y bulk (`deleteMany/updateMany/createMany*` con estrategia best-effort), evitando depender de llamadas manuales por endpoint.
-- `ingestRemoteChanges` aplica guard monotónico por `workspace + tableName + recordId`: si un cambio remoto llega con `entityUpdatedAt` menor o igual al último conocido (inbox u outbox local), se marca como `stale` y no se ingiere.
-- `applyPendingInboxBatch` aplica cambios remotos pendientes en lotes con propagación de tombstones (`deletedAt`) para `DELETE` remoto por tabla de dominio. El borrado es idempotente: si el registro ya no existe localmente, el cambio se considera aplicado.
-- `applyPendingInboxBatch` ahora difiere conflictos de merge por registro: si existe cambio local pendiente en `SyncOutboxChange` para el mismo `tableName + recordId`, el cambio remoto no se aplica ni se marca como procesado, quedando en inbox para un ciclo posterior.
-- `applyPendingInboxBatch` se ejecuta con bypass de instrumentación outbox (`runWithoutSyncOutboxTracking`) para evitar eco de cambios remotos aplicados localmente.
-- La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones en Fase 5.
+- El módulo `sync` implementa sincronización basada en **instantáneas (snapshots)**: cada dispositivo exporta todos los registros de SNAPSHOT_MODELS a un JSON, lo sube a Drive, y al hacer pull descarga los snapshots de todos los demás dispositivos aplicando filas por `lastWriteWins` (updatedAt). Las tablas `SyncOutboxChange`/`SyncInboxChange` siguen en el schema pero ya no son el mecanismo principal de sync.
+- `applySnapshotRows(tables)` en `SyncService` aplica las filas de un snapshot remoto a la BD local. Usa `runWithoutSyncOutboxTracking` y `$executeRawUnsafe` para preservar el `updatedAt` original del snapshot fuente, previniendo re-aplicaciones innecesarias entre dispositivos en cada ciclo (ping-pong de timestamps).
+- El outbox middleware en `prisma.ts` sigue activo pero los datos que escribe en `SyncOutboxChange` no se usan en el flujo principal de sync (se conserva para posible tracking de deletes futuro).
+- La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones.
 
 ## Serializacion IPC
 

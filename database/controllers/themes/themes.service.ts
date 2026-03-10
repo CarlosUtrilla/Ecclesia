@@ -33,6 +33,7 @@ export class ThemesService {
   async getAllThemes(): Promise<ThemeWithMedia[]> {
     const prisma = getPrisma()
     const themes = await prisma.themes.findMany({
+      where: { deletedAt: null },
       include: {
         backgroundMedia: true,
         biblePresentationSettings: true
@@ -48,8 +49,8 @@ export class ThemesService {
 
   async getThemeById(id: number): Promise<ThemeWithMedia> {
     const prisma = getPrisma()
-    const theme = await prisma.themes.findUnique({
-      where: { id },
+    const theme = await prisma.themes.findFirst({
+      where: { id, deletedAt: null },
       include: {
         backgroundMedia: true,
         biblePresentationSettings: true
@@ -66,8 +67,8 @@ export class ThemesService {
 
   async getThemeByName(name: string): Promise<ThemeWithMedia> {
     const prisma = getPrisma()
-    const theme = await prisma.themes.findUnique({
-      where: { name },
+    const theme = await prisma.themes.findFirst({
+      where: { name, deletedAt: null },
       include: {
         backgroundMedia: true,
         biblePresentationSettings: true
@@ -122,8 +123,9 @@ export class ThemesService {
 
   async deleteTheme(id: number) {
     const prisma = getPrisma()
-    return await prisma.themes.delete({
-      where: { id }
+    return await prisma.themes.update({
+      where: { id },
+      data: { deletedAt: new Date() }
     })
   }
 }

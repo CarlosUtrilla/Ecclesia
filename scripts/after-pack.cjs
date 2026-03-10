@@ -11,7 +11,7 @@ exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') return
 
   const appOutDir = context.appOutDir
-  const appFiles = fs.readdirSync(appOutDir).filter(f => f.endsWith('.app'))
+  const appFiles = fs.readdirSync(appOutDir).filter((f) => f.endsWith('.app'))
   if (appFiles.length === 0) return
 
   const appPath = path.join(appOutDir, appFiles[0])

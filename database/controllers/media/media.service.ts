@@ -14,7 +14,7 @@ export class MediaService {
     const { type, search, page = 1, limit = 50 } = filter
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: any = { deletedAt: null }
 
     if (type) {
       where.type = type
@@ -65,8 +65,9 @@ export class MediaService {
 
   async delete(id: number): Promise<MediaDto> {
     const prisma = getPrisma()
-    return await prisma.media.delete({
-      where: { id }
+    return await prisma.media.update({
+      where: { id },
+      data: { deletedAt: new Date() }
     })
   }
 
@@ -74,6 +75,7 @@ export class MediaService {
     const prisma = getPrisma()
     return await prisma.media.findMany({
       where: {
+        deletedAt: null,
         id: {
           in: ids
         }

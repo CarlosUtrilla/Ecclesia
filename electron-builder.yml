@@ -17,7 +17,6 @@ extraResources:
     to: prisma
     filter:
       - '**/*'
-      - '!dev.db'
       - '!dev.db-journal'
   - from: resources/bibles
     to: bibles

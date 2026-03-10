@@ -24,28 +24,29 @@ export class TagSongsService {
   async getAllTagSongs() {
     const prisma = getPrisma()
     return await prisma.tagSongs.findMany({
+      where: { deletedAt: null },
       orderBy: { name: 'asc' }
     })
   }
 
   async getTagSongsById(id: number) {
     const prisma = getPrisma()
-    return await prisma.tagSongs.findUnique({
-      where: { id }
+    return await prisma.tagSongs.findFirst({
+      where: { id, deletedAt: null }
     })
   }
 
   async getTagSongsByName(name: string) {
     const prisma = getPrisma()
-    return await prisma.tagSongs.findUnique({
-      where: { name }
+    return await prisma.tagSongs.findFirst({
+      where: { name, deletedAt: null }
     })
   }
 
   async getTagSongsByShortCut(shortCut: string) {
     const prisma = getPrisma()
-    return await prisma.tagSongs.findUnique({
-      where: { shortCut }
+    return await prisma.tagSongs.findFirst({
+      where: { shortCut, deletedAt: null }
     })
   }
 
@@ -74,8 +75,9 @@ export class TagSongsService {
   async deleteTagSongs(id: number) {
     const prisma = getPrisma()
     try {
-      return await prisma.tagSongs.delete({
-        where: { id }
+      return await prisma.tagSongs.update({
+        where: { id },
+        data: { deletedAt: new Date() }
       })
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {

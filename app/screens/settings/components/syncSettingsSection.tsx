@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { CheckCircle2, Download, Link2, RefreshCcw, Upload } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Download, Link2, Upload } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card'
 import { Badge } from '@/ui/badge'
@@ -18,8 +18,16 @@ type SyncStatus = {
   accountName?: string
   pendingRestore: boolean
   workspaceId?: string
+  deviceName?: string
+  systemHostname?: string
   lastSyncAt?: string
+  lastRunStatus?: 'ok' | 'error'
+  lastRunError?: string
+  lastRunAt?: string
+  pendingOutboxChanges?: number
+  pendingInboxChanges?: number
 }
+
 
 const getStoredSyncSettings = (): SyncSettingsForm => {
   try {
@@ -35,8 +43,8 @@ const getStoredSyncSettings = (): SyncSettingsForm => {
   return {
     enabled: false,
     workspaceId: '',
-    deviceName: 'Este dispositivo',
-    conflictStrategy: 'askBeforeOverwrite',
+    deviceName: '',
+    conflictStrategy: 'lastWriteWins',
     primaryDeviceName: '',
     autoOnStart: true,
     autoEvery5Min: true,
@@ -49,7 +57,6 @@ export default function SyncSettingsSection() {
   const [status, setStatus] = useState<SyncStatus | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
-
   const storedSettings = useMemo(() => getStoredSyncSettings(), [])
 
   const syncForm = useForm<SyncSettingsForm>({
@@ -62,12 +69,15 @@ export default function SyncSettingsSection() {
 
   const persistSyncSettings = useCallback(async (values: SyncSettingsForm) => {
     localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(values))
-    await window.googleDriveSyncAPI.configure(values)
+    // No enviamos `enabled` — ese campo solo lo gestiona connect/disconnect
+    const { enabled: _enabled, ...configWithoutEnabled } = values
+    await window.googleDriveSyncAPI.configure(configWithoutEnabled as SyncSettingsForm)
   }, [])
 
   const refreshStatus = async () => {
     const nextStatus = await window.googleDriveSyncAPI.getStatus()
     setStatus(nextStatus)
+    return nextStatus
   }
 
   const handleConnectGoogleDrive = syncForm.handleSubmit(async (values) => {
@@ -159,14 +169,18 @@ export default function SyncSettingsSection() {
   }
 
   useEffect(() => {
-    persistSyncSettings(storedSettings).catch(() => {
-      // noop: la conexión real se valida con getStatus/connect
-    })
-
-    refreshStatus().catch(() => {
-      setStatusMessage('No se pudo consultar el estado de sincronización')
-    })
-  }, [persistSyncSettings, storedSettings])
+    // No llamamos persistSyncSettings al montar para no sobreescribir enabled en disco
+    refreshStatus()
+      .then((nextStatus) => {
+        // Auto-rellenar deviceName con el hostname del sistema si no hay uno guardado
+        if (!syncForm.getValues('deviceName') && nextStatus?.systemHostname) {
+          syncForm.setValue('deviceName', nextStatus.systemHostname)
+        }
+      })
+      .catch(() => {
+        setStatusMessage('No se pudo consultar el estado de sincronización')
+      })
+  }, [persistSyncSettings, storedSettings]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const watchedValues = syncForm.watch()
 
@@ -211,9 +225,23 @@ export default function SyncSettingsSection() {
           {status?.accountEmail ? (
             <p className="text-xs text-muted-foreground">Cuenta: {status.accountEmail}</p>
           ) : null}
+          {status?.deviceName ? (
+            <p className="text-xs text-muted-foreground">Dispositivo: {status.deviceName}</p>
+          ) : null}
           {status?.lastSyncAt ? (
             <p className="text-xs text-muted-foreground">
-              Última sincronización: {status.lastSyncAt}
+              Última sincronización: {new Date(status.lastSyncAt).toLocaleString()}
+            </p>
+          ) : null}
+          {status?.lastRunStatus === 'error' && status.lastRunError ? (
+            <div className="flex items-center gap-1 text-xs text-destructive">
+              <AlertCircle className="size-3" />
+              <span>{status.lastRunError}</span>
+            </div>
+          ) : null}
+          {status?.pendingOutboxChanges !== undefined && status.pendingOutboxChanges > 0 ? (
+            <p className="text-xs text-amber-600">
+              {status.pendingOutboxChanges} cambios pendientes de subir
             </p>
           ) : null}
           {status?.pendingRestore ? (
@@ -250,6 +278,25 @@ export default function SyncSettingsSection() {
             {...syncForm.register('workspaceId')}
           />
         </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="sync-device-name">Nombre de este dispositivo</Label>
+          <Input
+            id="sync-device-name"
+            placeholder={status?.systemHostname || 'Mi computadora'}
+            disabled={!isSyncEnabled}
+            {...syncForm.register('deviceName')}
+          />
+          <p className="text-xs text-muted-foreground">
+            Debe ser único para cada equipo. Cambia este nombre en el segundo dispositivo antes de
+            conectar.
+          </p>
+          {syncForm.formState.errors.deviceName ? (
+            <p className="text-xs text-destructive">
+              {syncForm.formState.errors.deviceName.message}
+            </p>
+          ) : null}
+        </div>
       </CardContent>
 
       <CardFooter className="justify-end gap-2 mt-6">
@@ -274,9 +321,6 @@ export default function SyncSettingsSection() {
         >
           <Upload className="size-4" /> Subir
         </Button>
-        <Button variant="outline" onClick={() => syncForm.reset(storedSettings)}>
-          <RefreshCcw className="size-4" /> Restablecer
-        </Button>
         <Button
           disabled={isProcessing || !status?.connected || !isSyncEnabled}
           onClick={handleSyncNow}
@@ -288,6 +332,7 @@ export default function SyncSettingsSection() {
       {statusMessage ? (
         <div className="px-6 pb-4 text-xs text-muted-foreground">{statusMessage}</div>
       ) : null}
+
     </Card>
   )
 }

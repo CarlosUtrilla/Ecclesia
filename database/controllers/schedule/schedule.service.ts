@@ -8,6 +8,7 @@ export class ScheduleService {
     const today = new Date()
     return await this.prisma.schedule.findFirst({
       where: {
+        deletedAt: null,
         dateFrom: {
           lte: today
         },
@@ -16,7 +17,7 @@ export class ScheduleService {
         }
       },
       include: {
-        items: true
+        items: { where: { deletedAt: null } }
       }
     })
   }
@@ -37,24 +38,25 @@ export class ScheduleService {
             : undefined
       },
       include: {
-        items: true
+        items: { where: { deletedAt: null } }
       }
     })
   }
 
   getSchedule(id: number) {
-    return this.prisma.schedule.findUnique({
-      where: { id },
+    return this.prisma.schedule.findFirst({
+      where: { id, deletedAt: null },
       include: {
-        items: true
+        items: { where: { deletedAt: null } }
       }
     })
   }
 
   getAllSchedules() {
     return this.prisma.schedule.findMany({
+      where: { deletedAt: null },
       include: {
-        items: true
+        items: { where: { deletedAt: null } }
       }
     })
   }
@@ -62,8 +64,11 @@ export class ScheduleService {
   updateSchedule(id: number, data: UpdateScheduleDto) {
     const { items, ...rest } = data
     return this.prisma.$transaction(async (prisma) => {
-      // Eliminar todos los items actuales del schedule
-      await prisma.scheduleItem.deleteMany({ where: { scheduleId: id } })
+      // Soft-delete todos los items actuales del schedule
+      await prisma.scheduleItem.updateMany({
+        where: { scheduleId: id, deletedAt: null },
+        data: { deletedAt: new Date() }
+      })
       // Actualizar el schedule y crear los nuevos items
       return prisma.schedule.update({
         where: { id },
@@ -80,15 +85,16 @@ export class ScheduleService {
               : undefined
         },
         include: {
-          items: true
+          items: { where: { deletedAt: null } }
         }
       })
     })
   }
 
   deleteSchedule(id: number) {
-    return this.prisma.schedule.delete({
-      where: { id }
+    return this.prisma.schedule.update({
+      where: { id },
+      data: { deletedAt: new Date() }
     })
   }
 
@@ -107,13 +113,14 @@ export class ScheduleService {
   }
 
   async deleteItemFromSchedule(_scheduleId: number, itemId: number[]) {
-    // Eliminar los items especificados
-    await this.prisma.scheduleItem.deleteMany({
+    // Soft-delete los items especificados
+    await this.prisma.scheduleItem.updateMany({
       where: {
         id: {
           in: itemId.map(String)
         }
-      }
+      },
+      data: { deletedAt: new Date() }
     })
   }
 }

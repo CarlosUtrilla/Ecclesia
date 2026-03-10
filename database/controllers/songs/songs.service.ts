@@ -49,13 +49,14 @@ class SongsService {
 
     const where = search
       ? {
+          deletedAt: null as null,
           OR: [
             { title: { contains: search } },
             { author: { contains: search } },
             { fullText: { contains: search } }
           ]
         }
-      : {}
+      : { deletedAt: null as null }
 
     const [songs, total] = await Promise.all([
       this.prisma.song.findMany({
@@ -85,8 +86,8 @@ class SongsService {
 
   // Obtener una canción por ID
   async getSongById(id: number) {
-    const song = await this.prisma.song.findUnique({
-      where: { id },
+    const song = await this.prisma.song.findFirst({
+      where: { id, deletedAt: null },
       include: {
         lyrics: true
       }
@@ -135,13 +136,10 @@ class SongsService {
 
   // Eliminar canción
   async deleteSong(id: number): Promise<void> {
-    // eliminar letras asociadas
-    await this.prisma.lyrics.deleteMany({
-      where: { songId: id }
-    })
-    // eliminar canción
-    await this.prisma.song.delete({
-      where: { id }
+    // Soft-delete: marcar como eliminada para que la eliminación se propague por sync
+    await this.prisma.song.update({
+      where: { id },
+      data: { deletedAt: new Date() }
     })
   }
 
@@ -149,6 +147,7 @@ class SongsService {
   async searchSongs(query: string, limit = 10) {
     const songs = await this.prisma.song.findMany({
       where: {
+        deletedAt: null,
         OR: [
           { title: { contains: query } },
           { author: { contains: query } },
@@ -173,6 +172,7 @@ class SongsService {
   getSongsByIds(ids: number[]): Promise<SongResponseDTO[]> {
     return this.prisma.song.findMany({
       where: {
+        deletedAt: null,
         id: {
           in: ids
         }

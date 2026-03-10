@@ -1,4 +1,5 @@
 import { Prisma, SyncOperation } from '@prisma/client'
+import log from 'electron-log'
 import { getPrisma, runWithoutSyncOutboxTracking } from '../../../electron/main/prisma'
 import {
   ApplyPendingInboxBatchDTO,
@@ -82,7 +83,16 @@ type SyncTableDefinition = {
 const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
   Song: {
     delegateName: 'song',
-    allowedFields: ['id', 'title', 'author', 'copyright', 'createdAt', 'updatedAt', 'fullText'],
+    allowedFields: [
+      'id',
+      'title',
+      'author',
+      'copyright',
+      'createdAt',
+      'updatedAt',
+      'fullText',
+      'deletedAt'
+    ],
     resolveWhere: (recordId) => {
       const id = parseNumericIdOrNull(recordId)
       return id === null ? null : { id }
@@ -100,7 +110,16 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
   },
   TagSongs: {
     delegateName: 'tagSongs',
-    allowedFields: ['id', 'name', 'shortName', 'shortCut', 'color', 'createdAt', 'updatedAt'],
+    allowedFields: [
+      'id',
+      'name',
+      'shortName',
+      'shortCut',
+      'color',
+      'createdAt',
+      'updatedAt',
+      'deletedAt'
+    ],
     resolveWhere: (recordId, payload) => {
       const id = parseNumericIdOrNull(recordId)
       if (id !== null) return { id }
@@ -113,7 +132,7 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
   },
   Font: {
     delegateName: 'font',
-    allowedFields: ['id', 'name', 'fileName', 'filePath', 'createdAt', 'updatedAt'],
+    allowedFields: ['id', 'name', 'fileName', 'filePath', 'createdAt', 'updatedAt', 'deletedAt'],
     resolveWhere: (recordId) => {
       const id = parseNumericIdOrNull(recordId)
       return id === null ? null : { id }
@@ -133,6 +152,7 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
       'previewImage',
       'createdAt',
       'updatedAt',
+      'deletedAt',
       'biblePresentationSettingsId',
       'useDefaultBibleSettings'
     ],
@@ -170,7 +190,8 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
       'fallback',
       'folder',
       'createdAt',
-      'updatedAt'
+      'updatedAt',
+      'deletedAt'
     ],
     resolveWhere: (recordId, payload) => {
       const id = parseNumericIdOrNull(recordId)
@@ -182,7 +203,7 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
   },
   Presentation: {
     delegateName: 'presentation',
-    allowedFields: ['id', 'title', 'slides', 'createdAt', 'updatedAt'],
+    allowedFields: ['id', 'title', 'slides', 'createdAt', 'updatedAt', 'deletedAt'],
     resolveWhere: (recordId) => {
       const id = parseNumericIdOrNull(recordId)
       return id === null ? null : { id }
@@ -228,7 +249,7 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
   },
   Schedule: {
     delegateName: 'schedule',
-    allowedFields: ['id', 'title', 'dateFrom', 'dateTo', 'updatedAt'],
+    allowedFields: ['id', 'title', 'dateFrom', 'dateTo', 'updatedAt', 'deletedAt'],
     resolveWhere: (recordId) => {
       const id = parseNumericIdOrNull(recordId)
       return id === null ? null : { id }
@@ -237,7 +258,7 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
   },
   ScheduleGroupTemplate: {
     delegateName: 'scheduleGroupTemplate',
-    allowedFields: ['id', 'name', 'color', 'updatedAt'],
+    allowedFields: ['id', 'name', 'color', 'updatedAt', 'deletedAt'],
     resolveWhere: (recordId) => {
       const id = parseNumericIdOrNull(recordId)
       return id === null ? null : { id }
@@ -246,7 +267,7 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
   },
   ScheduleItem: {
     delegateName: 'scheduleItem',
-    allowedFields: ['id', 'order', 'type', 'accessData', 'scheduleId', 'updatedAt'],
+    allowedFields: ['id', 'order', 'type', 'accessData', 'scheduleId', 'updatedAt', 'deletedAt'],
     resolveWhere: (recordId) => ({ id: recordId }),
     allowDelete: true
   },
@@ -285,6 +306,209 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
 }
 
 class SyncService {
+  /**
+   * Aplica las filas de un snapshot remoto a la BD local usando lastWriteWins por updatedAt.
+   * Usa $executeRawUnsafe después de cada upsert para preservar el updatedAt original del
+   * dispositivo fuente, evitando que cada aplicación incremente el timestamp y cause re-syncs
+   * indefinidos entre dispositivos (ping-pong).
+   */
+  async applySnapshotRows(tables: Record<string, unknown[]>) {
+    const prisma = getPrisma()
+    let applied = 0
+    let stale = 0
+    let skipped = 0
+    let failed = 0
+
+    await runWithoutSyncOutboxTracking(async () => {
+      for (const [tableName, rows] of Object.entries(tables)) {
+        if (!Array.isArray(rows) || rows.length === 0) continue
+
+        const definition = SYNC_TABLE_DEFINITIONS[tableName]
+        if (!definition) {
+          skipped += rows.length
+          continue
+        }
+
+        const delegate = (prisma as Record<string, any>)[definition.delegateName]
+        if (!delegate) {
+          skipped += rows.length
+          continue
+        }
+
+        for (const rawRow of rows) {
+          if (!rawRow || typeof rawRow !== 'object' || Array.isArray(rawRow)) {
+            skipped += 1
+            continue
+          }
+
+          const row = rawRow as Record<string, unknown>
+          const recordId = String(row.id ?? '')
+          if (!recordId) {
+            skipped += 1
+            continue
+          }
+
+          const remoteUpdatedAt = parseDateOrNull(
+            typeof row.updatedAt === 'string' ? row.updatedAt : null
+          )
+          if (!remoteUpdatedAt) {
+            skipped += 1
+            continue
+          }
+
+          const where = definition.resolveWhere(recordId, row)
+          if (!where) {
+            skipped += 1
+            continue
+          }
+
+          try {
+            const existing = await delegate.findFirst({
+              where,
+              select: { id: true, updatedAt: true }
+            })
+
+            if (
+              existing?.updatedAt &&
+              isSameOrOlder(remoteUpdatedAt, new Date(existing.updatedAt))
+            ) {
+              stale += 1
+              continue
+            }
+
+            const allFields = pickAllowedFields(row, definition.allowedFields)
+            const updatedAtIso = remoteUpdatedAt.toISOString()
+
+            if (existing) {
+              const updateData = { ...allFields }
+              delete updateData.id
+              delete updateData.updatedAt
+              delete updateData.createdAt
+
+              if (Object.keys(updateData).length === 0) {
+                skipped += 1
+                continue
+              }
+
+              // Mini-transacción por fila: update + restaurar updatedAt original son atómicos.
+              // Usar una transacción por fila (no una gigante) para que un FK violation en una fila
+              // no afecte a las demás.
+              await prisma.$transaction(async (tx) => {
+                const txDelegate = (tx as Record<string, any>)[definition.delegateName]
+                await txDelegate.update({ where, data: updateData })
+                // Restaurar updatedAt original para evitar ping-pong de timestamps entre dispositivos
+                await tx.$executeRawUnsafe(
+                  `UPDATE "${tableName}" SET "updatedAt" = ? WHERE "id" = ?`,
+                  updatedAtIso,
+                  existing.id
+                )
+              })
+              applied += 1
+            } else {
+              const createData = { ...allFields }
+              delete createData.updatedAt
+
+              if (Object.keys(createData).length === 0) {
+                skipped += 1
+                continue
+              }
+
+              // Mini-transacción por fila: create + restaurar updatedAt original son atómicos.
+              await prisma.$transaction(async (tx) => {
+                const txDelegate = (tx as Record<string, any>)[definition.delegateName]
+                const created = await txDelegate.create({ data: createData, select: { id: true } })
+                // Restaurar updatedAt original tras la creación
+                await tx.$executeRawUnsafe(
+                  `UPDATE "${tableName}" SET "updatedAt" = ? WHERE "id" = ?`,
+                  updatedAtIso,
+                  created.id
+                )
+              })
+              applied += 1
+            }
+          } catch (err) {
+            const code = (err as any)?.code ?? 'unknown'
+            const meta = (err as any)?.meta ?? {}
+            const metaStr = JSON.stringify(meta)
+            const msg = err instanceof Error ? err.message.split('\n')[0] : String(err)
+
+            // P2011: campo NOT NULL sin valor → el snapshot viene de una versión del schema
+            // diferente (campo requerido que no existe en el origen). Omitir silenciosamente.
+            // P2006/P2009: tipo de dato incompatible entre versiones del schema.
+            if (code === 'P2011' || code === 'P2006' || code === 'P2009') {
+              log.warn(
+                `[applySnapshot] Schema mismatch en tabla=${tableName} id=${recordId} code=${code} meta=${metaStr} - omitido (incompatibilidad de versiones)`
+              )
+              skipped += 1
+              continue
+            }
+
+            // P2002 en campo 'id': la fila ya existe en la BD pero no fue encontrada por la
+            // clave natural (ej: selectedScreenId distinto). Intentar buscar por id directamente
+            // y actualizar como fallback.
+            if (code === 'P2002') {
+              const constraintTarget = Array.isArray(meta.target) ? meta.target : []
+              if (constraintTarget.includes('id') || String(meta.target).includes('id')) {
+                try {
+                  const numId = parseNumericIdOrNull(recordId)
+                  if (numId !== null) {
+                    const byId = await delegate.findFirst({
+                      where: { id: numId },
+                      select: { id: true, updatedAt: true }
+                    })
+                    if (
+                      byId?.updatedAt &&
+                      isSameOrOlder(remoteUpdatedAt, new Date(byId.updatedAt))
+                    ) {
+                      stale += 1
+                      continue
+                    }
+                    if (byId) {
+                      const fallbackFields = pickAllowedFields(row, definition.allowedFields)
+                      const fallbackUpdateData = { ...fallbackFields }
+                      delete fallbackUpdateData.id
+                      delete fallbackUpdateData.updatedAt
+                      delete fallbackUpdateData.createdAt
+                      const updatedAtIso2 = remoteUpdatedAt.toISOString()
+                      if (Object.keys(fallbackUpdateData).length > 0) {
+                        await prisma.$transaction(async (tx) => {
+                          const txDelegate = (tx as Record<string, any>)[definition.delegateName]
+                          await txDelegate.update({
+                            where: { id: numId },
+                            data: fallbackUpdateData
+                          })
+                          await tx.$executeRawUnsafe(
+                            `UPDATE "${tableName}" SET "updatedAt" = ? WHERE "id" = ?`,
+                            updatedAtIso2,
+                            numId
+                          )
+                        })
+                        applied += 1
+                        continue
+                      }
+                    }
+                  }
+                } catch (fallbackErr) {
+                  log.warn(
+                    `[applySnapshot] Fallback por id falló en tabla=${tableName} id=${recordId}:`,
+                    fallbackErr
+                  )
+                }
+              }
+            }
+
+            log.error(
+              `[applySnapshot] Error en tabla=${tableName} id=${recordId} code=${code} meta=${metaStr}: ${msg}`
+            )
+            failed += 1
+          }
+        }
+      }
+    })
+
+    return { applied, stale, skipped, failed }
+  }
+
   async getSyncState(data: SyncStateDTO) {
     const prisma = getPrisma()
     return await prisma.syncState.findUnique({
@@ -448,9 +672,8 @@ class SyncService {
           workspaceId: data.workspaceId,
           tableName: pair.tableName,
           recordId: pair.recordId,
-          entityUpdatedAt: {
-            not: null
-          }
+          entityUpdatedAt: { not: null },
+          ackedAt: null // Solo entradas pendientes: las acked ya se han enviado y no deben bloquear cambios remotos
         },
         orderBy: [{ entityUpdatedAt: 'desc' }, { id: 'desc' }],
         select: {
@@ -601,7 +824,6 @@ class SyncService {
     const appliedIds: number[] = []
     const stale: Array<{ inboxId: number; reason: string }> = []
     const skipped: Array<{ inboxId: number; reason: string }> = []
-    const conflicts: Array<{ inboxId: number; reason: string }> = []
     const failed: Array<{ inboxId: number; reason: string }> = []
 
     await runWithoutSyncOutboxTracking(async () => {
@@ -628,28 +850,9 @@ class SyncService {
 
           const incomingUpdatedAt = change.entityUpdatedAt
 
-          const pendingLocalOutbox = await tx.syncOutboxChange.findFirst({
-            where: {
-              workspaceId: data.workspaceId,
-              tableName: change.tableName,
-              recordId: change.recordId,
-              ackedAt: null
-            },
-            orderBy: [{ entityUpdatedAt: 'desc' }, { id: 'desc' }],
-            select: {
-              id: true,
-              entityUpdatedAt: true
-            }
-          })
-
-          if (pendingLocalOutbox) {
-            conflicts.push({
-              inboxId: change.id,
-              reason:
-                'Conflicto diferido: existe cambio local pendiente en outbox para el mismo registro'
-            })
-            continue
-          }
+          // No deferir por outbox pendiente: el guard isSameOrOlder sobre el registro
+          // real en DB es suficiente para lastWriteWins. Deferir causaba que los cambios
+          // remotos quedaran bloqueados indefinidamente si había cualquier outbox sin ack.
 
           if (change.operation === SyncOperation.DELETE && !definition.allowDelete) {
             skipped.push({
@@ -781,11 +984,9 @@ class SyncService {
       applied: appliedIds.length,
       stale: stale.length,
       skipped: skipped.length,
-      conflicts: conflicts.length,
       failed: failed.length,
       staleChanges: stale,
       skippedChanges: skipped,
-      conflictChanges: conflicts,
       failedChanges: failed
     }
   }

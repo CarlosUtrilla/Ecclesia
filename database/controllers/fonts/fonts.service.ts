@@ -9,10 +9,13 @@ export default class FontsService {
   }
 
   async getAllFonts() {
-    return await prisma.font.findMany({ orderBy: { createdAt: 'desc' } })
+    return await prisma.font.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' }
+    })
   }
 
   async deleteFont({ id }: DeleteFontDTO) {
-    return await prisma.font.delete({ where: { id } })
+    return await prisma.font.update({ where: { id }, data: { deletedAt: new Date() } })
   }
 }

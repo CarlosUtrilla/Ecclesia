@@ -32,6 +32,8 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 
 ## Testing (base minima obligatoria)
 
+> **REGLA CRÍTICA:** Toda nueva función de utilidad, hook, controller, servicio o componente con lógica no trivial DEBE incluir tests. No se acepta código sin tests cuando la lógica puede verificarse. Esto aplica tanto a código nuevo como a modificaciones significativas de código existente.
+
 - Comandos disponibles:
   - `npm run test`
   - `npm run test:watch`
@@ -40,6 +42,24 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 - Setup global de matchers: `tests/setup/vitest.setup.ts`.
 - Para pruebas de componentes/DOM usar `// @vitest-environment jsdom` en el archivo de test.
 - Priorizar cobertura de seguridad en utilidades críticas (ej. sanitización HTML) y regresiones de lógica en módulos compartidos.
+
+### Qué testear siempre
+
+| Tipo de código | Tests requeridos |
+| --- | --- |
+| Utilidades (`app/lib/`, `database/`) | Unit tests de todos los casos relevantes (happy path + edge cases + errores) |
+| Hooks compartidos (`app/hooks/`) | Tests con `renderHook` de comportamiento público |
+| Controllers/Services del backend | Unit tests de lógica de negocio (mocking de Prisma si aplica) |
+| Componentes con lógica propia | Tests de comportamiento (no de snapshot): interacciones, estados, renders condicionales |
+| Schemas Zod (`schema.ts`) | Tests de validación: inputs válidos, inválidos y casos borde |
+| Funciones de seguridad | Tests exhaustivos incluyendo XSS, inyección, inputs maliciosos |
+
+### Convenciones de archivos de test
+
+- Archivos de test junto al módulo que prueban: `utils.ts` → `utils.test.ts`
+- Para tests de módulos Node/Electron (controllers, services): entorno `node` (default de vitest)
+- Para tests de componentes React/DOM: `// @vitest-environment jsdom` al inicio del archivo
+- Describir cada suite con `describe('NombreDelMódulo', ...)` y cada caso con `it('debería ...')`
 
 ## Auto-invoke: Consulta SIEMPRE el agent antes de actuar
 

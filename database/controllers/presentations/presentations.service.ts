@@ -175,9 +175,10 @@ export class PresentationsService {
     const presentations = await this.prisma.presentation.findMany({
       where: params?.search
         ? {
+            deletedAt: null,
             title: { contains: params.search }
           }
-        : undefined,
+        : { deletedAt: null },
       orderBy: {
         updatedAt: 'desc'
       }
@@ -187,7 +188,7 @@ export class PresentationsService {
   }
 
   async getPresentationById(id: number): Promise<PresentationResponseDTO | null> {
-    const presentation = await this.prisma.presentation.findUnique({ where: { id } })
+    const presentation = await this.prisma.presentation.findFirst({ where: { id, deletedAt: null } })
 
     if (!presentation) return null
 
@@ -196,7 +197,7 @@ export class PresentationsService {
 
   async getPresentationsByIds(ids: number[]): Promise<PresentationResponseDTO[]> {
     const presentations = await this.prisma.presentation.findMany({
-      where: { id: { in: ids } }
+      where: { deletedAt: null, id: { in: ids } }
     })
 
     return presentations.map((presentation) => this.normalizePresentation(presentation))
@@ -218,6 +219,6 @@ export class PresentationsService {
   }
 
   async deletePresentation(id: number): Promise<void> {
-    await this.prisma.presentation.delete({ where: { id } })
+    await this.prisma.presentation.update({ where: { id }, data: { deletedAt: new Date() } })
   }
 }

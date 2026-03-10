@@ -11,13 +11,14 @@ export class ScheduleGroupTemplateService {
   // Obtener todos los templates de grupos
   async getAllGroupTemplates() {
     return await this.prisma.scheduleGroupTemplate.findMany({
+      where: { deletedAt: null },
       orderBy: { name: 'asc' }
     })
   }
 
   // Obtener un template por ID
   async getGroupTemplateById(id: number) {
-    return await this.prisma.scheduleGroupTemplate.findUnique({ where: { id } })
+    return await this.prisma.scheduleGroupTemplate.findFirst({ where: { id, deletedAt: null } })
   }
 
   // Actualizar un template de grupo
@@ -27,6 +28,9 @@ export class ScheduleGroupTemplateService {
 
   // Eliminar un template de grupo
   async deleteGroupTemplate(id: number) {
-    return await this.prisma.scheduleGroupTemplate.delete({ where: { id } })
+    return await this.prisma.scheduleGroupTemplate.update({
+      where: { id },
+      data: { deletedAt: new Date() }
+    })
   }
 }
