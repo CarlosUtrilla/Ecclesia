@@ -1,155 +1,49 @@
+import { lazy, Suspense, PropsWithChildren } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import LibraryPanel from './screens/panels/library'
-import SongEditor from './screens/editors/songEditor'
-import ThemesEditor from './screens/editors/themesEditor'
-import SchedulePanel from './screens/panels/schedule'
 import { MediaServerProvider } from './contexts/MediaServerContext'
 import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
-import TagSongsEditor from './screens/editors/tagSongsEditor.tsx'
-import { ScheduleProvider } from './contexts/ScheduleContext'
-import LivePanels from './screens/panels/items-on-live'
-import LiveScreens from './screens/panels/live-screens'
 import { DisplaysProvider } from './contexts/displayContext'
-import { PropsWithChildren } from 'react'
-import LiveScreen from './screens/live-screen'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from './ui/resizable'
-import SettingsScreen from './screens/settings'
-import PresentationEditor from './screens/editors/presentationEditor'
-import StageScreen from './screens/stage-screen'
-import StageControlScreen from './screens/stage-control'
-import StageLayoutScreen from './screens/stage-layout'
-
 import { FontsProvider } from './contexts/fontsContext'
 
-type GroupLayout = Record<string, number>
-
-const MAIN_LAYOUT_VERTICAL_KEY = 'main-layout-vertical-v2'
-const MAIN_LAYOUT_HORIZONTAL_KEY = 'main-layout-horizontal-v2'
-
-const DEFAULT_VERTICAL_LAYOUT: GroupLayout = {
-  'main-top': 65,
-  'main-library': 35
-}
-
-const DEFAULT_HORIZONTAL_LAYOUT: GroupLayout = {
-  'main-schedule': 20,
-  'main-live': 60,
-  'main-screens': 20
-}
-
-function readLayout(key: string, fallback: GroupLayout): GroupLayout {
-  const raw = localStorage.getItem(key)
-  if (!raw) return fallback
-
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return fallback
-    }
-
-    const entries = Object.entries(parsed as Record<string, unknown>)
-    if (entries.length === 0) {
-      return fallback
-    }
-
-    const normalized: GroupLayout = {}
-    for (const [panelId, size] of entries) {
-      if (typeof size !== 'number' || Number.isNaN(size)) {
-        return fallback
-      }
-      normalized[panelId] = size
-    }
-
-    return {
-      ...fallback,
-      ...normalized
-    }
-  } catch {
-    return fallback
-  }
-}
-
-function persistLayout(key: string, layout: GroupLayout) {
-  localStorage.setItem(key, JSON.stringify(layout))
-}
+// Todas las rutas son lazy — cada ventana sólo parsea el código que su ruta necesita.
+// La ventana principal carga MainRoute (paneles, dnd-kit, zod, etc.).
+// Las ventanas de live screen sólo cargan LiveScreen + framer-motion.
+// Las ventanas de editor sólo cargan TipTap + sus dependencias.
+const MainRoute = lazy(() => import('./screens/main-route'))
+const SongEditor = lazy(() => import('./screens/editors/songEditor'))
+const ThemesEditor = lazy(() => import('./screens/editors/themesEditor'))
+const TagSongsEditor = lazy(() => import('./screens/editors/tagSongsEditor.tsx'))
+const SettingsScreen = lazy(() => import('./screens/settings'))
+const PresentationEditor = lazy(() => import('./screens/editors/presentationEditor'))
+const LiveScreen = lazy(() => import('./screens/live-screen'))
+const StageScreen = lazy(() => import('./screens/stage-screen'))
+const StageControlScreen = lazy(() => import('./screens/stage-control'))
+const StageLayoutScreen = lazy(() => import('./screens/stage-layout'))
 
 function App() {
-  const defaultVerticalLayout = readLayout(MAIN_LAYOUT_VERTICAL_KEY, DEFAULT_VERTICAL_LAYOUT)
-  const defaultHorizontalLayout = readLayout(MAIN_LAYOUT_HORIZONTAL_KEY, DEFAULT_HORIZONTAL_LAYOUT)
-
   return (
     <MainApp>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <ScheduleProvider>
-              <ResizablePanelGroup
-                id="main-group-vertical"
-                direction="vertical"
-                defaultLayout={defaultVerticalLayout}
-                onLayoutChanged={(layout) => persistLayout(MAIN_LAYOUT_VERTICAL_KEY, layout)}
-              >
-                <ResizablePanel id="main-top" defaultSize={65} minSize={'50%'}>
-                  <ResizablePanelGroup
-                    id="main-group-horizontal"
-                    direction="horizontal"
-                    defaultLayout={defaultHorizontalLayout}
-                    onLayoutChanged={(layout) => persistLayout(MAIN_LAYOUT_HORIZONTAL_KEY, layout)}
-                  >
-                    <ResizablePanel
-                      id="main-schedule"
-                      defaultSize={20}
-                      minSize={'18%'}
-                      maxSize={'30%'}
-                    >
-                      <SchedulePanel />
-                    </ResizablePanel>
-                    <ResizableHandle />
-                    <ResizablePanel id="main-live" defaultSize={60} minSize={'30%'}>
-                      <LivePanels />
-                    </ResizablePanel>
-                    <ResizableHandle />
-                    <ResizablePanel
-                      id="main-screens"
-                      defaultSize={20}
-                      minSize={'18%'}
-                      maxSize={'30%'}
-                    >
-                      <LiveScreens />
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
-                </ResizablePanel>
-                <ResizableHandle className="w-full" />
-                <ResizablePanel id="main-library" defaultSize={35} minSize={'25%'}>
-                  <LibraryPanel />
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </ScheduleProvider>
-          }
-        />
-        {/* Rutas para crear/editar canción (ventana modal) */}
-        <Route path="/song/new" element={<SongEditor />} />
-        <Route path="/song/:id" element={<SongEditor />} />
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/" element={<MainRoute />} />
 
-        {/* Rutas para crear/editar tema (ventana modal) */}
-        <Route path="/theme/new" element={<ThemesEditor />} />
-        <Route path="/theme/:id" element={<ThemesEditor />} />
+          {/* Rutas de editores (ventanas separadas) */}
+          <Route path="/song/new" element={<SongEditor />} />
+          <Route path="/song/:id" element={<SongEditor />} />
+          <Route path="/theme/new" element={<ThemesEditor />} />
+          <Route path="/theme/:id" element={<ThemesEditor />} />
+          <Route path="/tagSongEditor" element={<TagSongsEditor />} />
+          <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/presentation/new" element={<PresentationEditor />} />
+          <Route path="/presentation/:id" element={<PresentationEditor />} />
 
-        {/* Rutas para crear/editar tags de canciones */}
-        <Route path="/tagSongEditor" element={<TagSongsEditor />} />
-
-        {/* Ruta para ajustes */}
-        <Route path="/settings" element={<SettingsScreen />} />
-
-        <Route path="/presentation/new" element={<PresentationEditor />} />
-        <Route path="/presentation/:id" element={<PresentationEditor />} />
-
-        <Route path="/live-screen/:displayId" element={<LiveScreen />} />
-        <Route path="/stage-screen/:displayId" element={<StageScreen />} />
-        <Route path="/stage-control" element={<StageControlScreen />} />
-        <Route path="/stage-layout" element={<StageLayoutScreen />} />
-      </Routes>
+          {/* Rutas de pantallas en vivo (ventanas separadas) */}
+          <Route path="/live-screen/:displayId" element={<LiveScreen />} />
+          <Route path="/stage-screen/:displayId" element={<StageScreen />} />
+          <Route path="/stage-control" element={<StageControlScreen />} />
+          <Route path="/stage-layout" element={<StageLayoutScreen />} />
+        </Routes>
+      </Suspense>
     </MainApp>
   )
 }

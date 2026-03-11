@@ -51,13 +51,42 @@ window.electron.ipcRenderer.on('sync-data-applied', () => {
   queryClient.invalidateQueries()
 })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <HashRouter>
-        <App />
-      </HashRouter>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  </StrictMode>
-)
+// Pre-carga el chunk de la ruta activa antes de renderizar React.
+// Como Electron sirve desde el ASAR local, los imports resuelven en ~0ms y
+// el módulo queda en caché. Cuando React.lazy() lo pide, ya está listo y
+// renderiza sin mostrar el Suspense fallback (sin pantalla negra).
+const ROUTE_PRELOADS: [string, () => Promise<unknown>][] = [
+  ['/', () => import('./screens/main-route')],
+  ['/song', () => import('./screens/editors/songEditor')],
+  ['/theme', () => import('./screens/editors/themesEditor')],
+  ['/tagSongEditor', () => import('./screens/editors/tagSongsEditor.tsx')],
+  ['/settings', () => import('./screens/settings')],
+  ['/presentation', () => import('./screens/editors/presentationEditor')],
+  ['/live-screen', () => import('./screens/live-screen')],
+  ['/stage-screen', () => import('./screens/stage-screen')],
+  ['/stage-control', () => import('./screens/stage-control')],
+  ['/stage-layout', () => import('./screens/stage-layout')],
+]
+
+async function preloadCurrentRoute(): Promise<void> {
+  const hash = window.location.hash.replace('#', '') || '/'
+  for (const [prefix, load] of ROUTE_PRELOADS) {
+    if (hash === prefix || hash.startsWith(prefix + '/')) {
+      await load()
+      break
+    }
+  }
+}
+
+preloadCurrentRoute().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <HashRouter>
+          <App />
+        </HashRouter>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </StrictMode>
+  )
+})
