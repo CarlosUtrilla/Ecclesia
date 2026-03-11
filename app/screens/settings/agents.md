@@ -26,7 +26,8 @@ app/screens/settings/
 ├── components/
 │   ├── colorSettingsSection.tsx    # Lógica/UI del menú Tema de colores
 │   ├── syncSettingsSection.tsx     # Lógica/UI del menú Sincronización
-│   └── logoFallbackSection.tsx     # Lógica/UI del menú Logo / Pantalla de fondo
+│   ├── logoFallbackSection.tsx     # Lógica/UI del menú Logo / Pantalla de fondo
+│   └── aboutSection.tsx           # Versión de la app, icono y estado de actualizaciones
 └── agents.md
 ```
 

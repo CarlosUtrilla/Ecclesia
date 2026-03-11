@@ -1,5 +1,6 @@
 import { initializeLiveMediaManager } from './liveMediaController/liveMediaController'
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerRoutes } from '../../database'
 import { getPrisma, initPrisma } from './prisma'
@@ -14,14 +15,15 @@ import {
   createStageControlWindow,
   createStageLayoutWindow,
   createTagsSongWindow,
-  createThemeWindow
+  createThemeWindow,
+  prewarmEditorWindows
 } from './windowManager'
 import 'reflect-metadata'
 import fontList from 'font-list'
 import { initializeBibleManager } from './bibleManager'
 import { initializeMediaManager } from './mediaManager'
 import { stopMediaServer } from './mediaManager/mediaServer'
-import { initializeDisplayManager } from './displayManager'
+import { initializeDisplayManager, prewarmDisplayScreens } from './displayManager'
 import { initializeFontManager } from './fontManager'
 import {
   applyPendingDriveRestoreOnStartup,
@@ -85,6 +87,11 @@ async function clearPersistedStageTimersOnShutdown() {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  // V8 bytecode cache: tras la primera apertura, V8 guarda el bytecode compilado
+  // en disco y las aperturas siguientes omiten parse+compile completamente.
+  // Debe configurarse antes de crear cualquier BrowserWindow.
+  session.defaultSession.setCodeCachePath(join(app.getPath('userData'), 'v8-code-cache'))
+
   const splash = createSplashWindow()
   await new Promise<void>((resolve) => splash.webContents.once('dom-ready', resolve))
 
@@ -228,6 +235,12 @@ app.whenReady().then(async () => {
     closeSplashWindow()
     mainWindow.maximize()
     mainWindow.show()
+    // Pre-calentar editores y pantallas en background una vez que la ventana principal está lista.
+    // El delay evita competir con el renderizado inicial de la ventana principal.
+    setTimeout(() => {
+      prewarmEditorWindows()
+      prewarmDisplayScreens()
+    }, 4000)
   })
 
   app.on('activate', function () {

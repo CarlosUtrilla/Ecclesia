@@ -69,6 +69,8 @@ export function initializeUpdaterManager(): void {
 
     if (isNetworkOrAccessError) {
       log.warn('[updater] Sin acceso a actualizaciones:', msg.split('\n')[0])
+      // Notificar al renderer para que salga del estado "checking"
+      broadcastToAllWindows('updater:update-not-available', null)
       return
     }
 
@@ -89,7 +91,8 @@ export function initializeUpdaterManager(): void {
     try {
       return await autoUpdater.checkForUpdates()
     } catch (err) {
-      log.error('Error al verificar actualizaciones:', err)
+      log.warn('[updater] checkForUpdates falló:', (err as Error).message)
+      broadcastToAllWindows('updater:update-not-available', null)
       return null
     }
   })
