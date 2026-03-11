@@ -15,6 +15,18 @@ import { displayAPI } from '../main/displayManager/displaysMethods'
 import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
 import { googleDriveSyncAPI } from '../main/googleDriveSyncManager/googleDriveSyncAPI'
 import { updaterAPI } from '../main/updaterManager/updaterAPI'
+import log from 'electron-log'
+
+// Silenciar el transporte de consola de `electron-log` en el renderer para
+// evitar duplicación/volcados masivos en la terminal.
+try {
+  if (log?.transports?.console) {
+    // Desactivar transporte de consola
+    log.transports.console.level = false
+  }
+} catch (e) {
+  // No bloquear si `electron-log` no está disponible en este contexto
+}
 
 // Funciones adicionales para ventanas
 const windowAPI = {

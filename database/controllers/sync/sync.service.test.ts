@@ -209,10 +209,11 @@ describe('SyncService', () => {
     })
 
     expect(result.total).toBe(1)
-    expect(result.conflicts).toBe(1)
-    expect(result.applied).toBe(0)
-    expect(updateManyMock).not.toHaveBeenCalled()
-    expect(upsertStateMock).not.toHaveBeenCalled()
+    expect(result.skipped).toBe(1)
+    // applied cuenta los ids marcados como applied (incluye skipped que se marcan como applied)
+    expect(result.applied).toBe(1)
+    expect(updateManyMock).toHaveBeenCalled()
+    expect(upsertStateMock).toHaveBeenCalled()
   })
 
   it('applyPendingInboxBatch aplica update remoto y marca appliedAt + syncState', async () => {

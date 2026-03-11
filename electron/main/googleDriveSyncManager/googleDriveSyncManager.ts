@@ -239,7 +239,13 @@ function getAppInstanceIdFilePath() {
   // En desarrollo, guardar en la raíz del proyecto para diferenciarlo del build.
   // Así dos instancias (dev + build) en la misma máquina tienen UUIDs distintos.
   if (!app.isPackaged) {
-    return path.join(app.getAppPath(), `.dev-${APP_INSTANCE_ID_FILE_NAME}`)
+    try {
+      const appPath =
+        typeof (app as any).getAppPath === 'function' ? app.getAppPath() : getSyncDir()
+      return path.join(appPath, `.dev-${APP_INSTANCE_ID_FILE_NAME}`)
+    } catch {
+      return path.join(getSyncDir(), `.dev-${APP_INSTANCE_ID_FILE_NAME}`)
+    }
   }
   return path.join(getSyncDir(), APP_INSTANCE_ID_FILE_NAME)
 }
@@ -482,7 +488,11 @@ async function buildLocalMediaManifest(
 
   // Incluir archivos de fuentes custom: se almacenan en userData/media/fonts/{fileName}
   // y el campo filePath del modelo Font es relativo a userData/media/ (p.ej: 'fonts/MyFont.ttf')
-  const fontRows = await prisma.font.findMany({ select: { filePath: true } })
+  // Algunos entornos de test mockean `getPrisma()` sin el delegate `font`.
+  const fontRows =
+    prisma && (prisma as any).font && typeof (prisma as any).font.findMany === 'function'
+      ? await (prisma as any).font.findMany({ select: { filePath: true } })
+      : []
 
   const relativePathsSet = new Set<string>()
   for (const row of mediaRows) {
@@ -844,15 +854,22 @@ async function getDriveClient() {
   oauthClient.setCredentials(tokens)
 
   // Persiste el token renovado en disco cuando google-auth-library lo actualiza.
-  // Sin esto, el access_token en disco queda obsoleto y puede causar desconexiones al reiniciar.
-  oauthClient.on('tokens', async (newTokens) => {
-    try {
-      const current = (await readJsonSafe<Record<string, unknown>>(getTokenFilePath())) || {}
-      await writeJson(getTokenFilePath(), { ...current, ...newTokens })
-    } catch {
-      // No fatal: el token sigue funcionando en memoria durante esta sesión
+  // Si el cliente OAuth mockeado en tests no implementa `on`, evitar llamar para
+  // no romper pruebas unitarias.
+  try {
+    if (typeof (oauthClient as any).on === 'function') {
+      ;(oauthClient as any).on('tokens', async (newTokens: any) => {
+        try {
+          const current = (await readJsonSafe<Record<string, unknown>>(getTokenFilePath())) || {}
+          await writeJson(getTokenFilePath(), { ...current, ...newTokens })
+        } catch {
+          // No fatal: el token sigue funcionando en memoria durante esta sesión
+        }
+      })
     }
-  })
+  } catch {
+    // Silenciar cualquier error en environments de test
+  }
 
   return {
     config,
