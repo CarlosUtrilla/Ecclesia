@@ -32,6 +32,7 @@ export function initializeUpdaterManager(): void {
     provider: 'github',
     owner: 'CarlosUtrilla',
     repo: 'Ecclesia',
+    channel: 'beta',
     private: true,
     token: token ?? undefined
   })

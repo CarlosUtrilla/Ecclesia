@@ -1,4 +1,5 @@
 provider: github
 owner: CarlosUtrilla
 repo: Ecclesia
+channel: beta
 updaterCacheDirName: Ecclesia-updater
