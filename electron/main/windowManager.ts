@@ -12,6 +12,11 @@ let stageLayoutWindowRef: BrowserWindow | null = null
 // tras la carga inicial, de modo que al abrirlas el proceso Chromium ya existe.
 let warmSongWindowRef: BrowserWindow | null = null
 let warmThemeWindowRef: BrowserWindow | null = null
+let warmPresentationWindowRef: BrowserWindow | null = null
+let warmTagsSongWindowRef: BrowserWindow | null = null
+let warmSettingsWindowRef: BrowserWindow | null = null
+let warmStageControlWindowRef: BrowserWindow | null = null
+let warmStageLayoutWindowRef: BrowserWindow | null = null
 
 function loadRoute(win: BrowserWindow, route: string): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -69,6 +74,81 @@ export function prewarmEditorWindows(): void {
     })
     loadRoute(warmThemeWindowRef, '/theme/new')
     warmThemeWindowRef.on('closed', () => { warmThemeWindowRef = null })
+  }
+
+  if (!warmPresentationWindowRef || warmPresentationWindowRef.isDestroyed()) {
+    warmPresentationWindowRef = new BrowserWindow({
+      title: 'Editor de presentaciones',
+      width: Math.round(width * 0.85),
+      height: Math.round(height * 0.85),
+      show: false,
+      autoHideMenuBar: true,
+      ...(process.platform === 'linux' ? { icon } : {}),
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+    })
+    loadRoute(warmPresentationWindowRef, '/presentation/new')
+    warmPresentationWindowRef.on('closed', () => { warmPresentationWindowRef = null })
+  }
+
+  if (!warmTagsSongWindowRef || warmTagsSongWindowRef.isDestroyed()) {
+    warmTagsSongWindowRef = new BrowserWindow({
+      width: 950,
+      height: 400,
+      show: false,
+      autoHideMenuBar: true,
+      ...(process.platform === 'linux' ? { icon } : {}),
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+    })
+    loadRoute(warmTagsSongWindowRef, '/tagSongEditor')
+    warmTagsSongWindowRef.on('closed', () => { warmTagsSongWindowRef = null })
+  }
+
+  if (!warmSettingsWindowRef || warmSettingsWindowRef.isDestroyed()) {
+    warmSettingsWindowRef = new BrowserWindow({
+      title: 'Ajustes',
+      width: Math.round(width * 0.7),
+      height: Math.round(height * 0.8),
+      minWidth: 900,
+      minHeight: 620,
+      show: false,
+      autoHideMenuBar: true,
+      ...(process.platform === 'linux' ? { icon } : {}),
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+    })
+    loadRoute(warmSettingsWindowRef, '/settings')
+    warmSettingsWindowRef.on('closed', () => { warmSettingsWindowRef = null })
+  }
+
+  if (!warmStageControlWindowRef || warmStageControlWindowRef.isDestroyed()) {
+    warmStageControlWindowRef = new BrowserWindow({
+      title: 'Control de Escenario',
+      width: Math.round(width * 0.6),
+      height: Math.round(height * 0.75),
+      minWidth: 900,
+      minHeight: 620,
+      show: false,
+      autoHideMenuBar: true,
+      ...(process.platform === 'linux' ? { icon } : {}),
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+    })
+    loadRoute(warmStageControlWindowRef, '/stage-control')
+    warmStageControlWindowRef.on('closed', () => { warmStageControlWindowRef = null })
+  }
+
+  if (!warmStageLayoutWindowRef || warmStageLayoutWindowRef.isDestroyed()) {
+    warmStageLayoutWindowRef = new BrowserWindow({
+      title: 'Layout de Escenario',
+      width: Math.round(width * 0.75),
+      height: Math.round(height * 0.85),
+      minWidth: 1000,
+      minHeight: 700,
+      show: false,
+      autoHideMenuBar: true,
+      ...(process.platform === 'linux' ? { icon } : {}),
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+    })
+    loadRoute(warmStageLayoutWindowRef, '/stage-layout')
+    warmStageLayoutWindowRef.on('closed', () => { warmStageLayoutWindowRef = null })
   }
 }
 
@@ -272,6 +352,16 @@ export function createThemeWindow(themeId?: number): BrowserWindow {
 }
 
 export function createPresentationWindow(presentationId?: number): BrowserWindow {
+  const route = presentationId ? `/presentation/${presentationId}` : '/presentation/new'
+
+  if (warmPresentationWindowRef && !warmPresentationWindowRef.isDestroyed()) {
+    const win = warmPresentationWindowRef
+    warmPresentationWindowRef = null
+    showWarmWindow(win, route)
+    setTimeout(prewarmEditorWindows, 1500)
+    return win
+  }
+
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
   const presentationWindow = new BrowserWindow({
     title: 'Editor de presentaciones',
@@ -290,20 +380,19 @@ export function createPresentationWindow(presentationId?: number): BrowserWindow
     presentationWindow.show()
   })
 
-  const route = presentationId ? `/presentation/${presentationId}` : '/presentation/new'
-
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    presentationWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-  } else {
-    presentationWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-      hash: route
-    })
-  }
-
+  loadRoute(presentationWindow, route)
   return presentationWindow
 }
 
 export function createTagsSongWindow(): BrowserWindow {
+  if (warmTagsSongWindowRef && !warmTagsSongWindowRef.isDestroyed()) {
+    const win = warmTagsSongWindowRef
+    warmTagsSongWindowRef = null
+    showWarmWindow(win, '/tagSongEditor')
+    setTimeout(prewarmEditorWindows, 1500)
+    return win
+  }
+
   const tagSongWindow = new BrowserWindow({
     width: 950,
     height: 400,
@@ -320,22 +409,23 @@ export function createTagsSongWindow(): BrowserWindow {
     tagSongWindow.show()
   })
 
-  const route = '/tagSongEditor'
-
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    tagSongWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-  } else {
-    tagSongWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-      hash: route
-    })
-  }
-
+  loadRoute(tagSongWindow, '/tagSongEditor')
   return tagSongWindow
 }
 
 export function createSettingsWindow(): BrowserWindow {
   if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
     return focusExistingWindow(settingsWindowRef)
+  }
+
+  if (warmSettingsWindowRef && !warmSettingsWindowRef.isDestroyed()) {
+    const win = warmSettingsWindowRef
+    warmSettingsWindowRef = null
+    settingsWindowRef = win
+    win.on('closed', () => { settingsWindowRef = null })
+    showWarmWindow(win, '/settings')
+    setTimeout(prewarmEditorWindows, 1500)
+    return win
   }
 
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
@@ -362,16 +452,7 @@ export function createSettingsWindow(): BrowserWindow {
     settingsWindowRef = null
   })
 
-  const route = '/settings'
-
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    settingsWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-  } else {
-    settingsWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-      hash: route
-    })
-  }
-
+  loadRoute(settingsWindow, '/settings')
   settingsWindowRef = settingsWindow
   return settingsWindow
 }
@@ -379,6 +460,16 @@ export function createSettingsWindow(): BrowserWindow {
 export function createStageControlWindow(): BrowserWindow {
   if (stageControlWindowRef && !stageControlWindowRef.isDestroyed()) {
     return focusExistingWindow(stageControlWindowRef)
+  }
+
+  if (warmStageControlWindowRef && !warmStageControlWindowRef.isDestroyed()) {
+    const win = warmStageControlWindowRef
+    warmStageControlWindowRef = null
+    stageControlWindowRef = win
+    win.on('closed', () => { stageControlWindowRef = null })
+    showWarmWindow(win, '/stage-control')
+    setTimeout(prewarmEditorWindows, 1500)
+    return win
   }
 
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
@@ -405,16 +496,7 @@ export function createStageControlWindow(): BrowserWindow {
     stageControlWindowRef = null
   })
 
-  const route = '/stage-control'
-
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    stageControlWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-  } else {
-    stageControlWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-      hash: route
-    })
-  }
-
+  loadRoute(stageControlWindow, '/stage-control')
   stageControlWindowRef = stageControlWindow
   return stageControlWindow
 }
@@ -422,6 +504,16 @@ export function createStageControlWindow(): BrowserWindow {
 export function createStageLayoutWindow(): BrowserWindow {
   if (stageLayoutWindowRef && !stageLayoutWindowRef.isDestroyed()) {
     return focusExistingWindow(stageLayoutWindowRef)
+  }
+
+  if (warmStageLayoutWindowRef && !warmStageLayoutWindowRef.isDestroyed()) {
+    const win = warmStageLayoutWindowRef
+    warmStageLayoutWindowRef = null
+    stageLayoutWindowRef = win
+    win.on('closed', () => { stageLayoutWindowRef = null })
+    showWarmWindow(win, '/stage-layout')
+    setTimeout(prewarmEditorWindows, 1500)
+    return win
   }
 
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
@@ -448,16 +540,7 @@ export function createStageLayoutWindow(): BrowserWindow {
     stageLayoutWindowRef = null
   })
 
-  const route = '/stage-layout'
-
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    stageLayoutWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-  } else {
-    stageLayoutWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-      hash: route
-    })
-  }
-
+  loadRoute(stageLayoutWindow, '/stage-layout')
   stageLayoutWindowRef = stageLayoutWindow
   return stageLayoutWindow
 }

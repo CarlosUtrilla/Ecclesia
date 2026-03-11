@@ -157,8 +157,24 @@ Gestiona todas las ventanas de la aplicacion:
 | `createStageControlWindow()` | `/stage-control` | Ventana de control stage |
 | `createStageLayoutWindow()` | `/stage-layout` | Ventana de layout stage |
 
-- `settings`, `stage-control` y `stage-layout` son ventana unica: si ya existen, se enfocan.
+- `settings`, `stage-control` y `stage-layout` son ventana única: si ya existen, se enfocan.
 - Apertura de ventanas via IPC (`ipcMain.on(...)`) delega en `window.windowAPI.*`.
+
+#### Estrategia de pre-warming (Performance)
+
+Todas las ventanas secundarias se pre-calientan al arranque de la app (4s después del `ready-to-show` de la ventana principal):
+
+```
+prewarmEditorWindows()  →  crea hidden BrowserWindows para:
+  song, theme, presentation, tagSongEditor,
+  settings, stage-control, stage-layout
+```
+
+- Cada ventana pre-calentada tiene su `warm*WindowRef` correspondiente.
+- Al abrir: si el ref warm está vivo → `showWarmWindow()` (navega + `show()` en 30ms), el pool se repone con `setTimeout(prewarmEditorWindows, 1500)`.
+- Si el ref warm no está disponible: flujo normal (crea `BrowserWindow` desde cero + `ready-to-show`).
+- `settings`, `stage-control`, `stage-layout`: son singleton — el warm ref se asigna al singleton ref en el momento de mostrar; `focusExistingWindow` sigue funcionando correctamente.
+- `loadRoute(win, route)` y `showWarmWindow(win, route)` son helpers internos del módulo.
 
 ### LiveMediaController (`liveMediaController.ts`)
 

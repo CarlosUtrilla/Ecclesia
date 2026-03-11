@@ -23,7 +23,7 @@ import fontList from 'font-list'
 import { initializeBibleManager } from './bibleManager'
 import { initializeMediaManager } from './mediaManager'
 import { stopMediaServer } from './mediaManager/mediaServer'
-import { initializeDisplayManager, prewarmDisplayScreens } from './displayManager'
+import { initializeDisplayManager } from './displayManager'
 import { initializeFontManager } from './fontManager'
 import {
   applyPendingDriveRestoreOnStartup,
@@ -235,12 +235,9 @@ app.whenReady().then(async () => {
     closeSplashWindow()
     mainWindow.maximize()
     mainWindow.show()
-    // Pre-calentar editores y pantallas en background una vez que la ventana principal está lista.
+    // Pre-calentar editores en background una vez que la ventana principal está lista.
     // El delay evita competir con el renderizado inicial de la ventana principal.
-    setTimeout(() => {
-      prewarmEditorWindows()
-      prewarmDisplayScreens()
-    }, 4000)
+    setTimeout(prewarmEditorWindows, 4000)
   })
 
   app.on('activate', function () {

@@ -3,7 +3,6 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { ThemeWithMedia } from '../../../database/controllers/themes/themes.dto'
 import { StageScreenConfigUpdate } from './displayType'
-import { getPrisma } from '../prisma'
 
 const liveScreensByDisplayId = new Map<number, BrowserWindow>()
 const stageScreensByDisplayId = new Map<number, BrowserWindow>()
@@ -16,95 +15,6 @@ function focusDisplayWindow(windowRef: BrowserWindow): number {
   windowRef.focus()
   windowRef.setAlwaysOnTop(true, 'screen-saver')
   return windowRef.id
-}
-
-function loadRoute(win: BrowserWindow, route: string): void {
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#' + route)
-  } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: route })
-  }
-}
-
-// Pre-calienta las live/stage screens con los IDs de displays ya configurados en BD.
-// Las ventanas se crean ocultas y se insertan directamente en los Maps existentes,
-// de modo que show-live-screen y show-stage-screen las encuentran listas.
-export async function prewarmDisplayScreens(): Promise<void> {
-  let savedDisplays: { screenId: number; rol: string }[]
-  try {
-    const prisma = getPrisma()
-    const records = await prisma.selectedScreens.findMany({
-      select: { screenId: true, rol: true }
-    })
-    savedDisplays = records.map((r) => ({ screenId: Number(r.screenId), rol: r.rol }))
-  } catch {
-    // DB aún no lista o sin pantallas configuradas — no hay nada que pre-calentar
-    return
-  }
-
-  if (savedDisplays.length === 0) return
-
-  const systemDisplays = screen.getAllDisplays()
-
-  for (const saved of savedDisplays) {
-    const targetDisplay = systemDisplays.find((d) => d.id === saved.screenId)
-    if (!targetDisplay) continue
-
-    const isLive = saved.rol === 'LIVE'
-    const isStage = saved.rol === 'STAGE'
-
-    if (isLive && !liveScreensByDisplayId.has(saved.screenId)) {
-      const liveWin = new BrowserWindow({
-        x: targetDisplay.bounds.x,
-        y: targetDisplay.bounds.y,
-        width: targetDisplay.bounds.width,
-        height: targetDisplay.bounds.height,
-        show: false,
-        autoHideMenuBar: true,
-        frame: false,
-        alwaysOnTop: false, // se activa al mostrar
-        resizable: false,
-        closable: false,
-        minimizable: false,
-        maximizable: false,
-        fullscreen: false, // se activa al mostrar para evitar conflictos de foco
-        webPreferences: {
-          preload: join(__dirname, '../preload/index.js'),
-          sandbox: false,
-          backgroundThrottling: false
-        }
-      })
-      liveScreensByDisplayId.set(saved.screenId, liveWin)
-      liveWin.on('closed', () => liveScreensByDisplayId.delete(saved.screenId))
-      loadRoute(liveWin, '/live-screen/' + saved.screenId)
-    }
-
-    if (isStage && !stageScreensByDisplayId.has(saved.screenId)) {
-      const stageWin = new BrowserWindow({
-        x: targetDisplay.bounds.x,
-        y: targetDisplay.bounds.y,
-        width: targetDisplay.bounds.width,
-        height: targetDisplay.bounds.height,
-        show: false,
-        autoHideMenuBar: true,
-        frame: false,
-        alwaysOnTop: false,
-        resizable: false,
-        closable: false,
-        minimizable: false,
-        maximizable: false,
-        fullscreen: false,
-        webPreferences: {
-          preload: join(__dirname, '../preload/index.js'),
-          sandbox: false,
-          backgroundThrottling: false
-        }
-      })
-      stageScreensByDisplayId.set(saved.screenId, stageWin)
-      stageWin.on('closed', () => stageScreensByDisplayId.delete(saved.screenId))
-      loadRoute(stageWin, '/stage-screen/' + saved.screenId)
-    }
-  }
 }
 
 export function initializeDisplayManager() {
@@ -143,18 +53,13 @@ export function initializeDisplayManager() {
   // Abrir ventana en pantalla completa en la pantalla especificada
   ipcMain.handle('show-live-screen', (event, displayId: number) => {
     const existingLiveScreen = liveScreensByDisplayId.get(displayId)
-    const mainWindow = BrowserWindow.fromWebContents(event.sender)
-    if (!mainWindow) throw new Error('No se pudo obtener la ventana principal')
-
     if (existingLiveScreen && !existingLiveScreen.isDestroyed()) {
-      // Ventana pre-calentada o ya abierta: activar fullscreen y mostrar
-      existingLiveScreen.setFullScreen(true)
-      existingLiveScreen.setAlwaysOnTop(true, 'screen-saver')
-      const winId = focusDisplayWindow(existingLiveScreen)
-      // Notificar al renderer igual que si fuera una ventana nueva
-      mainWindow.webContents.send('live-screen-ready', winId)
-      setTimeout(() => { mainWindow.focus(); mainWindow.show() }, 250)
-      return winId
+      return focusDisplayWindow(existingLiveScreen)
+    }
+
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!mainWindow) {
+      throw new Error('No se pudo obtener la ventana principal')
     }
     const displays = screen.getAllDisplays()
     const targetDisplay = displays.find((display) => display.id === displayId)
@@ -233,17 +138,13 @@ export function initializeDisplayManager() {
 
   ipcMain.handle('show-stage-screen', (event, displayId: number) => {
     const existingStageScreen = stageScreensByDisplayId.get(displayId)
-    const mainWindow = BrowserWindow.fromWebContents(event.sender)
-    if (!mainWindow) throw new Error('No se pudo obtener la ventana principal')
-
     if (existingStageScreen && !existingStageScreen.isDestroyed()) {
-      // Ventana pre-calentada o ya abierta: activar fullscreen y mostrar
-      existingStageScreen.setFullScreen(true)
-      existingStageScreen.setAlwaysOnTop(true, 'screen-saver')
-      const winId = focusDisplayWindow(existingStageScreen)
-      mainWindow.webContents.send('stage-screen-ready', winId)
-      setTimeout(() => { mainWindow.focus(); mainWindow.show() }, 250)
-      return winId
+      return focusDisplayWindow(existingStageScreen)
+    }
+
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!mainWindow) {
+      throw new Error('No se pudo obtener la ventana principal')
     }
 
     const displays = screen.getAllDisplays()
