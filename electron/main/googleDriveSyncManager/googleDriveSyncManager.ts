@@ -745,13 +745,15 @@ declare const __GOOGLE_CLIENT_SECRET__: string
 
 function getOAuthClient() {
   const clientId =
-    (typeof __GOOGLE_CLIENT_ID__ !== 'undefined' && __GOOGLE_CLIENT_ID__)
+    typeof __GOOGLE_CLIENT_ID__ !== 'undefined' && __GOOGLE_CLIENT_ID__
       ? __GOOGLE_CLIENT_ID__
       : process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_ID || ''
   const clientSecret =
-    (typeof __GOOGLE_CLIENT_SECRET__ !== 'undefined' && __GOOGLE_CLIENT_SECRET__)
+    typeof __GOOGLE_CLIENT_SECRET__ !== 'undefined' && __GOOGLE_CLIENT_SECRET__
       ? __GOOGLE_CLIENT_SECRET__
-      : process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_SECRET || ''
+      : process.env.GOOGLE_DRIVE_CLIENT_SECRET ||
+        process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_SECRET ||
+        ''
 
   if (!clientId || !clientSecret) {
     throw new Error(
@@ -960,7 +962,9 @@ async function uploadSnapshot(
 
   const media = {
     mimeType: 'application/json',
-    body: JSON.stringify(snapshot)
+    body: JSON.stringify(snapshot, (_key, value) =>
+      typeof value === 'bigint' ? Number(value) : value
+    )
   }
 
   if (existing?.id) {

@@ -26,10 +26,17 @@ function resolveGhToken(): string | null {
 }
 
 export function initializeUpdaterManager(): void {
-  // Leer el token desde userData/.env (producción) o process.env (desarrollo/CI)
   const token = resolveGhToken()
+
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'CarlosUtrilla',
+    repo: 'Ecclesia',
+    private: true,
+    token: token ?? undefined
+  })
+
   if (token) {
-    autoUpdater.requestHeaders = { Authorization: `token ${token}` }
     log.info('[updater] Token de GitHub configurado')
   } else {
     log.warn('[updater] No se encontró GH_TOKEN — las actualizaciones pueden no funcionar')
