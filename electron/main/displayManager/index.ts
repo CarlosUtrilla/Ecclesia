@@ -222,7 +222,8 @@ export function initializeDisplayManager() {
     const window = BrowserWindow.fromId(windowId)
 
     if (!window) {
-      throw new Error(`Ventana con ID ${windowId} no encontrada`)
+      log.warn(`close-live-screen: ventana con ID ${windowId} ya cerrada, ignorando`)
+      return
     }
 
     // Enfoque más agresivo para cerrar ventanas fullscreen
