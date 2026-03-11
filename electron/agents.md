@@ -169,10 +169,10 @@ Gestiona todas las ventanas de la aplicacion:
 ### Updater Manager (`updaterManager/`)
 
 - `updaterManager.ts`: logica de auto-update usando `electron-updater`.
-  - Canal configurado: `beta`.
+  - Canal configurado: `latest` (genera `latest.yml` en el release).
   - `autoDownload: false` — el usuario decide cuando descargar.
   - Verifica actualizaciones automaticamente 10 segundos despues del arranque.
-  - `setFeedURL` con `private: true` y `channel: 'beta'` para repos privados de GitHub.
+  - `setFeedURL` con `private: true` y `channel: 'latest'` para repos privados de GitHub.
   - Emite eventos IPC a todas las ventanas: `updater:checking-for-update`, `updater:update-available`, `updater:update-not-available`, `updater:error`, `updater:download-progress`, `updater:update-downloaded`.
   - Canales IPC manejados:
     - `updater:check` (invoke) — verificacion manual
@@ -180,12 +180,7 @@ Gestiona todas las ventanas de la aplicacion:
     - `updater:install` (on) — instalar y reiniciar
     - `updater:get-version` (invoke) — version actual
 - `updaterAPI.ts`: API expuesta al renderer via contextBridge en `window.updaterAPI`.
-- La configuracion del proveedor esta en `electron-builder.yml` (GitHub, canal beta).
-
-> **TODO (cuando se lance la version estable):** cambiar `beta` → `latest` en 3 lugares:
-> 1. `electron-builder.yml` → `publish.channel: latest` (genera `latest.yml` en el release)
-> 2. `dev-app-update.yml` → `channel: latest`
-> 3. `updaterManager.ts` → `autoUpdater.channel = 'latest'` y `setFeedURL({ channel: 'latest' })`
+- La configuracion del proveedor esta en `electron-builder.yml` (GitHub, canal `latest`).
 
 ### Media Manager (`mediaManager/`)
 

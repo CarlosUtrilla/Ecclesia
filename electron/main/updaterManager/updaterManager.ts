@@ -3,7 +3,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import log from 'electron-log'
 
 autoUpdater.logger = log
-autoUpdater.channel = 'beta'
+autoUpdater.channel = 'latest'
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
 
@@ -32,7 +32,7 @@ export function initializeUpdaterManager(): void {
     provider: 'github',
     owner: 'CarlosUtrilla',
     repo: 'Ecclesia',
-    channel: 'beta',
+    channel: 'latest',
     private: true,
     token: token ?? undefined
   })
