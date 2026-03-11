@@ -22,8 +22,6 @@ extraResources:
     to: bibles
     filter:
       - '**/*.ebbl'
-  - from: resources/dev.db
-    to: prisma/dev.db
 asarUnpack:
   - resources/**
   - node_modules/.prisma/**
