@@ -50,7 +50,8 @@ export function sanitizeHTML(html: string): string {
 }
 
 export function getContrastTextColor(hex: string): '#000000' | '#ffffff' {
-  if (hex.toLowerCase() === 'transparent') return '#000000'
+  const isDark = document.documentElement.classList.contains('dark')
+  if (hex.toLowerCase() === 'transparent') return isDark ? '#ffffff' : '#000000'
   // Limpieza básica del #
   const cleanHex = hex.replace('#', '')
 
@@ -81,7 +82,7 @@ export function getContrastTextColor(hex: string): '#000000' | '#ffffff' {
     alpha = parseInt(cleanHex.substring(6, 8), 16) / 255
   } else {
     // Formato no válido, usar negro por defecto
-    return '#ffffff'
+    return isDark ? '#000000' : '#ffffff'
   }
 
   let r = parseInt(rgbHex.substring(0, 2), 16)
@@ -98,7 +99,7 @@ export function getContrastTextColor(hex: string): '#000000' | '#ffffff' {
   // Fórmula estándar de luminancia (WCAG)
   const luminance = 0.299 * r + 0.587 * g + 0.114 * b
 
-  return luminance > 186 ? '#000000' : '#ffffff'
+  return luminance > 186 ? (isDark ? '#ffffff' : '#000000') : isDark ? '#000000' : '#ffffff'
 }
 
 export type GroupsTags = {

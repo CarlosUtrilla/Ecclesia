@@ -44,7 +44,7 @@ mediaQuery.addEventListener('change', () => {
   }
 })
 
-const queryClient = new QueryClient()
+export const queryClient = new QueryClient()
 
 // Cuando el sync pull aplica filas nuevas, invalidar todas las queries para que la UI refresque.
 window.electron.ipcRenderer.on('sync-data-applied', () => {

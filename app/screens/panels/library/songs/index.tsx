@@ -13,6 +13,7 @@ import PreviewSong from './previewSong'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
 import SongItem from './songItem'
+import SongImporter from './songImporter'
 
 export default function SongsPanelLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -134,6 +135,7 @@ export default function SongsPanelLibrary() {
               <Plus className="h-4 w-4" />
             </Button>
           </Tooltip>
+          <SongImporter />
         </div>
 
         {/* Lista de canciones */}

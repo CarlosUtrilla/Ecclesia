@@ -19,6 +19,8 @@ import StageScreen from './screens/stage-screen'
 import StageControlScreen from './screens/stage-control'
 import StageLayoutScreen from './screens/stage-layout'
 
+import { FontsProvider } from './contexts/fontsContext'
+
 type GroupLayout = Record<string, number>
 
 const MAIN_LAYOUT_VERTICAL_KEY = 'main-layout-vertical-v2'
@@ -151,8 +153,6 @@ function App() {
     </MainApp>
   )
 }
-
-import { FontsProvider } from './contexts/fontsContext'
 
 function MainApp({ children }: PropsWithChildren) {
   return (

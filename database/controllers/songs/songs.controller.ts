@@ -1,9 +1,10 @@
 import SongsService from './songs.service'
 import type { CreateSongDTO, GetSongsDTO, SongsListResponseDTO } from './songs.dto'
+import SongImporter from './songImporter.service'
 
 class SongsController {
   private songsService = new SongsService()
-
+  private songImporter = new SongImporter()
   async createSong(data: CreateSongDTO) {
     return this.songsService.createSong(data)
   }
@@ -30,6 +31,10 @@ class SongsController {
 
   async searchSongs(query: string, limit?: number) {
     return this.songsService.searchSongs(query, limit)
+  }
+
+  async importSongsFromFile(filesPath: string[], source: string) {
+    return this.songImporter.importSongsFromFile(filesPath, source)
   }
 }
 

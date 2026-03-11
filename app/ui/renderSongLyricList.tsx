@@ -63,7 +63,7 @@ export default function RenderSongLyricList({
               ? `${tagSong.color}${isSelected ? '80' : '40'}`
               : 'transparent'
 
-            const color = tagSong ? getContrastTextColor(background) : '#000'
+            const color = getContrastTextColor(background)
             return (
               <p
                 key={`${group.tagSongsId}-${idx}`}
