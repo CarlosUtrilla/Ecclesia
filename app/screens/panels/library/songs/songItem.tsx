@@ -10,6 +10,7 @@ import {
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { CalendarPlus, Edit2, Music, Radio, Trash2 } from 'lucide-react'
 import { useDraggable } from '@dnd-kit/core'
+import { Tooltip } from '@/ui/tooltip'
 
 type Props = {
   song: SongResponseDTO
@@ -56,9 +57,11 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
             <Music className="h-4 w-4 text-muted-foreground" />
             {song.title}
             {song.author ? (
-              <div className="text-sm text-muted-foreground mt-1">
-                ({song.author && <span>{song.author}</span>})
-              </div>
+              <Tooltip content={song.author}>
+                <div className="text-xs text-muted-foreground mt-1 max-w-1/3 ml-auto text-nowrap overflow-hidden text-ellipsis">
+                  ({song.author && <span>{song.author}</span>})
+                </div>
+              </Tooltip>
             ) : null}
           </h3>
         </div>

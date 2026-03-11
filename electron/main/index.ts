@@ -8,6 +8,9 @@ import {
   createPresentationWindow,
   createSettingsWindow,
   createSongWindow,
+  createSplashWindow,
+  closeSplashWindow,
+  updateSplashStatus,
   createStageControlWindow,
   createStageLayoutWindow,
   createTagsSongWindow,
@@ -82,16 +85,22 @@ async function clearPersistedStageTimersOnShutdown() {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
-  loadAppEnv()
-  await applyPendingDriveRestoreOnStartup()
-  await initPrisma()
+  const splash = createSplashWindow()
+  await new Promise<void>((resolve) => splash.webContents.once('dom-ready', resolve))
 
-  // Inicia
+  updateSplashStatus('Cargando entorno...')
+  loadAppEnv()
+
+  updateSplashStatus('Verificando sincronización...')
+  await applyPendingDriveRestoreOnStartup()
+
+  updateSplashStatus('Inicializando base de datos...')
+  await initPrisma()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.ecclesia.app')
-
   app.setName('Ecclesia')
+
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
@@ -99,20 +108,26 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Inicializar gestor de medios
+  updateSplashStatus('Cargando medios...')
   initializeMediaManager()
-  // Inicializar gestor de fuentes
+
+  updateSplashStatus('Cargando fuentes...')
   initializeFontManager()
+
   // Registrar rutas de la base de datos
   registerRoutes()
-  // Inicializar gestor de biblias
+
+  updateSplashStatus('Cargando Biblia...')
   initializeBibleManager()
+
   //inicalizar gestor de pantallas
   initializeDisplayManager()
   // Inicializar manager de media en vivo
   initializeLiveMediaManager()
-  // Inicializar manager de sincronización con Google Drive
+
+  updateSplashStatus('Iniciando sincronización...')
   initializeGoogleDriveSyncManager()
+
   // Inicializar manager de actualizaciones automáticas
   initializeUpdaterManager()
 
@@ -206,7 +221,14 @@ app.whenReady().then(async () => {
     }
   })
 
-  createMainWindow()
+  updateSplashStatus('Abriendo Ecclesia...')
+  const mainWindow = createMainWindow()
+
+  mainWindow.once('ready-to-show', () => {
+    closeSplashWindow()
+    mainWindow.maximize()
+    mainWindow.show()
+  })
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

@@ -3,6 +3,7 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+let splashWindowRef: BrowserWindow | null = null
 let settingsWindowRef: BrowserWindow | null = null
 let stageControlWindowRef: BrowserWindow | null = null
 let stageLayoutWindowRef: BrowserWindow | null = null
@@ -14,6 +15,51 @@ function focusExistingWindow(windowRef: BrowserWindow): BrowserWindow {
   windowRef.show()
   windowRef.focus()
   return windowRef
+}
+
+export function createSplashWindow(): BrowserWindow {
+  const splash = new BrowserWindow({
+    width: 480,
+    height: 300,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    center: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: {
+      sandbox: true
+    }
+  })
+
+  splashWindowRef = splash
+  splash.on('closed', () => {
+    splashWindowRef = null
+  })
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    splash.loadURL(process.env['ELECTRON_RENDERER_URL'] + '/splash.html')
+  } else {
+    splash.loadFile(join(__dirname, '../renderer/splash.html'))
+  }
+
+  return splash
+}
+
+export function updateSplashStatus(message: string): void {
+  if (!splashWindowRef || splashWindowRef.isDestroyed()) return
+  splashWindowRef.webContents
+    .executeJavaScript(
+      `typeof window.updateStatus === 'function' && window.updateStatus(${JSON.stringify(message)})`
+    )
+    .catch(() => {})
+}
+
+export function closeSplashWindow(): void {
+  if (splashWindowRef && !splashWindowRef.isDestroyed()) {
+    splashWindowRef.destroy()
+  }
+  splashWindowRef = null
 }
 
 export function createMainWindow(): BrowserWindow {
@@ -29,11 +75,6 @@ export function createMainWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
-  })
-
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.maximize() // Maximizar la ventana al mostrarla
-    mainWindow.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

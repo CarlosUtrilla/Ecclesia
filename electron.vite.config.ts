@@ -23,6 +23,11 @@ export default defineConfig({
   },
   renderer: {
     root: resolve('app'),
+    server: {
+      fs: {
+        allow: ['..']
+      }
+    },
     resolve: {
       alias: {
         '@': resolve('app'),
@@ -42,7 +47,8 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: resolve('app/index.html')
+          index: resolve('app/index.html'),
+          splash: resolve('app/splash.html')
         }
       }
     }

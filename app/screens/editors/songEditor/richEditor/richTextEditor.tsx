@@ -66,7 +66,7 @@ export default function RichTextEditor({ lyrics, onChange, className, error }: P
     },
     editorProps: {
       attributes: {
-        class: 'min-h-[300px] p-4 focus:outline-none prose prose-sm max-w-none'
+        class: 'min-h-full p-4 focus:outline-none prose prose-sm max-w-none'
       }
     }
   })
@@ -86,14 +86,14 @@ export default function RichTextEditor({ lyrics, onChange, className, error }: P
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 overflow-hidden">
       <div
-        className={cn('flex-1 border rounded-md overflow-hidden flex flex-col', className, {
+        className={cn('border h-full rounded-md overflow-hidden flex flex-col', className, {
           'border-red-500': error
         })}
       >
         {/* Barra de herramientas */}
-        <div className="bg-muted/30 p-2 flex items-center gap-1 border-b overflow-x-auto scro">
+        <div className="bg-muted/30 min-h-10 px-2 flex items-center gap-1 border-b overflow-x-auto">
           <Button
             type="button"
             size="icon"
