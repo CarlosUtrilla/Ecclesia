@@ -740,11 +740,18 @@ async function downloadMediaBlobToLocal(
   })
 }
 
+declare const __GOOGLE_CLIENT_ID__: string
+declare const __GOOGLE_CLIENT_SECRET__: string
+
 function getOAuthClient() {
   const clientId =
-    process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_ID || ''
+    (typeof __GOOGLE_CLIENT_ID__ !== 'undefined' && __GOOGLE_CLIENT_ID__)
+      ? __GOOGLE_CLIENT_ID__
+      : process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_ID || ''
   const clientSecret =
-    process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_SECRET || ''
+    (typeof __GOOGLE_CLIENT_SECRET__ !== 'undefined' && __GOOGLE_CLIENT_SECRET__)
+      ? __GOOGLE_CLIENT_SECRET__
+      : process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_SECRET || ''
 
   if (!clientId || !clientSecret) {
     throw new Error(

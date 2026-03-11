@@ -7,7 +7,6 @@ out
 *.log*
 
 /generated/prisma
-.env
 .env.local
 .env.*.local
 

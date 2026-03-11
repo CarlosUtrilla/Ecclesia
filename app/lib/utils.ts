@@ -107,9 +107,9 @@ export type GroupsTags = {
   contents: string[]
 }
 export const getGrupedLyrics = (lyrics: Lyrics[]): GroupsTags[] => {
-  let currentGroup: number | null = null
+  let currentGroup: number | null = -1
   return lyrics.reduce((prev, curr) => {
-    if (curr.tagSongsId !== currentGroup || curr.tagSongsId === null) {
+    if (curr.tagSongsId !== currentGroup) {
       prev.push({
         tagSongsId: curr.tagSongsId || null,
         contents: [curr.content]

@@ -233,7 +233,7 @@ enum ScreenRol {
 
 model SelectedScreens {
   id          Int                @id @default(autoincrement())
-  screenId    Int                @unique
+  screenId    BigInt             @unique
   screenName  String
   rol         ScreenRol?
   stageConfig StageScreenConfig?

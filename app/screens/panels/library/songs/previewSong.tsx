@@ -29,7 +29,8 @@ export default function PreviewSong({ song, onDelete }: Props) {
     id: '-1',
     order: -1,
     scheduleId: -1,
-    updatedAt: new Date()
+    updatedAt: new Date(),
+    deletedAt: null
   }
 
   if (!song) {

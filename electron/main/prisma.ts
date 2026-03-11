@@ -535,14 +535,15 @@ async function runMigrations(dbPath: string, isDev: boolean) {
     // Hacer backup antes de migrar
     await backupDatabase(dbPath)
 
+    const prismaBin = process.platform === 'win32' ? 'prisma.cmd' : 'prisma'
     let prismaPath: string
     let migrationsPath: string
 
     if (isDev) {
-      prismaPath = path.join(process.cwd(), 'node_modules', '.bin', 'prisma')
+      prismaPath = path.join(process.cwd(), 'node_modules', '.bin', prismaBin)
       migrationsPath = path.join(process.cwd(), 'prisma', 'migrations')
     } else {
-      prismaPath = path.join(process.resourcesPath, 'node_modules', '.bin', 'prisma')
+      prismaPath = path.join(process.resourcesPath, 'node_modules', '.bin', prismaBin)
       migrationsPath = path.join(process.resourcesPath, 'prisma', 'migrations')
 
       if (!fs.existsSync(prismaPath)) {
@@ -551,7 +552,7 @@ async function runMigrations(dbPath: string, isDev: boolean) {
           'app.asar.unpacked',
           'node_modules',
           '.bin',
-          'prisma'
+          prismaBin
         )
       }
       if (!fs.existsSync(migrationsPath)) {

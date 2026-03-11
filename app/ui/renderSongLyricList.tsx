@@ -57,7 +57,8 @@ export default function RenderSongLyricList({
         ) : null}
         <div className="pl-6">
           {group.contents.map((content, idx) => {
-            const index = lyricIndexes[`${group.tagSongsId}-${idx}`]
+            const key = `${group.tagSongsId}-${idx}`
+            const index = lyricIndexes[key]
             const isSelected = index === selectedLyricIndex
             const background = tagSong
               ? `${tagSong.color}${isSelected ? '80' : '40'}`
@@ -66,7 +67,8 @@ export default function RenderSongLyricList({
             const color = getContrastTextColor(background)
             return (
               <p
-                key={`${group.tagSongsId}-${idx}`}
+                key={key}
+                id={key}
                 className={cn(
                   'transition-colors cursor-pointer border-b py-1 px-2 text-sm relative',
                   {

@@ -84,7 +84,8 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
                 id: generateUniqueId(),
                 order: -1,
                 scheduleId: -1,
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                deletedAt: null
               },
               0
             )

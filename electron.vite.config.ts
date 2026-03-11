@@ -3,10 +3,18 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import Pages from 'vite-plugin-pages'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    define: {
+      __GH_TOKEN__: JSON.stringify(process.env['GH_TOKEN'] ?? ''),
+      __GOOGLE_CLIENT_ID__: JSON.stringify(process.env['GOOGLE_DRIVE_CLIENT_ID'] ?? ''),
+      __GOOGLE_CLIENT_SECRET__: JSON.stringify(process.env['GOOGLE_DRIVE_CLIENT_SECRET'] ?? '')
+    },
     build: {
       lib: {
         entry: 'electron/main/index.ts'
