@@ -1,7 +1,8 @@
-import { BrowserWindow, shell, dialog, screen } from 'electron'
-import { join } from 'path'
+import { BrowserWindow, shell, ipcMain, screen } from 'electron'
+import { join } from 'path'  
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { getIsSyncing, executeSyncCycle } from './googleDriveSyncManager/googleDriveSyncManager'
 
 let splashWindowRef: BrowserWindow | null = null
 let settingsWindowRef: BrowserWindow | null = null
@@ -90,31 +91,51 @@ export function createMainWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  // Confirmar antes de cerrar la aplicación
+  // Confirmar antes de cerrar la aplicación — dialog personalizado en el renderer
+  let closeHandlerActive = false
   mainWindow.on('close', (event) => {
-    event.preventDefault() // Prevenir el cierre inmediato
+    event.preventDefault()
+    if (closeHandlerActive) return
+    closeHandlerActive = true
 
-    dialog
-      .showMessageBox(mainWindow, {
-        type: 'question',
-        buttons: ['Cancelar', 'Cerrar'],
-        defaultId: 0,
-        cancelId: 0,
-        title: 'Confirmar cierre',
-        message: '¿Estás seguro de que quieres cerrar la aplicación?',
-        detail: 'Todas las ventanas abiertas se cerrarán.'
+    mainWindow.webContents.send('app-close-requested')
+
+    const closeApp = () => {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) win.destroy()
       })
-      .then(({ response }) => {
-        if (response === 1) {
-          // Usuario confirmó el cierre
-          // Cerrar todas las ventanas
-          const allWindows = BrowserWindow.getAllWindows()
-          allWindows.forEach((win) => {
-            win.destroy() // Usar destroy() para evitar el evento 'close' recursivo
-          })
+    }
+
+    const waitForSyncAndClose = () => {
+      const check = setInterval(() => {
+        if (!getIsSyncing()) {
+          clearInterval(check)
+          closeApp()
         }
-        // Si response === 0, no hacer nada (cancelar)
-      })
+      }, 300)
+    }
+
+    const handleConfirm = () => {
+      closeHandlerActive = false
+      ipcMain.removeListener('app-close-cancel', handleCancel)
+      executeSyncCycle('close')
+        .catch(() => {})
+        .finally(() => {
+          if (getIsSyncing()) {
+            waitForSyncAndClose()
+          } else {
+            closeApp()
+          }
+        })
+    }
+
+    const handleCancel = () => {
+      closeHandlerActive = false
+      ipcMain.removeListener('app-close-confirm', handleConfirm)
+    }
+
+    ipcMain.once('app-close-confirm', handleConfirm)
+    ipcMain.once('app-close-cancel', handleCancel)
   })
 
   // HMR for renderer base on electron-vite cli.

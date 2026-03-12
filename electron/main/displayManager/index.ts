@@ -46,16 +46,14 @@ export function initializeDisplayManager() {
   // listener para ver cuando se conecta o desconecta una pantalla
   screen.on('display-added', () => {
     console.log('Display added')
-    const allWindows = BrowserWindow.getAllWindows()
-    allWindows.forEach((win) => {
-      win.webContents.send('display-update')
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) win.webContents.send('display-update')
     })
   })
   screen.on('display-removed', () => {
     console.log('Display removed')
-    const allWindows = BrowserWindow.getAllWindows()
-    allWindows.forEach((win) => {
-      win.webContents.send('display-update')
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) win.webContents.send('display-update')
     })
   })
 
@@ -305,30 +303,26 @@ export function initializeDisplayManager() {
   })
 
   ipcMain.handle('liveScreen-update', (_event, data) => {
-    const allWindows = BrowserWindow.getAllWindows()
-    allWindows.forEach((win) => {
-      win.webContents.send('liveScreen-update', data)
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) win.webContents.send('liveScreen-update', data)
     })
   })
 
   ipcMain.handle('liveScreen-update-theme', (_event, themeId: ThemeWithMedia) => {
-    const allWindows = BrowserWindow.getAllWindows()
-    allWindows.forEach((win) => {
-      win.webContents.send('liveScreen-update-theme', themeId)
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) win.webContents.send('liveScreen-update-theme', themeId)
     })
   })
 
   ipcMain.handle('stageScreen-config-update', (_event, data: StageScreenConfigUpdate) => {
-    const allWindows = BrowserWindow.getAllWindows()
-    allWindows.forEach((win) => {
-      win.webContents.send('stageScreen-config-updated', data)
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) win.webContents.send('stageScreen-config-updated', data)
     })
   })
 
   ipcMain.handle('hide-live-screen', () => {
-    const allWindows = BrowserWindow.getAllWindows()
-    allWindows.forEach((win) => {
-      win.webContents.send('liveScreen-hide')
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) win.webContents.send('liveScreen-hide')
     })
   })
   // Handler para abrir la ventana de gestión de pantallas

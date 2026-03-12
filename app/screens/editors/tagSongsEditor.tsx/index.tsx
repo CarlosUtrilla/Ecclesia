@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/ui/input'
 import { ColorPicker } from '@/ui/colorPicker'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Save, X, Trash2, Keyboard } from 'lucide-react'
+import { Plus, Save, X, Trash2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { TagSongs } from '@prisma/client'
 import { toast } from 'sonner'
@@ -12,21 +12,26 @@ import useTagSongs from '@/hooks/useTagSongs'
 
 type EditableTag = Omit<TagSongs, 'createdAt' | 'updatedAt'>
 
-// Función para generar abreviación automática desde el nombre
-const generateShortName = (name: string): string => {
+// Genera abreviación única dentro del batch de tags actuales
+const generateUniqueShortName = (name: string, existingShortNames: Set<string>): string => {
   const words = name.trim().split(/\s+/)
-  const initials = words
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('')
-    .substring(0, 4)
-  return initials || 'TAG'
+  const base =
+    words
+      .map((word) => word.charAt(0).toUpperCase())
+      .join('')
+      .substring(0, 4) || 'TAG'
+  if (!existingShortNames.has(base)) return base
+  for (let i = 1; i <= 99; i++) {
+    const candidate = base.substring(0, 3) + i
+    if (!existingShortNames.has(candidate)) return candidate
+  }
+  return base
 }
 
 export default function TagSongsEditor() {
   const queryClient = useQueryClient()
   const [editedTags, setEditedTags] = useState<EditableTag[]>([])
   const [hasChanges, setHasChanges] = useState(false)
-  const [capturingShortcut, setCapturingShortcut] = useState<number | null>(null)
 
   const { tagSongs } = useTagSongs()
 
@@ -38,19 +43,7 @@ export default function TagSongsEditor() {
 
   const updateMutation = useMutation({
     mutationFn: async (tags: EditableTag[]) => {
-      // Actualizar cada tag modificado
-      for (const tag of tags) {
-        if (tag.id > 0) {
-          await window.api.tagSongs.updateTagSongs(tag.id, tag)
-        } else {
-          await window.api.tagSongs.createTagSongs({
-            name: tag.name,
-            shortName: tag.shortName,
-            shortCut: tag.shortCut,
-            color: tag.color
-          })
-        }
-      }
+      await window.api.tagSongs.saveManyTagSongs(tags)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tagsSongs'] })
@@ -81,13 +74,16 @@ export default function TagSongsEditor() {
   const handleFieldChange = (index: number, field: keyof EditableTag, value: string) => {
     const newTags = [...editedTags]
 
-    // Si se está editando el nombre, actualizar también shortName automáticamente
+    // Si se está editando el nombre, actualizar también shortName automáticamente (único en el batch)
     if (field === 'name') {
-      const limitedValue = value.substring(0, 15) // Limitar a 15 caracteres
+      const limitedValue = value.substring(0, 15)
+      const otherShortNames = new Set(
+        editedTags.filter((_, i) => i !== index).map((t) => t.shortName)
+      )
       newTags[index] = {
         ...newTags[index],
         name: limitedValue,
-        shortName: generateShortName(limitedValue)
+        shortName: generateUniqueShortName(limitedValue, otherShortNames)
       }
     } else {
       newTags[index] = { ...newTags[index], [field]: value }
@@ -97,31 +93,12 @@ export default function TagSongsEditor() {
     setHasChanges(true)
   }
 
-  const handleShortcutCapture = (index: number, event: React.KeyboardEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-
-    let keyName = event.key
-
-    // Formatear teclas especiales
-    if (keyName === ' ') keyName = 'Space'
-    if (keyName.length === 1) keyName = keyName.toUpperCase()
-
-    // Ignorar modificadores solos
-    if (['Shift', 'Control', 'Alt', 'Meta', 'Tab', 'Escape'].includes(keyName)) {
-      return
-    }
-
-    handleFieldChange(index, 'shortCut', keyName)
-    setCapturingShortcut(null)
-  }
-
   const handleAddTag = () => {
     const newTag: EditableTag = {
-      id: -Date.now(), // ID temporal negativo
+      id: -Date.now(),
       name: 'Nueva Etiqueta',
       shortName: 'NE',
-      shortCut: 'C',
+      shortCut: '',
       color: '#3b82f6'
     }
     setEditedTags([...editedTags, newTag])
@@ -185,7 +162,6 @@ export default function TagSongsEditor() {
                 <TableHead className="w-[250px] font-semibold">Nombre</TableHead>
                 <TableHead className="w-[100px] font-semibold">Abreviación</TableHead>
                 <TableHead className="w-[120px] font-semibold">Color</TableHead>
-                <TableHead className="w-[150px] font-semibold">Atajo</TableHead>
                 <TableHead className="w-[80px] text-center font-semibold">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -231,30 +207,6 @@ export default function TagSongsEditor() {
                       <span className="text-xs text-muted-foreground font-mono">{tag.color}</span>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <button
-                      type="button"
-                      onClick={() => setCapturingShortcut(index)}
-                      onKeyDown={(e) => handleShortcutCapture(index, e)}
-                      onBlur={() => setCapturingShortcut(null)}
-                      className={cn(
-                        'h-9 w-full rounded-md border px-3 py-1.5',
-                        'bg-background text-sm focus:outline-none focus:ring-2',
-                        'focus:ring-ring focus:ring-offset-2 font-mono font-semibold',
-                        'flex items-center justify-center gap-2 transition-all',
-                        capturingShortcut === index && 'ring-2 ring-primary'
-                      )}
-                      style={{
-                        animation:
-                          capturingShortcut === index
-                            ? 'pulse-fast 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                            : undefined
-                      }}
-                    >
-                      <Keyboard className="h-3.5 w-3.5 text-muted-foreground" />
-                      {tag.shortCut}
-                    </button>
-                  </TableCell>
                   <TableCell className="text-center">
                     <Button
                       variant="ghost"
@@ -269,7 +221,7 @@ export default function TagSongsEditor() {
               ))}
               {editedTags.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                     No hay etiquetas. Haz clic en &quot;Añadir&quot; para crear una.
                   </TableCell>
                 </TableRow>

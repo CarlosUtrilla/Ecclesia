@@ -79,9 +79,9 @@ async function preloadCurrentRoute(): Promise<void> {
 }
 
 // Disparar el preload y montar React en paralelo:
-// - el preloadCurrentRoute() llena el módulo en la caché de ESM
-// - React.lazy() sobre el mismo import() comparte esa misma Promise
-// - mientras el chunk se evalúa, Suspense muestra el Spinner en vez de nada
+// - preloadCurrentRoute() carga el chunk en la caché ESM mientras React ya monta
+// - Suspense muestra el Spinner inmediatamente en vez de ventana oscura vacía
+// - React.lazy() comparte la misma Promise del import() → resuelve en cuanto el chunk está listo
 preloadCurrentRoute()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

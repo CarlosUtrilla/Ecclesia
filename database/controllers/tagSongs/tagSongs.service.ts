@@ -1,6 +1,6 @@
 import { getPrisma } from '../../../electron/main/prisma'
 import { Prisma } from '@prisma/client'
-import { CreateTagSongsDto, UpdateTagSongsDto } from './tagSongs.dto'
+import { CreateTagSongsDto, UpdateTagSongsDto, SaveManyTagSongsDto } from './tagSongs.dto'
 
 export class TagSongsService {
   async createTagSongs(data: CreateTagSongsDto) {
@@ -67,6 +67,34 @@ export class TagSongsService {
         if (error.code === 'P2025') {
           throw new Error(`No se encontró el tag con ID ${id}`)
         }
+      }
+      throw error
+    }
+  }
+
+  async saveManyTagSongs(tags: SaveManyTagSongsDto) {
+    const prisma = getPrisma()
+    try {
+      return await prisma.$transaction(async (tx) => {
+        for (const tag of tags) {
+          const { name, shortName, shortCut, color } = tag
+          if (tag.id > 0) {
+            await tx.tagSongs.update({
+              where: { id: tag.id },
+              data: { name, shortName, shortCut, color }
+            })
+          } else {
+            await tx.tagSongs.create({
+              data: { name, shortName, shortCut, color, deletedAt: null }
+            })
+          }
+        }
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new Error(
+          'Hay un conflicto de nombres o atajos entre los tags. Revisa que no haya duplicados.'
+        )
       }
       throw error
     }

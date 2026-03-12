@@ -195,6 +195,10 @@ const SNAPSHOT_MODELS: SnapshotModelDefinition[] = [
 ]
 
 let isSyncing = false
+
+export function getIsSyncing(): boolean {
+  return isSyncing
+}
 let syncProgress = 0
 let autoSyncInterval: NodeJS.Timeout | null = null
 let retrySyncTimeout: NodeJS.Timeout | null = null

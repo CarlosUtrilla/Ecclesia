@@ -38,7 +38,9 @@ const windowAPI = {
   openSettingsWindow: () => ipcRenderer.send('open-settings-window'),
   openStageControlWindow: () => ipcRenderer.send('open-stage-control-window'),
   openStageLayoutWindow: () => ipcRenderer.send('open-stage-layout-window'),
-  closeCurrentWindow: () => ipcRenderer.send('close-current-window')
+  closeCurrentWindow: () => ipcRenderer.send('close-current-window'),
+  confirmClose: () => ipcRenderer.send('app-close-confirm'),
+  cancelClose: () => ipcRenderer.send('app-close-cancel')
 }
 
 // API para obtener fuentes del sistema

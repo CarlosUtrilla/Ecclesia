@@ -1,5 +1,5 @@
 import { TagSongsService } from './tagSongs.service'
-import { CreateTagSongsDto, UpdateTagSongsDto } from './tagSongs.dto'
+import { CreateTagSongsDto, UpdateTagSongsDto, SaveManyTagSongsDto } from './tagSongs.dto'
 
 export class TagSongsController {
   private tagSongsService = new TagSongsService()
@@ -26,6 +26,10 @@ export class TagSongsController {
 
   async updateTagSongs(id: number, data: UpdateTagSongsDto) {
     return await this.tagSongsService.updateTagSongs(id, data)
+  }
+
+  async saveManyTagSongs(data: SaveManyTagSongsDto) {
+    return await this.tagSongsService.saveManyTagSongs(data)
   }
 
   async deleteTagSongs(id: number) {

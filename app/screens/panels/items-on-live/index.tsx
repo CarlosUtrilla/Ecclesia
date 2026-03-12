@@ -53,14 +53,18 @@ export default function LivePanel() {
     onNavigate: (direction) => {
       if (!itemOnLive || slideCount <= 0) return
 
-      const isBackward = direction === 'left' || direction === 'up'
-      const isForward = direction === 'right' || direction === 'down'
+      const isBackward = direction === 'left' || direction === 'up' || direction === 'PageUp'
+      const isForward = direction === 'right' || direction === 'down' || direction === 'PageDown'
       if (!isBackward && !isForward) return
 
       if (itemOnLive.type === 'PRESENTATION' && Array.isArray(data?.content)) {
         const safeIndex = Math.max(0, Math.min(itemIndex, slideCount - 1))
         const activeSlide = data.content[safeIndex]
-        const verseController = resolveSlideVerse(activeSlide, safeIndex, presentationVerseBySlideKey)
+        const verseController = resolveSlideVerse(
+          activeSlide,
+          safeIndex,
+          presentationVerseBySlideKey
+        )
 
         if (verseController) {
           if (isForward && verseController.current < verseController.end) {

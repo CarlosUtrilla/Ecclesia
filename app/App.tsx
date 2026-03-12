@@ -5,6 +5,7 @@ import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
 import { DisplaysProvider } from './contexts/displayContext'
 import { FontsProvider } from './contexts/fontsContext'
 import { Spinner } from './ui/spinner'
+import { ClosingDialog } from './ui/closingDialog'
 
 // Todas las rutas son lazy — cada ventana sólo parsea el código que su ruta necesita.
 // La ventana principal carga MainRoute (paneles, dnd-kit, zod, etc.).
@@ -60,7 +61,10 @@ function MainApp({ children }: PropsWithChildren) {
     <MediaServerProvider>
       <FontsProvider>
         <DisplaysProvider>
-          <ScreenSizeProvider>{children}</ScreenSizeProvider>
+          <ScreenSizeProvider>
+            {children}
+            <ClosingDialog />
+          </ScreenSizeProvider>
         </DisplaysProvider>
       </FontsProvider>
     </MediaServerProvider>
