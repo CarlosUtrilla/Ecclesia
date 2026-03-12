@@ -15,8 +15,7 @@ import {
   createStageControlWindow,
   createStageLayoutWindow,
   createTagsSongWindow,
-  createThemeWindow,
-  prewarmEditorWindows
+  createThemeWindow
 } from './windowManager'
 import 'reflect-metadata'
 import fontList from 'font-list'
@@ -235,9 +234,6 @@ app.whenReady().then(async () => {
     closeSplashWindow()
     mainWindow.maximize()
     mainWindow.show()
-    // Pre-calentar editores en background una vez que la ventana principal está lista.
-    // El delay evita competir con el renderizado inicial de la ventana principal.
-    setTimeout(prewarmEditorWindows, 4000)
   })
 
   app.on('activate', function () {

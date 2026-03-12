@@ -17,7 +17,16 @@ function focusDisplayWindow(windowRef: BrowserWindow): number {
   return windowRef.id
 }
 
+const rendererReadyResolvers = new Map<number, () => void>()
+
 export function initializeDisplayManager() {
+  ipcMain.on('renderer-ready', (event) => {
+    const resolve = rendererReadyResolvers.get(event.sender.id)
+    if (resolve) {
+      rendererReadyResolvers.delete(event.sender.id)
+      resolve()
+    }
+  })
   // Obtener todas las pantallas disponibles
   ipcMain.handle('get-displays', () => {
     const displays = screen.getAllDisplays()
@@ -115,11 +124,11 @@ export function initializeDisplayManager() {
     liveScreensByDisplayId.set(displayId, liveScreen)
     liveScreen.on('closed', () => {
       liveScreensByDisplayId.delete(displayId)
+      rendererReadyResolvers.delete(liveScreen.webContents.id)
     })
 
     const loadPromise = new Promise<number>((resolve) => {
-      liveScreen.webContents.once('did-finish-load', () => {
-        // Enviar evento a la ventana principal indicando que esta live screen está lista
+      rendererReadyResolvers.set(liveScreen.webContents.id, () => {
         mainWindow.webContents.send('live-screen-ready', liveScreen.id)
         resolve(liveScreen.id)
       })
@@ -197,10 +206,11 @@ export function initializeDisplayManager() {
     stageScreensByDisplayId.set(displayId, stageScreen)
     stageScreen.on('closed', () => {
       stageScreensByDisplayId.delete(displayId)
+      rendererReadyResolvers.delete(stageScreen.webContents.id)
     })
 
     const loadPromise = new Promise<number>((resolve) => {
-      stageScreen.webContents.once('did-finish-load', () => {
+      rendererReadyResolvers.set(stageScreen.webContents.id, () => {
         mainWindow.webContents.send('stage-screen-ready', stageScreen.id)
         resolve(stageScreen.id)
       })
