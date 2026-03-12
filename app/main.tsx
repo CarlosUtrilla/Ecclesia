@@ -65,7 +65,7 @@ const ROUTE_PRELOADS: [string, () => Promise<unknown>][] = [
   ['/live-screen', () => import('./screens/live-screen')],
   ['/stage-screen', () => import('./screens/stage-screen')],
   ['/stage-control', () => import('./screens/stage-control')],
-  ['/stage-layout', () => import('./screens/stage-layout')],
+  ['/stage-layout', () => import('./screens/stage-layout')]
 ]
 
 async function preloadCurrentRoute(): Promise<void> {
@@ -78,15 +78,18 @@ async function preloadCurrentRoute(): Promise<void> {
   }
 }
 
-preloadCurrentRoute().then(() => {
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <HashRouter>
-          <App />
-        </HashRouter>
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
-    </StrictMode>
-  )
-})
+// Disparar el preload y montar React en paralelo:
+// - el preloadCurrentRoute() llena el módulo en la caché de ESM
+// - React.lazy() sobre el mismo import() comparte esa misma Promise
+// - mientras el chunk se evalúa, Suspense muestra el Spinner en vez de nada
+preloadCurrentRoute()
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <HashRouter>
+        <App />
+      </HashRouter>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  </StrictMode>
+)

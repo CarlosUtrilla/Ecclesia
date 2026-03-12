@@ -27,6 +27,30 @@ function resolveGhToken(): string | null {
 
 export function initializeUpdaterManager(): void {
   const token = resolveGhToken()
+  let isChecking = false
+
+  async function safeCheckForUpdates() {
+    if (isChecking) return null
+    isChecking = true
+    try {
+      return await autoUpdater.checkForUpdates()
+    } catch (err) {
+      const msg = (err as Error).message ?? ''
+      const isNetworkError =
+        msg.includes('404') ||
+        msg.includes('net::') ||
+        msg.includes('ENOTFOUND') ||
+        msg.includes('ECONNREFUSED') ||
+        msg.includes('ETIMEDOUT') ||
+        msg.includes('ERR_INTERNET_DISCONNECTED')
+      log.warn('[updater] checkForUpdates falló:', msg.split('\n')[0])
+      if (!isNetworkError) broadcastToAllWindows('updater:error', msg)
+      broadcastToAllWindows('updater:update-not-available', null)
+      return null
+    } finally {
+      isChecking = false
+    }
+  }
 
   autoUpdater.setFeedURL({
     provider: 'github',
@@ -87,15 +111,7 @@ export function initializeUpdaterManager(): void {
   })
 
   // Canal IPC para verificar actualizaciones manualmente
-  ipcMain.handle('updater:check', async () => {
-    try {
-      return await autoUpdater.checkForUpdates()
-    } catch (err) {
-      log.warn('[updater] checkForUpdates falló:', (err as Error).message)
-      broadcastToAllWindows('updater:update-not-available', null)
-      return null
-    }
-  })
+  ipcMain.handle('updater:check', () => safeCheckForUpdates())
 
   // Canal IPC para iniciar descarga
   ipcMain.handle('updater:download', async () => {
@@ -117,12 +133,5 @@ export function initializeUpdaterManager(): void {
   })
 
   // Verificar actualizaciones automáticamente al iniciar (con delay para no bloquear el arranque)
-  setTimeout(() => {
-    autoUpdater.checkForUpdates().catch((err) => {
-      const msg = (err?.message ?? '') as string
-      if (!msg.includes('404') && !msg.includes('net::') && !msg.includes('ENOTFOUND')) {
-        log.warn('Verificación de actualizaciones automática falló:', msg)
-      }
-    })
-  }, 10_000)
+  setTimeout(() => safeCheckForUpdates(), 10_000)
 }

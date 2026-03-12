@@ -38,19 +38,17 @@ fi
 
 # ─── Elegir tipo de release ────────────────────────────────────────────────────
 echo -e "  Tipo de release:"
-echo -e "    ${CYAN}1${RESET}) prerelease beta  (0.1.0-beta.1 → 0.1.0-beta.2)"
-echo -e "    ${CYAN}2${RESET}) patch            (0.1.0 → 0.1.1)"
-echo -e "    ${CYAN}3${RESET}) minor            (0.1.0 → 0.2.0)"
-echo -e "    ${CYAN}4${RESET}) mayor stable     (0.1.0 → 1.0.0)"
+echo -e "    ${CYAN}1${RESET}) patch            (0.1.0 → 0.1.1)"
+echo -e "    ${CYAN}2${RESET}) minor            (0.1.0 → 0.2.0)"
+echo -e "    ${CYAN}3${RESET}) mayor stable     (0.1.0 → 1.0.0)"
 echo ""
 read -p "  Elige [1]: " CHOICE
 CHOICE=${CHOICE:-1}
 
 case $CHOICE in
-  1) BUMP_TYPE="prerelease"; BUMP_ARGS="--preid=beta" ;;
-  2) BUMP_TYPE="patch";      BUMP_ARGS="" ;;
-  3) BUMP_TYPE="minor";      BUMP_ARGS="" ;;
-  4) BUMP_TYPE="major";      BUMP_ARGS="" ;;
+  1) BUMP_TYPE="patch"; BUMP_ARGS="" ;;
+  2) BUMP_TYPE="minor"; BUMP_ARGS="" ;;
+  3) BUMP_TYPE="major"; BUMP_ARGS="" ;;
   *)
     echo -e "${RED}✗ Opción inválida.${RESET}"
     exit 1

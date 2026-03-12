@@ -24,7 +24,13 @@ const StageLayoutScreen = lazy(() => import('./screens/stage-layout'))
 function App() {
   return (
     <MainApp>
-      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-background"><Spinner size="large" /></div>}>
+      <Suspense
+        fallback={
+          <div className="flex h-screen w-screen items-center justify-center bg-background">
+            <Spinner size="large" />
+          </div>
+        }
+      >
         <Routes>
           <Route path="/" element={<MainRoute />} />
 

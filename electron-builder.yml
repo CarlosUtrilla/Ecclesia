@@ -62,4 +62,4 @@ publish:
   owner: CarlosUtrilla
   repo: Ecclesia
   channel: latest
-  releaseType: prerelease
+  releaseType: release
