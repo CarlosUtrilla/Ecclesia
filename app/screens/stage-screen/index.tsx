@@ -407,6 +407,7 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
   }, [applyTheme, displayId, liveTheme])
 
   useEffect(() => {
+    window.electron.ipcRenderer.send('renderer-ready')
     const unsubscribeItems = window.electron.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {

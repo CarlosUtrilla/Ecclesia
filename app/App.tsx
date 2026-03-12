@@ -4,6 +4,7 @@ import { MediaServerProvider } from './contexts/MediaServerContext'
 import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
 import { DisplaysProvider } from './contexts/displayContext'
 import { FontsProvider } from './contexts/fontsContext'
+import { Spinner } from './ui/spinner'
 
 // Todas las rutas son lazy — cada ventana sólo parsea el código que su ruta necesita.
 // La ventana principal carga MainRoute (paneles, dnd-kit, zod, etc.).
@@ -23,7 +24,7 @@ const StageLayoutScreen = lazy(() => import('./screens/stage-layout'))
 function App() {
   return (
     <MainApp>
-      <Suspense fallback={null}>
+      <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center bg-background"><Spinner size="large" /></div>}>
         <Routes>
           <Route path="/" element={<MainRoute />} />
 

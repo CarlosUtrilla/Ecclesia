@@ -81,6 +81,7 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
   }, [shouldApplyFallback])
 
   useEffect(() => {
+    window.electron.ipcRenderer.send('renderer-ready')
     console.log('LiveScreen mounted, setting up IPC listeners')
     const unsuscribeItems = window.electron.ipcRenderer.on(
       'liveScreen-update',
