@@ -132,27 +132,9 @@ export class BibleManagmentService {
 
     const files = fs.readdirSync(path)
     const availableBibles = files.filter((file: string) => file.endsWith('.ebbl'))
-    // conectarse a la bd de casa biblia y obtener su nombre
+    // conectarse a la bd de cada biblia y obtener su nombre
     const bibles = await Promise.all(
-      availableBibles.map(async (file: string) => {
-        const version = file.replace('.ebbl', '')
-        const db = await openBible(version)
-
-        // obtener name, language y version de la biblia
-        const info = db
-          .prepare(
-            `
-              SELECT value, key
-              FROM meta
-              WHERE key in ('name', 'language')
-            `
-          )
-          .all() as { value: string; key: string }[] | undefined
-        db.close()
-        const obj = Object.fromEntries(info!.map((i) => [i.key, i.value]))
-        obj.version = version
-        return obj as { name: string; language: string; version: string }
-      })
+      availableBibles.map(async (file) => await this.getBibleMetadata(file, false))
     )
     return bibles
   }
@@ -166,5 +148,25 @@ export class BibleManagmentService {
         id: 'asc'
       }
     })
+  }
+
+  async getBibleMetadata(file: string, absolutePath = false) {
+    const version = file.replace('.ebbl', '')
+    const db = await openBible(version, absolutePath)
+
+    // obtener name, language y version de la biblia
+    const info = db
+      .prepare(
+        `
+              SELECT value, key
+              FROM meta
+              WHERE key in ('name', 'language')
+            `
+      )
+      .all() as { value: string; key: string }[] | undefined
+    db.close()
+    const obj = Object.fromEntries(info!.map((i) => [i.key, i.value]))
+    obj.version = version
+    return obj as { name: string; language: string; version: string }
   }
 }

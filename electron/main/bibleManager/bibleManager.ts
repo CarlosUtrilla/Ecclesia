@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
+import { BibleManagmentService } from '../../../database/controllers/bible/bibleManagment.service'
 
 /**
  * Obtiene la ruta a la carpeta de biblias en recursos
@@ -81,7 +82,7 @@ export function initializeDefaultBibles(): void {
  * Lista todas las biblias disponibles en la carpeta del usuario
  */
 export function listAvailableBibles(): string[] {
-  const biblesPath = getUserBiblesPath()
+  const biblesPath = getBiblesResourcesPath()
 
   if (!fs.existsSync(biblesPath)) {
     return []
@@ -102,7 +103,7 @@ export function listAvailableBibles(): string[] {
 export function getBiblePath(filename: string): string {
   // Asegurar que tenga la extensión .ebbl
   const bibleFilename = filename.endsWith('.ebbl') ? filename : `${filename}.ebbl`
-  const biblePath = path.join(getUserBiblesPath(), bibleFilename)
+  const biblePath = path.join(getBiblesResourcesPath(), bibleFilename)
 
   if (!fs.existsSync(biblePath)) {
     throw new Error(`Biblia no encontrada: ${bibleFilename}`)
@@ -115,7 +116,7 @@ export function getBiblePath(filename: string): string {
  * Elimina una biblia
  */
 export function deleteBible(filename: string): void {
-  const biblePath = path.join(getUserBiblesPath(), filename)
+  const biblePath = path.join(getBiblesResourcesPath(), filename)
 
   if (!fs.existsSync(biblePath)) {
     throw new Error(`Biblia no encontrada: ${filename}`)
@@ -150,14 +151,14 @@ export function importBible(sourcePath: string, newFilename?: string): string {
     filename = `${filename}.ebbl`
   }
 
-  const targetPath = path.join(getUserBiblesPath(), filename)
+  const targetPath = path.join(getBiblesResourcesPath(), filename)
 
   // Si ya existe, añadir un sufijo
   let finalPath = targetPath
   let counter = 1
   while (fs.existsSync(finalPath)) {
     const nameWithoutExt = filename.replace('.ebbl', '')
-    finalPath = path.join(getUserBiblesPath(), `${nameWithoutExt}-${counter}.ebbl`)
+    finalPath = path.join(getBiblesResourcesPath(), `${nameWithoutExt}-${counter}.ebbl`)
     counter++
   }
 
@@ -177,7 +178,7 @@ export type ImportBibleResult = {
  * Importa múltiples biblias desde rutas externas
  * Retorna información detallada de cada biblia importada
  */
-export function importBibles(sourcePaths: string | string[]): Array<ImportBibleResult> {
+export async function importBibles(sourcePaths: string | string[]): Promise<ImportBibleResult[]> {
   // Normalizar a array
   const paths = Array.isArray(sourcePaths) ? sourcePaths : [sourcePaths]
   const results: ImportBibleResult[] = []
@@ -192,14 +193,28 @@ export function importBibles(sourcePaths: string | string[]): Array<ImportBibleR
     }
 
     const filename = path.basename(sourcePath)
-    const targetPath = path.join(getUserBiblesPath(), filename)
+    const targetPath = path.join(getBiblesResourcesPath(), filename)
+
+    // Validar que el archivo es una biblia válida leyendo su metadata y comprobar que no este cargada ya en el sistema
+    const bibleManager = new BibleManagmentService()
+    const currentBiblesOnSystem = await bibleManager.getAvalableBibles()
+
+    const bibleMetadata = await bibleManager.getBibleMetadata(sourcePath, true)
+    if (!bibleMetadata) {
+      throw new Error(`El archivo no es una biblia válida: ${sourcePath}`)
+    }
+
+    const isAlreadyInSystem = currentBiblesOnSystem.some((b) => b.name === bibleMetadata.name)
+    if (isAlreadyInSystem) {
+      throw new Error(`La biblia "${bibleMetadata.name}" ya está cargada en el sistema`)
+    }
 
     // Si ya existe, añadir un sufijo
     let finalPath = targetPath
     let counter = 1
     while (fs.existsSync(finalPath)) {
       const nameWithoutExt = filename.replace('.ebbl', '')
-      finalPath = path.join(getUserBiblesPath(), `${nameWithoutExt}-${counter}.ebbl`)
+      finalPath = path.join(getBiblesResourcesPath(), `${nameWithoutExt}-${counter}.ebbl`)
       counter++
     }
 

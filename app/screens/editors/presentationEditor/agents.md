@@ -51,6 +51,7 @@ app/screens/editors/presentationEditor/
 - La opción de media en `Insertar` está etiquetada para indicar origen desde biblioteca (más explícita para usuario).
 - Carrusel inferior de diapositivas en formato compacto (`w-36`) para priorizar el espacio útil del canvas.
 - El área inferior del carrusel incluye control de zoom del canvas (`50%` a `200%`) con slider, botones `+/-` y reset rápido a `100%`.
+- Al montar el editor, el zoom inicial se calcula automáticamente para que el canvas ocupe el **90%** del contenedor disponible (mide `previewAreaRef` con `getComputedStyle` + `clientWidth/Height`, descuenta paddings del contenedor y del wrapper `p-2`, toma el menor ratio ancho/alto y lo escala a 90%, redondeado al múltiplo de 5 más cercano).
 - Además del slider, el canvas permite zoom directo con `Ctrl/Cmd + rueda` para acercar/alejar rápidamente durante edición.
 - La franja inferior distribuye carrusel y zoom en una sola línea (carrusel a la izquierda con scroll horizontal + bloque de zoom a la derecha) para mejorar legibilidad y uso del espacio.
 - El canvas usa viewport base fijo en px (`1280x720`) y aplica zoom con escalado relativo (`transform: scale`) sobre ese viewport; así se preservan proporciones, aspect ratio y crecimiento uniforme del contenido.

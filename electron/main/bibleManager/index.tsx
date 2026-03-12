@@ -15,7 +15,7 @@ export async function initializeBibleManager() {
   // Registrar handlers de biblias
   ipcMain.handle('bible:import-files', async (_event, sourcePaths: string | string[]) => {
     try {
-      const results = importBibles(sourcePaths)
+      const results = await importBibles(sourcePaths)
       return Array.isArray(sourcePaths) ? results : results[0]
     } catch (error: any) {
       console.error('Error al importar biblias:', error)

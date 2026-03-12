@@ -298,6 +298,29 @@ export default function PresentationEditor() {
     shouldSeedHistoryRef.current = false
   }, [historySnapshot, seedHistory])
 
+  // Calcula el zoom inicial para que el canvas ocupe el 90% del contenedor disponible
+  useEffect(() => {
+    const container = previewAreaRef.current
+    if (!container) return
+
+    const style = getComputedStyle(container)
+    const paddingH = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+    const paddingV = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+    // El wrapper interior tiene p-2 (8px por lado = 16px por eje)
+    const wrapperPadding = 16
+
+    const availableWidth = container.clientWidth - paddingH - wrapperPadding
+    const availableHeight = container.clientHeight - paddingV - wrapperPadding
+
+    const zoomToFitWidth = availableWidth / BASE_CANVAS_WIDTH
+    const zoomToFitHeight = availableHeight / BASE_CANVAS_HEIGHT
+    const zoomToFit = Math.min(zoomToFitWidth, zoomToFitHeight)
+
+    // 90% del zoom de ajuste, redondeado al múltiplo de 5 más cercano
+    const raw = Math.round((zoomToFit * 100 * 0.9) / 5) * 5
+    setCanvasZoom(Math.min(maxCanvasZoom, Math.max(minCanvasZoom, raw)))
+  }, [])
+
   const {
     updateSelectedSlideItems,
     updateSelectedItem,
