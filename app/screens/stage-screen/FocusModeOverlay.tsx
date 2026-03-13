@@ -86,11 +86,11 @@ function ClockBlock({
   const clockText = formatClock(nowMs, clockConfig)
   const color = widget.config?.textColor ?? '#ffffff'
   const fontFamily = widget.config?.fontFamily ?? 'monospace'
-  // Preferido: 20% del ancho del contenedor, pero nunca desborda el espacio disponible
+  // La hora cede espacio: preferido 11% del ancho para priorizar mensaje y timers
   const fontSize = fitFontSizeToWidth(
     clockText,
-    containerWidth * 0.2,
-    containerWidth * 0.2,
+    containerWidth * 0.11,
+    containerWidth * 0.11,
     availableWidth
   )
 
@@ -171,8 +171,11 @@ function MessageBlock({ message, widget, containerHeight, containerWidth }: Mess
   const configuredFontSize = widget.config?.fontSize ?? 64
   const screenScale = Math.max(0.32, Math.min(1, containerHeight / 1080))
   const preferredFontSize = Math.max(20, configuredFontSize * screenScale, containerHeight * 0.06)
+  // Usar la palabra más larga para fitFontSizeToWidth: el texto hace wrap libremente,
+  // solo se limita para evitar que una sola palabra irrompible desborde.
+  const longestWord = message.split(/\s+/).reduce((a, b) => (a.length > b.length ? a : b), '')
   const fontSize = fitFontSizeToWidth(
-    message,
+    longestWord,
     preferredFontSize,
     preferredFontSize,
     containerWidth * 0.88
@@ -186,7 +189,7 @@ function MessageBlock({ message, widget, containerHeight, containerWidth }: Mess
       fontSizePx={fontSize}
       textAlign="center"
       fontWeight={600}
-      className="w-full shrink-0 rounded-xl bg-black/55 px-[4%] py-[1.5%] text-center tracking-tight backdrop-blur-sm"
+      className="w-full wrap-break-word shrink-0 rounded-xl bg-black/55 px-[4%] py-[1.5%] text-center tracking-tight backdrop-blur-sm"
     />
   )
 }
