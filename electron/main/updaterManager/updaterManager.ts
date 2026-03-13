@@ -61,6 +61,13 @@ export function initializeUpdaterManager(): void {
     token: token ?? undefined
   })
 
+  // La app no está firmada (identity: null en electron-builder.yml).
+  // Squirrel.Mac rechazaría la actualización al no poder satisfacer los
+  // requisitos de código. Deshabilitamos esa verificación en builds sin firma.
+  if (process.platform === 'darwin') {
+    ;(autoUpdater as any).verifyUpdateCodeSignature = () => Promise.resolve(null)
+  }
+
   if (token) {
     log.info('[updater] Token de GitHub configurado')
   } else {
@@ -83,6 +90,21 @@ export function initializeUpdaterManager(): void {
     // Ignorar errores de red/acceso (repo privado, sin releases, sin conexión)
     // para no generar ruido en los logs y no molestar al usuario
     const msg = err.message ?? ''
+    const isCodeSignError =
+      msg.includes('did not pass validation') ||
+      msg.includes('code requirements') ||
+      msg.includes('satisfacer los requisitos') ||
+      msg.includes('errSecCSReqFailed')
+
+    if (isCodeSignError) {
+      log.warn(
+        '[updater] Error de firma de código (app sin firmar), ignorando:',
+        msg.split('\n')[0]
+      )
+      broadcastToAllWindows('updater:update-not-available', null)
+      return
+    }
+
     const isNetworkOrAccessError =
       msg.includes('404') ||
       msg.includes('net::') ||
