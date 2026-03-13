@@ -52,6 +52,14 @@ export function initializeUpdaterManager(): void {
     }
   }
 
+  // La app no está firmada (identity: null en electron-builder.yml).
+  // Squirrel.Mac rechazaría la actualización al no poder satisfacer los
+  // requisitos de código. Deshabilitamos esa verificación antes de configurar
+  // el feed para que aplique desde el primer momento.
+  if (process.platform === 'darwin') {
+    ;(autoUpdater as any).verifyUpdateCodeSignature = () => Promise.resolve(null)
+  }
+
   autoUpdater.setFeedURL({
     provider: 'github',
     owner: 'CarlosUtrilla',
@@ -60,13 +68,6 @@ export function initializeUpdaterManager(): void {
     private: true,
     token: token ?? undefined
   })
-
-  // La app no está firmada (identity: null en electron-builder.yml).
-  // Squirrel.Mac rechazaría la actualización al no poder satisfacer los
-  // requisitos de código. Deshabilitamos esa verificación en builds sin firma.
-  if (process.platform === 'darwin') {
-    ;(autoUpdater as any).verifyUpdateCodeSignature = () => Promise.resolve(null)
-  }
 
   if (token) {
     log.info('[updater] Token de GitHub configurado')

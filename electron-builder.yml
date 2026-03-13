@@ -28,6 +28,8 @@ asarUnpack:
   - node_modules/@prisma/**
   - node_modules/prisma/**
   - prisma/**/*
+  - node_modules/@ffmpeg-installer/**
+  - node_modules/sharp/**
 win:
   executableName: Ecclesia
 nsis:
@@ -39,6 +41,19 @@ afterPack: ./scripts/after-pack.cjs
 mac:
   identity: null
   notarize: false
+  # zip es necesario para que electron-updater instale sin pasar por Squirrel.Mac.
+  # Squirrel requiere Code Signing y falla con "did not pass validation" cuando
+  # la app no está firmada. Con zip, electron-updater gestiona la actualización
+  # directamente sin invocar Squirrel.
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.

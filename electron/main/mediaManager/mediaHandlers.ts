@@ -7,6 +7,13 @@ import sharp from 'sharp'
 import ffmpeg from '@ffmpeg-installer/ffmpeg'
 import { spawn } from 'child_process'
 
+// En producción el binario se extrae fuera del .asar (asarUnpack).
+// La ruta que devuelve @ffmpeg-installer apunta al .asar original, hay que
+// corregirla para que apunte a app.asar.unpacked donde reside el ejecutable real.
+function resolveFfmpegPath(): string {
+  return ffmpeg.path.replace('app.asar', 'app.asar.unpacked')
+}
+
 // Formatos soportados
 export const SUPPORTED_IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 export const SUPPORTED_VIDEO_FORMATS = ['.mp4', '.webm', '.mov', '.avi']
@@ -22,7 +29,7 @@ async function generateImageThumbnail(sourcePath: string, destPath: string): Pro
 // Generar thumbnail de video con ffmpeg (en segundo 1.5 para evitar animaciones iniciales)
 function generateVideoThumbnail(sourcePath: string, destPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ffmpegPath = ffmpeg.path
+    const ffmpegPath = resolveFfmpegPath()
     const args = [
       '-i',
       sourcePath,
@@ -54,7 +61,7 @@ function generateVideoThumbnail(sourcePath: string, destPath: string): Promise<v
 // Generar imagen de fallback del primer frame del video
 function generateVideoFallback(sourcePath: string, destPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ffmpegPath = ffmpeg.path
+    const ffmpegPath = resolveFfmpegPath()
     const args = [
       '-i',
       sourcePath,
@@ -88,7 +95,7 @@ function checkVideoCompatibility(
   sourcePath: string
 ): Promise<{ compatible: boolean; codec: string; profile: string }> {
   return new Promise((resolve, reject) => {
-    const ffmpegPath = ffmpeg.path
+    const ffmpegPath = resolveFfmpegPath()
     const args = ['-i', sourcePath, '-hide_banner']
 
     const process = spawn(ffmpegPath, args)
@@ -138,7 +145,7 @@ function convertVideoToCompatibleFormat(
   onProgress?: (progress: number) => void
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ffmpegPath = ffmpeg.path
+    const ffmpegPath = resolveFfmpegPath()
     const args = [
       '-i',
       sourcePath,
@@ -279,66 +286,11 @@ export function registerMediaHandlers() {
         throw new Error(`Formato no soportado: ${ext}`)
       }
 
-      // Para videos, verificar compatibilidad
-      let shouldConvert = false
-      if (type === MediaType.VIDEO) {
-        const { compatible, codec, profile } = await checkVideoCompatibility(sourcePath)
-
-        if (!compatible) {
-          console.log(`Video no compatible detectado: ${codec} ${profile}`)
-
-          // Preguntar al usuario si desea convertir
-          const result = await dialog.showMessageBox({
-            type: 'warning',
-            title: 'Video no compatible',
-            message: `El video que intentas importar tiene un codec (${codec} ${profile}) que puede no ser compatible con la reproducción en la aplicación.`,
-            detail:
-              '¿Deseas convertir el video a un formato compatible (MP4 H.264)? Esto puede tardar unos minutos dependiendo del tamaño del video.',
-            buttons: ['Cancelar', 'Convertir'],
-            defaultId: 1,
-            cancelId: 0
-          })
-
-          if (result.response === 0) {
-            // Usuario canceló
-            throw new Error('Importación cancelada por el usuario')
-          }
-
-          shouldConvert = true
-        }
-      }
-
-      // Convertir video si es necesario
-      let finalExt = ext
-      let finalSourcePath = sourcePath
-
-      if (shouldConvert) {
-        console.log('Convirtiendo video a MP4 (H.264)...')
-        const tempConvertedPath = path.join(filesPath, `temp-${hash}.mp4`)
-
-        await convertVideoToCompatibleFormat(sourcePath, tempConvertedPath, (progress) => {
-          // Enviar progreso al frontend
-          event.sender.send('media:import-progress', { progress, fileName: originalName })
-        })
-
-        finalSourcePath = tempConvertedPath
-        finalExt = '.mp4'
-        console.log('Conversión completada')
-      }
-
-      // Para videos, NO convertir automáticamente - usar original
-      // El usuario puede convertir manualmente si hay problemas de compatibilidad
-      const newFileName = `${originalName}-${hash}${finalExt}`
+      // Importar video directamente sin verificación ni conversión
+      const newFileName = `${originalName}-${hash}${ext}`
       const destPath = path.join(filesPath, newFileName)
 
-      // Copiar o mover archivo
-      if (finalSourcePath !== sourcePath) {
-        // Si se convirtió, mover el archivo temporal
-        fs.renameSync(finalSourcePath, destPath)
-      } else {
-        // Si no se convirtió, copiar el original
-        fs.copyFileSync(sourcePath, destPath)
-      }
+      fs.copyFileSync(sourcePath, destPath)
 
       // Crear thumbnail optimizado y fallback para videos
       const thumbnailFileName = `thumb-${originalName.replaceAll(' ', '_')}-${hash}.jpg`
@@ -363,7 +315,7 @@ export function registerMediaHandlers() {
       return {
         name: originalName,
         type,
-        format: finalExt.slice(1),
+        format: ext.slice(1),
         filePath,
         fileSize: stats.size,
         thumbnail: `thumbnails/${thumbnailFileName}`,
