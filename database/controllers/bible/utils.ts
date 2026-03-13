@@ -4,7 +4,6 @@ import { getBiblesResourcesPath } from '../../../electron/main/bibleManager/bibl
 export async function openBible(version: string, absolutePath = false): Promise<Database.Database> {
   const biblesFolder = getBiblesResourcesPath()
   const biblePath = absolutePath ? version + '.ebbl' : `${biblesFolder}/${version}.ebbl`
-  console.log(`🔍 Abriendo biblia: ${biblePath}`)
   const db = new Database(biblePath)
   return db
 }

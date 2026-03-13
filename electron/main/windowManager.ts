@@ -106,14 +106,7 @@ export function createMainWindow(): BrowserWindow {
       })
     }
 
-    const waitForSyncAndClose = () => {
-      const check = setInterval(() => {
-        if (!getIsSyncing()) {
-          clearInterval(check)
-          closeApp()
-        }
-      }, 300)
-    }
+    let skipSyncInterval: ReturnType<typeof setInterval> | null = null
 
     const handleConfirm = () => {
       closeHandlerActive = false
@@ -122,20 +115,41 @@ export function createMainWindow(): BrowserWindow {
         .catch(() => {})
         .finally(() => {
           if (getIsSyncing()) {
-            waitForSyncAndClose()
+            skipSyncInterval = setInterval(() => {
+              if (!getIsSyncing()) {
+                if (skipSyncInterval) clearInterval(skipSyncInterval)
+                skipSyncInterval = null
+                ipcMain.removeListener('app-close-skip-sync', handleSkipSync)
+                closeApp()
+              }
+            }, 300)
           } else {
+            ipcMain.removeListener('app-close-skip-sync', handleSkipSync)
             closeApp()
           }
         })
     }
 
+    const handleSkipSync = () => {
+      if (skipSyncInterval) {
+        clearInterval(skipSyncInterval)
+        skipSyncInterval = null
+      }
+      closeHandlerActive = false
+      ipcMain.removeListener('app-close-cancel', handleCancel)
+      ipcMain.removeListener('app-close-confirm', handleConfirm)
+      closeApp()
+    }
+
     const handleCancel = () => {
       closeHandlerActive = false
       ipcMain.removeListener('app-close-confirm', handleConfirm)
+      ipcMain.removeListener('app-close-skip-sync', handleSkipSync)
     }
 
     ipcMain.once('app-close-confirm', handleConfirm)
     ipcMain.once('app-close-cancel', handleCancel)
+    ipcMain.once('app-close-skip-sync', handleSkipSync)
   })
 
   // HMR for renderer base on electron-vite cli.

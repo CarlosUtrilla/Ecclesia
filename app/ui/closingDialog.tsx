@@ -78,6 +78,14 @@ export function ClosingDialog() {
             <div className="flex justify-center py-6">
               <Spinner size="large" />
             </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => window.windowAPI.skipSyncAndClose()}
+              >
+                Cerrar sin sincronizar
+              </Button>
+            </DialogFooter>
           </>
         )}
       </DialogContent>

@@ -1,9 +1,7 @@
 import { BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import { ThemeWithMedia } from '../../../database/controllers/themes/themes.dto'
-import { StageScreenConfigUpdate } from './displayType'
-
+import log from 'electron-log'
 const liveScreensByDisplayId = new Map<number, BrowserWindow>()
 const stageScreensByDisplayId = new Map<number, BrowserWindow>()
 
@@ -119,10 +117,11 @@ export function initializeDisplayManager() {
 
     const route = '/live-screen/' + displayId
 
+    const liveScreenWebContentsId = liveScreen.webContents.id
     liveScreensByDisplayId.set(displayId, liveScreen)
     liveScreen.on('closed', () => {
       liveScreensByDisplayId.delete(displayId)
-      rendererReadyResolvers.delete(liveScreen.webContents.id)
+      rendererReadyResolvers.delete(liveScreenWebContentsId)
     })
 
     const loadPromise = new Promise<number>((resolve) => {
@@ -201,10 +200,11 @@ export function initializeDisplayManager() {
 
     const route = '/stage-screen/' + displayId
 
+    const stageScreenWebContentsId = stageScreen.webContents.id
     stageScreensByDisplayId.set(displayId, stageScreen)
     stageScreen.on('closed', () => {
       stageScreensByDisplayId.delete(displayId)
-      rendererReadyResolvers.delete(stageScreen.webContents.id)
+      rendererReadyResolvers.delete(stageScreenWebContentsId)
     })
 
     const loadPromise = new Promise<number>((resolve) => {
@@ -271,7 +271,8 @@ export function initializeDisplayManager() {
     const window = BrowserWindow.fromId(windowId)
 
     if (!window) {
-      throw new Error(`Ventana con ID ${windowId} no encontrada`)
+      log.warn(`close-stage-screen: ventana con ID ${windowId} ya cerrada, ignorando`)
+      return
     }
 
     try {
