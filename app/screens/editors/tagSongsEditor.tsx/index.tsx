@@ -99,7 +99,8 @@ export default function TagSongsEditor() {
       name: 'Nueva Etiqueta',
       shortName: 'NE',
       shortCut: '',
-      color: '#3b82f6'
+      color: '#3b82f6',
+      deletedAt: null
     }
     setEditedTags([...editedTags, newTag])
     setHasChanges(true)

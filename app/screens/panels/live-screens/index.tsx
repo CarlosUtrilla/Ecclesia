@@ -1,11 +1,75 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { cn } from '@/lib/utils'
 import { Button } from '@/ui/button'
 import { Radio } from 'lucide-react'
 import LiveScreen from '@/screens/live-screen'
-import StageScreen from '@/screens/stage-screen'
+import StageScreen from '@/screens/stage-screen/index'
+
+type StageTimerState = {
+  id?: string | number
+  label?: string
+  endsAt?: string | number
+  endAt?: string | number
+  remainingMs?: number
+}
+
+type StageState = {
+  timers?: StageTimerState[]
+}
+
+type StageConfigRecord = {
+  selectedScreenId: number
+  state: string
+}
+
+function resolveRemainingMs(timer: StageTimerState, now: number): number {
+  if (typeof timer.remainingMs === 'number') return timer.remainingMs
+
+  const endAtCandidate = timer.endsAt ?? timer.endAt
+  if (endAtCandidate == null) return 0
+
+  const endsAtMs =
+    typeof endAtCandidate === 'number' ? endAtCandidate : Date.parse(String(endAtCandidate))
+
+  if (Number.isNaN(endsAtMs)) return 0
+
+  return endsAtMs - now
+}
+
+function formatRemaining(remainingMs: number): string {
+  const isNegative = remainingMs < 0
+  const abs = Math.abs(remainingMs)
+  const totalSeconds = Math.floor(abs / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const sign = isNegative ? '-' : ''
+
+  if (hours > 0) {
+    return `${sign}${hours.toString().padStart(2, '0')}:${minutes
+      .toString()
+      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  return `${sign}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
+
+function parseTimers(rawState: string | undefined): StageTimerState[] {
+  if (!rawState) return []
+
+  try {
+    const parsed = JSON.parse(rawState) as StageState
+    if (!Array.isArray(parsed.timers)) return []
+    return parsed.timers
+  } catch {
+    return []
+  }
+}
 
 export default function LiveScreens() {
+  const queryClient = useQueryClient()
   const {
     showLiveScreen,
     setShowLiveScreen,
@@ -19,6 +83,50 @@ export default function LiveScreens() {
     setShowLogoOnLive,
     setBlackScreenOnLive
   } = useLive()
+
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  const { data: stageConfigs = [] } = useQuery<StageConfigRecord[]>({
+    queryKey: ['stageScreenConfig'],
+    queryFn: () => window.api.stageScreenConfig.getAllStageScreenConfigs(),
+    staleTime: Infinity
+  })
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.electron.ipcRenderer.on('stageScreen-config-updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [queryClient])
+
+  const activeStageTimers = useMemo(() => {
+    const timers = stageConfigs.flatMap((config) => {
+      return parseTimers(config.state).map((timer, index) => {
+        const remainingMs = resolveRemainingMs(timer, nowMs)
+        return {
+          key: `${config.selectedScreenId}-${timer.id ?? index}`,
+          label: timer.label?.trim() || `Timer ${index + 1}`,
+          remainingMs
+        }
+      })
+    })
+
+    if (timers.length === 0) return []
+    return timers
+  }, [stageConfigs, nowMs])
 
   return (
     <div className="flex flex-col h-full">
@@ -83,6 +191,39 @@ export default function LiveScreens() {
             <div className="text-xs text-muted-foreground">No hay pantallas stage configuradas</div>
           )}
         </div>
+      </div>
+      <div className="flex items-start justify-between gap-2 border-t bg-muted/30 px-2 py-1.5">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Timers stage activos
+        </div>
+        {activeStageTimers.length > 0 ? (
+          <div className="flex max-w-[72%] flex-wrap justify-end gap-1.5">
+            {activeStageTimers.map((timer) => (
+              <div
+                key={timer.key}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold',
+                  timer.remainingMs < 0
+                    ? 'border-rose-500/70 bg-rose-500/15 text-rose-700'
+                    : 'border-emerald-500/60 bg-emerald-500/10 text-emerald-700'
+                )}
+              >
+                <span
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    timer.remainingMs < 0
+                      ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'
+                      : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+                  )}
+                />
+                <span className="max-w-[110px] truncate">{timer.label}</span>
+                <span>{formatRemaining(timer.remainingMs)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-[10px] text-muted-foreground">Sin timers activos</div>
+        )}
       </div>
       <div className="p-1 grid grid-cols-3 gap-1 bg-muted/40 border-t">
         <button

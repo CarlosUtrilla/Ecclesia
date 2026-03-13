@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, TimerReset, Trash2 } from 'lucide-react'
+import { FocusIcon, Plus, TimerReset, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { Input } from '@/ui/input'
 import { Textarea } from '@/ui/textarea'
 import { Button } from '@/ui/button'
+import { Switch } from '@/ui/switch'
 import StageScreen from '@/screens/stage-screen'
 
 type StageScreenRecord = {
@@ -24,10 +25,12 @@ type StageTimerState = {
 type StageState = {
   message?: string | null
   timers?: StageTimerState[]
+  timerVisualMode?: 'compact' | 'broadcast'
   clock?: {
     hourFormat?: '12' | '24'
     showMeridiem?: boolean
   }
+  focusMode?: boolean
 }
 
 type StageConfigRecord = {
@@ -38,13 +41,16 @@ type StageConfigRecord = {
 const EMPTY_STAGE_STATE: StageState = {
   message: null,
   timers: [],
+  timerVisualMode: 'broadcast',
   clock: {
     hourFormat: '24',
     showMeridiem: false
-  }
+  },
+  focusMode: false
 }
 
 const MAX_STAGE_TIMERS = 5
+const TIMER_PRESET_MINUTES = [1, 2, 5, 10, 15, 20, 30, 45, 60]
 
 function formatRemaining(remainingMs: number): string {
   const isNegative = remainingMs < 0
@@ -71,10 +77,12 @@ function safeParseState(raw: string | undefined): StageState {
     return {
       message: parsed.message ?? null,
       timers: Array.isArray(parsed.timers) ? parsed.timers.slice(0, MAX_STAGE_TIMERS) : [],
+      timerVisualMode: parsed.timerVisualMode === 'compact' ? 'compact' : 'broadcast',
       clock: {
         hourFormat: parsed.clock?.hourFormat === '12' ? '12' : '24',
         showMeridiem: Boolean(parsed.clock?.showMeridiem)
-      }
+      },
+      focusMode: Boolean(parsed.focusMode)
     }
   } catch {
     return EMPTY_STAGE_STATE
@@ -126,6 +134,7 @@ export default function StageControlsPanel() {
   }, [configByScreenId, selectedScreenId])
 
   const timers = selectedState.timers ?? []
+  const selectedTimerVisualMode = selectedState.timerVisualMode ?? 'broadcast'
   const selectedClock = selectedState.clock ?? EMPTY_STAGE_STATE.clock!
 
   useEffect(() => {
@@ -215,6 +224,36 @@ export default function StageControlsPanel() {
     setTimerHoursInput('0')
     setTimerMinutesInput('5')
     setTimerSecondsInput('0')
+  }
+
+  const handleApplyTimerPreset = (totalMinutes: number) => {
+    const normalizedMinutes = Math.max(1, Math.floor(totalMinutes))
+    const hours = Math.floor(normalizedMinutes / 60)
+    const minutes = normalizedMinutes % 60
+
+    setTimerHoursInput(String(hours))
+    setTimerMinutesInput(String(minutes))
+    setTimerSecondsInput('0')
+  }
+
+  const handleFocusModeToggle = (enabled: boolean) => {
+    if (selectedScreenId === null) return
+    persistState({
+      selectedScreenId,
+      state: { ...selectedState, focusMode: enabled }
+    })
+  }
+
+  const handleTimerVisualModeChange = (mode: 'compact' | 'broadcast') => {
+    if (selectedScreenId === null) return
+
+    persistState({
+      selectedScreenId,
+      state: {
+        ...selectedState,
+        timerVisualMode: mode
+      }
+    })
   }
 
   const handleClockConfigChange = (next: { hourFormat?: '12' | '24'; showMeridiem?: boolean }) => {
@@ -353,7 +392,45 @@ export default function StageControlsPanel() {
             </div>
 
             <div className="space-y-2 border-t pt-3">
-              <div className="text-sm font-medium">Timers</div>
+              <div className="text-sm font-medium">Cronómetros</div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">Estilo visual</label>
+                <Select
+                  value={selectedTimerVisualMode}
+                  onValueChange={(value: 'compact' | 'broadcast') =>
+                    handleTimerVisualModeChange(value)
+                  }
+                  disabled={isPending || !selectedScreenId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar estilo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="broadcast">Broadcast (grande)</SelectItem>
+                    <SelectItem value="compact">Compacto (limpio)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">Presets rápidos</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {TIMER_PRESET_MINUTES.map((presetMinutes) => (
+                    <Button
+                      key={presetMinutes}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending || !selectedScreenId}
+                      onClick={() => handleApplyTimerPreset(presetMinutes)}
+                      className="h-7 px-2 text-xs"
+                    >
+                      {presetMinutes} min
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_90px_90px_90px_auto]">
                 <div className="space-y-1">
                   <label className="text-[11px] text-muted-foreground">Etiqueta</label>
@@ -453,6 +530,26 @@ export default function StageControlsPanel() {
                   </Button>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2 border-t pt-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    <FocusIcon className="size-3.5 text-muted-foreground" />
+                    Modo enfoque
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Muestra reloj y timers a pantalla completa en el escenario.
+                  </p>
+                </div>
+                <Switch
+                  id="focus-mode-switch"
+                  checked={selectedState.focusMode ?? false}
+                  onCheckedChange={handleFocusModeToggle}
+                  disabled={isPending || !selectedScreenId}
+                />
+              </div>
             </div>
 
             <div className="space-y-2 border-t pt-3">
