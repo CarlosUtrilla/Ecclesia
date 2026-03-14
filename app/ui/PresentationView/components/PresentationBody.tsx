@@ -64,6 +64,7 @@ type Props = {
   hideTextInLive: boolean
   blockBgStyle: React.CSSProperties | null
   blockBgPadding: number | null
+  animationDuration: number
 }
 
 function PresentationBodyComponent({
@@ -105,7 +106,8 @@ function PresentationBodyComponent({
   presentationVerseBySlideKey,
   hideTextInLive,
   blockBgStyle,
-  blockBgPadding
+  blockBgPadding,
+  animationDuration
 }: Props) {
   const backgroundLayer = !isMediaItem ? (
     <>
@@ -187,6 +189,7 @@ function PresentationBodyComponent({
         hideTextInLive={hideTextInLive}
         blockBgStyle={blockBgStyle}
         blockBgPadding={blockBgPadding}
+        animationDuration={animationDuration}
       />
     </>
   )
@@ -270,7 +273,8 @@ function arePresentationBodyPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.presentationVerseBySlideKey === nextProps.presentationVerseBySlideKey &&
     prevProps.hideTextInLive === nextProps.hideTextInLive &&
     prevProps.blockBgStyle === nextProps.blockBgStyle &&
-    prevProps.blockBgPadding === nextProps.blockBgPadding
+    prevProps.blockBgPadding === nextProps.blockBgPadding &&
+    prevProps.animationDuration === nextProps.animationDuration
   )
 }
 

@@ -106,7 +106,6 @@ export function MediaGridWrapper({
         >
           <MediaGrid
             currentFolder={currentFolder}
-            onDrop={onDrop}
             onItemClick={onItemClick}
             isSelected={isSelected}
             {...gridProps}

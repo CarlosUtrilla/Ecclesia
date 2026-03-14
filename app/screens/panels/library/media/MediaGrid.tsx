@@ -13,10 +13,6 @@ interface MediaGridProps {
   onCopy: (item: Media | string, isFolder: boolean) => void
   onCut: (item: Media | string, isFolder: boolean) => void
   onRename: (item: Media | string, isFolder: boolean, currentName: string) => void
-  onDrop: (
-    droppedItem: { item: Media | string; isFolder: boolean },
-    targetFolder: string | null
-  ) => void
   formatFileSize: (bytes: number) => string
   onItemClick: (item: SelectableItem, e: React.MouseEvent) => void
   isSelected: (item: SelectableItem) => boolean
@@ -32,7 +28,6 @@ export function MediaGrid({
   onCopy,
   onCut,
   onRename,
-  onDrop,
   formatFileSize,
   onItemClick,
   isSelected
@@ -71,7 +66,6 @@ export function MediaGrid({
           onCopy={onCopy}
           onCut={onCut}
           onRename={onRename}
-          onDrop={onDrop}
           onClick={onItemClick}
           isSelected={isSelected(folderName)}
         />

@@ -41,6 +41,7 @@ type Props = {
   hideTextInLive: boolean
   blockBgStyle: React.CSSProperties | null
   blockBgPadding: number | null
+  animationDuration: number
 }
 
 function ResourceContentComponent({
@@ -68,7 +69,8 @@ function ResourceContentComponent({
   onEditableTargetSelect,
   hideTextInLive,
   blockBgStyle,
-  blockBgPadding
+  blockBgPadding,
+  animationDuration
 }: Props) {
   const nonBibleAnimatedItem = useMemo(
     () => ({
@@ -102,6 +104,7 @@ function ResourceContentComponent({
         hideTextInLive={hideTextInLive}
         blockBgStyle={blockBgStyle}
         blockBgPadding={blockBgPadding}
+        animationDuration={animationDuration}
       />
     )
   }
@@ -132,6 +135,7 @@ function ResourceContentComponent({
         hideTextInLive={hideTextInLive}
         blockBgStyle={blockBgStyle}
         blockBgPadding={blockBgPadding}
+        animationDuration={animationDuration}
       />
     )
   }
@@ -155,6 +159,7 @@ function ResourceContentComponent({
       hideTextInLive={hideTextInLive}
       blockBgStyle={blockBgStyle}
       blockBgPadding={blockBgPadding}
+      animationDuration={animationDuration}
     />
   )
 }
@@ -187,7 +192,8 @@ function areResourceContentPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
     prevProps.hideTextInLive === nextProps.hideTextInLive &&
     prevProps.blockBgStyle === nextProps.blockBgStyle &&
-    prevProps.blockBgPadding === nextProps.blockBgPadding
+    prevProps.blockBgPadding === nextProps.blockBgPadding &&
+    prevProps.animationDuration === nextProps.animationDuration
   )
 }
 

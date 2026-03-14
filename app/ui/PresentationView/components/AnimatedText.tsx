@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react'
 import { m, type Variants } from 'framer-motion'
 import { sanitizeHTML } from '@/lib/utils'
-import { wordVariants, AnimationType } from '@/lib/animations'
+import { AnimationType, getWordVariants } from '@/lib/animations'
 import { EditableBoundsTarget, PresentationViewItems, TextBoundsValues } from '../types'
 import { useTextBoundsInteraction } from '../hooks/useTextBoundsInteraction'
 
@@ -35,6 +35,7 @@ export interface AnimatedTextProps {
   hideTextInLive?: boolean
   blockBgStyle?: React.CSSProperties | null
   blockBgPadding?: number | null
+  animationDuration?: number
 }
 
 const CORNER_HANDLE_STYLE: React.CSSProperties = {
@@ -65,7 +66,8 @@ function AnimatedTextComponent({
   onEditableTargetSelect,
   hideTextInLive = false,
   blockBgStyle,
-  blockBgPadding
+  blockBgPadding,
+  animationDuration = 0.4
 }: AnimatedTextProps) {
   const { text: rawText } = item
   const text = rawText || ''
@@ -100,13 +102,17 @@ function AnimatedTextComponent({
 
   const splitSanitizedLines = useMemo(
     () =>
-      text.split(/<br\s*\/?>/i).map((line) =>
-        line
-          .trim()
+      text.split(/<br\s*\/?>/i).map((line) => {
+        const trimmed = line.trim()
+        // Si la línea contiene etiquetas HTML, tratarla como una unidad para no romper el markup
+        if (/<[^>]+>/.test(trimmed)) {
+          return [sanitizeHTML(trimmed)]
+        }
+        return trimmed
           .split(' ')
           .filter((word) => word.length > 0)
           .map((word) => sanitizeHTML(word))
-      ),
+      }),
     [text]
   )
 
@@ -166,7 +172,7 @@ function AnimatedTextComponent({
                 {words.map((word, wordIndex) => (
                   <m.span
                     key={`${lineIndex}-${wordIndex}`}
-                    variants={wordVariants}
+                    variants={getWordVariants(animationDuration)}
                     style={{ display: 'inline-block', marginRight: '0.3em' }}
                     dangerouslySetInnerHTML={{ __html: word }}
                   />
@@ -202,7 +208,8 @@ function AnimatedTextComponent({
     animationType,
     variants,
     splitSanitizedLines,
-    blockBgStyle
+    blockBgStyle,
+    animationDuration
   ])
 
   const handleSelectTarget = useCallback(
@@ -379,7 +386,8 @@ function areAnimatedTextPropsEqual(prevProps: AnimatedTextProps, nextProps: Anim
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
     prevProps.hideTextInLive === nextProps.hideTextInLive &&
     prevProps.blockBgStyle === nextProps.blockBgStyle &&
-    prevProps.blockBgPadding === nextProps.blockBgPadding
+    prevProps.blockBgPadding === nextProps.blockBgPadding &&
+    prevProps.animationDuration === nextProps.animationDuration
   )
 }
 

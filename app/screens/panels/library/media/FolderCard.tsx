@@ -1,5 +1,5 @@
 import { Folder, FolderPlus, Trash2, Edit, Copy, Scissors } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { useRef } from 'react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -7,10 +7,9 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from '@/ui/context-menu'
-import { Media } from './types'
 import { SelectableItem } from './hooks/useSelection'
 import { cn } from '@/lib/utils'
-import { useDraggable } from '@dnd-kit/core'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
 
 interface FolderCardProps {
   folderName: string
@@ -20,10 +19,6 @@ interface FolderCardProps {
   onCopy: (item: string, isFolder: boolean) => void
   onCut: (item: string, isFolder: boolean) => void
   onRename: (item: string, isFolder: boolean, currentName: string) => void
-  onDrop: (
-    droppedItem: { item: Media | string; isFolder: boolean },
-    targetFolder: string | null
-  ) => void
   onClick?: (item: SelectableItem, e: React.MouseEvent) => void
   isSelected?: boolean
 }
@@ -36,58 +31,29 @@ export function FolderCard({
   onCopy,
   onCut,
   onRename,
-  onDrop,
   onClick,
   isSelected = false
 }: FolderCardProps) {
-  const [isDragOver, setIsDragOver] = useState(false)
   const clickTimeout = useRef<NodeJS.Timeout | null>(null)
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: `folder-${folderName}`,
     data: {
       item: folderName,
-      isFolder: true
+      isFolder: true,
+      currentFolder
     }
   })
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(true)
-  }
+  const dropId = `folder-drop-${currentFolder ? currentFolder + '/' : ''}${folderName}`
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: dropId,
+    data: { type: 'folder-drop', folderName, currentFolder }
+  })
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(false)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(false)
-
-    try {
-      const dataString = e.dataTransfer.getData('application/json')
-      if (!dataString) {
-        // No hay datos válidos, ignorar silenciosamente
-        return
-      }
-
-      const data = JSON.parse(dataString)
-      if (!data.item || typeof data.isFolder !== 'boolean') {
-        // Datos inválidos, ignorar silenciosamente
-        return
-      }
-
-      const targetFolder = currentFolder ? `${currentFolder}/${folderName}` : folderName
-      onDrop(data, targetFolder)
-    } catch (error) {
-      // Error al parsear JSON, ignorar silenciosamente
-      console.log(error)
-      return
-    }
+  const setNodeRef = (node: HTMLElement | null) => {
+    setDragRef(node)
+    setDropRef(node)
   }
 
   const handleClick = (e: React.MouseEvent) => {
@@ -140,14 +106,11 @@ export function FolderCard({
             'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             {
               'ring-2 ring-primary bg-primary/10 border-primary shadow-md shadow-primary/20':
-                isDragOver,
+                isOver,
               'ring-2 ring-accent border-accent shadow-md shadow-accent/20 bg-accent/5': isSelected,
               'opacity-50 bg-muted': isDragging
             }
           )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
           tabIndex={0}

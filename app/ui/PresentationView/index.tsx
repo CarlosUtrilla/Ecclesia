@@ -208,6 +208,7 @@ function PresentationViewComponent({
       hideTextInLive={hideTextInLive}
       blockBgStyle={blockBgStyle}
       blockBgPadding={blockBgPadding}
+      animationDuration={animationSettings.duration}
     />
   )
 

@@ -11,6 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free disk space
+        run: |
+          sudo rm -rf /Library/Developer/CoreSimulator/Profiles/Runtimes || true
+          xcrun simctl delete all || true
+          rm -rf ~/Library/Developer/Xcode/DerivedData || true
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -33,6 +39,12 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /Library/Developer/CoreSimulator/Profiles/Runtimes || true
+          xcrun simctl delete all || true
+          rm -rf ~/Library/Developer/Xcode/DerivedData || true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

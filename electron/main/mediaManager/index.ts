@@ -58,23 +58,10 @@ export const mediaAPI = {
     newFileName: string
     newThumbnail?: string
   }> => ipcRenderer.invoke('media:copy-file', sourcePath, targetFolder, isFolder),
-  convertVideo: (
-    filePath: string
-  ): Promise<{
-    originalPath: string
-    convertedPath: string
-    success: boolean
-  }> => ipcRenderer.invoke('media:convert-video', filePath),
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   getServerPort: (): Promise<number> => ipcRenderer.invoke('get-media-server-port'),
   onImportProgress: (callback: (data: { progress: number; fileName: string }) => void) => {
     ipcRenderer.on('media:import-progress', (_event, data) => callback(data))
     return () => ipcRenderer.removeAllListeners('media:import-progress')
-  },
-  onConvertProgress: (
-    callback: (data: { progress: number; filePath: string; convertedFilePath: string }) => void
-  ) => {
-    ipcRenderer.on('media:convert-progress', (_event, data) => callback(data))
-    return () => ipcRenderer.removeAllListeners('media:convert-progress')
   }
 }

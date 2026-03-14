@@ -281,6 +281,47 @@ export default function MediaLibrary() {
     }
   }
 
+  // Refs para evitar stale closures en listeners de dnd-kit
+  const mediaItemsRef = useRef(mediaItems)
+  mediaItemsRef.current = mediaItems
+  const handleDropRef = useRef(handleDrop)
+  handleDropRef.current = handleDrop
+  const selectionRef = useRef(selection)
+  selectionRef.current = selection
+  const allSelectableItemsRef = useRef(allSelectableItems)
+  allSelectableItemsRef.current = allSelectableItems
+
+  // Escuchar drops de dnd-kit sobre carpetas (desde dragAndDropSchedule)
+  useEffect(() => {
+    const onMediaToFolder = (e: Event) => {
+      const { mediaId, targetFolder } = (e as CustomEvent<{ mediaId: number; targetFolder: string }>).detail
+      const draggedItem = mediaItemsRef.current.find((m) => m.id === mediaId)
+      if (!draggedItem) return
+
+      const selected = selectionRef.current.getSelectedItems(allSelectableItemsRef.current)
+      const isDraggedSelected = selected.some((s) => typeof s === 'object' && s.id === mediaId)
+
+      if (isDraggedSelected && selected.length > 1) {
+        // Mover todos los ítems seleccionados
+        for (const s of selected) {
+          handleDropRef.current({ item: s, isFolder: typeof s === 'string' }, targetFolder)
+        }
+      } else {
+        handleDropRef.current({ item: draggedItem, isFolder: false }, targetFolder)
+      }
+    }
+    const onFolderToFolder = (e: Event) => {
+      const { folderName, targetFolder } = (e as CustomEvent<{ folderName: string; targetFolder: string }>).detail
+      handleDropRef.current({ item: folderName, isFolder: true }, targetFolder)
+    }
+    document.addEventListener('dnd:media-to-folder', onMediaToFolder)
+    document.addEventListener('dnd:folder-to-folder', onFolderToFolder)
+    return () => {
+      document.removeEventListener('dnd:media-to-folder', onMediaToFolder)
+      document.removeEventListener('dnd:folder-to-folder', onFolderToFolder)
+    }
+  }, [])
+
   const navigateToFolder = (folderName: string | null) => {
     setCurrentFolder(folderName ? buildFolderPath(currentFolder, folderName) : null)
   }

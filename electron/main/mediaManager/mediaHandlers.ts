@@ -66,11 +66,11 @@ function generateVideoFallback(sourcePath: string, destPath: string): Promise<vo
       '-i',
       sourcePath,
       '-ss',
-      '00:00:00.1', // Primer frame visible (no el frame 0 que puede estar negro)
+      '00:00:00.1',
       '-vframes',
       '1',
       '-vf',
-      'scale=-1:1080:force_original_aspect_ratio=decrease', // Mantener resolución original
+      'scale=-1:1080:force_original_aspect_ratio=decrease',
       '-q:v',
       '2',
       destPath
@@ -80,133 +80,6 @@ function generateVideoFallback(sourcePath: string, destPath: string): Promise<vo
 
     process.on('close', (code) => {
       if (code === 0) {
-        resolve()
-      } else {
-        reject(new Error(`FFmpeg exited with code ${code}`))
-      }
-    })
-
-    process.on('error', reject)
-  })
-}
-
-// Verificar si un video es compatible con Chromium (H.264 baseline/main)
-function checkVideoCompatibility(
-  sourcePath: string
-): Promise<{ compatible: boolean; codec: string; profile: string }> {
-  return new Promise((resolve, reject) => {
-    const ffmpegPath = resolveFfmpegPath()
-    const args = ['-i', sourcePath, '-hide_banner']
-
-    const process = spawn(ffmpegPath, args)
-    let output = ''
-
-    process.stderr.on('data', (data) => {
-      output += data.toString()
-    })
-
-    process.on('close', () => {
-      // Buscar información del codec de video
-      const videoMatch = output.match(/Stream #\d+:\d+.*Video: (\w+).*?(\(.*?\))?/i)
-
-      if (!videoMatch) {
-        resolve({ compatible: false, codec: 'unknown', profile: 'unknown' })
-        return
-      }
-
-      const codec = videoMatch[1].toLowerCase()
-      const profileInfo = videoMatch[2] || ''
-
-      // Chromium soporta H.264 (baseline, main, high), VP8, VP9
-      // Formato MP4 con H.264 es el más compatible
-      const compatible =
-        (codec === 'h264' &&
-          (profileInfo.includes('Baseline') ||
-            profileInfo.includes('Main') ||
-            profileInfo.includes('High'))) ||
-        codec === 'vp8' ||
-        codec === 'vp9'
-
-      resolve({
-        compatible,
-        codec,
-        profile: profileInfo.replace(/[()]/g, '').trim()
-      })
-    })
-
-    process.on('error', reject)
-  })
-}
-
-// Convertir video a formato MP4 con H.264 (mejor compatibilidad para Electron/Chromium)
-function convertVideoToCompatibleFormat(
-  sourcePath: string,
-  destPath: string,
-  onProgress?: (progress: number) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const ffmpegPath = resolveFfmpegPath()
-    const args = [
-      '-i',
-      sourcePath,
-      '-c:v',
-      'libx264',
-      '-profile:v',
-      'baseline', // Máxima compatibilidad
-      '-level',
-      '3.1', // Mejor que 3.0, soporta hasta 1080p
-      '-pix_fmt',
-      'yuv420p',
-      '-crf',
-      '23', // Calidad constante (18-28, 23 es buena calidad)
-      '-preset',
-      'medium', // Balance entre velocidad y compresión
-      '-c:a',
-      'aac',
-      '-b:a',
-      '128k',
-      '-movflags',
-      '+faststart', // Optimizar para streaming web
-      '-y', // Sobrescribir archivo de salida
-      destPath
-    ]
-
-    console.log('Convirtiendo video a MP4 (H.264) para máxima compatibilidad...')
-    const process = spawn(ffmpegPath, args)
-
-    let duration = 0
-    let currentTime = 0
-
-    process.stderr.on('data', (data) => {
-      const output = data.toString()
-
-      // Extraer duración total del video
-      const durationMatch = output.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})/)
-      if (durationMatch) {
-        const hours = parseInt(durationMatch[1])
-        const minutes = parseInt(durationMatch[2])
-        const seconds = parseFloat(durationMatch[3])
-        duration = hours * 3600 + minutes * 60 + seconds
-      }
-
-      // Extraer progreso actual
-      const timeMatch = output.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/)
-      if (timeMatch && duration > 0) {
-        const hours = parseInt(timeMatch[1])
-        const minutes = parseInt(timeMatch[2])
-        const seconds = parseFloat(timeMatch[3])
-        currentTime = hours * 3600 + minutes * 60 + seconds
-        const progress = Math.min(Math.round((currentTime / duration) * 100), 100)
-
-        if (onProgress) {
-          onProgress(progress)
-        }
-      }
-    })
-
-    process.on('close', (code) => {
-      if (code === 0) {
-        console.log('Video convertido exitosamente a MP4 (H.264)')
         resolve()
       } else {
         reject(new Error(`FFmpeg exited with code ${code}`))
@@ -332,46 +205,6 @@ export function registerMediaHandlers() {
   ipcMain.handle('media:get-full-path', (_event, fileName: string) => {
     const userDataPath = app.getPath('userData')
     return path.join(userDataPath, 'media', fileName)
-  })
-
-  // Convertir video a formato compatible bajo demanda
-  ipcMain.handle('media:convert-video', async (event, filePath: string) => {
-    try {
-      const userDataPath = app.getPath('userData')
-      const fullPath = path.join(userDataPath, 'media', filePath)
-
-      if (!fs.existsSync(fullPath)) {
-        throw new Error('Archivo no encontrado')
-      }
-
-      // Crear nombre para archivo convertido
-      const parsedPath = path.parse(filePath)
-      const convertedFileName = `${parsedPath.name}-converted.mp4`
-      const convertedFilePath = path.join(parsedPath.dir, convertedFileName)
-      const convertedFullPath = path.join(userDataPath, 'media', convertedFilePath)
-
-      console.log('Convirtiendo video a MP4 (H.264)...')
-
-      await convertVideoToCompatibleFormat(fullPath, convertedFullPath, (progress) => {
-        // Enviar progreso al frontend
-        event.sender.send('media:convert-progress', {
-          progress,
-          filePath,
-          convertedFilePath
-        })
-      })
-
-      console.log('Conversión completada')
-
-      return {
-        originalPath: filePath,
-        convertedPath: convertedFilePath,
-        success: true
-      }
-    } catch (error: any) {
-      console.error('Error al convertir video:', error)
-      throw error
-    }
   })
 
   // Eliminar archivo físico

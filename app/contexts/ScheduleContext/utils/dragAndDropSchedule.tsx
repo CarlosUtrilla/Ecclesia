@@ -69,6 +69,30 @@ export default function DragAndDropSchedule({ children }: PropsWithChildren) {
       }
       const overId = over.id.toString()
       const activeData = active.data.current
+
+      // Drop sobre una carpeta de la biblioteca de medios
+      if (overId.startsWith('folder-drop-')) {
+        const overData = over.data.current
+        const targetFolder = overData?.currentFolder
+          ? `${overData.currentFolder}/${overData.folderName}`
+          : overData?.folderName
+        if (activeData && isExternalDrag(activeData) && activeData.type === 'MEDIA') {
+          document.dispatchEvent(
+            new CustomEvent('dnd:media-to-folder', {
+              detail: { mediaId: activeData.accessData, targetFolder }
+            })
+          )
+        } else if (activeData?.isFolder && activeData?.item) {
+          document.dispatchEvent(
+            new CustomEvent('dnd:folder-to-folder', {
+              detail: { folderName: activeData.item, currentFolder: activeData.currentFolder, targetFolder }
+            })
+          )
+        }
+        handleCancel()
+        return
+      }
+
       // Elementos externos (biblioteca)
       if (activeData && isExternalDrag(activeData)) {
         if (!isValidScheduleDrop(overId)) {

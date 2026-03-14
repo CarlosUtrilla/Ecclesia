@@ -225,8 +225,8 @@ export const getAnimationVariants = (
       animate: {
         opacity: 1,
         transition: {
-          staggerChildren: 0.05,
-          delayChildren: 0.1
+          staggerChildren: duration * 0.12,
+          delayChildren: duration * 0.1
         }
       },
       exit: { opacity: 0, transition: { duration: duration * 0.3 } }
@@ -237,7 +237,12 @@ export const getAnimationVariants = (
 }
 
 // Variantes para palabras individuales (usado en animación 'split')
-export const wordVariants: Variants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 }
+export function getWordVariants(duration = 0.4): Variants {
+  return {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0, transition: { duration } }
+  }
 }
+
+/** @deprecated Usar getWordVariants(duration) para respetar la velocidad configurada */
+export const wordVariants: Variants = getWordVariants()
