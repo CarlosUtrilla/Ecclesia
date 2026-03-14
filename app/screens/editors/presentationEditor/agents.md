@@ -23,8 +23,9 @@ app/screens/editors/presentationEditor/
 │   ├── canvasItemShell.tsx                # Tarjeta base visual/posicional de items en canvas
 │   ├── mediaCanvasItem.tsx                # Render de item media en canvas (imagen/video + handles)
 │   ├── textCanvasItem.tsx                 # Item de texto editable inline
-│   ├── slideControls.tsx                  # Controles contextuales de MEDIA/BIBLE
-│   ├── textStyleToolbar.tsx               # Toolbar tipográfica y posición
+│   ├── textTabContent.tsx                 # Contenido de la pestaña "Texto" (texto/biblia/media)
+│   ├── animationTabContent.tsx            # Contenido de la pestaña "Animar"
+│   ├── insertTabContent.tsx               # Contenido de la pestaña "Insertar"
 │   └── sortableSlideCard.tsx              # Miniatura sortable para carrusel
 ├── hooks/
 │   ├── usePresentationEditorHistory.ts    # Undo/redo con snapshots
@@ -41,6 +42,10 @@ app/screens/editors/presentationEditor/
 
 - `index.tsx`: composición de UI, queries, routing y wiring entre hooks/componentes.
 - `components/*`: render e interacción visual (canvas, toolbar, controles, miniaturas).
+- `components/textTabContent.tsx`: encapsula los controles de inspector de la pestaña `Texto` para mantener `index.tsx` liviano.
+- `components/textTabContent.tsx`: incluye controles compartidos de efectos (`Sombra`, `Contorno`, `Fondo`) reutilizados desde `app/screens/editors/components/textEffectsControls.tsx`.
+- `components/animationTabContent.tsx`: encapsula la configuración de animaciones de item y transición por slide.
+- `components/insertTabContent.tsx`: encapsula acciones de inserción (texto, biblia, media).
 - `hooks/*`: lógica reutilizable y estado derivado (acciones, historial, shortcuts, snapping).
 - `utils/*`: transformaciones puras de datos y helpers de serialización/parsing.
 
@@ -56,6 +61,8 @@ app/screens/editors/presentationEditor/
 - La franja inferior distribuye carrusel y zoom en una sola línea (carrusel a la izquierda con scroll horizontal + bloque de zoom a la derecha) para mejorar legibilidad y uso del espacio.
 - El canvas usa viewport base fijo en px (`1280x720`) y aplica zoom con escalado relativo (`transform: scale`) sobre ese viewport; así se preservan proporciones, aspect ratio y crecimiento uniforme del contenido.
 - El cálculo de interacción en canvas (drag, resize, rotate, snapping y posición de puntero) es zoom-aware: normaliza deltas/coords por escala para mantener precisión en cualquier nivel de zoom.
+- Las guías de snapping de centro y bordes usan siempre coordenadas base del canvas (sin reescalar `clientWidth/clientHeight`) para evitar desfase al trabajar con zoom distinto de `100%`.
+- El umbral de snapping (move y resize) se ajusta en función del zoom (`threshold / scale`) para mantener una sensibilidad visual homogénea en pantalla.
 - Canvas del editor con fondo blanco por defecto y estilo base de texto en negro para edición inicial.
 - El stage del canvas se presenta dentro de un contenedor visual sutil (borde + fondo + sombra ligera) para separar mejor el lienzo del fondo del editor.
 - El canvas del editor renderiza el fondo del tema global activo (color, gradiente, imagen o thumbnail de video) para mantener paridad visual con previews/live mientras se edita.
@@ -71,6 +78,7 @@ app/screens/editors/presentationEditor/
 - El selector bíblico permite seleccionar múltiples versos contiguos por rango (click para inicio y `Shift+click` para extender el final).
 - El picker muestra referencia seleccionada con versión (`Libro capítulo:versoInicio-versoFin (versión)`) antes de agregar.
 - En `textCanvasItem`, los items bíblicos con rango muestran un micro-control dentro del recuadro (anterior/siguiente) para previsualizar y ajustar posición/estilo verso por verso durante la edición.
+- El contador de ese micro-control es relativo al rango seleccionado (ej. `1/3`, `2/3`, `3/3`), no al número absoluto de verso bíblico.
 - El verso previsualizado en ese micro-control se conserva por item durante la sesión del editor (no se pierde al seleccionar otro item y volver).
 - Los items de texto en canvas (cuando no están en edición inline) reutilizan renderers de `PresentationView`: `AnimatedText` para texto general y `BibleTextRender` para bíblico.
 - El render no-edit de `textCanvasItem` no aplica padding interno adicional alrededor de `AnimatedText`/`BibleTextRender`, para mantener paridad de tamaño visual con `PresentationView`.
@@ -132,3 +140,4 @@ app/screens/editors/presentationEditor/
 - Para convivir con edición por doble click, el drag `move` en canvas se activa con umbral de desplazamiento (no en `pointerdown` inmediato), evitando conflicto entre clic/edición y arrastre.
 - En items `TEXT` editables, el `pointerdown` no inicia arrastre de movimiento; se prioriza edición inline por doble click para evitar bloqueos de entrada a edición.
 - Para conservar movimiento de items `TEXT` sin romper la edición inline, el arrastre se habilita con `Alt + drag` sobre el texto.
+- Existe prueba de regresión en `hooks/useCanvasSnapping.test.tsx` que valida snap al centro con zoom `1x` y `2x`.

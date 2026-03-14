@@ -192,7 +192,7 @@ export default function EditorCanvas({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative rounded-lg overflow-visible border"
+      className="w-full h-full relative rounded-lg overflow-visible border select-none"
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMoveCanvas}
       onPointerUp={handlePointerUp}

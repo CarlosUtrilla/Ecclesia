@@ -3,26 +3,13 @@ import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useParams } from 'react-router-dom'
 import {
-  AlignCenter,
-  AlignJustify,
-  AlignLeft,
-  AlignRight,
-  AlignVerticalJustifyCenter,
-  AlignVerticalJustifyEnd,
-  AlignVerticalJustifyStart,
-  Bold,
-  BookText,
-  FileImage,
-  Italic,
   Minus,
   Palette,
-  Play,
   Plus as PlusIcon,
   Plus,
   Redo2,
   Save,
   TextCursorInput,
-  Underline as UnderlineIcon,
   Undo2,
   Zap
 } from 'lucide-react'
@@ -50,33 +37,24 @@ import {
 import { Card } from '@/ui/card'
 import { Slider } from '@/ui/slider'
 import { Label } from '@/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
-import {
-  AnimationSettings,
-  defaultAnimationSettings,
-  easingOptions,
-  EasingType
-} from '@/lib/animationSettings'
+import { AnimationSettings, defaultAnimationSettings, easingOptions } from '@/lib/animationSettings'
 import { BlankTheme, useThemes } from '@/hooks/useThemes'
 import { MediaPicker } from '@/screens/panels/library/media/exports'
 import ThemePicker from './themePicker'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/ui/tabs'
-import { ColorPicker } from '@/ui/colorPicker'
-import FontFamilySelector from '@/ui/fontFamilySelector'
-import { animations } from '@/lib/animations'
-import { cn } from '@/lib/utils'
-import FormatLineSpacingIcon from '@/icons/line-spacing'
-import LetterSpacingIcon from '@/icons/letter-spacing'
 import { PresentationSchema, PresentationFormValues } from './schema'
 import BibleTextPicker from './bibleTextPicker'
 import EditorCanvas from './components/editorCanvas'
 import SortableSlideCard from './components/sortableSlideCard'
+import TextTabContent from './components/textTabContent'
+import AnimationTabContent from './components/animationTabContent'
+import InsertTabContent from './components/insertTabContent'
 import usePresentationEditorShortcuts from './hooks/usePresentationEditorShortcuts'
 import usePresentationEditorActions from './hooks/usePresentationEditorActions'
 import usePresentationEditorHistory, {
   PresentationEditorHistorySnapshot
 } from './hooks/usePresentationEditorHistory'
-import { buildBibleAccessData, parseBibleAccessData } from './utils/bibleAccessData'
+import { parseBibleAccessData } from './utils/bibleAccessData'
 import {
   buildPrimaryItemFromSlide,
   BASE_CANVAS_HEIGHT,
@@ -550,621 +528,45 @@ export default function PresentationEditor() {
 
             {/* TAB: TEXTO */}
             <TabsContent value="texto" className="flex-1 overflow-y-auto m-0">
-              {selectedItem &&
-              selectedItemStyle &&
-              (selectedItem.type === 'TEXT' ||
-                selectedItem.type === 'BIBLE' ||
-                selectedItem.type === 'SONG' ||
-                selectedItem.type === 'GROUP') ? (
-                <div className="p-3 flex flex-col gap-4">
-                  {/* FUENTE */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Fuente
-                    </span>
-                    <FontFamilySelector
-                      value={selectedItemStyle.fontFamily || 'Arial'}
-                      onChange={(fontFamily) => updateSelectedTextStyle({ fontFamily })}
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* TAMAÑO */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Tamaño
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() =>
-                          updateSelectedTextStyle({
-                            fontSize: Math.max(1, (selectedItemStyle.fontSize || 24) - 1)
-                          })
-                        }
-                      >
-                        <Minus className="size-3.5" />
-                      </Button>
-                      <Input
-                        type="number"
-                        containerClassName="w-auto flex-1"
-                        className="h-8 text-center"
-                        value={selectedItemStyle.fontSize || 24}
-                        onChange={(e) =>
-                          updateSelectedTextStyle({ fontSize: Number(e.target.value) })
-                        }
-                      />
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() =>
-                          updateSelectedTextStyle({
-                            fontSize: (selectedItemStyle.fontSize || 24) + 1
-                          })
-                        }
-                      >
-                        <Plus className="size-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* ESTILO */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Estilo
-                    </span>
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant={selectedItemStyle.fontWeight === 'bold' ? 'default' : 'outline'}
-                        className="h-8 w-8"
-                        title="Negrita"
-                        onClick={() =>
-                          updateSelectedTextStyle({
-                            fontWeight: selectedItemStyle.fontWeight === 'bold' ? 'normal' : 'bold'
-                          })
-                        }
-                      >
-                        <Bold className="size-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant={selectedItemStyle.fontStyle === 'italic' ? 'default' : 'outline'}
-                        className="h-8 w-8"
-                        title="Cursiva"
-                        onClick={() =>
-                          updateSelectedTextStyle({
-                            fontStyle:
-                              selectedItemStyle.fontStyle === 'italic' ? 'normal' : 'italic'
-                          })
-                        }
-                      >
-                        <Italic className="size-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant={
-                          selectedItemStyle.textDecoration === 'underline' ? 'default' : 'outline'
-                        }
-                        className="h-8 w-8"
-                        title="Subrayado"
-                        onClick={() =>
-                          updateSelectedTextStyle({
-                            textDecoration:
-                              selectedItemStyle.textDecoration === 'underline'
-                                ? 'none'
-                                : 'underline'
-                          })
-                        }
-                      >
-                        <UnderlineIcon className="size-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* ALINEACIÓN HORIZONTAL */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Alineación horizontal
-                    </span>
-                    <div className="flex gap-1">
-                      {(
-                        [
-                          { value: 'left', Icon: AlignLeft, label: 'Izquierda' },
-                          { value: 'center', Icon: AlignCenter, label: 'Centro' },
-                          { value: 'right', Icon: AlignRight, label: 'Derecha' },
-                          { value: 'justify', Icon: AlignJustify, label: 'Justificado' }
-                        ] as const
-                      ).map(({ value, Icon, label }) => (
-                        <Button
-                          key={value}
-                          type="button"
-                          size="icon"
-                          variant={selectedItemStyle.textAlign === value ? 'default' : 'outline'}
-                          className="h-8 w-8"
-                          title={label}
-                          onClick={() => updateSelectedTextStyle({ textAlign: value })}
-                        >
-                          <Icon className="size-3.5" />
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* ALINEACIÓN VERTICAL */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Alineación vertical
-                    </span>
-                    <div className="flex gap-1">
-                      {(
-                        [
-                          { value: 'top', Icon: AlignVerticalJustifyStart, label: 'Arriba' },
-                          { value: 'center', Icon: AlignVerticalJustifyCenter, label: 'Centro' },
-                          { value: 'bottom', Icon: AlignVerticalJustifyEnd, label: 'Abajo' }
-                        ] as const
-                      ).map(({ value, Icon, label }) => (
-                        <Button
-                          key={value}
-                          type="button"
-                          size="icon"
-                          variant={
-                            selectedItemStyle.verticalAlign === value ? 'default' : 'outline'
-                          }
-                          className="h-8 w-8"
-                          title={label}
-                          onClick={() => updateSelectedTextStyle({ verticalAlign: value })}
-                        >
-                          <Icon className="size-3.5" />
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* ESPACIADO */}
-                  <div className="flex flex-col gap-3">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Espaciado
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <FormatLineSpacingIcon size={16} />
-                      <span className="text-xs text-muted-foreground w-5 shrink-0">LH</span>
-                      <Slider
-                        value={[selectedItemStyle.lineHeight ?? 1.2]}
-                        min={0.8}
-                        max={3}
-                        step={0.1}
-                        className="flex-1"
-                        onValueChange={([v]) => updateSelectedTextStyle({ lineHeight: v })}
-                      />
-                      <span className="text-xs tabular-nums w-7 text-right shrink-0">
-                        {(selectedItemStyle.lineHeight ?? 1.2).toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <LetterSpacingIcon size={16} />
-                      <span className="text-xs text-muted-foreground w-5 shrink-0">LS</span>
-                      <Slider
-                        value={[selectedItemStyle.letterSpacing ?? 0]}
-                        min={-5}
-                        max={20}
-                        step={0.5}
-                        className="flex-1"
-                        onValueChange={([v]) => updateSelectedTextStyle({ letterSpacing: v })}
-                      />
-                      <span className="text-xs tabular-nums w-7 text-right shrink-0">
-                        {(selectedItemStyle.letterSpacing ?? 0).toFixed(1)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* COLOR DE TEXTO */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Color de texto
-                    </span>
-                    <ColorPicker
-                      value={selectedItemStyle.color || '#ffffff'}
-                      onChange={(color) => updateSelectedTextStyle({ color })}
-                      className="w-full h-9"
-                    />
-                  </div>
-
-                  {/* REFERENCIA BÍBLICA */}
-                  {selectedItem.type === 'BIBLE' &&
-                    (() => {
-                      const bible = parseBibleAccessData(selectedItem.accessData)
-                      return (
-                        <div className="flex flex-col gap-3 pt-2 border-t">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            Referencia bíblica
-                          </span>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[10px] text-muted-foreground">Libro</span>
-                              <Input
-                                type="number"
-                                containerClassName="w-auto"
-                                className="h-8 text-xs"
-                                value={bible.bookId}
-                                onChange={(e) =>
-                                  updateSelectedItem({
-                                    accessData: buildBibleAccessData({
-                                      ...bible,
-                                      bookId: Number(e.target.value)
-                                    })
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[10px] text-muted-foreground">Capítulo</span>
-                              <Input
-                                type="number"
-                                containerClassName="w-auto"
-                                className="h-8 text-xs"
-                                value={bible.chapter}
-                                onChange={(e) =>
-                                  updateSelectedItem({
-                                    accessData: buildBibleAccessData({
-                                      ...bible,
-                                      chapter: Number(e.target.value)
-                                    })
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[10px] text-muted-foreground">
-                                Verso inicio
-                              </span>
-                              <Input
-                                type="number"
-                                containerClassName="w-auto"
-                                className="h-8 text-xs"
-                                value={bible.verseStart}
-                                onChange={(e) =>
-                                  updateSelectedItem({
-                                    accessData: buildBibleAccessData({
-                                      ...bible,
-                                      verseStart: Number(e.target.value)
-                                    })
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[10px] text-muted-foreground">Verso fin</span>
-                              <Input
-                                type="number"
-                                containerClassName="w-auto"
-                                className="h-8 text-xs"
-                                value={bible.verseEnd || ''}
-                                onChange={(e) =>
-                                  updateSelectedItem({
-                                    accessData: buildBibleAccessData({
-                                      ...bible,
-                                      verseEnd: e.target.value ? Number(e.target.value) : undefined
-                                    })
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] text-muted-foreground">Versión</span>
-                            <Input
-                              containerClassName="w-auto"
-                              className="h-8 text-xs"
-                              value={bible.version}
-                              onChange={(e) =>
-                                updateSelectedItem({
-                                  accessData: buildBibleAccessData({
-                                    ...bible,
-                                    version: e.target.value
-                                  })
-                                })
-                              }
-                            />
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full h-8 text-xs"
-                            onClick={loadBibleText}
-                          >
-                            Cargar texto bíblico
-                          </Button>
-                        </div>
-                      )
-                    })()}
-                </div>
-              ) : selectedItem?.type === 'MEDIA' ? (
-                <div className="p-3 flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Imagen / Video
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full h-9 justify-start gap-2 text-xs"
-                      onClick={replaceSelectedMedia}
-                    >
-                      <FileImage className="size-4" />
-                      Cambiar archivo
-                    </Button>
-                    <Select
-                      value={selectedMediaId ? String(selectedMediaId) : undefined}
-                      onValueChange={(v) => updateSelectedItem({ accessData: v })}
-                    >
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="Seleccionar media" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {media.map((item) => (
-                          <SelectItem key={item.id} value={String(item.id)}>
-                            {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {selectedSlide && (
-                    <div className="flex flex-col gap-1.5">
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        Reproducción en vivo
-                      </span>
-                      <Select
-                        value={selectedSlide.videoLiveBehavior || 'manual'}
-                        onValueChange={(value: 'auto' | 'manual') => {
-                          setValue(`slides.${selectedSlideIndex}.videoLiveBehavior`, value, {
-                            shouldDirty: true
-                          })
-                        }}
-                      >
-                        <SelectTrigger className="h-9 text-xs">
-                          <Zap className="size-3.5 mr-1 shrink-0" />
-                          <SelectValue placeholder="Video live" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="manual">Inicio manual</SelectItem>
-                          <SelectItem value="auto">Inicio automático</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center gap-2 px-4">
-                  <TextCursorInput className="size-8 text-muted-foreground/30" />
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Selecciona un elemento de texto para editar sus propiedades
-                  </p>
-                </div>
-              )}
+              <TextTabContent
+                selectedItem={selectedItem}
+                selectedItemStyle={selectedItemStyle}
+                selectedSlide={selectedSlide}
+                selectedMediaId={selectedMediaId}
+                media={media}
+                updateSelectedTextStyle={updateSelectedTextStyle}
+                updateSelectedItem={updateSelectedItem}
+                loadBibleText={loadBibleText}
+                replaceSelectedMedia={replaceSelectedMedia}
+                onVideoLiveBehaviorChange={(value) => {
+                  setValue(`slides.${selectedSlideIndex}.videoLiveBehavior`, value, {
+                    shouldDirty: true
+                  })
+                }}
+              />
             </TabsContent>
 
             {/* TAB: ANIMAR */}
             <TabsContent value="animar" className="flex-1 overflow-y-auto m-0">
-              {selectedItem ? (
-                <div className="p-3 flex flex-col gap-4">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Animación de elementos
-                    </span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {animations.map((anim) => {
-                        const AnimIcon = anim.icon
-                        return (
-                          <button
-                            key={anim.value}
-                            type="button"
-                            className={cn(
-                              'flex flex-col items-center gap-1.5 p-2 rounded-lg border text-center transition-colors',
-                              selectedItemAnimationSettings.type === anim.value
-                                ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border hover:border-primary/40 hover:bg-muted/50'
-                            )}
-                            onClick={() =>
-                              handleSelectedItemAnimationChange({
-                                ...selectedItemAnimationSettings,
-                                type: anim.value
-                              })
-                            }
-                          >
-                            <AnimIcon className="size-5" />
-                            <span className="text-[10px] leading-tight">{anim.label}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Duración */}
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Duración</span>
-                      <span className="text-xs tabular-nums">
-                        {selectedItemAnimationSettings.duration}s
-                      </span>
-                    </div>
-                    <Slider
-                      value={[selectedItemAnimationSettings.duration]}
-                      min={0.1}
-                      max={3}
-                      step={0.1}
-                      onValueChange={([v]) =>
-                        handleSelectedItemAnimationChange({
-                          ...selectedItemAnimationSettings,
-                          duration: v
-                        })
-                      }
-                    />
-                  </div>
-
-                  {/* Retraso */}
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Retraso</span>
-                      <span className="text-xs tabular-nums">
-                        {selectedItemAnimationSettings.delay}s
-                      </span>
-                    </div>
-                    <Slider
-                      value={[selectedItemAnimationSettings.delay]}
-                      min={0}
-                      max={2}
-                      step={0.1}
-                      onValueChange={([v]) =>
-                        handleSelectedItemAnimationChange({
-                          ...selectedItemAnimationSettings,
-                          delay: v
-                        })
-                      }
-                    />
-                  </div>
-
-                  {/* Easing */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-xs text-muted-foreground">Easing</span>
-                    <Select
-                      value={selectedItemAnimationSettings.easing}
-                      onValueChange={(v) =>
-                        handleSelectedItemAnimationChange({
-                          ...selectedItemAnimationSettings,
-                          easing: v as EasingType
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {easingOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {selectedItem.type !== 'MEDIA' && (
-                    <Button size="sm" className="w-full" onClick={handleAnimationPreview}>
-                      <Play className="size-3.5 mr-2" />
-                      Previsualizar
-                    </Button>
-                  )}
-
-                  {/* Transición de diapositivas */}
-                  {selectedSlide && (
-                    <div className="flex flex-col gap-3 pt-3 border-t">
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        Transición de diapositivas
-                      </span>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {animations.map((anim) => {
-                          const AnimIcon = anim.icon
-                          return (
-                            <button
-                              key={anim.value}
-                              type="button"
-                              className={cn(
-                                'flex flex-col items-center gap-1.5 p-2 rounded-lg border text-center transition-colors',
-                                selectedSlideTransitionSettings.type === anim.value
-                                  ? 'border-primary bg-primary/10 text-primary'
-                                  : 'border-border hover:border-primary/40 hover:bg-muted/50'
-                              )}
-                              onClick={() =>
-                                handleSelectedSlideTransitionChange({
-                                  ...selectedSlideTransitionSettings,
-                                  type: anim.value
-                                })
-                              }
-                            >
-                              <AnimIcon className="size-5" />
-                              <span className="text-[10px] leading-tight">{anim.label}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Duración</span>
-                          <span className="text-xs tabular-nums">
-                            {selectedSlideTransitionSettings.duration}s
-                          </span>
-                        </div>
-                        <Slider
-                          value={[selectedSlideTransitionSettings.duration]}
-                          min={0.1}
-                          max={3}
-                          step={0.1}
-                          onValueChange={([v]) =>
-                            handleSelectedSlideTransitionChange({
-                              ...selectedSlideTransitionSettings,
-                              duration: v
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center gap-2 px-4">
-                  <Zap className="size-8 text-muted-foreground/30" />
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Selecciona un elemento para configurar su animación
-                  </p>
-                </div>
-              )}
+              <AnimationTabContent
+                selectedItem={selectedItem}
+                selectedSlide={selectedSlide}
+                selectedItemAnimationSettings={selectedItemAnimationSettings}
+                selectedSlideTransitionSettings={selectedSlideTransitionSettings}
+                easingOptions={easingOptions}
+                onSelectedItemAnimationChange={handleSelectedItemAnimationChange}
+                onSelectedSlideTransitionChange={handleSelectedSlideTransitionChange}
+                onAnimationPreview={handleAnimationPreview}
+              />
             </TabsContent>
 
             {/* TAB: INSERTAR */}
             <TabsContent value="insertar" className="flex-1 overflow-y-auto m-0 p-3">
-              <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Insertar elemento
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full h-10 justify-start gap-3"
-                  onClick={insertTextInCurrentSlide}
-                >
-                  <TextCursorInput className="size-4" />
-                  Texto libre
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full h-10 justify-start gap-3"
-                  onClick={() => setIsBiblePickerOpen(true)}
-                >
-                  <BookText className="size-4" />
-                  Versículo bíblico
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full h-10 justify-start gap-3"
-                  onClick={insertMediaItem}
-                >
-                  <FileImage className="size-4" />
-                  Imagen / Video
-                </Button>
-              </div>
+              <InsertTabContent
+                onInsertText={insertTextInCurrentSlide}
+                onOpenBiblePicker={() => setIsBiblePickerOpen(true)}
+                onInsertMedia={insertMediaItem}
+              />
             </TabsContent>
           </Tabs>
         </aside>

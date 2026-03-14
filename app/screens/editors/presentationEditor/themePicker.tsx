@@ -72,7 +72,7 @@ export default function ThemePicker({
                 selectedThemeId === null ? 'border-primary' : 'border-border'
               }`}
             >
-              <PresentationView items={previewItems} theme={BlankTheme} className="w-full" />
+              <PresentationView items={previewItems} theme={BlankTheme} className="w-full h-min" />
               <div className="mt-2 text-sm font-medium">Sin tema</div>
               <div className="text-xs text-muted-foreground">Usa fondo blanco y texto base</div>
             </button>
@@ -86,7 +86,7 @@ export default function ThemePicker({
                   selectedThemeId === theme.id ? 'border-primary' : 'border-border'
                 }`}
               >
-                <PresentationView items={previewItems} theme={theme} className="w-full" />
+                <PresentationView items={previewItems} theme={theme} className="w-full h-min" />
                 <div className="mt-2 text-sm font-medium truncate">{theme.name}</div>
               </button>
             ))}

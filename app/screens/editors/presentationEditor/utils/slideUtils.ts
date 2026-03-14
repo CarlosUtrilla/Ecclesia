@@ -25,6 +25,20 @@ export type CanvasItemStyle = {
   fontWeight: 'normal' | 'bold'
   fontStyle: 'normal' | 'italic'
   textDecoration: 'none' | 'underline'
+  textShadowEnabled?: boolean
+  textShadowColor?: string
+  textShadowBlur?: number
+  textShadowOffsetX?: number
+  textShadowOffsetY?: number
+  textStrokeEnabled?: boolean
+  textStrokeColor?: string
+  textStrokeWidth?: number
+  blockBgEnabled?: boolean
+  blockBgColor?: string
+  blockBgBlur?: number
+  blockBgPadding?: number | null
+  blockBgOpacity?: number
+  blockBgRadius?: number
 }
 
 export const baseTextStyle = {
@@ -171,6 +185,17 @@ const parseRotate = (transform?: string) => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+const parseBooleanVar = (value: string | undefined, fallback = false) => {
+  if (!value) return fallback
+  return value === '1' || value.toLowerCase() === 'true'
+}
+
+const parseNullableNumberVar = (value: string | undefined, fallback: number | null) => {
+  if (!value || value === 'auto' || value === 'null') return fallback
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 export const parseCanvasItemStyle = (
   customStyle?: string,
   itemType: PresentationSlideItem['type'] = 'TEXT'
@@ -199,7 +224,21 @@ export const parseCanvasItemStyle = (
     fontWeight: (styleMap['font-weight'] as CanvasItemStyle['fontWeight']) || base.fontWeight,
     fontStyle: (styleMap['font-style'] as CanvasItemStyle['fontStyle']) || base.fontStyle,
     textDecoration:
-      (styleMap['text-decoration'] as CanvasItemStyle['textDecoration']) || base.textDecoration
+      (styleMap['text-decoration'] as CanvasItemStyle['textDecoration']) || base.textDecoration,
+    textShadowEnabled: parseBooleanVar(styleMap['--text-shadow-enabled']),
+    textShadowColor: styleMap['--text-shadow-color'] || 'rgba(0,0,0,0.5)',
+    textShadowBlur: parseNumber(styleMap['--text-shadow-blur'], 4),
+    textShadowOffsetX: parseNumber(styleMap['--text-shadow-offset-x'], 2),
+    textShadowOffsetY: parseNumber(styleMap['--text-shadow-offset-y'], 2),
+    textStrokeEnabled: parseBooleanVar(styleMap['--text-stroke-enabled']),
+    textStrokeColor: styleMap['--text-stroke-color'] || '#000000',
+    textStrokeWidth: parseNumber(styleMap['--text-stroke-width'], 1),
+    blockBgEnabled: parseBooleanVar(styleMap['--block-bg-enabled']),
+    blockBgColor: styleMap['--block-bg-color'] || 'rgba(0,0,0,0.5)',
+    blockBgBlur: parseNumber(styleMap['--block-bg-blur'], 0),
+    blockBgPadding: parseNullableNumberVar(styleMap['--block-bg-padding'], null),
+    blockBgOpacity: parseNumber(styleMap['--block-bg-opacity'], 1),
+    blockBgRadius: parseNumber(styleMap['--block-bg-radius'], 0)
   }
 }
 
@@ -240,7 +279,21 @@ export const buildCanvasItemStyle = (
     `text-align: ${style.textAlign}`,
     `font-weight: ${style.fontWeight}`,
     `font-style: ${style.fontStyle}`,
-    `text-decoration: ${style.textDecoration}`
+    `text-decoration: ${style.textDecoration}`,
+    `--text-shadow-enabled: ${style.textShadowEnabled ? '1' : '0'}`,
+    `--text-shadow-color: ${style.textShadowColor || 'rgba(0,0,0,0.5)'}`,
+    `--text-shadow-blur: ${style.textShadowBlur ?? 4}`,
+    `--text-shadow-offset-x: ${style.textShadowOffsetX ?? 2}`,
+    `--text-shadow-offset-y: ${style.textShadowOffsetY ?? 2}`,
+    `--text-stroke-enabled: ${style.textStrokeEnabled ? '1' : '0'}`,
+    `--text-stroke-color: ${style.textStrokeColor || '#000000'}`,
+    `--text-stroke-width: ${style.textStrokeWidth ?? 1}`,
+    `--block-bg-enabled: ${style.blockBgEnabled ? '1' : '0'}`,
+    `--block-bg-color: ${style.blockBgColor || 'rgba(0,0,0,0.5)'}`,
+    `--block-bg-blur: ${style.blockBgBlur ?? 0}`,
+    `--block-bg-padding: ${style.blockBgPadding ?? 'auto'}`,
+    `--block-bg-opacity: ${style.blockBgOpacity ?? 1}`,
+    `--block-bg-radius: ${style.blockBgRadius ?? 0}`
   ].join('; ')
 }
 

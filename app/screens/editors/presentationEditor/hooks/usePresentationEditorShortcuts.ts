@@ -28,7 +28,7 @@ export default function usePresentationEditorShortcuts({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return
 
-      if (event.key === 'Delete') {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
         if (!hasSelectedItem) return
         event.preventDefault()
         onDelete()

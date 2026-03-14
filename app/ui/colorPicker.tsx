@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover'
-import { ChromePicker } from 'react-color'
+
+import Chrome from '@uiw/react-color-chrome'
 
 interface ColorPickerProps {
   value: string
@@ -20,8 +21,14 @@ export function ColorPicker({ value, onChange, className = 'h-8 w-20' }: ColorPi
           style={{ backgroundColor: value }}
         />
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <ChromePicker color={value} onChange={(color: any) => onChange(color.hex)} />
+      <PopoverContent className="w-auto p-0 text-black" align="start">
+        <Chrome
+          color={value}
+          style={{ float: 'left' }}
+          onChange={(color) => {
+            onChange(color.hex)
+          }}
+        />
       </PopoverContent>
     </Popover>
   )

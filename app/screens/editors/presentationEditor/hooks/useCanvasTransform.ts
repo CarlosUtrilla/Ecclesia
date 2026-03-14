@@ -138,19 +138,20 @@ export default function useCanvasTransform({
     }
 
     if (activeDrag.mode === 'resize') {
-      const boundsWidth = event.currentTarget.clientWidth / safeScale
-      const boundsHeight = event.currentTarget.clientHeight / safeScale
+      const boundsWidth = event.currentTarget.clientWidth
+      const boundsHeight = event.currentTarget.clientHeight
+      const resizeThreshold = resizeSnapThreshold / safeScale
 
       const getSnappedEdge = (value: number, max: number) => {
         if (event.altKey) {
           return { value, guide: null as number | null }
         }
 
-        if (Math.abs(value) <= resizeSnapThreshold) {
+        if (Math.abs(value) <= resizeThreshold) {
           return { value: 0, guide: 0 }
         }
 
-        if (Math.abs(max - value) <= resizeSnapThreshold) {
+        if (Math.abs(max - value) <= resizeThreshold) {
           return { value: max, guide: max }
         }
 

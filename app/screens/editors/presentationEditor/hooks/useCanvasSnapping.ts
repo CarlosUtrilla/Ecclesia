@@ -41,6 +41,132 @@ type SnappedMovePosition = {
   guideYTargetItemId?: string
 }
 
+export type ComputeSnappedMovePositionParams = {
+  itemId: string
+  proposedX: number
+  proposedY: number
+  width: number
+  height: number
+  baseWidth: number
+  baseHeight: number
+  parsedItems: ParsedItem[]
+  snapThreshold: number
+}
+
+export const computeSnappedMovePosition = ({
+  itemId,
+  proposedX,
+  proposedY,
+  width,
+  height,
+  baseWidth,
+  baseHeight,
+  parsedItems,
+  snapThreshold
+}: ComputeSnappedMovePositionParams): SnappedMovePosition => {
+  const movingAnchorsX = [{ offset: 0 }, { offset: width / 2 }, { offset: width }]
+  const movingAnchorsY = [{ offset: 0 }, { offset: height / 2 }, { offset: height }]
+
+  const targetAnchorsX: AxisTarget[] = [
+    { position: 0, source: 'slide' },
+    { position: baseWidth / 2, source: 'slide' },
+    { position: baseWidth, source: 'slide' }
+  ]
+  const targetAnchorsY: AxisTarget[] = [
+    { position: 0, source: 'slide' },
+    { position: baseHeight / 2, source: 'slide' },
+    { position: baseHeight, source: 'slide' }
+  ]
+
+  for (const parsedItem of parsedItems) {
+    const otherItem = parsedItem.item
+    if (otherItem.id === itemId) continue
+    const otherStyle = parsedItem.style
+
+    targetAnchorsX.push(
+      { position: otherStyle.x, source: 'item', itemId: otherItem.id },
+      { position: otherStyle.x + otherStyle.width / 2, source: 'item', itemId: otherItem.id },
+      { position: otherStyle.x + otherStyle.width, source: 'item', itemId: otherItem.id }
+    )
+
+    targetAnchorsY.push(
+      { position: otherStyle.y, source: 'item', itemId: otherItem.id },
+      {
+        position: otherStyle.y + otherStyle.height / 2,
+        source: 'item',
+        itemId: otherItem.id
+      },
+      { position: otherStyle.y + otherStyle.height, source: 'item', itemId: otherItem.id }
+    )
+  }
+
+  const nearestX = targetAnchorsX.reduce<SnapTargetMatch | null>((acc, targetAnchor) => {
+    let bestForTarget: SnapTargetMatch | null = null
+
+    for (const movingAnchor of movingAnchorsX) {
+      const movingPosition = proposedX + movingAnchor.offset
+      const delta = targetAnchor.position - movingPosition
+      const diff = Math.abs(delta)
+
+      if (diff > snapThreshold) continue
+
+      if (!bestForTarget || diff < bestForTarget.diff) {
+        bestForTarget = {
+          target: targetAnchor.position,
+          diff,
+          source: targetAnchor.source,
+          itemId: targetAnchor.itemId,
+          delta
+        }
+      }
+    }
+
+    if (!bestForTarget) return acc
+    if (!acc || bestForTarget.diff < acc.diff) return bestForTarget
+    return acc
+  }, null)
+
+  const nearestY = targetAnchorsY.reduce<SnapTargetMatch | null>((acc, targetAnchor) => {
+    let bestForTarget: SnapTargetMatch | null = null
+
+    for (const movingAnchor of movingAnchorsY) {
+      const movingPosition = proposedY + movingAnchor.offset
+      const delta = targetAnchor.position - movingPosition
+      const diff = Math.abs(delta)
+
+      if (diff > snapThreshold) continue
+
+      if (!bestForTarget || diff < bestForTarget.diff) {
+        bestForTarget = {
+          target: targetAnchor.position,
+          diff,
+          source: targetAnchor.source,
+          itemId: targetAnchor.itemId,
+          delta
+        }
+      }
+    }
+
+    if (!bestForTarget) return acc
+    if (!acc || bestForTarget.diff < acc.diff) return bestForTarget
+    return acc
+  }, null)
+
+  const snappedX = proposedX + (nearestX?.delta || 0)
+  const snappedY = proposedY + (nearestY?.delta || 0)
+
+  return {
+    x: Math.round(snappedX),
+    y: Math.round(snappedY),
+    guideX: nearestX ? nearestX.target : null,
+    guideY: nearestY ? nearestY.target : null,
+    guideXSource: nearestX?.source || null,
+    guideYSource: nearestY?.source || null,
+    guideXTargetItemId: nearestX?.itemId,
+    guideYTargetItemId: nearestY?.itemId
+  }
+}
+
 type Params = {
   containerRef: RefObject<HTMLDivElement | null>
   parsedItems: ParsedItem[]
@@ -144,111 +270,23 @@ export default function useCanvasSnapping({
       }
     }
 
+    const baseWidth = container.clientWidth
+    const baseHeight = container.clientHeight
+
     const safeScale = Number.isFinite(canvasScale) && canvasScale > 0 ? canvasScale : 1
-    const baseWidth = container.clientWidth / safeScale
-    const baseHeight = container.clientHeight / safeScale
+    const effectiveSnapThreshold = snapThreshold / safeScale
 
-    const movingAnchorsX = [{ offset: 0 }, { offset: width / 2 }, { offset: width }]
-    const movingAnchorsY = [{ offset: 0 }, { offset: height / 2 }, { offset: height }]
-
-    const targetAnchorsX: AxisTarget[] = [
-      { position: 0, source: 'slide' },
-      { position: baseWidth / 2, source: 'slide' },
-      { position: baseWidth, source: 'slide' }
-    ]
-    const targetAnchorsY: AxisTarget[] = [
-      { position: 0, source: 'slide' },
-      { position: baseHeight / 2, source: 'slide' },
-      { position: baseHeight, source: 'slide' }
-    ]
-
-    for (const parsedItem of parsedItems) {
-      const otherItem = parsedItem.item
-      if (otherItem.id === itemId) continue
-      const otherStyle = parsedItem.style
-
-      targetAnchorsX.push(
-        { position: otherStyle.x, source: 'item', itemId: otherItem.id },
-        { position: otherStyle.x + otherStyle.width / 2, source: 'item', itemId: otherItem.id },
-        { position: otherStyle.x + otherStyle.width, source: 'item', itemId: otherItem.id }
-      )
-
-      targetAnchorsY.push(
-        { position: otherStyle.y, source: 'item', itemId: otherItem.id },
-        {
-          position: otherStyle.y + otherStyle.height / 2,
-          source: 'item',
-          itemId: otherItem.id
-        },
-        { position: otherStyle.y + otherStyle.height, source: 'item', itemId: otherItem.id }
-      )
-    }
-
-    const nearestX = targetAnchorsX.reduce<SnapTargetMatch | null>((acc, targetAnchor) => {
-      let bestForTarget: SnapTargetMatch | null = null
-
-      for (const movingAnchor of movingAnchorsX) {
-        const movingPosition = proposedX + movingAnchor.offset
-        const delta = targetAnchor.position - movingPosition
-        const diff = Math.abs(delta)
-
-        if (diff > snapThreshold) continue
-
-        if (!bestForTarget || diff < bestForTarget.diff) {
-          bestForTarget = {
-            target: targetAnchor.position,
-            diff,
-            source: targetAnchor.source,
-            itemId: targetAnchor.itemId,
-            delta
-          }
-        }
-      }
-
-      if (!bestForTarget) return acc
-      if (!acc || bestForTarget.diff < acc.diff) return bestForTarget
-      return acc
-    }, null)
-
-    const nearestY = targetAnchorsY.reduce<SnapTargetMatch | null>((acc, targetAnchor) => {
-      let bestForTarget: SnapTargetMatch | null = null
-
-      for (const movingAnchor of movingAnchorsY) {
-        const movingPosition = proposedY + movingAnchor.offset
-        const delta = targetAnchor.position - movingPosition
-        const diff = Math.abs(delta)
-
-        if (diff > snapThreshold) continue
-
-        if (!bestForTarget || diff < bestForTarget.diff) {
-          bestForTarget = {
-            target: targetAnchor.position,
-            diff,
-            source: targetAnchor.source,
-            itemId: targetAnchor.itemId,
-            delta
-          }
-        }
-      }
-
-      if (!bestForTarget) return acc
-      if (!acc || bestForTarget.diff < acc.diff) return bestForTarget
-      return acc
-    }, null)
-
-    const snappedX = proposedX + (nearestX?.delta || 0)
-    const snappedY = proposedY + (nearestY?.delta || 0)
-
-    return {
-      x: Math.round(snappedX),
-      y: Math.round(snappedY),
-      guideX: nearestX ? nearestX.target : null,
-      guideY: nearestY ? nearestY.target : null,
-      guideXSource: nearestX?.source || null,
-      guideYSource: nearestY?.source || null,
-      guideXTargetItemId: nearestX?.itemId,
-      guideYTargetItemId: nearestY?.itemId
-    }
+    return computeSnappedMovePosition({
+      itemId,
+      proposedX,
+      proposedY,
+      width,
+      height,
+      baseWidth,
+      baseHeight,
+      parsedItems,
+      snapThreshold: effectiveSnapThreshold
+    })
   }
 
   return {

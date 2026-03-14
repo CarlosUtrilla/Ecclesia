@@ -10,6 +10,8 @@ Editores de la aplicacion. Se abren en ventanas separadas de Electron (excepto l
 
 ```text
 app/screens/editors/
+├── components/
+│   └── textEffectsControls.tsx # Controles compartidos de Sombra/Contorno/Fondo para texto
 ├── songEditor/
 │   ├── index.tsx                # SongEditor: editor completo de canciones
 │   ├── songsSchemas.tsx         # Esquemas Zod de validacion
@@ -35,8 +37,9 @@ app/screens/editors/
 │   ├── components/
 │   │   ├── editorCanvas.tsx     # Lienzo editable (drag visual de contenido)
 │   │   ├── textCanvasItem.tsx   # Item de texto editable inline (focus/caret/edición)
-│   │   ├── slideControls.tsx    # Barras de control por tipo de slide (media/biblia/contenido)
-│   │   ├── textStyleToolbar.tsx # Toolbar de estilo reutilizable tipo Theme Editor
+│   │   ├── textTabContent.tsx   # Contenido desacoplado de la pestaña Texto del editor
+│   │   ├── animationTabContent.tsx # Contenido desacoplado de la pestaña Animar
+│   │   ├── insertTabContent.tsx # Contenido desacoplado de la pestaña Insertar
 │   │   └── sortableSlideCard.tsx # Tarjeta sortable del carrusel de slides
 │   ├── hooks/
 │   │   ├── usePresentationEditorHistory.ts   # Hook dedicado de undo/redo con snapshots
@@ -115,6 +118,7 @@ app/screens/editors/
   - Imagen (MediaPicker dialog)
   - Video (MediaPicker dialog)
 - **Estilos de texto**: fontSize, fontFamily, fontWeight, color, textAlign, letterSpacing, lineHeight.
+- **Reutilización de efectos de texto**: ThemeToolbar y PresentationEditor comparten `app/screens/editors/components/textEffectsControls.tsx` para controles de sombra, contorno y fondo de bloque, reduciendo duplicación de UI/lógica.
 - **Sombra de texto**: toggle `textShadowEnabled` + `textShadowColor`, `textShadowBlur`, `textShadowOffsetX`, `textShadowOffsetY`. Se configuran en un Popover "Sombra" en `ThemeToolbar`. Los valores se almacenan como campos custom en `textStyle` y se convierten a `textShadow` CSS (escalado al tamaño de pantalla) en `usePresentationTextLayout`.
 - **Alineación vertical del bloque**: selector en toolbar (`Arriba`, `Centro`, `Abajo`) persistido en `textStyle.justifyContent` (default `Centro`).
 - **Contenedor de texto**: `Margen X` y `Margen Y` (padding horizontal/vertical) configurables por tema para controlar cercanía al borde de pantalla.

@@ -17,6 +17,7 @@ import {
 } from '../utils/slideUtils'
 import { buildBibleAccessData, parseBibleAccessData } from '../utils/bibleAccessData'
 import { generateUniqueId } from '@/lib/utils'
+import { useThemes } from '@/hooks/useThemes'
 
 type UpdateTextStyleInput = Partial<{
   fontFamily?: string
@@ -31,6 +32,20 @@ type UpdateTextStyleInput = Partial<{
   verticalAlign?: 'top' | 'center' | 'bottom'
   offsetX?: number
   offsetY?: number
+  textShadowEnabled?: boolean
+  textShadowColor?: string
+  textShadowBlur?: number
+  textShadowOffsetX?: number
+  textShadowOffsetY?: number
+  textStrokeEnabled?: boolean
+  textStrokeColor?: string
+  textStrokeWidth?: number
+  blockBgEnabled?: boolean
+  blockBgColor?: string
+  blockBgBlur?: number
+  blockBgPadding?: number | null
+  blockBgOpacity?: number
+  blockBgRadius?: number
 }>
 
 type Params = {
@@ -71,6 +86,11 @@ export default function usePresentationEditorActions({
   setMediaPickerMode,
   setIsMediaPickerOpen
 }: Params) {
+  const { themes } = useThemes()
+  const getThemeData = (themeId: number | null) => {
+    if (themeId === null) return undefined
+    return themes.find((theme) => theme.id === themeId)
+  }
   const updateSelectedSlideItems = (
     updater: (items: PresentationSlideItem[]) => PresentationSlideItem[]
   ) => {
@@ -145,6 +165,20 @@ export default function usePresentationEditorActions({
     if (updates.letterSpacing !== undefined) next.letterSpacing = updates.letterSpacing
     if (updates.textAlign !== undefined) next.textAlign = updates.textAlign
     if (updates.verticalAlign !== undefined) next.verticalAlign = updates.verticalAlign
+    if (updates.textShadowEnabled !== undefined) next.textShadowEnabled = updates.textShadowEnabled
+    if (updates.textShadowColor !== undefined) next.textShadowColor = updates.textShadowColor
+    if (updates.textShadowBlur !== undefined) next.textShadowBlur = updates.textShadowBlur
+    if (updates.textShadowOffsetX !== undefined) next.textShadowOffsetX = updates.textShadowOffsetX
+    if (updates.textShadowOffsetY !== undefined) next.textShadowOffsetY = updates.textShadowOffsetY
+    if (updates.textStrokeEnabled !== undefined) next.textStrokeEnabled = updates.textStrokeEnabled
+    if (updates.textStrokeColor !== undefined) next.textStrokeColor = updates.textStrokeColor
+    if (updates.textStrokeWidth !== undefined) next.textStrokeWidth = updates.textStrokeWidth
+    if (updates.blockBgEnabled !== undefined) next.blockBgEnabled = updates.blockBgEnabled
+    if (updates.blockBgColor !== undefined) next.blockBgColor = updates.blockBgColor
+    if (updates.blockBgBlur !== undefined) next.blockBgBlur = updates.blockBgBlur
+    if (updates.blockBgPadding !== undefined) next.blockBgPadding = updates.blockBgPadding
+    if (updates.blockBgOpacity !== undefined) next.blockBgOpacity = updates.blockBgOpacity
+    if (updates.blockBgRadius !== undefined) next.blockBgRadius = updates.blockBgRadius
 
     if (updates.offsetX !== undefined) next.x = 220 + updates.offsetX
     if (updates.offsetY !== undefined) next.y = 180 + updates.offsetY
@@ -189,6 +223,13 @@ export default function usePresentationEditorActions({
     if (!selectedSlide) return
 
     const items = ensureSlideItems(selectedSlide)
+    const themeData = getThemeData(globalThemeId)
+    const initialStyle = themeData?.textStyle
+      ? {
+          fontFamily: themeData.textStyle.fontFamily || 'Arial',
+          color: themeData.textStyle.color || '#000000'
+        }
+      : undefined
     const newItem = createSlideItem('BIBLE', {
       text: selection.text,
       accessData: buildBibleAccessData({
@@ -199,7 +240,7 @@ export default function usePresentationEditorActions({
         version: selection.version
       }),
       layer: getNextLayer(items),
-      customStyle: buildAutoSizedTextCanvasItemStyle(selection.text, undefined, {
+      customStyle: buildAutoSizedTextCanvasItemStyle(selection.text, initialStyle, {
         centerInCanvas: true
       })
     })
@@ -245,10 +286,17 @@ export default function usePresentationEditorActions({
     if (!selectedSlide) return
 
     const items = ensureSlideItems(selectedSlide)
+    const themeData = getThemeData(globalThemeId)
+    const initialStyle = themeData?.textStyle
+      ? {
+          fontFamily: themeData.textStyle.fontFamily || 'Arial',
+          color: themeData.textStyle.color || '#000000'
+        }
+      : undefined
     const newItem = createSlideItem('TEXT', {
       text: 'Nuevo texto',
       layer: getNextLayer(items),
-      customStyle: buildAutoSizedTextCanvasItemStyle('Nuevo texto', undefined, {
+      customStyle: buildAutoSizedTextCanvasItemStyle('Nuevo texto', initialStyle, {
         centerInCanvas: true
       })
     })

@@ -463,6 +463,7 @@ export default function ThemesEditor() {
         {/* Barra de herramientas de estilo */}
         <ThemeToolbar
           control={control}
+          setValue={setValue}
           watchedData={watchedData}
           handlePreviewAnimation={handlePreviewAnimation}
           handlePreviewTransition={handlePreviewTransition}

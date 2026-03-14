@@ -211,6 +211,16 @@ export default function TextCanvasItem({
   }, [itemId, verseRange?.start, verseRange?.end, persistedVerse])
 
   const activeEditorVerse = editorVerse ?? bible?.verseStart
+  const verseProgress = useMemo(() => {
+    if (!verseRange) return null
+
+    const currentVerse = activeEditorVerse ?? verseRange.start
+    const total = verseRange.end - verseRange.start + 1
+    const position = Math.min(total, Math.max(1, currentVerse - verseRange.start + 1))
+
+    return { position, total, currentVerse }
+  }, [activeEditorVerse, verseRange])
+
   const displayedText =
     type === 'BIBLE' && activeEditorVerse
       ? (getBibleVerseText(text, activeEditorVerse) ?? text)
@@ -235,8 +245,33 @@ export default function TextCanvasItem({
     textAlign: style.textAlign,
     fontWeight: style.fontWeight,
     fontStyle: style.fontStyle,
-    textDecoration: style.textDecoration
+    textDecoration: style.textDecoration,
+    ...(style.textShadowEnabled
+      ? {
+          textShadow: `${style.textShadowOffsetX ?? 2}px ${style.textShadowOffsetY ?? 2}px ${style.textShadowBlur ?? 4}px ${style.textShadowColor || 'rgba(0,0,0,0.5)'}`
+        }
+      : {}),
+    ...(style.textStrokeEnabled
+      ? {
+          WebkitTextStroke: `${style.textStrokeWidth ?? 1}px ${style.textStrokeColor || '#000000'}`
+        }
+      : {})
   }
+
+  const blockBgStyle: React.CSSProperties | null = style.blockBgEnabled
+    ? {
+        backgroundColor: style.blockBgColor || 'rgba(0,0,0,0.5)',
+        opacity: style.blockBgOpacity ?? 1,
+        ...(style.blockBgBlur && style.blockBgBlur > 0
+          ? { backdropFilter: `blur(${style.blockBgBlur}px)` }
+          : {}),
+        ...(style.blockBgRadius && style.blockBgRadius > 0
+          ? { borderRadius: `${style.blockBgRadius}px` }
+          : {})
+      }
+    : null
+
+  const blockBgPadding = style.blockBgEnabled ? (style.blockBgPadding ?? null) : null
 
   const verticalAlign: 'top' | 'center' | 'bottom' = style.verticalAlign || 'center'
   const verticalAlignItems =
@@ -407,8 +442,15 @@ export default function TextCanvasItem({
                 >
                   <ChevronLeft className="size-3.5" />
                 </button>
-                <span className="text-[10px] tabular-nums text-muted-foreground min-w-12 text-center">
-                  {activeEditorVerse || verseRange.start}/{verseRange.end}
+                <span
+                  className="text-[10px] tabular-nums text-muted-foreground min-w-12 text-center"
+                  title={
+                    verseProgress
+                      ? `Verso ${verseProgress.currentVerse} (${verseProgress.position} de ${verseProgress.total})`
+                      : undefined
+                  }
+                >
+                  {verseProgress ? `${verseProgress.position}/${verseProgress.total}` : '1/1'}
                 </span>
                 <button
                   type="button"
@@ -449,6 +491,8 @@ export default function TextCanvasItem({
                 scaleFactor={1}
                 presentationHeight={style.height}
                 showTextBounds={false}
+                blockBgStyle={blockBgStyle}
+                blockBgPadding={blockBgPadding}
               />
             ) : (
               <AnimatedText
@@ -466,6 +510,8 @@ export default function TextCanvasItem({
                 textContainerOffset={{ x: 0, y: 0 }}
                 verticalAlign={verticalAlign}
                 showTextBounds={false}
+                blockBgStyle={blockBgStyle}
+                blockBgPadding={blockBgPadding}
               />
             )}
           </div>
