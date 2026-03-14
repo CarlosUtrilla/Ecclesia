@@ -8,6 +8,11 @@ let splashWindowRef: BrowserWindow | null = null
 let settingsWindowRef: BrowserWindow | null = null
 let stageControlWindowRef: BrowserWindow | null = null
 let stageLayoutWindowRef: BrowserWindow | null = null
+let mainWindowRef: BrowserWindow | null = null
+
+export function getMainWindow(): BrowserWindow | null {
+  return mainWindowRef && !mainWindowRef.isDestroyed() ? mainWindowRef : null
+}
 
 function loadRoute(win: BrowserWindow, route: string): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -84,6 +89,11 @@ export function createMainWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
+  })
+
+  mainWindowRef = mainWindow
+  mainWindow.on('closed', () => {
+    mainWindowRef = null
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

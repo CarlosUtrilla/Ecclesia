@@ -36,6 +36,7 @@ app/ui/
 │   └── utils/
 │       └── parseAnimationSettings.ts   # Parse robusto de JSON de animaciones con defaults
 ├── renderSongLyricList.tsx             # Lista de letras de cancion con tags de color
+├── UpdateNotification.tsx              # Globo de notificación de actualizaciones disponibles
 ├── colorPicker.tsx                     # Color picker con ChromePicker
 ├── fontFamilySelector.tsx              # Selector de fuentes del sistema
 ├── virtualized-scroll-area.tsx         # Scroll virtualizado con @tanstack/react-virtual

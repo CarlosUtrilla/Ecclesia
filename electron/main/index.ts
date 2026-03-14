@@ -15,7 +15,8 @@ import {
   createStageControlWindow,
   createStageLayoutWindow,
   createTagsSongWindow,
-  createThemeWindow
+  createThemeWindow,
+  getMainWindow
 } from './windowManager'
 import 'reflect-metadata'
 import fontList from 'font-list'
@@ -186,6 +187,12 @@ app.whenReady().then(async () => {
     if (window) {
       window.close()
     }
+  })
+
+  // Disparar cierre de la ventana principal (para instalar actualizacion)
+  ipcMain.on('window:trigger-close', () => {
+    const win = getMainWindow()
+    if (win) win.close()
   })
 
   // Confirmar cierre de ventana de tema (el renderer aprobó cerrar)

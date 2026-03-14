@@ -77,6 +77,8 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 - En `before-quit` se limpian los timers persistidos de `StageScreenConfig.state`.
 - Solo se vacia `state.timers`; `message` y `clock` se conservan.
+- Canal IPC `window:trigger-close`: llama a `mainWindow.close()` desde el renderer (usado por `UpdateNotification` para instalar actualizaciones respetando el flujo de sync).
+- `getMainWindow()` exportado desde `windowManager.ts` devuelve la referencia a la ventana principal activa.
 
 ## Modulos
 
