@@ -5,7 +5,6 @@ import MediaLibrary from './media'
 import BiblePanel from './bible'
 import PresentationsPanel from './presentations'
 import { useEffect, useState } from 'react'
-import { ThemesSidePanel } from './themesSidePanel'
 import { Button } from '@/ui/button'
 import { CheckCircle2, MonitorCog, Settings } from 'lucide-react'
 
@@ -35,9 +34,6 @@ export default function LibraryPanel() {
 
   return (
     <div className="flex flex-row h-full">
-      {/* Panel lateral de temas */}
-      <ThemesSidePanel />
-      {/* Biblioteca principal */}
       <div className="flex-1 gap-0 border-r panel-scrollable">
         <div className="panel-header w-full bg-muted/40 p-1 py-0.5 border-b flex items-center justify-between gap-2">
           <Tabs value={activeTab} onValueChange={setActiveTab}>

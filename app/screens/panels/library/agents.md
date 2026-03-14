@@ -171,12 +171,15 @@ El `DragAndDropSchedule` (en ScheduleContext) detecta estos drags y los inserta 
 
 ## Agents relacionados
 
-
 ### ThemesSidePanel (`themesSidePanel.tsx`)
 
 - Panel lateral compacto, ubicado a la izquierda de la biblioteca.
 - Permite seleccionar, editar, eliminar y añadir temas rápidamente.
 - Siempre visible junto al cronograma y la biblioteca, no compite visualmente.
+- Usa utilidades globales `panel-scrollable` (raíz) y `panel-scroll-content` (lista) para soportar scroll interno dentro de `ResizablePanel`.
+- El wrapper raíz del panel usa `flex-1 min-h-0` para heredar correctamente altura en layouts flex y habilitar el overflow vertical de la lista.
+- La grilla de previews se renderiza dentro de un contenedor interno, dejando `panel-scroll-content` solo para el comportamiento de scroll.
+- El contenedor scrolleable aplica `h-0 flex-1` para evitar problemas de min-content en layouts flex y asegurar el scroll en Electron.
 - Usa `PresentationView` para previews.
 - Acciones: seleccionar tema (aplica al schedule), editar, eliminar, añadir.
 - Context menu para editar/eliminar.
