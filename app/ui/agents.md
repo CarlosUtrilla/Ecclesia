@@ -31,8 +31,8 @@ app/ui/
 │       ├── useBibleSetting.tsx         # Hook para config de presentacion de biblia
 │       ├── usePresentationSizing.ts    # Medición de contenedor + screenSize
 │       ├── usePresentationBackground.ts # Derivación de fondo/media y estado de video
-│       ├── usePresentationTextLayout.ts # Escalado de texto, offsets y bounds
-│       └── useTextBoundsInteraction.ts # Interacción drag/resize del cuadro de texto editable
+│       ├── usePresentationTextLayout.ts # Escalado de texto, offsets, bounds, shadow, stroke y blockBg
+│       └── useTextBoundsInteraction.ts # Interacción drag/resize del cuadro de texto editable + snap-to-center
 │   └── utils/
 │       └── parseAnimationSettings.ts   # Parse robusto de JSON de animaciones con defaults
 ├── renderSongLyricList.tsx             # Lista de letras de cancion con tags de color
@@ -163,6 +163,8 @@ PresentationView (index.tsx)
 - En `preview` (`!live`), `PresentationView` muestra un badge superior derecho para rangos bíblicos (`vX-Y`) cuando el item o un layer bíblico de `PRESENTATION` incluye `verseEnd`; así se identifica rápido que esa tarjeta representa un rango.
 - En cambios de verso interno (`presentationVerseBySlideKey`), `PresentationView` mantiene estable el key del slide live para evitar re-animar capas no bíblicas; solo el layer bíblico actualiza/animación su contenido.
 - Cuando cambia el verso interno, el layer bíblico se remonta con key por verso para re-disparar su animación configurada sin afectar la animación de los demás layers del mismo slide.
+- `usePresentationTextLayout` procesa campos personalizados de `theme.textStyle` (eliminándolos antes de pasarlos al DOM): sombra (`textShadowEnabled/Color/Blur/OffsetX/OffsetY`), contorno (`textStrokeEnabled/Color/Width` → CSS `-webkit-text-stroke` escalado) y fondo de bloque (`blockBgEnabled/Color/Blur/Radius` → retorna `blockBgStyle: CSSProperties | null`). El `blockBgStyle` se propaga por toda la cadena (`PresentationBody` → `ResourceContent` → `AnimatedText`, `BibleTextRender`, `PresentationRender`) y se aplica en el wrapper interno `<div style={{ width: '100%', ...blockBgStyle }}>` de `AnimatedText`.
+- `ThemeToolbar` expone tres Popovers de efectos de texto: **Sombra** (`Blend`), **Contorno** (`PenLine`, controla `textStrokeEnabled/Color/Width`) y **Fondo** (`Layers`, controla `blockBgEnabled/Color/Blur/Radius`).
 - En `preview`, los videos (fondo y capas de presentación) no se reproducen: se renderizan thumbnails estáticos para reducir CPU/GPU cuando hay muchas instancias simultáneas.
 - Las transiciones de tema/slide (`useMemo` + `AnimatePresence` + `m.div`) se encapsulan en shells solo de `live`, evitando cálculo/instanciación en `preview`.
 - En `preview`, fondos de imagen y thumbnails de video usan `<img>` estático (`loading="lazy"`) en lugar de componentes animados, para minimizar costo de render masivo.
@@ -207,6 +209,7 @@ Renderiza texto genérico del slide con animaciones:
 - El saneado de HTML se memoiza (`sanitizeHTML`) y, en modo `split`, se precomputa por líneas/palabras para evitar repetir saneado en cada render.
 - Los estilos estáticos de handles se hoistean fuera del componente para evitar recreación de objetos en cada render.
 - La lógica de interacción del cuadro de texto (detectar bordes, drag, resize y cursores) se extrajo a `useTextBoundsInteraction`, dejando `AnimatedText` enfocado en render y composición.
+- `useTextBoundsInteraction` incluye snap-to-center magnético: durante el drag (`move`), si `translateX` o `translateY` están a menos de 8px lógicos de 0, se snappean a 0. Se expone `snapGuides: { centerX, centerY }` para que `AnimatedText` renderice líneas guía (teal, 1px) sobre el frame cuando el snap está activo.
 
 - **Preview mode** (`isPreview: true`): Sin animacion, solo `dangerouslySetInnerHTML` con `sanitizeHTML()`.
 - **Animacion "split"**: Divide por palabras, cada una animada individualmente con `m.span`.

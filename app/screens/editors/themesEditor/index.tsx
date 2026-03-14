@@ -2,40 +2,29 @@ import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  Save,
-  Type,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  Bold,
-  Italic,
-  Underline as UnderlineIcon,
-  Settings,
-  SlidersHorizontal,
-  RotateCcw
-} from 'lucide-react'
+import { Save, Settings } from 'lucide-react'
 import { useRef, useMemo, useCallback, useState, useEffect } from 'react'
 import { Separator } from '@/ui/separator'
-import FontFamilySelector from '@/ui/fontFamilySelector'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
-import { Slider } from '@/ui/slider'
-import FormatLineSpacingIcon from '@/icons/line-spacing'
-import LetterSpacingIcon from '@/icons/letter-spacing'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/ui/dialog'
+
 import BackgroundSelector from './backgroundSelector'
 import AnimationSelector from './animationSelector'
 import { PresentationView } from '../../../ui/PresentationView'
 import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSettings'
-import { fontSizes, lineHeights, letterSpacings } from '@/lib/themeConstants'
-import { ColorPicker } from '@/ui/colorPicker'
+
 import { useResizeObserver } from 'usehooks-ts'
 import useThemePreview from './useThemePreview'
 import ThemeToolbar from './ThemeToolbar'
 import {
   EditableBoundsTarget,
   PresentationViewItems,
-  ThemeWithMedia,
   TextBoundsValues
 } from '../../../ui/PresentationView/types'
 import { useParams } from 'react-router'
@@ -45,7 +34,6 @@ import { Switch } from '@/ui/switch'
 import BiblePresentationConfiguration from '../biblePresentationConfiguration'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/ui/dropdown-menu'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -57,21 +45,6 @@ type FormData = z.infer<typeof CreateThemeSchema> & {
 }
 
 const NEW_THEME_DEFAULT_VERSE_EDGE = 10
-
-const parseTranslate = (translateValue: unknown) => {
-  if (typeof translateValue !== 'string') {
-    return { x: 0, y: 0 }
-  }
-
-  const parts = translateValue.trim().split(/\s+/)
-  const x = Number.parseFloat(parts[0] || '0')
-  const y = Number.parseFloat(parts[1] || parts[0] || '0')
-
-  return {
-    x: Number.isFinite(x) ? x : 0,
-    y: Number.isFinite(y) ? y : 0
-  }
-}
 
 export default function ThemesEditor() {
   const { id } = useParams()
@@ -93,7 +66,7 @@ export default function ThemesEditor() {
     control,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
     handleSubmit,
     reset
   } = useForm<FormData>({
@@ -135,9 +108,6 @@ export default function ThemesEditor() {
             console.error('Theme not found with id:', id)
             return
           }
-          reset({
-            ...theme
-          })
           setBackgroundType(
             theme.backgroundMediaId !== null
               ? theme?.backgroundMedia?.type === 'VIDEO'
@@ -145,6 +115,9 @@ export default function ThemesEditor() {
                 : 'image'
               : 'color'
           )
+          reset({
+            ...theme
+          })
         } catch (error) {
           console.error('Error loading theme:', error)
         }
@@ -155,8 +128,8 @@ export default function ThemesEditor() {
 
   // Observar valores para preview - optimizado por react-hook-form
   const watchedData = watch()
-  const { previewData, translateValues, animationSettings, transitionSettings } =
-    useThemePreview(watchedData)
+  console.log()
+  const { previewData, animationSettings, transitionSettings } = useThemePreview(watchedData)
 
   // Callbacks memoizados para evitar re-renders
   const handleMediaChange = useCallback(
@@ -191,8 +164,30 @@ export default function ThemesEditor() {
     setThemeTransitionPreviewKey((prev) => prev + 1)
   }, [])
 
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const pendingCloseRef = useRef(false)
+
+  useEffect(() => {
+    const unsub = window.electron.ipcRenderer.on('theme-close-requested', () => {
+      if (!isDirty) {
+        window.windowAPI.confirmThemeClose()
+        return
+      }
+      setShowCloseDialog(true)
+    })
+    return () => unsub()
+  }, [isDirty])
+
+  const handleCloseDiscard = useCallback(() => {
+    setShowCloseDialog(false)
+    window.windowAPI.confirmThemeClose()
+  }, [])
+
+  const handleCloseCancel = useCallback(() => {
+    setShowCloseDialog(false)
+  }, [])
+
   const onSave = handleSubmit(async (data) => {
-    console.log('Saving theme data:', data)
     if (!data.name || data.name.trim() === '') {
       alert('Se requiere un nombre para el tema.')
       return
@@ -222,7 +217,8 @@ export default function ThemesEditor() {
       // cerrar ventana
       window.electron.ipcRenderer.send('theme-saved')
       window.googleDriveSyncAPI.notifyAutoSaveEvent()
-      window.windowAPI.closeCurrentWindow()
+      pendingCloseRef.current = false
+      window.windowAPI.confirmThemeClose()
     } catch (error: any) {
       console.error('Error saving theme:', error)
       const errorMessage = error?.message || 'Ocurrió un error desconocido al guardar el tema.'
@@ -235,6 +231,12 @@ export default function ThemesEditor() {
       }
     }
   })
+
+  const handleCloseSave = useCallback(async () => {
+    pendingCloseRef.current = true
+    setShowCloseDialog(false)
+    await onSave()
+  }, [onSave])
 
   const handleSwitchBibleSetting = (value: boolean) => {
     setValue('useDefaultBibleSettings', value, { shouldDirty: true })
@@ -256,12 +258,6 @@ export default function ThemesEditor() {
         { shouldDirty: true }
       )
     }
-  }
-
-  const handleResetTextPosition = () => {
-    setValue('textStyle.paddingInline', 16, { shouldDirty: true })
-    setValue('textStyle.paddingBlock', 16, { shouldDirty: true })
-    setValue('textStyle.translate', '0px 0px', { shouldDirty: true })
   }
 
   const handleTextBoundsChange = useCallback(
@@ -355,7 +351,6 @@ export default function ThemesEditor() {
       watchedData.useDefaultBibleSettings
     ]
   )
-
   return (
     <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
       <div className="flex-shrink-0">
@@ -376,12 +371,17 @@ export default function ThemesEditor() {
               )}
             />
             <div className="ml-auto flex mt-1.5 gap-2 w-full">
-              <Button onClick={onSave} disabled={isSubmitting} size="sm" className="flex-1">
+              <Button
+                onClick={onSave}
+                disabled={isSubmitting || !isDirty}
+                size="sm"
+                className="flex-1"
+              >
                 <Save />
                 Save
               </Button>
               <Button
-                onClick={() => window.windowAPI.closeCurrentWindow()}
+                onClick={() => window.windowAPI.confirmThemeClose()}
                 size="sm"
                 className="flex-1"
                 variant="destructive"
@@ -463,17 +463,7 @@ export default function ThemesEditor() {
         {/* Barra de herramientas de estilo */}
         <ThemeToolbar
           control={control}
-          setValue={setValue}
           watchedData={watchedData}
-          translateValues={translateValues}
-          handleTextBoundsChange={handleTextBoundsChange}
-          handleBibleVersePositionChange={handleBibleVersePositionChange}
-          selectedBoundsTarget={selectedBoundsTarget}
-          setSelectedBoundsTarget={setSelectedBoundsTarget}
-          animationSettings={animationSettings}
-          transitionSettings={transitionSettings}
-          handleAnimationChange={handleAnimationChange}
-          handleTransitionChange={handleTransitionChange}
           handlePreviewAnimation={handlePreviewAnimation}
           handlePreviewTransition={handlePreviewTransition}
         />
@@ -519,6 +509,34 @@ export default function ThemesEditor() {
           />
         ))}
       </div>
+
+      <Dialog
+        open={showCloseDialog}
+        onOpenChange={(open) => {
+          if (!open) handleCloseCancel()
+        }}
+      >
+        <DialogContent showCloseButton={false} onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Cambios sin guardar</DialogTitle>
+            <DialogDescription>
+              Tienes cambios sin guardar en este tema. ¿Qué deseas hacer?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="ghost" onClick={handleCloseCancel}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleCloseDiscard}>
+              Salir sin guardar
+            </Button>
+            <Button onClick={handleCloseSave} disabled={isSubmitting}>
+              <Save className="h-4 w-4" />
+              Guardar y salir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

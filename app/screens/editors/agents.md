@@ -115,6 +115,7 @@ app/screens/editors/
   - Imagen (MediaPicker dialog)
   - Video (MediaPicker dialog)
 - **Estilos de texto**: fontSize, fontFamily, fontWeight, color, textAlign, letterSpacing, lineHeight.
+- **Sombra de texto**: toggle `textShadowEnabled` + `textShadowColor`, `textShadowBlur`, `textShadowOffsetX`, `textShadowOffsetY`. Se configuran en un Popover "Sombra" en `ThemeToolbar`. Los valores se almacenan como campos custom en `textStyle` y se convierten a `textShadow` CSS (escalado al tamaño de pantalla) en `usePresentationTextLayout`.
 - **Alineación vertical del bloque**: selector en toolbar (`Arriba`, `Centro`, `Abajo`) persistido en `textStyle.justifyContent` (default `Centro`).
 - **Contenedor de texto**: `Margen X` y `Margen Y` (padding horizontal/vertical) configurables por tema para controlar cercanía al borde de pantalla.
 - **Posición del contenedor**: `Posición X` y `Posición Y` para desplazar el bloque de texto a izquierda/derecha/arriba/abajo.

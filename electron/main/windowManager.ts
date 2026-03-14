@@ -223,6 +223,13 @@ export function createThemeWindow(themeId?: number): BrowserWindow {
     }
   })
 
+  // Interceptar el cierre para que el renderer pueda confirmar si hay cambios sin guardar
+  themeWindow.on('close', (event) => {
+    if (themeWindow.webContents.isDestroyed()) return
+    event.preventDefault()
+    themeWindow.webContents.send('theme-close-requested')
+  })
+
   loadRoute(themeWindow, route)
   return themeWindow
 }

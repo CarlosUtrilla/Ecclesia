@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TextBoundsValues } from '../types'
 
+const SNAP_CENTER_THRESHOLD = 8 // px lógicos — umbral para snap al centro
+
+export type BoundsSnapGuides = {
+  centerX: boolean
+  centerY: boolean
+}
+
 export type BoundsInteractionMode =
   | 'move'
   | 'resize-left'
@@ -37,6 +44,7 @@ export function useTextBoundsInteraction({
 }: UseTextBoundsInteractionParams) {
   const activeInteractionRef = useRef<ActiveBoundsInteraction | null>(null)
   const [boundsCursor, setBoundsCursor] = useState<React.CSSProperties['cursor']>('move')
+  const [snapGuides, setSnapGuides] = useState<BoundsSnapGuides>({ centerX: false, centerY: false })
 
   const applyBoundsChange = useCallback(
     (nextValues: TextBoundsValues) => {
@@ -112,8 +120,13 @@ export function useTextBoundsInteraction({
       const mode = activeInteraction.mode
 
       if (mode === 'move') {
-        nextTranslateX = start.translateX + deltaXInBase
-        nextTranslateY = start.translateY + deltaYInBase
+        const rawX = start.translateX + deltaXInBase
+        const rawY = start.translateY + deltaYInBase
+        const snapX = Math.abs(rawX) < SNAP_CENTER_THRESHOLD
+        const snapY = Math.abs(rawY) < SNAP_CENTER_THRESHOLD
+        nextTranslateX = snapX ? 0 : rawX
+        nextTranslateY = snapY ? 0 : rawY
+        setSnapGuides({ centerX: snapX, centerY: snapY })
       }
 
       if (mode === 'resize-left' || mode === 'resize-top-left' || mode === 'resize-bottom-left') {
@@ -159,12 +172,13 @@ export function useTextBoundsInteraction({
         translateY: nextTranslateY
       })
     },
-    [applyBoundsChange, canEditBounds, textBoundsScale]
+    [applyBoundsChange, canEditBounds, setSnapGuides, textBoundsScale]
   )
 
   const stopInteraction = useCallback(() => {
     activeInteractionRef.current = null
     setBoundsCursor('move')
+    setSnapGuides({ centerX: false, centerY: false })
     document.body.style.cursor = ''
     window.removeEventListener('pointermove', handlePointerMove)
     window.removeEventListener('pointerup', stopInteraction)
@@ -229,6 +243,7 @@ export function useTextBoundsInteraction({
   return {
     activeInteractionRef,
     boundsCursor,
+    snapGuides,
     onBoundsPointerMove,
     onBoundsPointerLeave,
     onBoundsPointerDown,

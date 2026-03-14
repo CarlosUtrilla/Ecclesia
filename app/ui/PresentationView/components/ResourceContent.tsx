@@ -39,6 +39,8 @@ type Props = {
   onBibleVersePositionChange: PresentationViewProps['onBibleVersePositionChange']
   onEditableTargetSelect: PresentationViewProps['onEditableTargetSelect']
   hideTextInLive: boolean
+  blockBgStyle: React.CSSProperties | null
+  blockBgPadding: number | null
 }
 
 function ResourceContentComponent({
@@ -64,7 +66,9 @@ function ResourceContentComponent({
   onTextBoundsChange,
   onBibleVersePositionChange,
   onEditableTargetSelect,
-  hideTextInLive
+  hideTextInLive,
+  blockBgStyle,
+  blockBgPadding
 }: Props) {
   const nonBibleAnimatedItem = useMemo(
     () => ({
@@ -96,6 +100,8 @@ function ResourceContentComponent({
         onTextBoundsChange={onTextBoundsChange}
         onEditableTargetSelect={onEditableTargetSelect}
         hideTextInLive={hideTextInLive}
+        blockBgStyle={blockBgStyle}
+        blockBgPadding={blockBgPadding}
       />
     )
   }
@@ -124,6 +130,8 @@ function ResourceContentComponent({
         onBibleVersePositionChange={onBibleVersePositionChange}
         onEditableTargetSelect={onEditableTargetSelect}
         hideTextInLive={hideTextInLive}
+        blockBgStyle={blockBgStyle}
+        blockBgPadding={blockBgPadding}
       />
     )
   }
@@ -145,6 +153,8 @@ function ResourceContentComponent({
       onTextBoundsChange={onTextBoundsChange}
       onEditableTargetSelect={onEditableTargetSelect}
       hideTextInLive={hideTextInLive}
+      blockBgStyle={blockBgStyle}
+      blockBgPadding={blockBgPadding}
     />
   )
 }
@@ -175,7 +185,9 @@ function areResourceContentPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
     prevProps.onBibleVersePositionChange === nextProps.onBibleVersePositionChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
-    prevProps.hideTextInLive === nextProps.hideTextInLive
+    prevProps.hideTextInLive === nextProps.hideTextInLive &&
+    prevProps.blockBgStyle === nextProps.blockBgStyle &&
+    prevProps.blockBgPadding === nextProps.blockBgPadding
   )
 }
 

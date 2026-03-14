@@ -62,6 +62,8 @@ type Props = {
   currentIndex: number
   presentationVerseBySlideKey?: Record<string, number>
   hideTextInLive: boolean
+  blockBgStyle: React.CSSProperties | null
+  blockBgPadding: number | null
 }
 
 function PresentationBodyComponent({
@@ -101,7 +103,9 @@ function PresentationBodyComponent({
   onEditableTargetSelect,
   currentIndex,
   presentationVerseBySlideKey,
-  hideTextInLive
+  hideTextInLive,
+  blockBgStyle,
+  blockBgPadding
 }: Props) {
   const backgroundLayer = !isMediaItem ? (
     <>
@@ -181,6 +185,8 @@ function PresentationBodyComponent({
         onBibleVersePositionChange={onBibleVersePositionChange}
         onEditableTargetSelect={onEditableTargetSelect}
         hideTextInLive={hideTextInLive}
+        blockBgStyle={blockBgStyle}
+        blockBgPadding={blockBgPadding}
       />
     </>
   )
@@ -262,7 +268,9 @@ function arePresentationBodyPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
     prevProps.currentIndex === nextProps.currentIndex &&
     prevProps.presentationVerseBySlideKey === nextProps.presentationVerseBySlideKey &&
-    prevProps.hideTextInLive === nextProps.hideTextInLive
+    prevProps.hideTextInLive === nextProps.hideTextInLive &&
+    prevProps.blockBgStyle === nextProps.blockBgStyle &&
+    prevProps.blockBgPadding === nextProps.blockBgPadding
   )
 }
 

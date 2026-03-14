@@ -41,7 +41,8 @@ const windowAPI = {
   closeCurrentWindow: () => ipcRenderer.send('close-current-window'),
   confirmClose: () => ipcRenderer.send('app-close-confirm'),
   cancelClose: () => ipcRenderer.send('app-close-cancel'),
-  skipSyncAndClose: () => ipcRenderer.send('app-close-skip-sync')
+  skipSyncAndClose: () => ipcRenderer.send('app-close-skip-sync'),
+  confirmThemeClose: () => ipcRenderer.send('theme-close-confirm')
 }
 
 // API para obtener fuentes del sistema

@@ -104,24 +104,104 @@ export function usePresentationTextLayout({ theme, screenSize }: UsePresentation
     translateY: Number.isFinite(translateYValue) ? translateYValue : 0
   }
 
-  const textStyle = useMemo(() => {
+  const { textStyle, blockBgStyle, blockBgPadding } = useMemo(() => {
     const restTextStyle = { ...(theme.textStyle || {}) } as Record<string, unknown>
     delete restTextStyle.paddingInline
     delete restTextStyle.paddingBlock
     delete restTextStyle.translate
     delete restTextStyle.justifyContent
 
-    return {
+    // Componer text-shadow desde campos personalizados (escalados al tamaño de pantalla)
+    const shadowEnabled = !!restTextStyle.textShadowEnabled
+    delete restTextStyle.textShadowEnabled
+    const shadowColor = (restTextStyle.textShadowColor as string | undefined) ?? 'rgba(0,0,0,0.5)'
+    delete restTextStyle.textShadowColor
+    const shadowBlur = Number.isFinite(restTextStyle.textShadowBlur as number)
+      ? (restTextStyle.textShadowBlur as number)
+      : 4
+    delete restTextStyle.textShadowBlur
+    const shadowOffsetX = Number.isFinite(restTextStyle.textShadowOffsetX as number)
+      ? (restTextStyle.textShadowOffsetX as number)
+      : 2
+    delete restTextStyle.textShadowOffsetX
+    const shadowOffsetY = Number.isFinite(restTextStyle.textShadowOffsetY as number)
+      ? (restTextStyle.textShadowOffsetY as number)
+      : 2
+    delete restTextStyle.textShadowOffsetY
+
+    // Componer text-stroke desde campos personalizados
+    const strokeEnabled = !!restTextStyle.textStrokeEnabled
+    delete restTextStyle.textStrokeEnabled
+    const strokeColor = (restTextStyle.textStrokeColor as string | undefined) ?? '#000000'
+    delete restTextStyle.textStrokeColor
+    const strokeWidth = Number.isFinite(restTextStyle.textStrokeWidth as number)
+      ? (restTextStyle.textStrokeWidth as number)
+      : 1
+    delete restTextStyle.textStrokeWidth
+
+    // Extraer campos de fondo de bloque
+    const blockBgEnabled = !!restTextStyle.blockBgEnabled
+    delete restTextStyle.blockBgEnabled
+    const blockBgColor = (restTextStyle.blockBgColor as string | undefined) ?? 'rgba(0,0,0,0.5)'
+    delete restTextStyle.blockBgColor
+    const blockBgBlur = Number.isFinite(restTextStyle.blockBgBlur as number)
+      ? (restTextStyle.blockBgBlur as number)
+      : 0
+    delete restTextStyle.blockBgBlur
+    const blockBgRadius = Number.isFinite(restTextStyle.blockBgRadius as number)
+      ? (restTextStyle.blockBgRadius as number)
+      : 0
+    delete restTextStyle.blockBgRadius
+    const blockBgOpacity = Number.isFinite(restTextStyle.blockBgOpacity as number)
+      ? (restTextStyle.blockBgOpacity as number)
+      : 1
+    delete restTextStyle.blockBgOpacity
+    const blockBgPadding = Number.isFinite(restTextStyle.blockBgPadding as number)
+      ? (restTextStyle.blockBgPadding as number)
+      : null
+    delete restTextStyle.blockBgPadding
+
+    const computedTextStyle = {
       ...restTextStyle,
-      fontSize: calculatedFontSize
+      fontSize: calculatedFontSize,
+      ...(shadowEnabled
+        ? {
+            textShadow: `${(shadowOffsetX * scaleFactor).toFixed(1)}px ${(shadowOffsetY * scaleFactor).toFixed(1)}px ${(shadowBlur * scaleFactor).toFixed(1)}px ${shadowColor}`
+          }
+        : {}),
+      ...(strokeEnabled
+        ? { WebkitTextStroke: `${(strokeWidth * scaleFactor).toFixed(2)}px ${strokeColor}` }
+        : {})
     }
-  }, [theme.textStyle, calculatedFontSize])
+
+    const computedBlockBgStyle = blockBgEnabled
+      ? {
+          backgroundColor: blockBgColor,
+          opacity: blockBgOpacity,
+          ...(blockBgBlur > 0
+            ? { backdropFilter: `blur(${(blockBgBlur * scaleFactor).toFixed(1)}px)` }
+            : {}),
+          ...(blockBgRadius > 0
+            ? { borderRadius: `${(blockBgRadius * scaleFactor).toFixed(1)}px` }
+            : {})
+        }
+      : null
+
+    const computedBlockBgPadding =
+      blockBgEnabled && blockBgPadding !== null
+        ? Math.round(blockBgPadding * scaleFactor)
+        : null
+
+    return { textStyle: computedTextStyle, blockBgStyle: computedBlockBgStyle, blockBgPadding: computedBlockBgPadding }
+  }, [theme.textStyle, calculatedFontSize, scaleFactor])
 
   return {
     calculatedSmallFontSize,
     scaleFactor,
     verticalAlign,
     textStyle,
+    blockBgStyle,
+    blockBgPadding,
     textContainerPadding,
     textContainerOffset,
     textBoundsScale,

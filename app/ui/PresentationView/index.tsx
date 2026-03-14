@@ -118,6 +118,8 @@ function PresentationViewComponent({
     scaleFactor,
     verticalAlign,
     textStyle,
+    blockBgStyle,
+    blockBgPadding,
     textContainerPadding,
     textContainerOffset,
     textBoundsScale,
@@ -204,6 +206,8 @@ function PresentationViewComponent({
       currentIndex={currentIndex}
       presentationVerseBySlideKey={presentationVerseBySlideKey}
       hideTextInLive={hideTextInLive}
+      blockBgStyle={blockBgStyle}
+      blockBgPadding={blockBgPadding}
     />
   )
 

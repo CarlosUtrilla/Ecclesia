@@ -188,6 +188,14 @@ app.whenReady().then(async () => {
     }
   })
 
+  // Confirmar cierre de ventana de tema (el renderer aprobó cerrar)
+  ipcMain.on('theme-close-confirm', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed()) {
+      win.destroy()
+    }
+  })
+
   // Notificar a ventana principal cuando se guarda un tema
   ipcMain.on('theme-saved', () => {
     const mainWindow = BrowserWindow.getAllWindows()

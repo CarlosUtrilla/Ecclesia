@@ -33,6 +33,8 @@ export interface AnimatedTextProps {
   onTextBoundsChange?: (next: TextBoundsValues) => void
   onEditableTargetSelect?: (target: EditableBoundsTarget) => void
   hideTextInLive?: boolean
+  blockBgStyle?: React.CSSProperties | null
+  blockBgPadding?: number | null
 }
 
 const CORNER_HANDLE_STYLE: React.CSSProperties = {
@@ -61,7 +63,9 @@ function AnimatedTextComponent({
   textBoundsScale,
   onTextBoundsChange,
   onEditableTargetSelect,
-  hideTextInLive = false
+  hideTextInLive = false,
+  blockBgStyle,
+  blockBgPadding
 }: AnimatedTextProps) {
   const { text: rawText } = item
   const text = rawText || ''
@@ -78,6 +82,7 @@ function AnimatedTextComponent({
 
   const {
     boundsCursor,
+    snapGuides,
     onBoundsPointerMove,
     onBoundsPointerLeave,
     onBoundsPointerDown,
@@ -110,8 +115,38 @@ function AnimatedTextComponent({
       return null
     }
 
+    const scaledFontSize =
+      typeof textStyle.fontSize === 'string'
+        ? parseFloat(textStyle.fontSize)
+        : typeof textStyle.fontSize === 'number'
+          ? textStyle.fontSize
+          : 24
+    const bgPadX = blockBgStyle
+      ? blockBgPadding != null
+        ? blockBgPadding
+        : Math.max(8, Math.round(scaledFontSize * 0.45))
+      : 0
+    const bgPadY = blockBgStyle
+      ? blockBgPadding != null
+        ? Math.round(blockBgPadding * 0.55)
+        : Math.max(4, Math.round(scaledFontSize * 0.25))
+      : 0
+    const bgPadding = blockBgStyle ? { padding: `${bgPadY}px ${bgPadX}px` } : undefined
+
+    const bgLayer = blockBgStyle ? (
+      <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 0, ...blockBgStyle }} />
+    ) : null
+
     if (isPreview) {
-      return <div style={textStyle} dangerouslySetInnerHTML={{ __html: sanitizedText }} />
+      return (
+        <div style={{ position: 'relative', ...textStyle, ...bgPadding }}>
+          {bgLayer}
+          <div
+            style={{ position: 'relative', zIndex: bgLayer ? 1 : undefined }}
+            dangerouslySetInnerHTML={{ __html: sanitizedText }}
+          />
+        </div>
+      )
     }
 
     if (animationType === 'split') {
@@ -121,22 +156,25 @@ function AnimatedTextComponent({
           initial="initial"
           animate="animate"
           exit="exit"
-          style={textStyle}
+          style={{ position: 'relative', ...textStyle, ...bgPadding }}
           className="w-full"
         >
-          {splitSanitizedLines.map((words, lineIndex) => (
-            <div key={lineIndex}>
-              {words.map((word, wordIndex) => (
-                <m.span
-                  key={`${lineIndex}-${wordIndex}`}
-                  variants={wordVariants}
-                  style={{ display: 'inline-block', marginRight: '0.3em' }}
-                  dangerouslySetInnerHTML={{ __html: word }}
-                />
-              ))}
-              {lineIndex < splitSanitizedLines.length - 1 && <br />}
-            </div>
-          ))}
+          {bgLayer}
+          <div style={{ position: 'relative', zIndex: bgLayer ? 1 : undefined }}>
+            {splitSanitizedLines.map((words, lineIndex) => (
+              <div key={lineIndex}>
+                {words.map((word, wordIndex) => (
+                  <m.span
+                    key={`${lineIndex}-${wordIndex}`}
+                    variants={wordVariants}
+                    style={{ display: 'inline-block', marginRight: '0.3em' }}
+                    dangerouslySetInnerHTML={{ __html: word }}
+                  />
+                ))}
+                {lineIndex < splitSanitizedLines.length - 1 && <br />}
+              </div>
+            ))}
+          </div>
         </m.div>
       )
     }
@@ -147,9 +185,14 @@ function AnimatedTextComponent({
         initial="initial"
         animate="animate"
         exit="exit"
-        style={textStyle}
-        dangerouslySetInnerHTML={{ __html: sanitizedText }}
-      />
+        style={{ position: 'relative', ...textStyle, ...bgPadding }}
+      >
+        {bgLayer}
+        <div
+          style={{ position: 'relative', zIndex: bgLayer ? 1 : undefined }}
+          dangerouslySetInnerHTML={{ __html: sanitizedText }}
+        />
+      </m.div>
     )
   }, [
     shouldHideInLive,
@@ -158,7 +201,8 @@ function AnimatedTextComponent({
     sanitizedText,
     animationType,
     variants,
-    splitSanitizedLines
+    splitSanitizedLines,
+    blockBgStyle
   ])
 
   const handleSelectTarget = useCallback(
@@ -177,6 +221,38 @@ function AnimatedTextComponent({
 
   return (
     <>
+      {canEditBounds && snapGuides.centerX ? (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: 0,
+            bottom: 0,
+            width: 1,
+            background: 'rgba(20,184,166,0.85)',
+            transform: 'translateX(-0.5px)',
+            pointerEvents: 'none',
+            zIndex: 10
+          }}
+        />
+      ) : null}
+      {canEditBounds && snapGuides.centerY ? (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: 0,
+            right: 0,
+            height: 1,
+            background: 'rgba(20,184,166,0.85)',
+            transform: 'translateY(-0.5px)',
+            pointerEvents: 'none',
+            zIndex: 10
+          }}
+        />
+      ) : null}
       {shouldShowBounds ? (
         <div
           aria-hidden
@@ -301,7 +377,9 @@ function areAnimatedTextPropsEqual(prevProps: AnimatedTextProps, nextProps: Anim
     prevProps.textBoundsScale === nextProps.textBoundsScale &&
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
-    prevProps.hideTextInLive === nextProps.hideTextInLive
+    prevProps.hideTextInLive === nextProps.hideTextInLive &&
+    prevProps.blockBgStyle === nextProps.blockBgStyle &&
+    prevProps.blockBgPadding === nextProps.blockBgPadding
   )
 }
 
