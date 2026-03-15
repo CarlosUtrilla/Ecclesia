@@ -208,6 +208,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - `mediaHandlers.ts`: importacion de medios.
   - Copia archivos al directorio de datos.
   - Genera thumbnails para imagenes/videos.
+  - Para imágenes, intenta `sharp` con carga diferida; si `sharp` no está disponible para el runtime actual, hace fallback a `ffmpeg` para evitar crash del proceso principal.
   - Extrae metadatos (dimensiones, duracion).
   - Registra en DB via `MediaService`.
   - El borrado de carpetas (`media:delete-folder`) es recursivo en filesystem para permitir eliminar carpetas con subcarpetas y contenido completo desde Library.

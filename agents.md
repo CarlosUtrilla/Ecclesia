@@ -27,7 +27,7 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 *   **Frontend:** React 19, TypeScript, Tailwind CSS, Shadcn UI, React Router v7, React Hook Form + Zod, TanStack React Query, TipTap, Framer Motion (LazyMotion), dnd-kit
 *   **Backend:** Electron, Prisma ORM, SQLite (better-sqlite3)
 *   **Build:** Vite + electron-vite
-*   **Release CI:** workflow de tags usa Yarn (`yarn.lock`) y build macOS arm64+x64 secuencial en un solo job (sin merge `universal` para evitar fallos de `_CodeSignature`). El workflow valida `GH_TOKEN` al inicio y define `timeout-minutes` por job para cortar fallos costosos.
+*   **Release CI:** workflow de tags usa Yarn (`yarn.lock`) y build macOS arm64+x64 secuencial en un solo job (sin merge `universal` para evitar fallos de `_CodeSignature`). El workflow valida `GH_TOKEN` al inicio y define `timeout-minutes` por job para cortar fallos costosos. El script `scripts/release.sh` permite elegir modo `github` (push + CI) o `local` (compila mac/win sin push ni consumo de CI), e incluye preflight de `sharp` con autoreparación (`yarn install` + `npm rebuild sharp` + `electron-builder install-app-deps`).
 *   **Idioma principal del codigo:** Espanol (comentarios, nombres de variables UI), Ingles (nombres de modelos, controladores, tipos)
 *   **Testing:** Vitest (`node` por defecto + `jsdom` por archivo), Testing Library para pruebas UI.
 

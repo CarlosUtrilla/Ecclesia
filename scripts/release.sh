@@ -17,6 +17,47 @@ echo -e "  Versión actual: ${CYAN}$CURRENT${RESET}"
 echo -e "  Último commit:  $(git log --oneline -1)"
 echo ""
 
+# ─── Elegir modo de release ───────────────────────────────────────────────────
+echo -e "  Modo de release:"
+echo -e "    ${CYAN}1${RESET}) github (push de main + tag v*, dispara GitHub Actions)"
+echo -e "    ${CYAN}2${RESET}) local  (build local mac/win, sin push ni tag remoto)"
+echo ""
+read -p "  Elige modo [1]: " RELEASE_MODE_CHOICE
+RELEASE_MODE_CHOICE=${RELEASE_MODE_CHOICE:-1}
+
+case $RELEASE_MODE_CHOICE in
+  1) RELEASE_MODE="github" ;;
+  2) RELEASE_MODE="local" ;;
+  *)
+    echo -e "${RED}✗ Modo inválido.${RESET}"
+    exit 1
+    ;;
+esac
+
+ensure_sharp_ready() {
+  echo -e "  Verificando módulo nativo ${CYAN}sharp${RESET}..."
+
+  if node -e "require('sharp')" >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✓ sharp cargado correctamente${RESET}"
+    return
+  fi
+
+  echo -e "  ${YELLOW}⚠ sharp no pudo cargarse. Intentando reparación automática...${RESET}"
+
+  yarn install --frozen-lockfile
+  npm rebuild sharp
+  npx electron-builder install-app-deps
+
+  if node -e "require('sharp')" >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✓ sharp reparado correctamente${RESET}"
+    return
+  fi
+
+  echo -e "${RED}✗ No se pudo cargar sharp después de la reparación automática.${RESET}"
+  echo -e "${YELLOW}  Ejecuta manualmente:${RESET} yarn install --frozen-lockfile && npm rebuild sharp && npx electron-builder install-app-deps"
+  exit 1
+}
+
 # ─── Verificar rama main ───────────────────────────────────────────────────────
 BRANCH=$(git branch --show-current)
 if [ "$BRANCH" != "main" ]; then
@@ -78,18 +119,38 @@ fi
 
 git tag "$TAG"
 
-# ─── Push ─────────────────────────────────────────────────────────────────────
+# ─── Publicar según modo ──────────────────────────────────────────────────────
 echo ""
-echo -e "  Pusheando main y tag ${CYAN}$TAG${RESET}..."
-git push origin main
-git push origin "$TAG"
+
+if [ "$RELEASE_MODE" = "github" ]; then
+  echo -e "  Pusheando main y tag ${CYAN}$TAG${RESET}..."
+  git push origin main
+  git push origin "$TAG"
+
+  echo ""
+  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "  ✓ Release $TAG publicado"
+  echo -e "  GitHub Actions está buildeando Mac y Windows."
+  echo -e "  Revisa el progreso en:"
+  echo -e "  https://github.com/CarlosUtrilla/Ecclesia/actions"
+  echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+  exit 0
+fi
+
+echo -e "  Ejecutando build local (sin publicar en GitHub Actions)..."
+
+ensure_sharp_ready
+
+
+echo -e "  -> Windows x64"
+npm run build:ci:win -- --x64 --publish never
 
 # ─── Listo ────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "  ✓ Release $TAG publicado"
-echo -e "  GitHub Actions está buildeando Mac y Windows."
-echo -e "  Revisa el progreso en:"
-echo -e "  https://github.com/CarlosUtrilla/Ecclesia/actions"
+echo -e "  ✓ Release local $TAG compilado"
+echo -e "  No se hizo push a origin ni se disparó CI."
+echo -e "  Artefactos disponibles en dist/"
 echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo ""

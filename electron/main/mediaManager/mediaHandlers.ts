@@ -4,7 +4,6 @@ import fs from 'fs'
 import crypto from 'crypto'
 import os from 'os'
 import { MediaType } from '@prisma/client'
-import sharp from 'sharp'
 import ffmpeg from '@ffmpeg-installer/ffmpeg'
 import { spawn } from 'child_process'
 import AdmZip from 'adm-zip'
@@ -20,12 +19,69 @@ function resolveFfmpegPath(): string {
 export const SUPPORTED_IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 export const SUPPORTED_VIDEO_FORMATS = ['.mp4', '.webm', '.mov', '.avi']
 
+type SharpFn = (input: string) => {
+  resize: (
+    width: number,
+    height: number,
+    options: { fit: 'cover'; position: 'center' }
+  ) => {
+    jpeg: (options: { quality: number }) => {
+      toFile: (destPath: string) => Promise<void>
+    }
+  }
+}
+
+function resolveSharp(): SharpFn | null {
+  try {
+    // Carga diferida para evitar que el proceso principal crashee al arrancar
+    // cuando el binario nativo de sharp no existe para el runtime actual.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const loaded = require('sharp') as { default?: SharpFn } | SharpFn
+    return (loaded as { default?: SharpFn }).default ?? (loaded as SharpFn)
+  } catch {
+    return null
+  }
+}
+
 // Generar thumbnail de imagen con sharp
 async function generateImageThumbnail(sourcePath: string, destPath: string): Promise<void> {
-  await sharp(sourcePath)
-    .resize(400, 300, { fit: 'cover', position: 'center' })
-    .jpeg({ quality: 80 })
-    .toFile(destPath)
+  const sharp = resolveSharp()
+
+  if (sharp) {
+    await sharp(sourcePath)
+      .resize(400, 300, { fit: 'cover', position: 'center' })
+      .jpeg({ quality: 80 })
+      .toFile(destPath)
+    return
+  }
+
+  // Fallback con ffmpeg para entornos donde sharp no está disponible.
+  await new Promise<void>((resolve, reject) => {
+    const ffmpegPath = resolveFfmpegPath()
+    const args = [
+      '-i',
+      sourcePath,
+      '-vframes',
+      '1',
+      '-vf',
+      'scale=400:300:force_original_aspect_ratio=decrease',
+      '-q:v',
+      '2',
+      destPath
+    ]
+
+    const process = spawn(ffmpegPath, args)
+
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(`FFmpeg exited with code ${code}`))
+      }
+    })
+
+    process.on('error', reject)
+  })
 }
 
 // Generar thumbnail de video con ffmpeg (en segundo 1.5 para evitar animaciones iniciales)
