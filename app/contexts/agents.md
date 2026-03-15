@@ -162,6 +162,7 @@ const { bibleSchema, getShortNameById, getCompleteNameById, getCompleteVerseText
 
 - React Query: `queryKey: ['bibleSchema']`, `staleTime: Infinity` (se cachea permanentemente)
 - Provee funciones utilitarias para buscar nombres de libros y formatear referencias
+- La resolución de libros prioriza `book_id` (id canónico bíblico usado por schedule/live) con fallback a `id` de fila para compatibilidad, evitando referencias nulas al renderizar en cronograma y pantallas live/stage.
 
 ### useBibleVersions
 

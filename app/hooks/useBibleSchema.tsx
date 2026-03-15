@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { findBibleBookByBookId } from './useBibleSchema.utils'
 
 export default function useBibleSchema() {
   const { data: bibleSchema = [] } = useQuery({
@@ -8,9 +9,7 @@ export default function useBibleSchema() {
   })
 
   const findBookById = (bookId: number | string) => {
-    const normalizedId = Number(bookId)
-    if (!Number.isFinite(normalizedId)) return null
-    return bibleSchema.find((b) => Number(b.id) === normalizedId) || null
+    return findBibleBookByBookId(bibleSchema, bookId)
   }
 
   const getShortNameById = (bookId: number) => {
