@@ -108,18 +108,18 @@ export default function BiblePanel() {
       </div>
 
       {/* Capitul y vericulo */}
-      <div className="overflow-hidden border-b row-span-1 flex flex-col panel-scrollable">
+      <div className="overflow-hidden border-b max-w-72 flex flex-col panel-scrollable">
         <div className="bg-muted/40 panel-header">
           <div className="grid border-t grid-cols-10 text-center text-sm">
-            <div className="p-2 py-1 col-span-8">Libro</div>
-            <div className="p-2 py-1 border-x col-span-2">Capitulo</div>
+            <div className="p-2 py-1 col-span-7">Libro</div>
+            <div className="p-2 py-1 border-x col-span-3">Capitulo</div>
           </div>
         </div>
         <div
           ref={bookContainerRef}
           className="grid grid-cols-10 text-sm flex-1 panel-scroll-content"
         >
-          <div className="overflow-y-auto col-span-8">
+          <div className="overflow-y-auto col-span-7">
             {bibleSchema.map((book) => (
               <div
                 key={book.id}
@@ -145,7 +145,7 @@ export default function BiblePanel() {
           </div>
           <div
             ref={chapterContainerRef}
-            className="overflow-y-auto text-center border-x col-span-2"
+            className="overflow-y-auto text-center border-x col-span-3"
           >
             {chapters.map((chapter) => (
               <div

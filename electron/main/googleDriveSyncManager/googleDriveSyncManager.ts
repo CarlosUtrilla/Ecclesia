@@ -495,7 +495,10 @@ async function buildLocalMediaManifest(
   // Algunos entornos de test mockean `getPrisma()` sin el delegate `font`.
   const fontRows =
     prisma && (prisma as any).font && typeof (prisma as any).font.findMany === 'function'
-      ? await (prisma as any).font.findMany({ select: { filePath: true } })
+      ? await (prisma as any).font.findMany({
+          where: { deletedAt: null },
+          select: { filePath: true }
+        })
       : []
 
   const relativePathsSet = new Set<string>()
@@ -1403,6 +1406,19 @@ async function syncMediaManifest(
   if (mode === 'push') {
     for (const localEntry of localManifest.entries) {
       if (localEntry.deletedAt) {
+        // Eliminar el blob del archivo en Drive si todavía existe
+        const blobFileId = localEntry.checksum
+          ? remoteBlobByChecksum.get(localEntry.checksum)
+          : undefined
+        if (blobFileId) {
+          try {
+            await drive.files.delete({ fileId: blobFileId })
+            remoteBlobByChecksum.delete(localEntry.checksum!)
+          } catch (err) {
+            log.warn(`[sync] No se pudo eliminar blob de Drive para ${localEntry.path}:`, err)
+          }
+        }
+
         remoteByPath.set(localEntry.path, {
           ...localEntry,
           lastSyncedAt: nowIso

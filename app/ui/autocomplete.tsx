@@ -1,10 +1,10 @@
 import { Command as CommandPrimitive } from 'cmdk'
 import { Check, ChevronDown, CircleX, Search } from 'lucide-react'
-import { useState, useRef, useCallback, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, useMemo, type KeyboardEvent } from 'react'
 
 import { cn } from '@/lib/utils'
 
-import { CommandGroup, CommandInput, CommandItem, CommandList } from './command'
+import { CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from './command'
 import { Skeleton } from './skeleton'
 import { Input } from './input'
 
@@ -13,8 +13,15 @@ export type Option = {
   label: string
 }
 
-type AutoCompleteProps = {
+export type OptionGroup = {
+  label: string
   options: Option[]
+}
+
+type AutoCompleteProps = {
+  options?: Option[]
+  groups?: OptionGroup[]
+  beforeOptions?: React.ReactNode
   emptyMessage: string
   value?: number | string
   onValueChange?: (value: number | string) => void
@@ -30,6 +37,8 @@ type AutoCompleteProps = {
 
 export const AutoComplete = ({
   options,
+  groups,
+  beforeOptions,
   placeholder,
   emptyMessage,
   value,
@@ -44,8 +53,13 @@ export const AutoComplete = ({
 }: AutoCompleteProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const allOptions = useMemo(
+    () => (groups ? groups.flatMap((g) => g.options) : (options ?? [])),
+    [groups, options]
+  )
+
   const [isOpen, setOpen] = useState(false)
-  const selectedOption = options.find((option) => option.value === value)
+  const selectedOption = allOptions.find((option) => option.value === value)
   const [inputValue, setInputValue] = useState<string>(
     propsInputValue || selectedOption?.label || ''
   )
@@ -64,7 +78,7 @@ export const AutoComplete = ({
 
       // This is not a default behaviour of the <input /> field
       if (event.key === 'Enter' && input.value !== '') {
-        const optionToSelect = options.find((option) => option.label === input.value)
+        const optionToSelect = allOptions.find((option) => option.label === input.value)
         if (optionToSelect) {
           onValueChange?.(optionToSelect.value)
         }
@@ -74,7 +88,7 @@ export const AutoComplete = ({
         input.blur()
       }
     },
-    [isOpen, options, onValueChange]
+    [isOpen, allOptions, onValueChange]
   )
 
   const handleBlur = useCallback(() => {
@@ -113,9 +127,13 @@ export const AutoComplete = ({
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className={cn('px-9 h-9 min-w', className, {
-            'pr-12': selectedOption
-          })}
+          className={cn(
+            'px-9 h-9 min-w focus-visible:ring-0 focus-visible:border-input',
+            className,
+            {
+              'pr-12': selectedOption
+            }
+          )}
           containerClassName="px-0"
           hideIcon
           asChild
@@ -142,12 +160,12 @@ export const AutoComplete = ({
       </div>
       <div
         className={cn(
-          'absolute z-10 w-full rounded-lg bg-white outline-none animate-in fade-in-0 zoom-in-95',
+          'absolute z-10 w-full rounded-lg bg-popover text-popover-foreground outline-none animate-in fade-in-0 zoom-in-95',
           contentPlacement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
           isOpen ? 'block' : 'hidden'
         )}
       >
-        <CommandList className="rounded-lg ring-1 bg-background ring-slate-200">
+        <CommandList className="rounded-lg bg-popover border border-input text-popover-foreground">
           {isLoading ? (
             <CommandPrimitive.Loading>
               <div className="p-1">
@@ -155,9 +173,43 @@ export const AutoComplete = ({
               </div>
             </CommandPrimitive.Loading>
           ) : null}
-          {options.length > 0 && !isLoading ? (
+          {beforeOptions}
+          {groups ? (
+            groups.map((group, gi) => (
+              <>
+                {gi > 0 && <CommandSeparator key={`sep-${gi}`} />}
+                <CommandGroup key={group.label} heading={group.label}>
+                  {group.options.map((option) => {
+                    const isSelected = selectedOption?.value === option.value
+                    const isCustomRender = typeof renderOption === 'function'
+                    return (
+                      <CommandItem
+                        key={option.value}
+                        value={option.label}
+                        onMouseDown={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                        }}
+                        onSelect={() => handleSelectOption(option)}
+                        className="flex w-full items-center gap-2 px-3 py-2"
+                      >
+                        {isCustomRender ? (
+                          renderOption(option, isSelected)
+                        ) : (
+                          <>
+                            {option.label}
+                            {isSelected ? <Check className="w-4 ml-auto" /> : null}
+                          </>
+                        )}
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              </>
+            ))
+          ) : allOptions.length > 0 && !isLoading ? (
             <CommandGroup>
-              {options.map((option) => {
+              {allOptions.map((option) => {
                 const isSelected = selectedOption?.value === option.value
                 const isCustomRender = typeof renderOption === 'function'
                 return (

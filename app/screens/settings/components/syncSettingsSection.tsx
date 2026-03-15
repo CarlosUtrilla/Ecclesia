@@ -141,9 +141,15 @@ export default function SyncSettingsSection() {
   }
 
   const handlePushBackup = async () => {
+    if (!status?.connected || !isSyncEnabled) {
+      setStatusMessage('Activa la sincronización y conecta Google Drive para subir respaldo')
+      return
+    }
+
     setIsProcessing(true)
-    setStatusMessage('Subiendo respaldo a Google Drive...')
+    setStatusMessage('Reconciliando cambios y subiendo respaldo a Google Drive...')
     try {
+      await window.googleDriveSyncAPI.reconcileNow()
       await window.googleDriveSyncAPI.pushNow()
       await refreshStatus()
       setStatusMessage('Respaldo subido correctamente')
@@ -316,7 +322,7 @@ export default function SyncSettingsSection() {
         </Button>
         <Button
           variant="outline"
-          disabled={isProcessing || !status?.connected}
+          disabled={isProcessing || !status?.connected || !isSyncEnabled}
           onClick={handlePushBackup}
         >
           <Upload className="size-4" /> Subir

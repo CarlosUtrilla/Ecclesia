@@ -37,7 +37,7 @@ app/screens/settings/
 - Electron carga la ruta hash `/settings` usando `createSettingsWindow()`.
 - El modo de color guardado se aplica globalmente en `app/main.tsx` para todas las ventanas.
 - La sección de sincronización usa `window.googleDriveSyncAPI` (preload) para conectarse y disparar `push/pull` del pipeline diferencial.
-- **El botón "Subir" hace reconcile automático** antes del push: indexa todo el estado actual de la BD en el outbox y luego sube todo a Google Drive. No es necesario ejecutar reconcileNow manualmente.
+- **El botón "Subir" hace reconcile automático** antes del push: ejecuta `window.googleDriveSyncAPI.reconcileNow()` y luego `pushNow`, para indexar estado actual (incluyendo cambios históricos) y subirlo a Google Drive sin pasos manuales adicionales.
 - El campo `deviceName` se muestra visible en el formulario. Al cargar, se auto-rellena con el hostname del sistema si no hay valor guardado. **Debe ser único por dispositivo** para que el pull funcione correctamente entre equipos.
 - El estado visible incluye: cuenta conectada, nombre del dispositivo, última sincronización, errores del último run y cambios pendientes de subir.
 
