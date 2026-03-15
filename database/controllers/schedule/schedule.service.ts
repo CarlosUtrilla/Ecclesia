@@ -30,8 +30,8 @@ export class ScheduleService {
         items:
           items && items.length > 0
             ? {
-                create: items.map((item) => ({
-                  ...item,
+                create: items.map(({ id: _id, scheduleId: _sid, updatedAt: _ua, deletedAt: _da, ...rest }) => ({
+                  ...rest,
                   id: crypto.randomUUID()
                 }))
               }
@@ -77,8 +77,8 @@ export class ScheduleService {
           items:
             items && items.length > 0
               ? {
-                  create: items.map((item) => ({
-                    ...item,
+                  create: items.map(({ id: _id, scheduleId: _sid, updatedAt: _ua, deletedAt: _da, ...itemRest }) => ({
+                    ...itemRest,
                     id: crypto.randomUUID()
                   }))
                 }

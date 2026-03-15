@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { LayoutGrid, List, Radio } from 'lucide-react'
 import { RenderSongLyrics } from './components/RenderSongLyrics'
 import RenderBibleVerses from './components/RenderBibleVerses'
+import RenderBibleLiveControls from './components/RenderBibleLiveControls'
 import { RenderMedia } from './components/RenderMedia'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
@@ -109,7 +110,7 @@ export default function LivePanel() {
       case 'SONG':
         return <RenderSongLyrics />
       case 'BIBLE':
-        return <RenderBibleVerses data={content} />
+        return <RenderBibleLiveControls data={content} />
       case 'MEDIA':
         return <RenderMedia />
       case 'PRESENTATION':

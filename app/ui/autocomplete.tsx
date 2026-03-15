@@ -25,6 +25,7 @@ type AutoCompleteProps = {
   placeholder?: string
   renderOption?: (option: Option, isSelected: boolean) => React.ReactNode
   className?: string
+  contentPlacement?: 'top' | 'bottom'
 }
 
 export const AutoComplete = ({
@@ -38,7 +39,8 @@ export const AutoComplete = ({
   renderOption,
   inputValue: propsInputValue,
   onInputValueChange,
-  className
+  className,
+  contentPlacement = 'bottom'
 }: AutoCompleteProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -100,7 +102,7 @@ export const AutoComplete = ({
   }
 
   return (
-    <CommandPrimitive className="h-9" onKeyDown={handleKeyDown}>
+    <CommandPrimitive className="relative h-9" onKeyDown={handleKeyDown}>
       <div className="[&>div]:border-b-0 relative">
         <Search className="size-4 shrink-0 text-muted-foreground/60 absolute left-3 top-1/2 -translate-y-1/2" />
         <CommandInput
@@ -138,57 +140,56 @@ export const AutoComplete = ({
           />
         </div>
       </div>
-      <div className="relative mt-1">
-        <div
-          className={cn(
-            'absolute top-0 z-10 w-full rounded-lg bg-white outline-none animate-in fade-in-0 zoom-in-95',
-            isOpen ? 'block' : 'hidden'
-          )}
-        >
-          <CommandList className="rounded-lg ring-1 ring-slate-200">
-            {isLoading ? (
-              <CommandPrimitive.Loading>
-                <div className="p-1">
-                  <Skeleton className="h-8 w-full" />
-                </div>
-              </CommandPrimitive.Loading>
-            ) : null}
-            {options.length > 0 && !isLoading ? (
-              <CommandGroup>
-                {options.map((option) => {
-                  const isSelected = selectedOption?.value === option.value
-                  const isCustomRender = typeof renderOption === 'function'
-                  return (
-                    <CommandItem
-                      key={option.value}
-                      value={option.label}
-                      onMouseDown={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                      }}
-                      onSelect={() => handleSelectOption(option)}
-                      className="flex w-full items-center gap-2 px-3 py-2"
-                    >
-                      {isCustomRender ? (
-                        renderOption(option, isSelected)
-                      ) : (
-                        <>
-                          {option.label}
-                          {isSelected ? <Check className="w-4 ml-auto" /> : null}
-                        </>
-                      )}
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            ) : null}
-            {!isLoading ? (
-              <CommandPrimitive.Empty className="select-none rounded-sm px-2 py-3 text-center text-sm">
-                {emptyMessage}
-              </CommandPrimitive.Empty>
-            ) : null}
-          </CommandList>
-        </div>
+      <div
+        className={cn(
+          'absolute z-10 w-full rounded-lg bg-white outline-none animate-in fade-in-0 zoom-in-95',
+          contentPlacement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+          isOpen ? 'block' : 'hidden'
+        )}
+      >
+        <CommandList className="rounded-lg ring-1 bg-background ring-slate-200">
+          {isLoading ? (
+            <CommandPrimitive.Loading>
+              <div className="p-1">
+                <Skeleton className="h-8 w-full" />
+              </div>
+            </CommandPrimitive.Loading>
+          ) : null}
+          {options.length > 0 && !isLoading ? (
+            <CommandGroup>
+              {options.map((option) => {
+                const isSelected = selectedOption?.value === option.value
+                const isCustomRender = typeof renderOption === 'function'
+                return (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label}
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                    onSelect={() => handleSelectOption(option)}
+                    className="flex w-full items-center gap-2 px-3 py-2"
+                  >
+                    {isCustomRender ? (
+                      renderOption(option, isSelected)
+                    ) : (
+                      <>
+                        {option.label}
+                        {isSelected ? <Check className="w-4 ml-auto" /> : null}
+                      </>
+                    )}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          ) : null}
+          {!isLoading ? (
+            <CommandPrimitive.Empty className="select-none rounded-sm px-2 py-3 text-center text-sm">
+              {emptyMessage}
+            </CommandPrimitive.Empty>
+          ) : null}
+        </CommandList>
       </div>
     </CommandPrimitive>
   )

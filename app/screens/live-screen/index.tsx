@@ -204,7 +204,7 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
             />
           ) : (
             <img
-              src={fallbackThumbnailUrl ?? fallbackMediaUrl}
+              src={fallbackMediaUrl ?? fallbackThumbnailUrl}
               alt=""
               className="w-full h-full object-cover"
             />

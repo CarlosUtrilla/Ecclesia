@@ -51,6 +51,15 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - El contenedor principal usa `useKeyboardShortcuts` para navegación por teclado con foco: `ArrowLeft/ArrowUp` retrocede slide y `ArrowRight/ArrowDown` avanza slide cuando hay item en vivo con múltiples diapositivas.
 - En `PRESENTATION`, la navegación con flechas respeta rangos bíblicos por slide: primero avanza/retrocede versículos internos y solo cambia de diapositiva al llegar al final/inicio del rango.
 
+## Soporte de BIBLE en items-on-live
+
+- El case `BIBLE` usa `RenderBibleLiveControls` (no `RenderBibleVerses` directamente) para envolver la lista de versos con una barra de controles inferior.
+- La barra inferior muestra un `AutoComplete` para cambiar la versión bíblica en tiempo real y lo renderiza con `contentPlacement="top"` para que el listado no se recorte contra el borde inferior del panel.
+- Al seleccionar una versión, el componente reconstruye el `accessData` (`bookId,chapter,verseRange,<nueva_version>`) y llama `setItemOnLive({ ...itemOnLive, accessData })`. Esto hace que:
+  1. El `useEffect` de `liveContext` que observa `itemOnLive` re-compute el contenido y lo envíe a las pantallas live.
+  2. La `useQuery` de `LivePanel` haga refetch automático (el key incluye `itemOnLive.accessData`).
+- Las versiones disponibles se obtienen de `useBibleVersions()` (`window.api.bible.getAvailableBibles()`); el campo relevante es `v.version` (nombre del archivo `.ebbl` sin extensión).
+
 ## Nota Stage
 
 - Los controles operativos stage fueron movidos a ventanas dedicadas (`/stage-control` y `/stage-layout`) para no mezclar responsabilidades en este panel.
