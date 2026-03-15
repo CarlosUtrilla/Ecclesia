@@ -449,6 +449,7 @@ export const createTextSlide = (themeId?: number | null) => ({
   type: 'TEXT' as const,
   themeId: themeId ?? null,
   transitionSettings: defaultTransitionSettingsString,
+  videoLoop: false,
   videoLiveBehavior: 'manual' as const,
   text: 'Nuevo texto',
   items: [
@@ -468,6 +469,7 @@ export const createMediaSlide = (mediaId?: number, themeId?: number | null) => (
   type: 'MEDIA' as const,
   themeId: themeId ?? null,
   transitionSettings: defaultTransitionSettingsString,
+  videoLoop: false,
   videoLiveBehavior: 'manual' as const,
   text: '',
   mediaId,

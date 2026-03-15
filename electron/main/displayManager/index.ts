@@ -5,7 +5,16 @@ import log from 'electron-log'
 const liveScreensByDisplayId = new Map<number, BrowserWindow>()
 const stageScreensByDisplayId = new Map<number, BrowserWindow>()
 
-function focusDisplayWindow(windowRef: BrowserWindow): number {
+function focusDisplayWindow(
+  windowRef: BrowserWindow,
+  targetBounds?: { x: number; y: number; width: number; height: number }
+): number {
+  if (targetBounds) {
+    windowRef.setBounds(targetBounds, false)
+  }
+
+  windowRef.setFullScreen(true)
+
   if (windowRef.isMinimized()) {
     windowRef.restore()
   }
@@ -57,20 +66,21 @@ export function initializeDisplayManager() {
 
   // Abrir ventana en pantalla completa en la pantalla especificada
   ipcMain.handle('show-live-screen', (event, displayId: number) => {
-    const existingLiveScreen = liveScreensByDisplayId.get(displayId)
-    if (existingLiveScreen && !existingLiveScreen.isDestroyed()) {
-      return focusDisplayWindow(existingLiveScreen)
-    }
-
-    const mainWindow = BrowserWindow.fromWebContents(event.sender)
-    if (!mainWindow) {
-      throw new Error('No se pudo obtener la ventana principal')
-    }
     const displays = screen.getAllDisplays()
     const targetDisplay = displays.find((display) => display.id === displayId)
 
     if (!targetDisplay) {
       throw new Error(`Display con ID ${displayId} no encontrado`)
+    }
+
+    const existingLiveScreen = liveScreensByDisplayId.get(displayId)
+    if (existingLiveScreen && !existingLiveScreen.isDestroyed()) {
+      return focusDisplayWindow(existingLiveScreen, targetDisplay.bounds)
+    }
+
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!mainWindow) {
+      throw new Error('No se pudo obtener la ventana principal')
     }
 
     const liveScreen = new BrowserWindow({
@@ -97,6 +107,8 @@ export function initializeDisplayManager() {
 
     // Mostrar la ventana después de cargar
     liveScreen.once('ready-to-show', () => {
+      liveScreen.setBounds(targetDisplay.bounds, false)
+      liveScreen.setFullScreen(true)
       liveScreen.show()
       liveScreen.focus()
       liveScreen.setAlwaysOnTop(true, 'screen-saver')

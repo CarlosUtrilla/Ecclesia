@@ -27,7 +27,7 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 *   **Frontend:** React 19, TypeScript, Tailwind CSS, Shadcn UI, React Router v7, React Hook Form + Zod, TanStack React Query, TipTap, Framer Motion (LazyMotion), dnd-kit
 *   **Backend:** Electron, Prisma ORM, SQLite (better-sqlite3)
 *   **Build:** Vite + electron-vite
-*   **Release CI:** workflow de tags usa Yarn (`yarn.lock`) y build macOS arm64+x64 secuencial en un solo job (sin merge `universal` para evitar fallos de `_CodeSignature`). El workflow valida `GH_TOKEN` al inicio y define `timeout-minutes` por job para cortar fallos costosos. El script `scripts/release.sh` permite elegir modo `github` (push + CI) o `local` (compila mac/win sin push ni consumo de CI), e incluye preflight de `sharp` con autoreparación (`yarn install` + `npm rebuild sharp` + `electron-builder install-app-deps`).
+*   **Release CI:** workflow de tags usa Yarn (`yarn.lock`) y build macOS arm64+x64 secuencial en un solo job (sin merge `universal` para evitar fallos de `_CodeSignature`). El workflow valida `GH_TOKEN` al inicio y define `timeout-minutes` por job para cortar fallos costosos. El script `scripts/release.sh` permite elegir modo `github` (push + CI) o `local` (compila mac/win sin push ni consumo de CI), e incluye preflight de `sharp` con autoreparación (`yarn install` + `npm rebuild sharp` + `electron-builder install-app-deps`) y preparación explícita de `sharp` para `win32-x64` antes del empaquetado de Windows local (`npm install --legacy-peer-deps --os=win32 --cpu=x64 sharp`). En modo local, el flujo compila primero con `electron-vite build` en macOS, ejecuta `prisma generate` con `binaryTargets` multi-plataforma (`native`, `windows`, `darwin-arm64`, `darwin`) y luego empaqueta con `electron-builder --win`, evitando errores de optional dependencies de Rollup y de Query Engine en Windows. Al finalizar, el script restaura dependencias del host con `yarn install --frozen-lockfile` para no dejar roto el entorno de desarrollo local y puede subir opcionalmente `dist/` a un GitHub Release vía `gh` (con advertencia porque crear el tag remoto `v*` puede disparar el workflow de tags).
 *   **Idioma principal del codigo:** Espanol (comentarios, nombres de variables UI), Ingles (nombres de modelos, controladores, tipos)
 *   **Testing:** Vitest (`node` por defecto + `jsdom` por archivo), Testing Library para pruebas UI.
 
@@ -295,12 +295,13 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 
 ## Integración ScheduleContext, Schedule y Library
 
-*   La carpeta `app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
-*   Los items de biblioteca (songs, media, bible) se agregan al cronograma por drag & drop o acciones directas (click/context menu), usando los métodos del contexto (`addItemToSchedule`, etc.).
-*   Ver detalles y flujos completos en los agents de cada módulo.
-*   Controles de emergencia en live desde teclado del operador: `F7` (activar live), `F9` (ocultar texto solo en live), `F10` (mostrar logo/fallback sin quitar item), `F11` (pantalla negra), `Escape` (limpiar item live sin cerrar ventana).
+* La carpeta `app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
+* Los items de biblioteca (songs, media, bible) se agregan al cronograma por drag & drop o acciones directas (click/context menu), usando los métodos del contexto (`addItemToSchedule`, etc.).
+* Ver detalles y flujos completos en los agents de cada módulo.
+* Controles de emergencia en live desde teclado del operador: `F7` (activar live), `F9` (ocultar texto solo en live), `F10` (mostrar logo/fallback sin quitar item), `F11` (pantalla negra), `Escape` (limpiar item live sin cerrar ventana).
+* Las diapositivas de PresentationEditor pueden persistir `backgroundColor` opcional para sobrescribir el fondo por slide sin romper el tema global ni el render de `PresentationView`.
 
-```
+```tsx
 role="button"
 tabIndex={0}
 onKeyDown={(e) => {
@@ -311,13 +312,13 @@ onKeyDown={(e) => {
 }}
 ```
 
-```
+```tsx
 import { m, LazyMotion, domAnimation } from 'framer-motion'
 // Usar <m.div> en vez de <motion.div>
 // Envolver con <LazyMotion features={domAnimation}>
 ```
 
-```
+```tsx
 const handleOpenChange = (isOpen: boolean) => {
   if (isOpen) setLocalState(propValue)
   setOpen(isOpen)

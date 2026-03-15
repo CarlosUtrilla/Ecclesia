@@ -18,6 +18,8 @@ prisma/
         └── migration.sql
 ```
 
+- El `generator client` en `schema.prisma` debe incluir `binaryTargets` multi-plataforma para releases cruzados (al menos `native` + `windows` + `darwin-arm64` + `darwin`) y evitar fallos de Query Engine al ejecutar instaladores generados fuera de su plataforma.
+
 ## Modelos
 
 ### Song (Canciones)

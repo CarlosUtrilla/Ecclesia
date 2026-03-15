@@ -185,6 +185,8 @@ app/screens/editors/
 - El detalle técnico del módulo se documenta en [app/screens/editors/presentationEditor/agents.md](presentationEditor/agents.md).
 - El módulo está organizado por `components/`, `hooks/` y `utils/` para mantener `index.tsx` como orquestador.
 - Funcionalidades principales: edición visual canvas, snapping, historial undo/redo, atajos y guardado de slides mixtos (`items[]`).
+- Cada diapositiva del PresentationEditor puede definir un `backgroundColor` opcional para sobrescribir solo su fondo sin alterar el tema/base del resto de slides.
+- Cada diapositiva del PresentationEditor puede definir `videoLoop` opcional para decidir si un video de esa slide se repite al terminar; por defecto las nuevas slides/importaciones quedan en `false`.
 - En PresentationEditor, el carrusel de slides permite inserción contextual por hover entre tarjetas (`Añadir diapositiva aquí`) para crear una diapositiva en una posición específica.
 - En PresentationEditor, las miniaturas de slides soportan `click derecho` para duplicar/eliminar diapositiva; la duplicación no arrastra metadatos de Canva para evitar colisiones con reimportación.
 - En PresentationEditor, cada miniatura de slide permite `Renombrar diapositiva` desde menú contextual; abre un diálogo del editor, guarda el nombre en `slideName` y lo muestra en el overlay de la miniatura.

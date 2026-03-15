@@ -44,6 +44,7 @@ export type PresentationViewItems = {
   text: string
   theme?: ThemeWithMedia
   videoLiveBehavior?: 'auto' | 'manual'
+  videoLoop?: boolean
   customStyle?: string
   animationSettings?: string
   transitionSettings?: string

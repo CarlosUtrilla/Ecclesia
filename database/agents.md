@@ -160,6 +160,8 @@ export interface CreateSongDTO {
 - Dentro de `presentations.slides.items[]`, el tipo `SHAPE` representa formas editoriales (`rectangle`, `circle`, `arrow`, `line-arrow`, `triangle`, `line`, `cross`) serializadas en `accessData` y estilizadas desde `customStyle`.
 - Cada slide de `presentations.slides` también soporta `videoLiveBehavior` (`auto` | `manual`) para controlar si videos de la diapositiva inician automáticamente al entrar en live o quedan en espera de play manual.
 - Cada slide de `presentations.slides` también puede incluir `themeId` opcional (`number | null`) para aplicar un tema global de presentación en runtime.
+- Cada slide de `presentations.slides` también puede incluir `backgroundColor` opcional (`string`) para sobrescribir su fondo individualmente sin cambiar el tema persistido de las demás diapositivas.
+- Cada slide de `presentations.slides` también puede incluir `videoLoop` opcional (`boolean`) para controlar si el video de esa diapositiva se repite al finalizar; la normalización backend lo fuerza a `false` cuando no viene definido.
 - Cada slide de `presentations.slides` puede incluir `slideName` opcional (`string`) para mostrar un nombre personalizado en el carrusel del editor.
 - Cada slide de `presentations.slides` puede incluir metadatos opcionales de importación Canva (`canvaSourceKey`, `canvaSlideNumber`) para que el renderer pueda reimportar ZIPs y actualizar diapositivas existentes por número de slide en lugar de duplicarlas.
 - `schedule.updateSchedule` usa `dateFrom` y `dateTo` (no `date`) para mantener consistencia con el modelo Prisma y el estado del formulario en frontend.

@@ -96,6 +96,8 @@ const getActiveVideoDuration = (slide?: PresentationViewItems) => {
   return 0
 }
 
+const getActiveVideoLoop = (slide?: PresentationViewItems) => slide?.videoLoop === true
+
 export default function RenderPresentationLiveController({ data }: Props) {
   const {
     itemIndex,
@@ -146,6 +148,7 @@ export default function RenderPresentationLiveController({ data }: Props) {
     return path ? buildMediaUrl(path) : null
   }, [activeSlide, buildMediaUrl])
   const activeVideoDurationHint = useMemo(() => getActiveVideoDuration(activeSlide), [activeSlide])
+  const activeSlideVideoLoop = useMemo(() => getActiveVideoLoop(activeSlide), [activeSlide])
 
   useEffect(() => {
     setIsPlaying(false)
@@ -282,6 +285,12 @@ export default function RenderPresentationLiveController({ data }: Props) {
   }
 
   const handleControllerEnded = () => {
+    if (activeSlideVideoLoop) {
+      setCurrentTime(0)
+      setIsPlaying(true)
+      return
+    }
+
     setIsPlaying(false)
     setCurrentTime(duration)
   }
@@ -410,6 +419,7 @@ export default function RenderPresentationLiveController({ data }: Props) {
                 ref={controllerVideoRef}
                 src={activeVideoUrl}
                 preload="metadata"
+                loop={activeSlideVideoLoop}
                 style={{
                   position: 'absolute',
                   width: 1,

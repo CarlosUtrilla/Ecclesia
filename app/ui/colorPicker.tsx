@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover'
 
-import Chrome from '@uiw/react-color-chrome'
+import Chrome, { ChromeInputType } from '@uiw/react-color-chrome'
 
 interface ColorPickerProps {
   value: string
@@ -28,6 +28,7 @@ export function ColorPicker({ value, onChange, className = 'h-8 w-20' }: ColorPi
           onChange={(color) => {
             onChange(color.hex)
           }}
+          inputType={ChromeInputType.HEXA}
         />
       </PopoverContent>
     </Popover>

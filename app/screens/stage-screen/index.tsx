@@ -39,6 +39,7 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
   const [themeTransitionKey, setThemeTransitionKey] = useState(0)
   const selectedScreenIdRef = useRef<number | null>(null)
   const themeMarkerRef = useRef<string | null>(null)
+  const configuredThemeIdRef = useRef<number | null>(null)
   const stageScreenSize = useScreenSize(100, displayId)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [containerSize, setContainerSize] = useState(() => ({ width: 1280, height: 720 }))
@@ -47,7 +48,18 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
   const [nowMs, setNowMs] = useState(() => Date.now())
 
   const applyTheme = useCallback((theme: ThemeWithMedia, marker: string) => {
-    setStageTheme(theme)
+    setStageTheme((previous) => {
+      if (
+        previous.id === theme.id &&
+        String(previous.updatedAt) === String(theme.updatedAt) &&
+        previous.background === theme.background &&
+        previous.backgroundMediaId === theme.backgroundMediaId
+      ) {
+        return previous
+      }
+
+      return theme
+    })
 
     if (themeMarkerRef.current !== marker) {
       themeMarkerRef.current = marker
@@ -117,6 +129,7 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
       )
 
       if (!config) {
+        configuredThemeIdRef.current = null
         hasConfiguredThemeRef.current = false
         setLayout(DEFAULT_STAGE_LAYOUT)
         setStageState(DEFAULT_STATE)
@@ -128,10 +141,17 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
       setStageState(parseState(config.state))
 
       if (config.themeId) {
+        if (configuredThemeIdRef.current === config.themeId) {
+          hasConfiguredThemeRef.current = true
+          return
+        }
+
         const configuredTheme = await window.api.themes.getThemeById(config.themeId)
+        configuredThemeIdRef.current = config.themeId
         hasConfiguredThemeRef.current = true
         applyTheme(configuredTheme, `configured:${configuredTheme.id}`)
       } else {
+        configuredThemeIdRef.current = null
         hasConfiguredThemeRef.current = false
         applyTheme(liveTheme, `live:${liveTheme.id}`)
       }
@@ -183,6 +203,7 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
         if (!config) {
           setLayout(DEFAULT_STAGE_LAYOUT)
           setStageState(DEFAULT_STATE)
+          configuredThemeIdRef.current = null
           hasConfiguredThemeRef.current = false
           applyTheme(liveTheme, `live:${liveTheme.id}`)
           return
@@ -192,10 +213,17 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
         setStageState(parseState(config.state))
 
         if (config.themeId) {
+          if (configuredThemeIdRef.current === config.themeId) {
+            hasConfiguredThemeRef.current = true
+            return
+          }
+
           const configuredTheme = await window.api.themes.getThemeById(config.themeId)
+          configuredThemeIdRef.current = config.themeId
           hasConfiguredThemeRef.current = true
           applyTheme(configuredTheme, `configured:${configuredTheme.id}`)
         } else {
+          configuredThemeIdRef.current = null
           hasConfiguredThemeRef.current = false
           applyTheme(liveTheme, `live:${liveTheme.id}`)
         }

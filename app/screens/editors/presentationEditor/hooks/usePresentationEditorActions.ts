@@ -530,6 +530,7 @@ export default function usePresentationEditorActions({
           id: currentSlide.id,
           themeId: currentSlide.themeId ?? globalThemeId ?? null,
           transitionSettings: currentSlide.transitionSettings || replacement.transitionSettings,
+          videoLoop: currentSlide.videoLoop === true,
           videoLiveBehavior: currentSlide.videoLiveBehavior || replacement.videoLiveBehavior,
           canvaSourceKey: asset.sourceKey,
           canvaSlideNumber: asset.slideNumber ?? undefined

@@ -39,9 +39,11 @@ import { Slider } from '@/ui/slider'
 import { Label } from '@/ui/label'
 import { AnimationSettings, defaultAnimationSettings, easingOptions } from '@/lib/animationSettings'
 import { BlankTheme, useThemes } from '@/hooks/useThemes'
+import { resolvePresentationSlideTheme } from '@/lib/presentationSlides'
 import { MediaPicker } from '@/screens/panels/library/media/exports'
 import ThemePicker from './themePicker'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/ui/tabs'
+import { ColorPicker } from '@/ui/colorPicker'
 import { PresentationSchema, PresentationFormValues } from './schema'
 import BibleTextPicker from './bibleTextPicker'
 import EditorCanvas from './components/editorCanvas'
@@ -126,9 +128,16 @@ export default function PresentationEditor() {
   const title = watch('title')
   const slides = watch('slides')
   const themeById = useMemo(() => new Map(themes.map((theme) => [theme.id, theme])), [themes])
-  const activePresentationTheme =
-    globalThemeId === null ? BlankTheme : (themeById.get(globalThemeId) ?? BlankTheme)
   const selectedSlide = slides[selectedSlideIndex]
+  const activePresentationTheme = useMemo(
+    () => (globalThemeId === null ? BlankTheme : (themeById.get(globalThemeId) ?? BlankTheme)),
+    [globalThemeId, themeById]
+  )
+  const selectedSlideTheme = useMemo(
+    () => (selectedSlide ? resolvePresentationSlideTheme(selectedSlide, themeById) : undefined),
+    [selectedSlide, themeById]
+  )
+  const editorCanvasTheme = selectedSlideTheme ?? activePresentationTheme
 
   const minCanvasZoom = 50
   const maxCanvasZoom = 200
@@ -204,6 +213,7 @@ export default function PresentationEditor() {
       const normalizedSlides = (presentation.slides as PresentationFormValues['slides']).map(
         (slide) => ({
           ...slide,
+          videoLoop: slide.videoLoop === true,
           videoLiveBehavior: slide.videoLiveBehavior || 'manual',
           transitionSettings: slide.transitionSettings || defaultTransitionSettingsString,
           items: ensureSlideItems(slide)
@@ -219,7 +229,8 @@ export default function PresentationEditor() {
 
       return presentation
     },
-    enabled: !isCreating
+    enabled: !isCreating,
+    refetchOnWindowFocus: false
   })
 
   useEffect(() => {
@@ -448,6 +459,7 @@ export default function PresentationEditor() {
 
         return {
           ...slide,
+          videoLoop: slide.videoLoop === true,
           videoLiveBehavior: slide.videoLiveBehavior || 'manual',
           transitionSettings: slide.transitionSettings || defaultTransitionSettingsString,
           items,
@@ -572,6 +584,22 @@ export default function PresentationEditor() {
     }
   }
 
+  const handleSelectedSlideBackgroundChange = (nextColor: string) => {
+    if (!selectedSlide) return
+
+    setValue(`slides.${selectedSlideIndex}.backgroundColor`, nextColor, {
+      shouldDirty: true
+    })
+  }
+
+  const handleResetSelectedSlideBackground = () => {
+    if (!selectedSlide) return
+
+    setValue(`slides.${selectedSlideIndex}.backgroundColor`, undefined, {
+      shouldDirty: true
+    })
+  }
+
   return (
     <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
       <title>Editor de presentaciones</title>
@@ -619,6 +647,29 @@ export default function PresentationEditor() {
 
         {selectedSlide ? (
           <>
+            <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 shrink-0">
+              <span className="text-[11px] text-muted-foreground leading-none">
+                Fondo diapositiva
+              </span>
+              <ColorPicker
+                value={selectedSlide.backgroundColor || '#ffffff'}
+                onChange={handleSelectedSlideBackgroundChange}
+                className="h-6 w-7 shrink-0"
+              />
+              {selectedSlide.backgroundColor ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px]"
+                  onClick={handleResetSelectedSlideBackground}
+                >
+                  Restablecer
+                </Button>
+              ) : (
+                <span className="text-[11px] text-muted-foreground leading-none">Usa tema</span>
+              )}
+            </div>
             <Button
               type="button"
               variant="ghost"
@@ -679,6 +730,11 @@ export default function PresentationEditor() {
                 replaceSelectedMedia={replaceSelectedMedia}
                 onVideoLiveBehaviorChange={(value) => {
                   setValue(`slides.${selectedSlideIndex}.videoLiveBehavior`, value, {
+                    shouldDirty: true
+                  })
+                }}
+                onVideoLoopChange={(value) => {
+                  setValue(`slides.${selectedSlideIndex}.videoLoop`, value, {
                     shouldDirty: true
                   })
                 }}
@@ -744,7 +800,7 @@ export default function PresentationEditor() {
                   <EditorCanvas
                     slide={selectedSlide}
                     mediaById={mediaById}
-                    theme={activePresentationTheme}
+                    theme={editorCanvasTheme}
                     canvasScale={zoomScale}
                     animationPreviewKey={animationPreviewKey}
                     selectedItemId={selectedItemId}

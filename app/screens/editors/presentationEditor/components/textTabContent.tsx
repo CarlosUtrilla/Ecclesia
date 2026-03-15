@@ -81,6 +81,7 @@ type Props = {
   loadBibleText: () => Promise<void>
   replaceSelectedMedia: () => void
   onVideoLiveBehaviorChange: (value: 'auto' | 'manual') => void
+  onVideoLoopChange: (value: boolean) => void
 }
 
 export default function TextTabContent({
@@ -93,8 +94,14 @@ export default function TextTabContent({
   updateSelectedItem,
   loadBibleText,
   replaceSelectedMedia,
-  onVideoLiveBehaviorChange
+  onVideoLiveBehaviorChange,
+  onVideoLoopChange
 }: Props) {
+  const selectedMediaItem = selectedMediaId
+    ? media.find((item) => item.id === selectedMediaId)
+    : undefined
+  const isSelectedVideo = selectedMediaItem?.type === 'VIDEO'
+
   const shapePresets = [
     {
       name: 'Énfasis',
@@ -427,6 +434,22 @@ export default function TextTabContent({
             </Select>
           </div>
         )}
+
+        {selectedSlide && isSelectedVideo ? (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Repetición
+            </span>
+            <Button
+              type="button"
+              variant={selectedSlide.videoLoop ? 'default' : 'outline'}
+              className="h-9 justify-start text-xs"
+              onClick={() => onVideoLoopChange(!selectedSlide.videoLoop)}
+            >
+              {selectedSlide.videoLoop ? 'Se repite al terminar' : 'No se repite'}
+            </Button>
+          </div>
+        ) : null}
       </div>
     )
   }

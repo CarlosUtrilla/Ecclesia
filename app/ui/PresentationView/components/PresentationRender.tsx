@@ -215,7 +215,7 @@ const parseAnimationSettings = (animationSettings?: string): AnimationSettings =
   }
 }
 
-function LiveSyncedLayerVideo({ src }: { src: string }) {
+function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: boolean }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   useLayoutEffect(() => {
@@ -262,7 +262,7 @@ function LiveSyncedLayerVideo({ src }: { src: string }) {
       src={src}
       className="w-full h-full object-contain"
       autoPlay
-      loop
+      loop={shouldLoop}
       muted
       playsInline
       onLoadedMetadata={(event) => {
@@ -388,7 +388,7 @@ function PresentationLayer({
       <m.div initial="initial" animate="animate" exit="exit" variants={variants} style={style}>
         <div className="w-full h-full flex items-center justify-center">
           {item.media.type === 'VIDEO' ? (
-            <LiveSyncedLayerVideo src={mediaUrl} />
+            <LiveSyncedLayerVideo src={mediaUrl} shouldLoop={item.videoLoop === true} />
           ) : (
             <img src={mediaUrl} alt={item.media.name} className="w-full h-full object-contain" />
           )}

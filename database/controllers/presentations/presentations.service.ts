@@ -136,6 +136,11 @@ export class PresentationsService {
           slide?.themeId === null || slide?.themeId === undefined
             ? null
             : Number(slide.themeId) || null,
+        backgroundColor:
+          typeof slide?.backgroundColor === 'string' && slide.backgroundColor.trim().length > 0
+            ? slide.backgroundColor.trim()
+            : undefined,
+        videoLoop: slide?.videoLoop === true,
         canvaSourceKey:
           typeof slide?.canvaSourceKey === 'string' && slide.canvaSourceKey.trim().length > 0
             ? slide.canvaSourceKey.trim()

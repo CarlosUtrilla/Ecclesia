@@ -1,4 +1,5 @@
 import type { Media } from '@prisma/client'
+import { BlankTheme } from '@/hooks/useThemes'
 import { PresentationLayerItem, PresentationViewItems } from '@/ui/PresentationView/types'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 import {
@@ -209,10 +210,7 @@ export const presentationSlideToViewItem = (
   mediaById: Map<number, Media>,
   themeById?: Map<number, ThemeWithMedia>
 ): PresentationViewItems => {
-  const slideTheme =
-    slide.themeId !== undefined && slide.themeId !== null
-      ? themeById?.get(Number(slide.themeId))
-      : undefined
+  const slideTheme = resolvePresentationSlideTheme(slide, themeById)
 
   if (Array.isArray(slide.items)) {
     const layeredItems = slide.items
@@ -223,6 +221,7 @@ export const presentationSlideToViewItem = (
       id: slide.id,
       text: '',
       videoLiveBehavior: slide.videoLiveBehavior,
+      videoLoop: slide.videoLoop === true,
       transitionSettings:
         typeof slide.transitionSettings === 'string'
           ? slide.transitionSettings
@@ -243,6 +242,7 @@ export const presentationSlideToViewItem = (
         ...(media as unknown as PresentationViewItems),
         text: '',
         videoLiveBehavior: slide.videoLiveBehavior,
+        videoLoop: slide.videoLoop === true,
         transitionSettings:
           typeof slide.transitionSettings === 'string'
             ? slide.transitionSettings
@@ -259,6 +259,7 @@ export const presentationSlideToViewItem = (
   return {
     text: slide.text || '',
     videoLiveBehavior: slide.videoLiveBehavior,
+    videoLoop: slide.videoLoop === true,
     transitionSettings:
       typeof slide.transitionSettings === 'string'
         ? slide.transitionSettings
@@ -277,6 +278,25 @@ export const presentationSlideToViewItem = (
         }
       : undefined,
     resourceType: 'PRESENTATION'
+  }
+}
+
+export const resolvePresentationSlideTheme = (
+  slide: PresentationSlide,
+  themeById?: Map<number, ThemeWithMedia>
+) => {
+  const baseTheme =
+    slide.themeId !== undefined && slide.themeId !== null
+      ? themeById?.get(Number(slide.themeId))
+      : undefined
+
+  if (!slide.backgroundColor) return baseTheme
+
+  return {
+    ...(baseTheme ?? BlankTheme),
+    background: slide.backgroundColor,
+    backgroundMediaId: null,
+    backgroundMedia: null
   }
 }
 

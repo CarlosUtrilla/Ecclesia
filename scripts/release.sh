@@ -58,6 +58,62 @@ ensure_sharp_ready() {
   exit 1
 }
 
+prepare_windows_sharp() {
+  echo -e "  Preparando ${CYAN}sharp${RESET} para runtime ${CYAN}win32-x64${RESET}..."
+
+  npm install --no-save --include=optional --os=win32 --cpu=x64 --legacy-peer-deps sharp
+  npx electron-builder install-app-deps --platform=win32 --arch=x64
+
+  echo -e "  ${GREEN}✓ sharp preparado para win32-x64${RESET}"
+}
+
+ensure_prisma_client_targets() {
+  echo -e "  Generando Prisma Client con binary targets multi-plataforma..."
+  npx prisma generate --schema prisma/schema.prisma
+  echo -e "  ${GREEN}✓ Prisma Client generado${RESET}"
+}
+
+ensure_gh_ready() {
+  if ! command -v gh >/dev/null 2>&1; then
+    echo -e "${RED}✗ GitHub CLI (gh) no está instalado.${RESET}"
+    echo -e "${YELLOW}  Instálalo con:${RESET} brew install gh"
+    exit 1
+  fi
+
+  if ! gh auth status >/dev/null 2>&1; then
+    echo -e "${RED}✗ GitHub CLI no está autenticado.${RESET}"
+    echo -e "${YELLOW}  Ejecuta:${RESET} gh auth login"
+    exit 1
+  fi
+}
+
+publish_local_release() {
+  ensure_gh_ready
+
+  if ! ls dist/* >/dev/null 2>&1; then
+    echo -e "${RED}✗ No se encontraron artefactos en dist/.${RESET}"
+    exit 1
+  fi
+
+  echo ""
+  echo -e "${YELLOW}⚠ Subir un release con tag ${TAG} puede crear el tag remoto y disparar el workflow de tags (${RESET}${YELLOW}v*${RESET}${YELLOW}) en GitHub.${RESET}"
+  read -p "  ¿Continuar con subida a GitHub Release? (s/N): " CONFIRM_RELEASE_UPLOAD
+  if [[ "$CONFIRM_RELEASE_UPLOAD" != "s" && "$CONFIRM_RELEASE_UPLOAD" != "S" ]]; then
+    echo -e "  ${YELLOW}Subida a GitHub omitida.${RESET}"
+    return
+  fi
+
+  if gh release view "$TAG" >/dev/null 2>&1; then
+    echo -e "  -> Subiendo artefactos a release existente ${CYAN}$TAG${RESET}"
+    gh release upload "$TAG" dist/* --clobber
+  else
+    echo -e "  -> Creando release ${CYAN}$TAG${RESET} y subiendo artefactos"
+    gh release create "$TAG" dist/* --title "$TAG" --notes "Release compilado localmente"
+  fi
+
+  echo -e "  ${GREEN}✓ Artefactos subidos a GitHub Release${RESET}"
+}
+
 # ─── Verificar rama main ───────────────────────────────────────────────────────
 BRANCH=$(git branch --show-current)
 if [ "$BRANCH" != "main" ]; then
@@ -141,10 +197,24 @@ fi
 echo -e "  Ejecutando build local (sin publicar en GitHub Actions)..."
 
 ensure_sharp_ready
+ensure_prisma_client_targets
 
+echo -e "  -> Build base (electron-vite) en host macOS"
+npm run build:ci
 
-echo -e "  -> Windows x64"
-npm run build:ci:win -- --x64 --publish never
+prepare_windows_sharp
+
+echo -e "  -> Empaquetando Windows x64"
+npx electron-builder --win --x64 --publish never
+
+echo -e "  -> Restaurando dependencias del host (macOS)"
+yarn install --frozen-lockfile
+
+echo ""
+read -p "  ¿Subir artefactos de dist/ a GitHub Release con gh? (s/N): " SHOULD_UPLOAD_RELEASE
+if [[ "$SHOULD_UPLOAD_RELEASE" == "s" || "$SHOULD_UPLOAD_RELEASE" == "S" ]]; then
+  publish_local_release
+fi
 
 # ─── Listo ────────────────────────────────────────────────────────────────────
 echo ""
@@ -152,5 +222,6 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo -e "  ✓ Release local $TAG compilado"
 echo -e "  No se hizo push a origin ni se disparó CI."
 echo -e "  Artefactos disponibles en dist/"
+echo -e "  Dependencias del host restauradas para continuar con desarrollo local."
 echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo ""

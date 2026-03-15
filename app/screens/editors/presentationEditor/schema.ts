@@ -39,6 +39,8 @@ export const PresentationSlideSchema = z.object({
   type: z.enum(['TEXT', 'BIBLE', 'MEDIA']),
   slideName: z.string().trim().max(120).optional(),
   themeId: z.number().nullable().optional(),
+  backgroundColor: z.string().optional(),
+  videoLoop: z.boolean().optional(),
   canvaSourceKey: z.string().min(1).optional(),
   canvaSlideNumber: z.number().int().min(1).optional(),
   items: z.array(SlideItemSchema).optional(),

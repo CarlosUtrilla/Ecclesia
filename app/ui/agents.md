@@ -99,6 +99,7 @@ interface PresentationViewProps {
 interface PresentationViewItems {
   text: string                       // Contenido HTML del slide
   videoLiveBehavior?: 'auto' | 'manual' // Preferencia por diapositiva para reproducción de video en live
+  videoLoop?: boolean                // Repetición del video de la diapositiva
   media?: { duration?: number | null }   // Metadata opcional para fallback de duración en controladores live
   verse?: {                          // Datos de versiculo (opcional)
     bookId: number
@@ -140,9 +141,9 @@ PresentationView (index.tsx)
 - Los layers bíblicos de `PRESENTATION` usan `BibleTextRender` para respetar la configuración de ubicación/formato del versículo: primero configuración global (`useDefaultBibleSettings`), y si el tema de la diapositiva define settings propios, se usan esos.
 - En `PresentationRender`, los layers de texto heredan `textStyle` desde `usePresentationTextLayout` y aplican overrides de `customStyle`; para tipografía por layer (`font-size`, `line-height`, `letter-spacing`), la escala se normaliza al baseline real `1280x720` del editor de presentaciones, evitando sobreescalado por diferencias de baseline histórico.
 - En `PresentationRender` (live), los layers `MEDIA` de tipo video usan sincronización por `live-media-state` (`window.liveMediaAPI.onMediaState`) para que controles externos (panel live) puedan reproducir/pausar/reiniciar también videos embebidos en diapositivas de presentación.
-- En `PresentationRender` (live), `LiveSyncedLayerVideo` usa `autoPlay`, `loop`, `playsInline` y reintento de `play()` en `onLoadedMetadata` para reducir pausas visibles durante remounts transitorios.
+- En `PresentationRender` (live), `LiveSyncedLayerVideo` usa `autoPlay`, `playsInline` y reintento de `play()` en `onLoadedMetadata`; el `loop` depende de `item.videoLoop` para respetar la configuración por diapositiva.
 - `MediaRender` está memoizado con comparación por identidad de media (`id`, `filePath`, `thumbnail`, `format`, `customStyle`, `live`) para evitar re-renders que no cambian el asset y mejorar continuidad de reproducción en live/stage.
-- En `MediaRender` live, el `<video>` usa `autoPlay`, `loop` y `playsInline` además del `play()` inicial para robustecer continuidad en Windows durante updates frecuentes de contenido.
+- En `MediaRender` live, el `<video>` usa `autoPlay` y `playsInline`; el `loop` se controla con `currentItem.videoLoop` para respetar la configuración persistida de la slide.
 - En `PresentationView/index.tsx`, el branch no-`PRESENTATION` separa `BIBLE` (con `BibleTextRender`) de `SONG/otros` (con `AnimatedText` genérico).
 - `PresentationView` aplica transición por slide con `items[n].transitionSettings` (default `fade`) al cambiar `currentIndex`.
 - En `live`, la transición por slide usa capas superpuestas (`AnimatePresence mode="sync"`) para que el item entrante y saliente se animen al mismo tiempo, evitando frames negros entre items.
@@ -165,6 +166,7 @@ PresentationView (index.tsx)
 - En `AnimatedText`, el modo `hideTextInLive` nunca debe retornar antes de completar hooks; la ocultación se resuelve después de declarar hooks para evitar errores de React por orden de hooks.
 - `PresentationView` tiene dos paths de render: `live` (completo, con transiciones y video en reproducción) y `preview` (`!live`) estático, sin `AnimatePresence` ni wrappers `m.*` a nivel raíz/slide.
 - Para slides con `resourceType: PRESENTATION`, `PresentationView` aplica `effectiveTheme`: usa `item.theme` si existe (override explícito por slide) y, si no existe, fuerza `BlankTheme` (fondo blanco) en lugar de heredar el tema global; esta regla aplica tanto en `live` como en `preview` (`!live`).
+- El override `item.theme` de un slide puede provenir de un `backgroundColor` persistido en la diapositiva; cuando existe, el runtime trata ese slide como fondo sólido propio aunque el tema base original use imagen o video.
 - En `preview` (`!live`), `PresentationView` muestra un badge superior derecho para rangos bíblicos (`vX-Y`) cuando el item o un layer bíblico de `PRESENTATION` incluye `verseEnd`; así se identifica rápido que esa tarjeta representa un rango.
 - En cambios de verso interno (`presentationVerseBySlideKey`), `PresentationView` mantiene estable el key del slide live para evitar re-animar capas no bíblicas; solo el layer bíblico actualiza/animación su contenido.
 - Cuando cambia el verso interno, el layer bíblico se remonta con key por verso para re-disparar su animación configurada sin afectar la animación de los demás layers del mismo slide.

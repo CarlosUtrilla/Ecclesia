@@ -33,6 +33,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - Si la diapositiva activa contiene video (media directo o layer de presentación), muestra controles de video a la derecha (`Play`, `Pausa`, `Reiniciar`) y emite comandos por `live-media-state`.
 - El controlador de PRESENTATION reutiliza `VideoLiveControls.tsx` para igualar la experiencia visual con `RenderMedia` (misma barra de volumen/progreso y acciones principales).
 - El controlador respeta `slide.videoLiveBehavior`: `auto` inicia reproducción al entrar a la diapositiva, `manual` deja el video pausado hasta acción del usuario.
+- El controlador también respeta `slide.videoLoop`: el `<video>` oculto usado para tiempo/progreso replica el loop real de la diapositiva para mantener sincronía con las pantallas live.
 - Cuando una diapositiva de presentación contiene un layer bíblico con rango (`verseEnd`), el avance de verso se hace con controles internos `Verso anterior/siguiente`, sin cambiar `itemIndex` ni provocar cambio de diapositiva.
 - La grilla del panel mantiene una tarjeta por diapositiva real y muestra badge de rango (`vX-Y` o estado `actual/fin`) para slides con controlador bíblico.
 - Las tarjetas de la grilla son responsivas (`w-full` en móvil y ancho fijo en escritorio) para mantener legibilidad sin romper la selección.

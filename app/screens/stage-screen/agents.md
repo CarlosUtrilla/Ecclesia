@@ -74,3 +74,4 @@ Renderiza el contenido actual con `PresentationView` y superpone widgets de esta
 - En modo enfoque, los cards de timer usan borde sutil + fondo cian translúcido y tamaños de fuente menos agresivos para evitar ruido visual y mantener balance con reloj/mensaje.
 - Las posiciones y tamaños (`x`, `y`, `w`, `h`) se aplican en porcentaje sobre el viewport stage.
 - Al recibir `stageScreen-config-updated`, la pantalla recarga config desde DB para aplicar cambios de tema/layout/state en caliente.
+- Para evitar micro-cortes de video durante cambios frecuentes de estado (ej. `message`), la pantalla stage memoiza `configuredThemeId` y no vuelve a pedir/aplicar tema si `themeId` no cambió; solo actualiza `layout/state`.

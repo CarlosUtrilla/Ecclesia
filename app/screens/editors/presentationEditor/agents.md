@@ -104,13 +104,16 @@ app/screens/editors/presentationEditor/
 - El botón de preview de animación fuerza remount controlado del render no-edit para volver a reproducir la transición en canvas.
 - Cada slide permite configurar `transitionSettings` (default `fade`) con `AnimationSelector` reutilizado; esta transición se usa al cambiar de slide en runtime.
 - Cada slide permite configurar `videoLiveBehavior` (`Inicio manual` / `Inicio automático`) desde la barra superior; el valor se persiste en `slides[]` y controla reproducción de video al entrar en vivo.
+- Cada slide permite configurar `backgroundColor` opcional desde la barra superior; este color sobrescribe solo el fondo de esa diapositiva y, si el tema base usa media, lo reemplaza por color sólido para ese slide.
 - El selector `Video en live` usa icono de rayo (`Zap`) junto al label para mejorar descubrimiento visual de la configuración de reproducción en vivo.
+- En la pestaña `Texto`, cuando el item seleccionado es un video, el editor expone un toggle `Repetición` ligado a `slide.videoLoop`; las nuevas slides de video y las importaciones de Canva nacen con repetición desactivada.
 - La toolbar del editor incluye selector de `Tema global` para aplicar un `themeId` común a todas las diapositivas; también ofrece `Sin tema` para quitar el tema global.
 - Las nuevas diapositivas creadas desde el editor heredan automáticamente el `themeId` global seleccionado al momento de insertarse.
 - Los items bíblicos del canvas respetan configuración global de biblia vía `BibleTextRender` (`useDefaultBibleSettings`).
 - El render no-edit del canvas envuelve estos componentes con `LazyMotion` + `domAnimation` para habilitar correctamente los nodos `m.*` de Framer Motion fuera de `PresentationView`.
 - El flujo de edición inline resetea explícitamente estado interno de entrada/salida (`wasEditingRef`) para evitar pérdida visual del contenido al deseleccionar y volver a editar.
 - La escritura inline en `textCanvasItem` está optimizada con debounce suave (~100ms) y `flush` inmediato en `Enter`, `Escape` y `blur`, reduciendo lag al teclear sin perder cambios.
+- La query de carga inicial del editor (`['presentation', id]`) desactiva `refetchOnWindowFocus`; al volver a enfocar la ventana no debe recargar desde DB ni hacer `reset(...)`, para preservar cambios locales no guardados y evitar reinicio visual del canvas/presentación.
 - Durante drag de items de texto, `textCanvasItem` usa un render liviano estático (HTML sanitizado) y restaura `AnimatedText`/`BibleTextRender` al soltar, para reducir tirones en movimiento.
 - Las transformaciones de drag/resize/rotate en canvas se emiten con `requestAnimationFrame` + `flush` al soltar para suavizar movimiento y evitar ráfagas de updates.
 - Durante la rotación de un item, el canvas muestra una etiqueta temporal con el ángulo actual (`°`) sobre el elemento para facilitar ajuste preciso.

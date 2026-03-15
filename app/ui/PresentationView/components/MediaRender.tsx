@@ -18,6 +18,7 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
   const originalUrl = buildMediaUrl(itemData.filePath)
 
   const type = getMediaType(itemData.format)
+  const shouldLoop = currentItem.videoLoop === true
 
   const mediaElementStyle = useMemo<CSSProperties>(() => {
     if (!currentItem.customStyle) {
@@ -122,7 +123,7 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
             className="object-contain"
             style={mediaElementStyle}
             autoPlay
-            loop
+            loop={shouldLoop}
             muted
             playsInline
             onLoadedMetadata={(e) => {
@@ -161,7 +162,8 @@ function areMediaRenderPropsEqual(prevProps: MediaRenderProps, nextProps: MediaR
     prevItem.filePath === nextItem.filePath &&
     prevItem.thumbnail === nextItem.thumbnail &&
     prevItem.format === nextItem.format &&
-    prevItem.customStyle === nextItem.customStyle
+    prevItem.customStyle === nextItem.customStyle &&
+    prevProps.currentItem.videoLoop === nextProps.currentItem.videoLoop
   )
 }
 

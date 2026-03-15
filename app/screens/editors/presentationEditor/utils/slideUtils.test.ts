@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildCanvasItemStyle,
   cloneSlideForDuplication,
+  createMediaSlide,
   getShapeTypeFromAccessData,
   parseCanvasItemStyle,
   createTextSlide
@@ -75,5 +76,14 @@ describe('shape styles', () => {
     expect(getShapeTypeFromAccessData('line')).toBe('line')
     expect(getShapeTypeFromAccessData('cross')).toBe('cross')
     expect(getShapeTypeFromAccessData('desconocido')).toBe('rectangle')
+  })
+})
+
+describe('slide factories', () => {
+  it('deberia crear slides de video sin repetición por defecto', () => {
+    const mediaSlide = createMediaSlide(15)
+
+    expect(mediaSlide.videoLoop).toBe(false)
+    expect(mediaSlide.videoLiveBehavior).toBe('manual')
   })
 })

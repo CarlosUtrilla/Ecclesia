@@ -40,6 +40,8 @@ export type PresentationSlide = {
   id: string
   slideName?: string
   themeId?: number | null
+  backgroundColor?: string
+  videoLoop?: boolean
   canvaSourceKey?: string
   canvaSlideNumber?: number
   items?: PresentationSlideItem[]
