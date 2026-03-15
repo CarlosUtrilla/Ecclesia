@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useMediaServer } from './MediaServerContext'
+import { parseCustomFontVariant } from '@/lib/customFontUtils'
 
 export type CustomFont = {
   id: number
@@ -43,9 +44,10 @@ export function FontsProvider({ children }: { children: React.ReactNode }) {
     fonts.forEach((font) => {
       if (!document.getElementById('font-' + font.fileName)) {
         const fontUrl = buildMediaUrl(font.filePath)
+        const parsedVariant = parseCustomFontVariant(font.fileName || font.name)
         const style = document.createElement('style')
         style.id = 'font-' + font.fileName
-        style.innerHTML = `@font-face { font-family: '${font.fileName.replace(/\.[^/.]+$/, '')}'; src: url('${fontUrl}'); font-display: swap; }`
+        style.innerHTML = `@font-face { font-family: '${parsedVariant.family}'; src: url('${fontUrl}'); font-style: ${parsedVariant.style}; font-weight: ${parsedVariant.weight}; font-display: swap; }`
         document.head.appendChild(style)
       }
     })

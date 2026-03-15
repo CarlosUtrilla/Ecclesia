@@ -7,13 +7,19 @@ export default function useBibleSchema() {
     staleTime: Infinity
   })
 
+  const findBookById = (bookId: number | string) => {
+    const normalizedId = Number(bookId)
+    if (!Number.isFinite(normalizedId)) return null
+    return bibleSchema.find((b) => Number(b.id) === normalizedId) || null
+  }
+
   const getShortNameById = (bookId: number) => {
-    const book = bibleSchema.find((b) => b.id === bookId)
+    const book = findBookById(bookId)
     return book ? book.book_id : null
   }
 
   const getCompleteNameById = (bookId: number) => {
-    const book = bibleSchema.find((b) => b.id === bookId)
+    const book = findBookById(bookId)
     return book ? book.book : null
   }
 
@@ -23,7 +29,7 @@ export default function useBibleSchema() {
     verseStart: number,
     verseEnd?: number
   ) => {
-    const book = bibleSchema.find((b) => b.id === bookId)
+    const book = findBookById(bookId)
     if (!book) return null
     return `${book.book} ${chapter}:${verseStart}${verseEnd && verseEnd !== verseStart ? `-${verseEnd}` : ''}`
   }

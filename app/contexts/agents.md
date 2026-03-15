@@ -31,10 +31,6 @@ MediaServerProvider          (top-level, sin dependencias)
 | `isReady` | `boolean` | Si el servidor esta listo |
 | `buildMediaUrl(filePath)` | `(string) => string` | Construye URL completa para un archivo de medios |
 
-- Se inicializa llamando a `window.mediaAPI.getMediaServerPort()`.
-- `buildMediaUrl` genera `http://localhost:{port}/{filePath}`.
-- `buildMediaUrl` esta memoizado con `useCallback` (depende de `port`) y el `value` del provider usa `useMemo` para evitar re-renders/effects innecesarios en consumidores de video.
-- Usado por cualquier componente que muestre imagenes o videos.
 
 ### DisplaysContext
 
@@ -47,10 +43,6 @@ MediaServerProvider          (top-level, sin dependencias)
 | `mainDisplay` | `DisplayWithUsage \| null` | Pantalla principal del sistema |
 | `refresh()` | `() => void` | Fuerza refetch de pantallas |
 
-- Llama a `window.displayAPI.getDisplays()` al montar.
-- Escucha evento IPC `display-update` para actualizarse automaticamente.
-- Muestra modal `NewDisplayConnected` cuando detecta pantallas sin configurar.
-- Cuando se guarda la configuracion en `NewDisplayConnected`, ejecuta `fetchDisplays()` via callback `onSaved` para refrescar `displays` y `mainDisplay` en caliente.
 
 ### ScreenSizeContext
 
@@ -63,11 +55,6 @@ MediaServerProvider          (top-level, sin dependencias)
 | `height` | `number` | Alto calculado |
 | `aspectRatio` | `string` | Ratio como string CSS (ej: "16/9") |
 
-- Calcula dimensiones proporcionales basadas en el `maxHeight` dado y el aspect ratio del display.
-- Cache interno con `Map` por combinacion `maxHeight + displayId` para evitar mezclar tamaños entre pantallas distintas.
-- Escucha `window.resize` para recalcular.
-- Depende de `useDisplays()` para obtener el aspect ratio real del display.
-- Si llega `displayId` y no existe en `displays`, hace fallback al display LIVE o `mainDisplay` antes de devolver tamaño default.
 
 ### ScheduleContext
 
@@ -93,11 +80,9 @@ MediaServerProvider          (top-level, sin dependencias)
 | `getScheduleItemLabel(item)` | `async function` | Retorna label del item |
 | `getScheduleItemContentScreen(item)` | `async function` | Retorna contenido para presentacion |
 
-- `selectedTheme` se resincroniza por `id` cuando `useThemes()` recibe datos nuevos (por ejemplo después de `theme-saved`), para aplicar en caliente cambios de `textStyle`, fondo y animación en `PresentationView`.
+- Las variantes personalizadas de una misma familia se registran con el mismo `font-family` y metadata `font-weight`/`font-style` inferida desde el nombre de archivo, para que `bold`/`italic` use variantes reales cuando existen.
 
-**Archivos auxiliares:**
-- `schema.ts` - Esquema Zod para validacion del formulario
-- `types.d.ts` - Tipos TypeScript del contexto
+  La inferencia de peso/estilo se realiza desde `fileName` (no desde `name`) para mantener robustez aunque `name` se guarde como familia normalizada.
 - `utils/indexDataItems.tsx` - Queries de React Query para songs/media/presentations, funciones de display
 - `utils/LibraryItemPreview.tsx` - Componente de preview para drag overlay
 

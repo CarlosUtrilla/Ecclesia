@@ -1,6 +1,8 @@
 import { Dialog, DialogContent } from './dialog'
 import { Button } from './button'
 import { useRef, useState } from 'react'
+import { getCustomFontFamily } from '@/lib/customFontUtils'
+import { planFontUploads } from './uploadFontDialog.utils'
 
 type UploadFontDialogProps = {
   open: boolean
@@ -18,14 +20,29 @@ export default function UploadFontDialog({ open, onOpenChange }: UploadFontDialo
     setSuccess(false)
     const files = fileInputRef.current?.files
     if (!files || files.length === 0) return
+
     setUploading(true)
     let anySuccess = false
-    for (const file of Array.from(files)) {
+    const allSelectedFiles = Array.from(files)
+
+    const existingFonts = await window.api.fonts.getAllFonts()
+    const uploadPlan = planFontUploads(
+      allSelectedFiles.map((f) => f.name),
+      existingFonts.map((f) => f.fileName)
+    )
+
+    const filesByName = new Map(allSelectedFiles.map((f) => [f.name, f] as const))
+
+    for (const fileNameToUpload of uploadPlan.toUpload) {
+      const file = filesByName.get(fileNameToUpload)
+      if (!file) continue
+
       try {
         const fileBuffer = await file.arrayBuffer()
         const fileName = file.name
+        const familyName = getCustomFontFamily(fileName)
         const res = await window.electron.ipcRenderer.invoke('fonts.uploadFont', {
-          name: fileName.replace(/\.(ttf|otf)$/i, ''),
+          name: familyName || fileName.replace(/\.(ttf|otf)$/i, ''),
           fileName,
           fileBuffer
         })
@@ -38,6 +55,15 @@ export default function UploadFontDialog({ open, onOpenChange }: UploadFontDialo
         setError(err?.message || 'Error al subir fuente: ' + file.name)
       }
     }
+
+    if (uploadPlan.skippedDuplicates.length > 0) {
+      const duplicatedList = uploadPlan.skippedDuplicates.slice(0, 3).join(', ')
+      const extraCount = Math.max(0, uploadPlan.skippedDuplicates.length - 3)
+      setError(
+        `Se omitieron ${uploadPlan.skippedDuplicates.length} archivo(s) duplicado(s): ${duplicatedList}${extraCount > 0 ? ` y ${extraCount} más` : ''}`
+      )
+    }
+
     setUploading(false)
     if (anySuccess) {
       setSuccess(true)
@@ -57,7 +83,7 @@ export default function UploadFontDialog({ open, onOpenChange }: UploadFontDialo
             <p className="text-xs text-muted-foreground mt-1 mb-2">
               Puedes seleccionar uno o varios archivos <span className="font-semibold">.ttf</span> o{' '}
               <span className="font-semibold">.otf</span> para añadir nuevas fuentes a tu
-              biblioteca.
+              biblioteca. Las variantes de una misma familia se detectan automáticamente.
             </p>
           </div>
           <input

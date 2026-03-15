@@ -13,6 +13,7 @@ import useBiblePresentationSetting from '../hooks/useBibleSetting'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { AnimatedText } from './AnimatedText'
 import { canProcessVerseDragMove, hasMeaningfulVerseDrag } from '../utils/verseInteraction'
+import { splitHtmlForWordAnimation } from '../utils/splitHtmlForWordAnimation'
 
 interface BibleTextRenderProps {
   item: PresentationViewItems
@@ -230,7 +231,13 @@ export function BibleTextRender({
 
     const versionText = showVersion ? ` (${verse.version})` : ''
 
-    return `${bookName} ${verse.chapter}:${verse.verse}${versionText}`
+    // Fallback defensivo: evitar mostrar "null" mientras el schema carga o si el id no coincide.
+    const verseRef = `${verse.chapter}:${verse.verse}`
+    if (!bookName) {
+      return `${verseRef}${versionText}`
+    }
+
+    return `${bookName} ${verseRef}${versionText}`
   }, [verse, selectedBiblePresentationSettings, getCompleteNameById, getShortNameById])
 
   const safePresentationHeight =
@@ -378,7 +385,7 @@ export function BibleTextRender({
       }
 
       if (animationType === 'split') {
-        const lines = textContext.split(/<br\s*\/?>/i)
+        const lines = splitHtmlForWordAnimation(textContext)
 
         return (
           <m.div
@@ -388,12 +395,7 @@ export function BibleTextRender({
             exit="exit"
             style={verseTextStyle}
           >
-            {lines.map((line, lineIndex) => {
-              const words = line
-                .trim()
-                .split(' ')
-                .filter((word) => word.length > 0)
-
+            {lines.map((words, lineIndex) => {
               return (
                 <div key={lineIndex}>
                   {words.map((word, wordIndex) => (
@@ -401,7 +403,7 @@ export function BibleTextRender({
                       key={`${lineIndex}-${wordIndex}`}
                       variants={wordVariants}
                       style={{ display: 'inline-block', marginRight: '0.3em' }}
-                      dangerouslySetInnerHTML={{ __html: sanitizeHTML(word) }}
+                      dangerouslySetInnerHTML={{ __html: word }}
                     />
                   ))}
                   {lineIndex < lines.length - 1 && <br />}

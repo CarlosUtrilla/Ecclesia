@@ -4,6 +4,7 @@ import { sanitizeHTML } from '@/lib/utils'
 import { AnimationType, getWordVariants } from '@/lib/animations'
 import { EditableBoundsTarget, PresentationViewItems, TextBoundsValues } from '../types'
 import { useTextBoundsInteraction } from '../hooks/useTextBoundsInteraction'
+import { splitHtmlForWordAnimation } from '../utils/splitHtmlForWordAnimation'
 
 /**
  * Props para el componente AnimatedText
@@ -101,18 +102,7 @@ function AnimatedTextComponent({
   const sanitizedText = useMemo(() => sanitizeHTML(text), [text])
 
   const splitSanitizedLines = useMemo(
-    () =>
-      text.split(/<br\s*\/?>/i).map((line) => {
-        const trimmed = line.trim()
-        // Si la línea contiene etiquetas HTML, tratarla como una unidad para no romper el markup
-        if (/<[^>]+>/.test(trimmed)) {
-          return [sanitizeHTML(trimmed)]
-        }
-        return trimmed
-          .split(' ')
-          .filter((word) => word.length > 0)
-          .map((word) => sanitizeHTML(word))
-      }),
+    () => splitHtmlForWordAnimation(text),
     [text]
   )
 

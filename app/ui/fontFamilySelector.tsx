@@ -4,6 +4,10 @@ import { useFontsContext } from '@/contexts/fontsContext'
 import { Button } from './button'
 import UploadFontDialog from './uploadFontDialog'
 import { Check, Plus } from 'lucide-react'
+import {
+  buildGroupedCustomFontOptions,
+  resolveSelectedCustomFontValue
+} from './fontFamilySelector.utils'
 
 type FontFamilyProps = {
   onChange: (value: string) => void
@@ -27,36 +31,63 @@ export default function FontFamilySelector({ onChange, value }: FontFamilyProps)
       .catch((error) => console.error('Error al cargar fuentes del sistema:', error))
   }, [])
 
-  const customFontNames = useMemo(() => new Set(customFonts.map((f) => f.name)), [customFonts])
+  const groupedCustomFontOptions = useMemo(
+    () => buildGroupedCustomFontOptions(customFonts),
+    [customFonts]
+  )
+
+  const customFontNames = useMemo(
+    () => new Set(groupedCustomFontOptions.map((f) => f.value)),
+    [groupedCustomFontOptions]
+  )
+
+  const customFontByFamily = useMemo(
+    () => new Map(groupedCustomFontOptions.map((f) => [f.value, f] as const)),
+    [groupedCustomFontOptions]
+  )
+
+  const selectedValue = useMemo(
+    () => resolveSelectedCustomFontValue(value, groupedCustomFontOptions),
+    [value, groupedCustomFontOptions]
+  )
 
   const groups: OptionGroup[] = useMemo(
     () => [
       {
         label: 'Mis fuentes personalizadas',
-        options: customFonts.map((f) => ({ value: f.name, label: f.name }))
+        options: groupedCustomFontOptions.map((f) => ({ value: f.value, label: f.label }))
       },
       {
         label: 'Fuentes del sistema',
         options: systemFontOptions
       }
     ],
-    [customFonts, systemFontOptions]
+    [groupedCustomFontOptions, systemFontOptions]
   )
 
-  const handleDeleteFont = async (e: React.MouseEvent, fontName: string) => {
+  const handleDeleteFont = async (e: React.MouseEvent, familyName: string) => {
     e.preventDefault()
     e.stopPropagation()
-    const font = customFonts.find((f) => f.name === fontName)
-    if (!font) return
+
+    const grouped = customFontByFamily.get(familyName)
+    if (!grouped) return
+
+    const variantsText =
+      grouped.variantCount > 1
+        ? `\n\nSe eliminarán ${grouped.variantCount} variantes de esta familia.`
+        : ''
+
     if (
       window.confirm(
-        `¿Seguro que quieres borrar la fuente "${font.name}"? Esta acción no se puede deshacer.`
+        `¿Seguro que quieres borrar la fuente "${grouped.label}"? Esta acción no se puede deshacer.${variantsText}`
       )
     ) {
-      await window.api.fonts.deleteFont({ id: font.id })
-      await window.electron.ipcRenderer.invoke('fonts.deleteFontFile', {
-        fileName: font.fileName
-      })
+      for (const [index, fontId] of grouped.fontIds.entries()) {
+        await window.api.fonts.deleteFont({ id: fontId })
+        await window.electron.ipcRenderer.invoke('fonts.deleteFontFile', {
+          fileName: grouped.fileNames[index]
+        })
+      }
     }
   }
 
@@ -84,7 +115,8 @@ export default function FontFamilySelector({ onChange, value }: FontFamilyProps)
       <AutoComplete
         groups={groups}
         beforeOptions={addFontButton}
-        value={value}
+        showAllOnFocus
+        value={selectedValue}
         onValueChange={(v) => {
           if (v) onChange(String(v))
         }}

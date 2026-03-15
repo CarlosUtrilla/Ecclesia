@@ -146,6 +146,7 @@ PresentationView (index.tsx)
 - En `MediaRender` live, el `<video>` usa `autoPlay` y `playsInline`; el `loop` se controla con `currentItem.videoLoop` para respetar la configuración persistida de la slide.
 - En `PresentationView/index.tsx`, el branch no-`PRESENTATION` separa `BIBLE` (con `BibleTextRender`) de `SONG/otros` (con `AnimatedText` genérico).
 - `BibleTextRender` permite overrides tipográficos del indicador bíblico con claves `verse*` en `theme.textStyle` (por ejemplo `verseFontFamily`, `verseColor`, `verseFontSize`, `verseTextShadow*`), manteniendo fallback al estilo base cuando no existen.
+- `BibleTextRender` evita renderizar `null` como nombre de libro en la referencia bíblica: si el schema aún no resolvió el `bookId` (o hay mismatch de tipo), muestra fallback limpio con `capítulo:verso` hasta resolver el nombre.
 - El drag del indicador bíblico usa umbral de activación (micro-movimientos se ignoran) para evitar cambios accidentales de `positionStyle` al hacer clic o alternar selección en ThemeEditor.
 - El drag del indicador también ignora `pointermove` cuando el botón primario no está presionado (`event.buttons`), evitando updates tardíos por listeners residuales al interactuar con otros controles de la UI.
 - `PresentationView` aplica transición por slide con `items[n].transitionSettings` (default `fade`) al cambiar `currentIndex`.
@@ -176,6 +177,8 @@ PresentationView (index.tsx)
 - `usePresentationTextLayout` procesa campos personalizados de `theme.textStyle` (eliminándolos antes de pasarlos al DOM): sombra (`textShadowEnabled/Color/Blur/OffsetX/OffsetY`), contorno (`textStrokeEnabled/Color/Width` → CSS `-webkit-text-stroke` escalado) y fondo de bloque (`blockBgEnabled/Color/Blur/Radius` → retorna `blockBgStyle: CSSProperties | null`). El `blockBgStyle` se propaga por toda la cadena (`PresentationBody` → `ResourceContent` → `AnimatedText`, `BibleTextRender`, `PresentationRender`) y se aplica en el wrapper interno `<div style={{ width: '100%', ...blockBgStyle }}>` de `AnimatedText`.
 - `ThemeToolbar` expone tres Popovers de efectos de texto: **Sombra** (`Blend`), **Contorno** (`PenLine`, controla `textStrokeEnabled/Color/Width`) y **Fondo** (`Layers`, controla `blockBgEnabled/Color/Blur/Radius`).
 - `AutoComplete` admite `contentPlacement: 'top' | 'bottom'` para elegir si el listado se renderiza por encima o por debajo del input; default `bottom`.
+- `AutoComplete` admite `showAllOnFocus` para limpiar temporalmente el término de búsqueda cuando el input gana foco y estaba mostrando el label seleccionado; útil en selectores como fuentes para listar todas las opciones al abrir y filtrar solo cuando el usuario escribe.
+- `AutoComplete` sincroniza el texto visible con `value` cuando las opciones cargan de forma asíncrona (por ejemplo fuentes del sistema), evitando que el input quede en placeholder aunque exista valor inicial seleccionado.
 - En `preview`, los videos (fondo y capas de presentación) no se reproducen: se renderizan thumbnails estáticos para reducir CPU/GPU cuando hay muchas instancias simultáneas.
 - Las transiciones de tema/slide (`useMemo` + `AnimatePresence` + `m.div`) se encapsulan en shells solo de `live`, evitando cálculo/instanciación en `preview`.
 - En `preview`, fondos de imagen y thumbnails de video usan `<img>` estático (`loading="lazy"`) en lugar de componentes animados, para minimizar costo de render masivo.
@@ -218,6 +221,7 @@ Renderiza texto genérico del slide con animaciones:
 - Además se muestran handles circulares sobrios en las cuatro esquinas del recuadro para redimensionado diagonal (`nwse-resize` y `nesw-resize`) con precisión estilo editor profesional.
 - `AnimatedText` está memoizado (`React.memo`) con comparación de props críticas para reducir re-renders masivos en vistas con muchas instancias.
 - El saneado de HTML se memoiza (`sanitizeHTML`) y, en modo `split`, se precomputa por líneas/palabras para evitar repetir saneado en cada render.
+- En animación `split`, el tokenizado de HTML se hace con `splitHtmlForWordAnimation` para no romper etiquetas/atributos inline (ej. `style="..."`) al dividir por espacios en textos bíblicos o rich text.
 - Los estilos estáticos de handles se hoistean fuera del componente para evitar recreación de objetos en cada render.
 - La lógica de interacción del cuadro de texto (detectar bordes, drag, resize y cursores) se extrajo a `useTextBoundsInteraction`, dejando `AnimatedText` enfocado en render y composición.
 - `useTextBoundsInteraction` incluye snap-to-center magnético: durante el drag (`move`), si `translateX` o `translateY` están a menos de 8px lógicos de 0, se snappean a 0. Se expone `snapGuides: { centerX, centerY }` para que `AnimatedText` renderice líneas guía (teal, 1px) sobre el frame cuando el snap está activo.
@@ -261,7 +265,10 @@ Renderiza texto genérico del slide con animaciones:
 - Selector de fuentes del sistema y personalizadas.
 - Permite elegir fuentes del sistema detectadas automáticamente.
 - Permite subir fuentes personalizadas (`.ttf`, `.otf`) mediante un diálogo visual moderno, que soporta carga múltiple y feedback de éxito/error.
-- Elimina fuentes personalizadas con confirmación.
+- Agrupa variantes de peso/estilo de una misma familia personalizada (ej. `Poppins-Bold`, `Poppins-Light`) en una sola opción visual (`Poppins`) para simplificar el listado.
+- La selección guarda/usa la familia (`Poppins`) y mantiene compatibilidad con valores antiguos por variante (`Poppins-Bold`, etc.) mediante normalización al valor de familia.
+- Las variantes reales (`Bold`, `Italic`, `Light`, etc.) se resuelven desde `@font-face` por peso/estilo, por lo que `font-weight` y `font-style` del tema aprovechan los archivos correctos cuando existen.
+- Al eliminar una familia agrupada, elimina todas sus variantes con confirmación.
 - UI moderna, accesible y responsiva, con separación clara entre fuentes propias y del sistema.
 - Usa el componente desacoplado `uploadFontDialog.tsx` para la carga de fuentes.
 
@@ -269,6 +276,8 @@ Renderiza texto genérico del slide con animaciones:
 
 - Componente desacoplado para subir fuentes personalizadas.
 - Permite seleccionar varios archivos a la vez.
+- Detecta automáticamente la familia (ej. `Poppins`) desde el nombre de archivo para simplificar la gestión.
+- Omite duplicados por `fileName` (existentes o repetidos en el mismo lote) para evitar entradas redundantes.
 - Feedback visual de progreso, éxito y error.
 - Diseño espacioso, botones grandes y claros, inputs accesibles.
 - Se controla desde el selector de fuentes o cualquier otro componente que requiera subir fuentes.

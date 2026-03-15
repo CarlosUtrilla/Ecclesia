@@ -1,6 +1,6 @@
 import { Command as CommandPrimitive } from 'cmdk'
 import { Check, ChevronDown, CircleX, Search } from 'lucide-react'
-import { useState, useRef, useCallback, useMemo, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect, type KeyboardEvent } from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -22,6 +22,7 @@ type AutoCompleteProps = {
   options?: Option[]
   groups?: OptionGroup[]
   beforeOptions?: React.ReactNode
+  showAllOnFocus?: boolean
   emptyMessage: string
   value?: number | string
   onValueChange?: (value: number | string) => void
@@ -39,6 +40,7 @@ export const AutoComplete = ({
   options,
   groups,
   beforeOptions,
+  showAllOnFocus = false,
   placeholder,
   emptyMessage,
   value,
@@ -63,6 +65,18 @@ export const AutoComplete = ({
   const [inputValue, setInputValue] = useState<string>(
     propsInputValue || selectedOption?.label || ''
   )
+
+  useEffect(() => {
+    if (propsInputValue !== undefined) {
+      setInputValue(propsInputValue)
+      return
+    }
+
+    // Mantener sincronizado el label cuando las opciones llegan de forma asíncrona.
+    if (!isOpen) {
+      setInputValue(selectedOption?.label || '')
+    }
+  }, [propsInputValue, selectedOption?.label, isOpen])
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -115,6 +129,19 @@ export const AutoComplete = ({
     onInputValueChange?.(value)
   }
 
+  const handleFocus = () => {
+    setOpen(true)
+
+    if (!showAllOnFocus || propsInputValue !== undefined) {
+      return
+    }
+
+    // Si el input muestra el label seleccionado, limpiamos la búsqueda para listar todo.
+    if (selectedOption?.label && inputValue === selectedOption.label) {
+      setInputValue('')
+    }
+  }
+
   return (
     <CommandPrimitive className="relative h-9" onKeyDown={handleKeyDown}>
       <div className="[&>div]:border-b-0 relative">
@@ -124,7 +151,7 @@ export const AutoComplete = ({
           value={inputValue}
           onValueChange={handleInputValue}
           onBlur={handleBlur}
-          onFocus={() => setOpen(true)}
+          onFocus={handleFocus}
           placeholder={placeholder}
           disabled={disabled}
           className={cn(

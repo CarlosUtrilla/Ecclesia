@@ -97,9 +97,19 @@ ensure_gh_ready() {
 publish_local_release() {
   ensure_gh_ready
 
-  if ! ls dist/* >/dev/null 2>&1; then
+  local release_files=()
+  while IFS= read -r file; do
+    release_files+=("$file")
+  done < <(find dist -maxdepth 1 -type f)
+
+  if [ ${#release_files[@]} -eq 0 ]; then
     echo -e "${RED}✗ No se encontraron artefactos en dist/.${RESET}"
     exit 1
+  fi
+
+  if ! git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+    echo -e "  ${YELLOW}⚠ Tag ${CYAN}$TAG${RESET}${YELLOW} no existe en remoto. Pusheando tag...${RESET}"
+    git push origin "$TAG"
   fi
 
   echo ""
@@ -112,10 +122,10 @@ publish_local_release() {
 
   if gh release view "$TAG" >/dev/null 2>&1; then
     echo -e "  -> Subiendo artefactos a release existente ${CYAN}$TAG${RESET}"
-    gh release upload "$TAG" dist/* --clobber
+    gh release upload "$TAG" "${release_files[@]}" --clobber
   else
     echo -e "  -> Creando release ${CYAN}$TAG${RESET} y subiendo artefactos"
-    gh release create "$TAG" dist/* --title "$TAG" --notes "Release compilado localmente"
+    gh release create "$TAG" "${release_files[@]}" --title "$TAG" --notes "Release compilado localmente"
   fi
 
   echo -e "  ${GREEN}✓ Artefactos subidos a GitHub Release${RESET}"
