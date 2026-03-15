@@ -245,6 +245,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - `updateLiveScreenContent` admite payload parcial (`itemIndex`, `contentScreen`, `presentationVerseBySlideKey`, `liveControls`) para evitar broadcasts de contenido completo cuando solo cambian controles en vivo.
 - `showLiveScreen` y `showStageScreen` reutilizan instancia por `displayId` si ya existe.
 - `showLiveScreen` refuerza `setBounds(display.bounds)` + `setFullScreen(true)` tanto en creación como en reuso de ventana para evitar aperturas parciales/pequeñas en algunos entornos Windows multi-display.
+- `showStageScreen` también refuerza `setBounds(display.bounds)` + `setFullScreen(true)` tanto en creación como en reuso de ventana para evitar recortes al adaptar resoluciones o reconectar pantallas.
 
 ### Prisma Initialization (`prisma.ts`)
 

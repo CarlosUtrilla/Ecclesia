@@ -155,21 +155,21 @@ export function initializeDisplayManager() {
   })
 
   ipcMain.handle('show-stage-screen', (event, displayId: number) => {
-    const existingStageScreen = stageScreensByDisplayId.get(displayId)
-    if (existingStageScreen && !existingStageScreen.isDestroyed()) {
-      return focusDisplayWindow(existingStageScreen)
-    }
-
-    const mainWindow = BrowserWindow.fromWebContents(event.sender)
-    if (!mainWindow) {
-      throw new Error('No se pudo obtener la ventana principal')
-    }
-
     const displays = screen.getAllDisplays()
     const targetDisplay = displays.find((display) => display.id === displayId)
 
     if (!targetDisplay) {
       throw new Error(`Display con ID ${displayId} no encontrado`)
+    }
+
+    const existingStageScreen = stageScreensByDisplayId.get(displayId)
+    if (existingStageScreen && !existingStageScreen.isDestroyed()) {
+      return focusDisplayWindow(existingStageScreen, targetDisplay.bounds)
+    }
+
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!mainWindow) {
+      throw new Error('No se pudo obtener la ventana principal')
     }
 
     const stageScreen = new BrowserWindow({
@@ -195,6 +195,8 @@ export function initializeDisplayManager() {
     })
 
     stageScreen.once('ready-to-show', () => {
+      stageScreen.setBounds(targetDisplay.bounds, false)
+      stageScreen.setFullScreen(true)
       stageScreen.show()
       stageScreen.focus()
       stageScreen.setAlwaysOnTop(true, 'screen-saver')
