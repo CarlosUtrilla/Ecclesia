@@ -43,9 +43,7 @@ mac:
   notarize: false
   # En build universal, estos archivos de firma pueden diferir entre arm64/x64
   # aunque el contenido de la app sea equivalente.
-  singleArchFiles:
-    - '**/Contents/Frameworks/Electron Framework.framework/**/_CodeSignature/**'
-    - '**/Contents/Frameworks/*.framework/**/_CodeSignature/**'
+  singleArchFiles: '**/Contents/Frameworks/*Framework.framework/**/_CodeSignature/**'
   # zip es necesario para que electron-updater instale sin pasar por Squirrel.Mac.
   # Squirrel requiere Code Signing y falla con "did not pass validation" cuando
   # la app no está firmada. Con zip, electron-updater gestiona la actualización

@@ -8,8 +8,18 @@ on:
 jobs:
   build-mac-universal:
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate GH_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GH_TOKEN no está configurado en GitHub Secrets"
+            exit 1
+          fi
 
       - name: Free disk space
         run: |
@@ -66,8 +76,19 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate GH_TOKEN
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GH_TOKEN no está configurado en GitHub Secrets"
+            exit 1
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
