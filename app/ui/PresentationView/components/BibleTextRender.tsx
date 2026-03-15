@@ -12,6 +12,7 @@ import {
 import useBiblePresentationSetting from '../hooks/useBibleSetting'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { AnimatedText } from './AnimatedText'
+import { canProcessVerseDragMove, hasMeaningfulVerseDrag } from '../utils/verseInteraction'
 
 interface BibleTextRenderProps {
   item: PresentationViewItems
@@ -53,9 +54,31 @@ type ActiveVerseInteraction = {
   startY: number
   startValue: number
   position: 'upScreen' | 'downScreen'
+  isDragging: boolean
 }
 
 const MAX_BIBLE_EDGE_OFFSET_BASE = 72
+
+const toFiniteNumber = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+const buildVerseInlineStyle = (style: React.CSSProperties) =>
+  Object.entries(style)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => {
+      const cssKey = key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)
+      const cssValue = typeof value === 'number' ? String(value) : String(value)
+      return `${cssKey}: ${cssValue}`
+    })
+    .join('; ')
 
 export function BibleTextRender({
   item,
@@ -125,7 +148,18 @@ export function BibleTextRender({
       const activeVerse = activeVerseInteractionRef.current
       if (!activeVerse || !scaleFactor || !onBibleVersePositionChange) return
 
+      if (!canProcessVerseDragMove(event.buttons)) {
+        return
+      }
+
       const deltaYBase = (event.clientY - activeVerse.startY) / scaleFactor
+
+      if (!activeVerse.isDragging && !hasMeaningfulVerseDrag(deltaYBase)) {
+        return
+      }
+
+      activeVerse.isDragging = true
+
       const nextValueRaw =
         activeVerse.position === 'upScreen'
           ? activeVerse.startValue + deltaYBase
@@ -156,6 +190,7 @@ export function BibleTextRender({
 
   const startVerseInteraction = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return
       if (!canEditVerseBounds) return
       event.preventDefault()
       event.stopPropagation()
@@ -166,7 +201,8 @@ export function BibleTextRender({
       activeVerseInteractionRef.current = {
         startY: event.clientY,
         startValue: clampedVersePositionStyle,
-        position: currentPosition
+        position: currentPosition,
+        isDragging: false
       }
 
       setVerseCursor('ns-resize')
@@ -197,10 +233,95 @@ export function BibleTextRender({
     return `${bookName} ${verse.chapter}:${verse.verse}${versionText}`
   }, [verse, selectedBiblePresentationSettings, getCompleteNameById, getShortNameById])
 
+  const safePresentationHeight =
+    Number.isFinite(presentationHeight) && presentationHeight > 0
+      ? presentationHeight
+      : BASE_PRESENTATION_HEIGHT
+
+  const verseOverrideStyle = useMemo(() => {
+    const themeTextStyle = (theme.textStyle || {}) as Record<string, unknown>
+
+    const verseBaseFontSize = toFiniteNumber(themeTextStyle.verseFontSize)
+    const verseFontSize =
+      verseBaseFontSize !== null
+        ? `${(safePresentationHeight * verseBaseFontSize) / BASE_PRESENTATION_HEIGHT}px`
+        : smallFontSize
+
+    const verseShadowEnabled =
+      (themeTextStyle.verseTextShadowEnabled as boolean | undefined) ??
+      (themeTextStyle.textShadowEnabled as boolean | undefined)
+    const verseShadowColor =
+      (themeTextStyle.verseTextShadowColor as string | undefined) ||
+      (themeTextStyle.textShadowColor as string | undefined) ||
+      'rgba(0,0,0,0.5)'
+    const verseShadowBlur =
+      toFiniteNumber(themeTextStyle.verseTextShadowBlur) ??
+      toFiniteNumber(themeTextStyle.textShadowBlur) ??
+      4
+    const verseShadowOffsetX =
+      toFiniteNumber(themeTextStyle.verseTextShadowOffsetX) ??
+      toFiniteNumber(themeTextStyle.textShadowOffsetX) ??
+      2
+    const verseShadowOffsetY =
+      toFiniteNumber(themeTextStyle.verseTextShadowOffsetY) ??
+      toFiniteNumber(themeTextStyle.textShadowOffsetY) ??
+      2
+
+    const verseStrokeEnabled =
+      (themeTextStyle.verseTextStrokeEnabled as boolean | undefined) ??
+      (themeTextStyle.textStrokeEnabled as boolean | undefined)
+    const verseStrokeColor =
+      (themeTextStyle.verseTextStrokeColor as string | undefined) ||
+      (themeTextStyle.textStrokeColor as string | undefined) ||
+      '#000000'
+    const verseStrokeWidth =
+      toFiniteNumber(themeTextStyle.verseTextStrokeWidth) ??
+      toFiniteNumber(themeTextStyle.textStrokeWidth) ??
+      1
+
+    return {
+      fontFamily:
+        (themeTextStyle.verseFontFamily as string | undefined) ||
+        (textStyle.fontFamily as string | undefined),
+      fontSize: verseFontSize,
+      color:
+        (themeTextStyle.verseColor as string | undefined) ||
+        (textStyle.color as string | undefined),
+      fontWeight:
+        (themeTextStyle.verseFontWeight as React.CSSProperties['fontWeight']) ||
+        textStyle.fontWeight,
+      fontStyle:
+        (themeTextStyle.verseFontStyle as React.CSSProperties['fontStyle']) || textStyle.fontStyle,
+      textDecoration:
+        (themeTextStyle.verseTextDecoration as React.CSSProperties['textDecoration']) ||
+        textStyle.textDecoration,
+      lineHeight:
+        toFiniteNumber(themeTextStyle.verseLineHeight) ??
+        toFiniteNumber(textStyle.lineHeight) ??
+        undefined,
+      letterSpacing:
+        toFiniteNumber(themeTextStyle.verseLetterSpacing) ??
+        toFiniteNumber(textStyle.letterSpacing) ??
+        undefined,
+      textAlign:
+        (themeTextStyle.verseTextAlign as React.CSSProperties['textAlign']) || textStyle.textAlign,
+      ...(verseShadowEnabled
+        ? {
+            textShadow: `${(verseShadowOffsetX * scaleFactor).toFixed(1)}px ${(verseShadowOffsetY * scaleFactor).toFixed(1)}px ${(verseShadowBlur * scaleFactor).toFixed(1)}px ${verseShadowColor}`
+          }
+        : {}),
+      ...(verseStrokeEnabled
+        ? { WebkitTextStroke: `${(verseStrokeWidth * scaleFactor).toFixed(2)}px ${verseStrokeColor}` }
+        : {})
+    } as React.CSSProperties
+  }, [safePresentationHeight, smallFontSize, theme.textStyle, textStyle, scaleFactor])
+
+  const verseInlineStyle = useMemo(() => buildVerseInlineStyle(verseOverrideStyle), [verseOverrideStyle])
+
   const formattedVerseText = useMemo(() => {
     if (!verseText) return ''
-    return `<span style="font-size: ${smallFontSize}">${verseText}</span>`
-  }, [verseText, smallFontSize])
+    return `<span style="${verseInlineStyle}">${verseText}</span>`
+  }, [verseInlineStyle, verseText])
 
   const normalizedRawText = useMemo(() => {
     const baseText = rawText || ''
@@ -240,9 +361,9 @@ export function BibleTextRender({
   const verseTextStyle = useMemo(
     () => ({
       ...textStyle,
-      fontSize: smallFontSize
+      ...verseOverrideStyle
     }),
-    [textStyle, smallFontSize]
+    [textStyle, verseOverrideStyle]
   )
 
   const renderVerseContent = useCallback(
@@ -305,10 +426,6 @@ export function BibleTextRender({
     [animationType, variants, verseTextStyle, isPreview]
   )
 
-  const safePresentationHeight =
-    Number.isFinite(presentationHeight) && presentationHeight > 0
-      ? presentationHeight
-      : BASE_PRESENTATION_HEIGHT
   const verseEdgeOffsetPx = `${(safePresentationHeight * clampedVersePositionStyle) / BASE_PRESENTATION_HEIGHT}px`
 
   const handleSelectTarget = useCallback(() => {

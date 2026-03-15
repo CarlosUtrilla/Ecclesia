@@ -127,6 +127,10 @@ app/screens/editors/
 - La guía visual del preview es editable con mouse: se puede arrastrar el cuadro para moverlo y usar handles de borde para redimensionar, sincronizando los campos `Margen X/Y` y `Posición X/Y` en tiempo real.
 - En Theme Editor, la guía se renderiza con estado seleccionado siempre activo para mostrarse en todo momento; en otros editores puede ocultarse y mostrarse por selección del usuario.
 - El selector `Texto/Verso` permite elegir qué bloque está activo para edición en el preview; el verso bíblico (cuando está en `upScreen/downScreen`) se arrastra verticalmente con límite de borde para que no invada la zona central.
+- El selector `Texto/Indicador` de la toolbar del ThemeEditor ahora aplica estilo por target: al editar `Indicador`, los cambios de fuente/color/tipografía y efectos se guardan en claves `verse*` dentro de `textStyle` y afectan solo la referencia bíblica.
+- La toolbar del ThemeEditor aplica cambios tipográficos por target usando `setValue` directo (sin `Controller` con `name` dinámico), para evitar que alternar entre `Indicador` y `Texto` resetee estilos del texto principal.
+- Al ajustar el indicador bíblico por drag en ThemeEditor, el cambio de `Por defecto` a `Personalizado` ocurre solo si realmente cambia `positionStyle`; seleccionar/deseleccionar sin mover no debe resetear estilos ni desactivar la opción por defecto.
+- El callback de posición del indicador ignora eventos cuando el target activo no es `Indicador`; esto evita desacoples accidentales al alternar entre `Indicador` y `Texto`.
 - El menú `Posición` no usa pestañas: carga automáticamente los controles del elemento actualmente seleccionado en el preview (texto principal o verso bíblico).
 - Si el tema está usando configuración bíblica por defecto y el usuario arrastra el verso en el preview, el editor cambia automáticamente a configuración personalizada del tema para aplicar el ajuste de `positionStyle`.
 - Al crear un tema nuevo, la separación inicial del verso bíblico desde el borde usa `10px` en lugar de `0px` para una posición de partida más útil.
@@ -213,6 +217,9 @@ app/screens/editors/
   - Posicion: antes/despues/encima/debajo del texto, arriba/abajo de la pantalla.
   - Mostrar version, mostrar numero de versiculo.
   - Offset en px para posiciones de pantalla (`upScreen` / `downScreen`) con rango ampliado para ajustar mejor la cercanía al borde.
+- El schema de validación incluye explícitamente `downScreen`; seleccionar esa opción no debe bloquear el guardado.
+- Al abrir/cancelar el diálogo, el reset respeta el contexto: usa configuración personalizada cuando el componente se monta dentro de ThemesEditor y configuración global cuando se usa desde biblioteca.
+- La hidratación del formulario del diálogo se ejecuta al abrir (`open=true`) para evitar reinicios por re-render mientras está abierto.
 - Puede configurarse globalmente o por tema individual.
 
 ## Tag Songs Editor

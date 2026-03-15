@@ -110,6 +110,30 @@ export function usePresentationTextLayout({ theme, screenSize }: UsePresentation
     delete restTextStyle.paddingBlock
     delete restTextStyle.translate
     delete restTextStyle.justifyContent
+    delete restTextStyle.verseFontFamily
+    delete restTextStyle.verseFontSize
+    delete restTextStyle.verseColor
+    delete restTextStyle.verseFontWeight
+    delete restTextStyle.verseFontStyle
+    delete restTextStyle.verseTextDecoration
+    delete restTextStyle.verseLineHeight
+    delete restTextStyle.verseLetterSpacing
+    delete restTextStyle.verseTextAlign
+    delete restTextStyle.verseJustifyContent
+    delete restTextStyle.verseTextShadowEnabled
+    delete restTextStyle.verseTextShadowColor
+    delete restTextStyle.verseTextShadowBlur
+    delete restTextStyle.verseTextShadowOffsetX
+    delete restTextStyle.verseTextShadowOffsetY
+    delete restTextStyle.verseTextStrokeEnabled
+    delete restTextStyle.verseTextStrokeColor
+    delete restTextStyle.verseTextStrokeWidth
+    delete restTextStyle.verseBlockBgEnabled
+    delete restTextStyle.verseBlockBgColor
+    delete restTextStyle.verseBlockBgBlur
+    delete restTextStyle.verseBlockBgRadius
+    delete restTextStyle.verseBlockBgOpacity
+    delete restTextStyle.verseBlockBgPadding
 
     // Componer text-shadow desde campos personalizados (escalados al tamaño de pantalla)
     const shadowEnabled = !!restTextStyle.textShadowEnabled

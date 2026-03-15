@@ -31,11 +31,36 @@ const DEFAULT_BIBLE_EDGE_OFFSET = 10
 type Props = {
   hideTooltip?: boolean
   customTheme?: ThemeWithMedia
-  customBibleSettings?: Omit<BiblePresentationSettings, 'id' | 'isGlobal' | 'defaultTheme' | 'updatedAt'> & {
+  customBibleSettings?: Omit<
+    BiblePresentationSettings,
+    'id' | 'isGlobal' | 'defaultTheme' | 'updatedAt'
+  > & {
     id?: number
   }
-  setCustomBibleSettings?: (value: BiblePresentationSettings) => void
+  setCustomBibleSettings?: (
+    value: Omit<BiblePresentationSettings, 'isGlobal' | 'defaultTheme' | 'updatedAt'> & {
+      id?: number
+    }
+  ) => void
 } & PropsWithChildren
+
+const toFormValues = (
+  source?:
+    | (Omit<BiblePresentationSettings, 'id' | 'isGlobal' | 'defaultTheme' | 'updatedAt'> & {
+        id?: number
+      })
+    | null
+) => ({
+  id: source?.id,
+  description: source?.description ?? ('complete' as BibleDescriptionMode),
+  position: source?.position ?? ('afterText' as BibleDescriptionPosition),
+  showVersion: source?.showVersion ?? true,
+  showVerseNumber: source?.showVerseNumber ?? false,
+  positionStyle:
+    source?.positionStyle === null || source?.positionStyle === undefined
+      ? DEFAULT_BIBLE_EDGE_OFFSET
+      : source.positionStyle
+})
 
 export default function BiblePresentationConfiguration({
   children,
@@ -44,33 +69,43 @@ export default function BiblePresentationConfiguration({
   customBibleSettings,
   setCustomBibleSettings
 }: Props) {
+  const logBibleConfigDebug = (event: string, payload?: Record<string, unknown>) => {
+    console.log(`[BibleConfigDialog:Debug] ${event}`, payload || {})
+  }
+
   const { selectedTheme } = useSchedule()
   const [open, setOpen] = useState(false)
   const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
   const { control, handleSubmit, watch, reset } = useForm({
-    defaultValues: {
-      description: 'complete' as BibleDescriptionMode,
-      position: 'afterText' as BibleDescriptionPosition,
-      showVersion: true,
-      showVerseNumber: false,
-      positionStyle: DEFAULT_BIBLE_EDGE_OFFSET,
-      ...customBibleSettings
-    },
+    defaultValues: toFormValues(customBibleSettings),
     resolver: zodResolver(BiblePresentationSchema)
   })
 
   const values = watch()
 
   const onSubmit = (data: any) => {
+    logBibleConfigDebug('submit', {
+      mode: customBibleSettings && setCustomBibleSettings ? 'custom' : 'global',
+      data,
+      defaultBibleSettingsId: defaultBiblePresentationSettings?.id
+    })
+
     if (customBibleSettings && setCustomBibleSettings) {
       setCustomBibleSettings(data)
       setOpen(false)
       return
     }
+
+    if (!defaultBiblePresentationSettings?.id) {
+      alert('No se pudo resolver la configuración global de Biblia para guardar.')
+      return
+    }
+
     // Guardar configuración global
     window.api.bible
       .updateDefaultBibleSettings({
         ...data,
+        id: defaultBiblePresentationSettings.id,
         isGlobal: true
       })
       .then(() => {
@@ -82,20 +117,29 @@ export default function BiblePresentationConfiguration({
       })
   }
 
-  const loadGlobalSettings = () => {
+  useEffect(() => {
+    if (!open) return
+
+    logBibleConfigDebug('dialog-open-hydrate-start', {
+      hasCustomBibleSettings: Boolean(customBibleSettings),
+      hasDefaultBibleSettings: Boolean(defaultBiblePresentationSettings)
+    })
+
+    if (customBibleSettings) {
+      reset(toFormValues(customBibleSettings))
+      logBibleConfigDebug('dialog-open-hydrate-custom', {
+        hydratedValues: toFormValues(customBibleSettings)
+      })
+      return
+    }
+
     if (defaultBiblePresentationSettings) {
-      reset({
-        ...defaultBiblePresentationSettings,
-        positionStyle:
-          defaultBiblePresentationSettings.positionStyle === null ||
-          defaultBiblePresentationSettings.positionStyle === undefined
-            ? DEFAULT_BIBLE_EDGE_OFFSET
-            : defaultBiblePresentationSettings.positionStyle
+      reset(toFormValues(defaultBiblePresentationSettings))
+      logBibleConfigDebug('dialog-open-hydrate-global', {
+        hydratedValues: toFormValues(defaultBiblePresentationSettings)
       })
     }
-  }
-
-  useEffect(() => loadGlobalSettings(), [defaultBiblePresentationSettings])
+  }, [open, reset])
 
   const positionOptions = [
     { value: 'beforeText', label: 'Antes del texto' },
@@ -267,9 +311,14 @@ export default function BiblePresentationConfiguration({
               variant="destructive"
               onClick={() => {
                 setOpen(false)
-                setTimeout(() => {
-                  loadGlobalSettings()
-                }, 500)
+                if (customBibleSettings) {
+                  reset(toFormValues(customBibleSettings))
+                  return
+                }
+
+                if (defaultBiblePresentationSettings) {
+                  reset(toFormValues(defaultBiblePresentationSettings))
+                }
               }}
             >
               Cancelar

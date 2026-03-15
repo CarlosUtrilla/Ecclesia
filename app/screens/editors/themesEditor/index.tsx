@@ -34,6 +34,7 @@ import { Switch } from '@/ui/switch'
 import BiblePresentationConfiguration from '../biblePresentationConfiguration'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
+import { clampBibleEdgeOffset, shouldDetachDefaultBibleSettings } from './utils/bibleSettings'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -47,6 +48,10 @@ type FormData = z.infer<typeof CreateThemeSchema> & {
 const NEW_THEME_DEFAULT_VERSE_EDGE = 10
 
 export default function ThemesEditor() {
+  const logBibleDebug = (event: string, payload?: Record<string, unknown>) => {
+    console.log(`[ThemeEditor:BibleDebug] ${event}`, payload || {})
+  }
+
   const { id } = useParams()
   const isCreatingTheme = !id
   const previewRef = useRef<HTMLDivElement>(null)
@@ -128,8 +133,39 @@ export default function ThemesEditor() {
 
   // Observar valores para preview - optimizado por react-hook-form
   const watchedData = watch()
-  console.log()
   const { previewData, animationSettings, transitionSettings } = useThemePreview(watchedData)
+
+  const prevBibleDebugStateRef = useRef<{
+    useDefaultBibleSettings?: boolean
+    selectedBoundsTarget?: EditableBoundsTarget
+    customPositionStyle?: number | null
+  }>({})
+
+  useEffect(() => {
+    const currentState = {
+      useDefaultBibleSettings: watchedData.useDefaultBibleSettings,
+      selectedBoundsTarget,
+      customPositionStyle: watchedData.biblePresentationSettings?.positionStyle ?? null
+    }
+
+    const previousState = prevBibleDebugStateRef.current
+
+    if (
+      previousState.useDefaultBibleSettings !== currentState.useDefaultBibleSettings ||
+      previousState.selectedBoundsTarget !== currentState.selectedBoundsTarget ||
+      previousState.customPositionStyle !== currentState.customPositionStyle
+    ) {
+      logBibleDebug('state-change', {
+        previousState,
+        currentState
+      })
+      prevBibleDebugStateRef.current = currentState
+    }
+  }, [
+    watchedData.useDefaultBibleSettings,
+    watchedData.biblePresentationSettings?.positionStyle,
+    selectedBoundsTarget
+  ])
 
   // Callbacks memoizados para evitar re-renders
   const handleMediaChange = useCallback(
@@ -239,6 +275,12 @@ export default function ThemesEditor() {
   }, [onSave])
 
   const handleSwitchBibleSetting = (value: boolean) => {
+    logBibleDebug('switch-useDefaultBibleSettings', {
+      nextValue: value,
+      currentValue: watchedData.useDefaultBibleSettings,
+      hasCustomSettings: Boolean(watchedData.biblePresentationSettings)
+    })
+
     setValue('useDefaultBibleSettings', value, { shouldDirty: true })
     if (!watchedData.biblePresentationSettings) {
       const nextPositionStyle =
@@ -257,6 +299,11 @@ export default function ThemesEditor() {
         } as any,
         { shouldDirty: true }
       )
+
+      logBibleDebug('seed-custom-bible-settings', {
+        source: 'handleSwitchBibleSetting',
+        seededPositionStyle: nextPositionStyle
+      })
     }
   }
 
@@ -312,7 +359,21 @@ export default function ThemesEditor() {
 
   const handleBibleVersePositionChange = useCallback(
     (next: number) => {
-      const bounded = Math.min(Math.max(0, Math.round(next)), 72)
+      logBibleDebug('verse-position-change-received', {
+        next,
+        selectedBoundsTarget,
+        useDefaultBibleSettings: watchedData.useDefaultBibleSettings,
+        currentCustomPositionStyle: watchedData.biblePresentationSettings?.positionStyle ?? null
+      })
+
+      if (selectedBoundsTarget !== 'verse') {
+        logBibleDebug('verse-position-change-ignored-not-verse-target', {
+          selectedBoundsTarget
+        })
+        return
+      }
+
+      const bounded = clampBibleEdgeOffset(next)
 
       if (watchedData.useDefaultBibleSettings) {
         const sourceSettings =
@@ -320,11 +381,17 @@ export default function ThemesEditor() {
         if (!sourceSettings) return
 
         const startPositionStyle =
-          sourceSettings.positionStyle === null ||
-          sourceSettings.positionStyle === undefined ||
-          (isCreatingTheme && sourceSettings.positionStyle === 0)
+          sourceSettings.positionStyle === null || sourceSettings.positionStyle === undefined
             ? NEW_THEME_DEFAULT_VERSE_EDGE
             : sourceSettings.positionStyle
+
+        if (!shouldDetachDefaultBibleSettings(true, startPositionStyle, bounded)) {
+          logBibleDebug('verse-position-change-ignored-no-real-change-default', {
+            startPositionStyle,
+            bounded
+          })
+          return
+        }
 
         setValue('useDefaultBibleSettings', false, { shouldDirty: true })
         setValue(
@@ -332,20 +399,43 @@ export default function ThemesEditor() {
           {
             ...sourceSettings,
             id: undefined,
-            positionStyle: startPositionStyle === bounded ? startPositionStyle : bounded
+            positionStyle: bounded
           } as any,
           { shouldDirty: true }
         )
+
+        logBibleDebug('detached-default-bible-settings', {
+          from: startPositionStyle,
+          to: bounded
+        })
         return
       }
 
       if (!watchedData.biblePresentationSettings) return
 
+      const currentCustomPosition =
+        watchedData.biblePresentationSettings.positionStyle === null ||
+        watchedData.biblePresentationSettings.positionStyle === undefined
+          ? NEW_THEME_DEFAULT_VERSE_EDGE
+          : watchedData.biblePresentationSettings.positionStyle
+
+      if (currentCustomPosition === bounded) {
+        logBibleDebug('verse-position-change-ignored-no-real-change-custom', {
+          currentCustomPosition,
+          bounded
+        })
+        return
+      }
+
       setValue('biblePresentationSettings.positionStyle', bounded, { shouldDirty: true })
+      logBibleDebug('updated-custom-position-style', {
+        from: currentCustomPosition,
+        to: bounded
+      })
     },
     [
       defaultBiblePresentationSettings,
-      isCreatingTheme,
+      selectedBoundsTarget,
       setValue,
       watchedData.biblePresentationSettings,
       watchedData.useDefaultBibleSettings
@@ -438,16 +528,13 @@ export default function ThemesEditor() {
             </div>
             <BiblePresentationConfiguration
               customTheme={previewData}
-              customBibleSettings={
-                watchedData.biblePresentationSettings
-                  ? {
-                      ...watchedData.biblePresentationSettings
-                    }
-                  : undefined
-              }
-              setCustomBibleSettings={(settings) =>
+              customBibleSettings={watchedData.biblePresentationSettings}
+              setCustomBibleSettings={(settings) => {
+                logBibleDebug('setCustomBibleSettings-from-dialog', {
+                  settings
+                })
                 setValue('biblePresentationSettings', settings, { shouldDirty: true })
-              }
+              }}
             >
               <Button
                 disabled={watchedData.useDefaultBibleSettings}
@@ -462,9 +549,11 @@ export default function ThemesEditor() {
 
         {/* Barra de herramientas de estilo */}
         <ThemeToolbar
-          control={control}
           setValue={setValue}
           watchedData={watchedData}
+          selectedBoundsTarget={selectedBoundsTarget}
+          canSelectVerseBounds={canSelectVerseBounds}
+          setSelectedBoundsTarget={setSelectedBoundsTarget}
           handlePreviewAnimation={handlePreviewAnimation}
           handlePreviewTransition={handlePreviewTransition}
         />

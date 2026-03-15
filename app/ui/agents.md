@@ -145,6 +145,9 @@ PresentationView (index.tsx)
 - `MediaRender` está memoizado con comparación por identidad de media (`id`, `filePath`, `thumbnail`, `format`, `customStyle`, `live`) para evitar re-renders que no cambian el asset y mejorar continuidad de reproducción en live/stage.
 - En `MediaRender` live, el `<video>` usa `autoPlay` y `playsInline`; el `loop` se controla con `currentItem.videoLoop` para respetar la configuración persistida de la slide.
 - En `PresentationView/index.tsx`, el branch no-`PRESENTATION` separa `BIBLE` (con `BibleTextRender`) de `SONG/otros` (con `AnimatedText` genérico).
+- `BibleTextRender` permite overrides tipográficos del indicador bíblico con claves `verse*` en `theme.textStyle` (por ejemplo `verseFontFamily`, `verseColor`, `verseFontSize`, `verseTextShadow*`), manteniendo fallback al estilo base cuando no existen.
+- El drag del indicador bíblico usa umbral de activación (micro-movimientos se ignoran) para evitar cambios accidentales de `positionStyle` al hacer clic o alternar selección en ThemeEditor.
+- El drag del indicador también ignora `pointermove` cuando el botón primario no está presionado (`event.buttons`), evitando updates tardíos por listeners residuales al interactuar con otros controles de la UI.
 - `PresentationView` aplica transición por slide con `items[n].transitionSettings` (default `fade`) al cambiar `currentIndex`.
 - En `live`, la transición por slide usa capas superpuestas (`AnimatePresence mode="sync"`) para que el item entrante y saliente se animen al mismo tiempo, evitando frames negros entre items.
 - Cuando live pasa de estado vacío a primer item, la transición de slide aplica animación de entrada inicial (no se suprime `initial`) para evitar aparición brusca.
