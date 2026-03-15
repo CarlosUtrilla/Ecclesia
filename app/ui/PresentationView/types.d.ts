@@ -3,6 +3,8 @@ import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
 
 export { ThemeWithMedia }
 
+export type PresentationRenderableResourceType = ScheduleItemType | 'TEXT' | 'SHAPE'
+
 export type TextBoundsValues = {
   paddingInline: number
   paddingBlock: number
@@ -63,18 +65,19 @@ export type PresentationViewItems = {
     verseEnd?: number
     version: string
   }
-  resourceType: ScheduleItemType | 'TEXT'
+  resourceType: PresentationRenderableResourceType
 }
 
 export type PresentationLayerItem = {
   id: string
   text: string
+  shapeType?: 'rectangle' | 'circle' | 'arrow' | 'line-arrow' | 'triangle' | 'line' | 'cross'
   customStyle?: string
   animationSettings?: string
   layer?: number
   media?: PresentationViewItems['media']
   verse?: PresentationViewItems['verse']
-  resourceType: ScheduleItemType | 'TEXT'
+  resourceType: PresentationRenderableResourceType
 }
 
 export type ScreenSize = { width: number; height: number; aspectRatio: string }

@@ -7,6 +7,7 @@ type DragMode = 'move' | 'resize' | 'rotate'
 export type DragState = {
   pointerId: number
   itemId: string
+  itemType?: 'TEXT' | 'BIBLE' | 'SONG' | 'MEDIA' | 'GROUP' | 'SHAPE'
   mode: DragMode
   resizeCorner?: ResizeHandle
   startX: number
@@ -184,20 +185,165 @@ export default function useCanvasTransform({
       const corner = activeDrag.resizeCorner || 'bottom-right'
       const minWidth = 80
       const minHeight = 60
+      const preserveAspectRatio = event.shiftKey
+      const aspectRatio = Math.max(0.01, activeDrag.initialStyle.width / activeDrag.initialStyle.height)
       const initialLeft = activeDrag.initialStyle.x
       const initialTop = activeDrag.initialStyle.y
       const initialRight = activeDrag.initialStyle.x + activeDrag.initialStyle.width
       const initialBottom = activeDrag.initialStyle.y + activeDrag.initialStyle.height
+      const isTextLikeItem =
+        activeDrag.itemType === 'TEXT' ||
+        activeDrag.itemType === 'BIBLE' ||
+        activeDrag.itemType === 'SONG' ||
+        activeDrag.itemType === 'GROUP' ||
+        activeDrag.itemType === 'SHAPE'
+
+      const getConstrainedSize = (width: number, height: number) => {
+        if (!preserveAspectRatio) {
+          return {
+            width: Math.max(minWidth, Math.round(width)),
+            height: Math.max(minHeight, Math.round(height))
+          }
+        }
+
+        const safeWidth = Math.max(minWidth, width)
+        const safeHeight = Math.max(minHeight, height)
+        const widthDelta = Math.abs(safeWidth - activeDrag.initialStyle.width)
+        const heightDelta = Math.abs(safeHeight - activeDrag.initialStyle.height)
+
+        if (widthDelta >= heightDelta) {
+          const constrainedWidth = Math.max(minWidth, Math.round(safeWidth))
+          return {
+            width: constrainedWidth,
+            height: Math.max(minHeight, Math.round(constrainedWidth / aspectRatio))
+          }
+        }
+
+        const constrainedHeight = Math.max(minHeight, Math.round(safeHeight))
+        return {
+          width: Math.max(minWidth, Math.round(constrainedHeight * aspectRatio)),
+          height: constrainedHeight
+        }
+      }
+
+      const buildResizeUpdate = (
+        nextX: number,
+        nextY: number,
+        nextWidth: number,
+        nextHeight: number
+      ) => {
+        const next: Partial<CanvasItemStyle> = {
+          x: Math.round(nextX),
+          y: Math.round(nextY),
+          width: Math.max(minWidth, Math.round(nextWidth)),
+          height: Math.max(minHeight, Math.round(nextHeight))
+        }
+
+        if (preserveAspectRatio && isTextLikeItem && activeDrag.initialStyle.fontSize > 0) {
+          const scaleFactor = next.width / activeDrag.initialStyle.width
+          next.fontSize = Math.max(8, Math.round(activeDrag.initialStyle.fontSize * scaleFactor))
+        }
+
+        return next
+      }
+
+      const getRawBoundsForHandle = () => {
+        const movingLeft = corner.includes('left')
+        const movingRight = corner.includes('right')
+        const movingTop = corner.includes('top')
+        const movingBottom = corner.includes('bottom')
+        const horizontalOnly = corner === 'left' || corner === 'right'
+        const verticalOnly = corner === 'top' || corner === 'bottom'
+
+        const rawLeft = movingLeft ? initialLeft + deltaX : initialLeft
+        const rawRight = movingRight ? initialRight + deltaX : initialRight
+        const rawTop = movingTop ? initialTop + deltaY : initialTop
+        const rawBottom = movingBottom ? initialBottom + deltaY : initialBottom
+
+        return {
+          movingLeft,
+          movingRight,
+          movingTop,
+          movingBottom,
+          horizontalOnly,
+          verticalOnly,
+          rawLeft,
+          rawRight,
+          rawTop,
+          rawBottom
+        }
+      }
+
+      if (preserveAspectRatio) {
+        const {
+          movingLeft,
+          movingRight,
+          movingTop,
+          movingBottom,
+          horizontalOnly,
+          verticalOnly,
+          rawLeft,
+          rawRight,
+          rawTop,
+          rawBottom
+        } = getRawBoundsForHandle()
+
+        const anchorX = movingLeft ? initialRight : movingRight ? initialLeft : initialLeft + activeDrag.initialStyle.width / 2
+        const anchorY = movingTop ? initialBottom : movingBottom ? initialTop : initialTop + activeDrag.initialStyle.height / 2
+
+        const rawWidth = horizontalOnly
+          ? Math.abs((movingLeft ? anchorX - rawLeft : rawRight - anchorX) * 2)
+          : Math.abs((movingLeft ? anchorX - rawLeft : rawRight - anchorX))
+        const rawHeight = verticalOnly
+          ? Math.abs((movingTop ? anchorY - rawTop : rawBottom - anchorY) * 2)
+          : Math.abs((movingTop ? anchorY - rawTop : rawBottom - anchorY))
+
+        const constrained = getConstrainedSize(
+          horizontalOnly ? rawWidth : rawWidth || activeDrag.initialStyle.width,
+          verticalOnly ? rawHeight : rawHeight || activeDrag.initialStyle.height
+        )
+
+        let nextX = initialLeft
+        let nextY = initialTop
+
+        if (horizontalOnly) {
+          nextX = Math.round(anchorX - constrained.width / 2)
+          nextY = Math.round(anchorY - constrained.height / 2)
+        } else if (verticalOnly) {
+          nextX = Math.round(anchorX - constrained.width / 2)
+          nextY = Math.round(anchorY - constrained.height / 2)
+        } else {
+          nextX = movingLeft ? Math.round(anchorX - constrained.width) : Math.round(anchorX)
+          nextY = movingTop ? Math.round(anchorY - constrained.height) : Math.round(anchorY)
+        }
+
+        const rightEdge = nextX + constrained.width
+        const bottomEdge = nextY + constrained.height
+        const snappedLeft = getSnappedEdge(nextX, boundsWidth)
+        const snappedRight = getSnappedEdge(rightEdge, boundsWidth)
+        const snappedTop = getSnappedEdge(nextY, boundsHeight)
+        const snappedBottom = getSnappedEdge(bottomEdge, boundsHeight)
+
+        const guideX = movingLeft ? snappedLeft.guide : movingRight ? snappedRight.guide : null
+        const guideY = movingTop ? snappedTop.guide : movingBottom ? snappedBottom.guide : null
+
+        syncResizeGuides(guideX, guideY, nextX, nextY)
+        scheduleStyleUpdate(
+          activeDrag.itemId,
+          buildResizeUpdate(nextX, nextY, constrained.width, constrained.height)
+        )
+        return
+      }
 
       if (corner === 'right') {
         const proposedRight = initialRight + deltaX
         const snappedRight = getSnappedEdge(proposedRight, boundsWidth)
-        const nextWidth = Math.max(minWidth, Math.round(snappedRight.value - initialLeft))
         syncResizeGuides(snappedRight.guide, null, initialLeft, initialTop)
 
-        scheduleStyleUpdate(activeDrag.itemId, {
-          width: nextWidth
-        })
+        scheduleStyleUpdate(
+          activeDrag.itemId,
+          buildResizeUpdate(initialLeft, initialTop, snappedRight.value - initialLeft, activeDrag.initialStyle.height)
+        )
         return
       }
 
@@ -208,22 +354,22 @@ export default function useCanvasTransform({
         const nextX = Math.round(initialRight - nextWidth)
         syncResizeGuides(snappedLeft.guide, null, nextX, initialTop)
 
-        scheduleStyleUpdate(activeDrag.itemId, {
-          x: nextX,
-          width: nextWidth
-        })
+        scheduleStyleUpdate(
+          activeDrag.itemId,
+          buildResizeUpdate(nextX, initialTop, nextWidth, activeDrag.initialStyle.height)
+        )
         return
       }
 
       if (corner === 'bottom') {
         const proposedBottom = initialBottom + deltaY
         const snappedBottom = getSnappedEdge(proposedBottom, boundsHeight)
-        const nextHeight = Math.max(minHeight, Math.round(snappedBottom.value - initialTop))
         syncResizeGuides(null, snappedBottom.guide, initialLeft, initialTop)
 
-        scheduleStyleUpdate(activeDrag.itemId, {
-          height: nextHeight
-        })
+        scheduleStyleUpdate(
+          activeDrag.itemId,
+          buildResizeUpdate(initialLeft, initialTop, activeDrag.initialStyle.width, snappedBottom.value - initialTop)
+        )
         return
       }
 
@@ -234,10 +380,10 @@ export default function useCanvasTransform({
         const nextY = Math.round(initialBottom - nextHeight)
         syncResizeGuides(null, snappedTop.guide, initialLeft, nextY)
 
-        scheduleStyleUpdate(activeDrag.itemId, {
-          y: nextY,
-          height: nextHeight
-        })
+        scheduleStyleUpdate(
+          activeDrag.itemId,
+          buildResizeUpdate(initialLeft, nextY, activeDrag.initialStyle.width, nextHeight)
+        )
         return
       }
 
@@ -246,14 +392,12 @@ export default function useCanvasTransform({
         const proposedBottom = initialBottom + deltaY
         const snappedRight = getSnappedEdge(proposedRight, boundsWidth)
         const snappedBottom = getSnappedEdge(proposedBottom, boundsHeight)
-        const nextWidth = Math.max(minWidth, Math.round(snappedRight.value - initialLeft))
-        const nextHeight = Math.max(minHeight, Math.round(snappedBottom.value - initialTop))
         syncResizeGuides(snappedRight.guide, snappedBottom.guide, initialLeft, initialTop)
 
-        scheduleStyleUpdate(activeDrag.itemId, {
-          width: nextWidth,
-          height: nextHeight
-        })
+        scheduleStyleUpdate(
+          activeDrag.itemId,
+          buildResizeUpdate(initialLeft, initialTop, snappedRight.value - initialLeft, snappedBottom.value - initialTop)
+        )
         return
       }
 
@@ -263,15 +407,11 @@ export default function useCanvasTransform({
         const snappedLeft = getSnappedEdge(proposedLeft, boundsWidth)
         const snappedBottom = getSnappedEdge(proposedBottom, boundsHeight)
         const nextWidth = Math.max(minWidth, Math.round(initialRight - snappedLeft.value))
-        const nextX = Math.round(initialRight - nextWidth)
         const nextHeight = Math.max(minHeight, Math.round(snappedBottom.value - initialTop))
+        const nextX = Math.round(initialRight - nextWidth)
         syncResizeGuides(snappedLeft.guide, snappedBottom.guide, nextX, initialTop)
 
-        scheduleStyleUpdate(activeDrag.itemId, {
-          x: nextX,
-          width: nextWidth,
-          height: nextHeight
-        })
+        scheduleStyleUpdate(activeDrag.itemId, buildResizeUpdate(nextX, initialTop, nextWidth, nextHeight))
         return
       }
 
@@ -280,16 +420,12 @@ export default function useCanvasTransform({
         const proposedRight = initialRight + deltaX
         const snappedTop = getSnappedEdge(proposedTop, boundsHeight)
         const snappedRight = getSnappedEdge(proposedRight, boundsWidth)
+        const nextWidth = Math.max(minWidth, Math.round(snappedRight.value - initialLeft))
         const nextHeight = Math.max(minHeight, Math.round(initialBottom - snappedTop.value))
         const nextY = Math.round(initialBottom - nextHeight)
-        const nextWidth = Math.max(minWidth, Math.round(snappedRight.value - initialLeft))
         syncResizeGuides(snappedRight.guide, snappedTop.guide, initialLeft, nextY)
 
-        scheduleStyleUpdate(activeDrag.itemId, {
-          y: nextY,
-          width: nextWidth,
-          height: nextHeight
-        })
+        scheduleStyleUpdate(activeDrag.itemId, buildResizeUpdate(initialLeft, nextY, nextWidth, nextHeight))
         return
       }
 
@@ -303,12 +439,7 @@ export default function useCanvasTransform({
       const nextY = Math.round(initialBottom - nextHeight)
       syncResizeGuides(snappedLeft.guide, snappedTop.guide, nextX, nextY)
 
-      scheduleStyleUpdate(activeDrag.itemId, {
-        x: nextX,
-        y: nextY,
-        width: nextWidth,
-        height: nextHeight
-      })
+      scheduleStyleUpdate(activeDrag.itemId, buildResizeUpdate(nextX, nextY, nextWidth, nextHeight))
       return
     }
 

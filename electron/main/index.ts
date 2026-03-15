@@ -203,6 +203,13 @@ app.whenReady().then(async () => {
     }
   })
 
+  ipcMain.on('presentation-close-confirm', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed()) {
+      win.destroy()
+    }
+  })
+
   // Notificar a ventana principal cuando se guarda un tema
   ipcMain.on('theme-saved', () => {
     const mainWindow = BrowserWindow.getAllWindows()
@@ -238,6 +245,15 @@ app.whenReady().then(async () => {
     if (mainWindow && mainWindow.length > 0) {
       mainWindow.forEach((win) => {
         win.webContents.send('presentation-saved')
+      })
+    }
+  })
+
+  ipcMain.on('media-saved', () => {
+    const windows = BrowserWindow.getAllWindows()
+    if (windows && windows.length > 0) {
+      windows.forEach((win) => {
+        win.webContents.send('media-saved')
       })
     }
   })

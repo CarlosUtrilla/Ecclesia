@@ -5,6 +5,7 @@ import {
   PresentationSlide,
   PresentationSlideItem
 } from 'database/controllers/presentations/presentations.dto'
+import { getShapeTypeFromAccessData } from '@/screens/editors/presentationEditor/utils/slideUtils'
 
 const BASE_CANVAS_WIDTH = 1280
 const BASE_CANVAS_HEIGHT = 720
@@ -188,6 +189,7 @@ const mapPresentationItemToLayer = (
   return {
     id: item.id,
     text: item.text || '',
+    shapeType: item.type === 'SHAPE' ? getShapeTypeFromAccessData(item.accessData) : undefined,
     customStyle: normalizeCanvasStyleToRelative(item.customStyle),
     animationSettings:
       typeof item.animationSettings === 'string'

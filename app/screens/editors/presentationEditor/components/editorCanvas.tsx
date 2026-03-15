@@ -164,6 +164,7 @@ export default function EditorCanvas({
     dragRef.current = {
       pointerId: event.pointerId,
       itemId: item.id,
+      itemType: item.type,
       mode,
       resizeCorner,
       startX: event.clientX,

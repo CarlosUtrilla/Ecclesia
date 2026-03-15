@@ -185,7 +185,14 @@ app/screens/editors/
 - El detalle técnico del módulo se documenta en [app/screens/editors/presentationEditor/agents.md](presentationEditor/agents.md).
 - El módulo está organizado por `components/`, `hooks/` y `utils/` para mantener `index.tsx` como orquestador.
 - Funcionalidades principales: edición visual canvas, snapping, historial undo/redo, atajos y guardado de slides mixtos (`items[]`).
+- En PresentationEditor, el carrusel de slides permite inserción contextual por hover entre tarjetas (`Añadir diapositiva aquí`) para crear una diapositiva en una posición específica.
+- En PresentationEditor, las miniaturas de slides soportan `click derecho` para duplicar/eliminar diapositiva; la duplicación no arrastra metadatos de Canva para evitar colisiones con reimportación.
+- En PresentationEditor, cada miniatura de slide permite `Renombrar diapositiva` desde menú contextual; abre un diálogo del editor, guarda el nombre en `slideName` y lo muestra en el overlay de la miniatura.
+- En PresentationEditor, la pestaña `Insertar` permite añadir formas (`Rectángulo`, `Círculo`, `Flecha`, `Flecha de línea`, `Triángulo`, `Línea`, `Cruz`) como layers `SHAPE` reordenables y editables visualmente; soportan texto interior, presets y resize proporcional con `Shift`. El resize proporcional también aplica a media y texto, recalculando `fontSize` en items textuales.
+- PresentationEditor reutiliza el patrón de cierre seguro de ThemesEditor: al intentar cerrar la ventana con cambios sin guardar, Electron emite `presentation-close-requested`, el renderer muestra un diálogo de confirmación y solo destruye la ventana tras `window.windowAPI.confirmPresentationClose()`.
 - Incluye transición por slide (`slide.transitionSettings`) editable con `AnimationSelector` reutilizado.
+- Incluye importación directa de assets Canva desde la pestaña `Insertar` en formato MP4 y ZIP (con extracción automática de MP4), creando una carpeta en Media por ZIP con sufijo incremental cuando aplica y una diapositiva por cada video importado.
+- La importación Canva en PresentationEditor persiste metadatos por slide (`canvaSourceKey`, `canvaSlideNumber`) para soportar reimportación idempotente: si el ZIP actualizado mantiene numeración (`1.mp4`, `2.mp4`, ...), se actualizan los slides existentes por número aunque el orden visual haya cambiado por inserciones manuales.
 - La toolbar tipográfica del `Presentation Editor` permite alineación vertical del item (`Arriba`, `Centro`, `Abajo`), aplicada al render de canvas y persistida en `customStyle`.
 - Los cambios de un control de estilo no sobrescriben otros campos no editados (por ejemplo, cambiar alineación conserva `fontFamily`).
 - El editor filtra valores `undefined` en updates de item/estilo para evitar sobrescrituras accidentales en controles de texto, media y canvas.

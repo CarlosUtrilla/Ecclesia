@@ -5,6 +5,7 @@ import { PresentationSlideItem, CanvasItemStyle } from '../utils/slideUtils'
 import CanvasItemContextMenu from './canvasItemContextMenu'
 import CanvasTransformHandles, { ResizeHandle } from './canvasTransformHandles'
 import MediaCanvasItem from './mediaCanvasItem'
+import ShapeCanvasItem from './shapeCanvasItem'
 import TextCanvasItem from './textCanvasItem'
 
 type DragMode = 'move' | 'resize' | 'rotate'
@@ -87,6 +88,31 @@ export default function CanvasItemNode({
             item={item}
             style={style}
             mediaItem={mediaItem}
+            isSelected={isSelected}
+            isRotating={isRotating}
+            highlightSnapTarget={isSnapTarget}
+            onSelectItem={onSelectItem}
+            onStartMove={(event) => onStartDrag(event, item, 'move')}
+            onStartRotate={(event) => onStartDrag(event, item, 'rotate')}
+            onStartResize={(event, corner) => onStartDrag(event, item, 'resize', corner)}
+          />
+        </div>
+      </CanvasItemContextMenu>
+    )
+  }
+
+  if (item.type === 'SHAPE') {
+    return (
+      <CanvasItemContextMenu
+        onLayerUp={withSelection(onLayerUpItem)}
+        onLayerDown={withSelection(onLayerDownItem)}
+        onDuplicate={withSelection(onDuplicateItem)}
+        onDelete={withSelection(onDeleteItem)}
+      >
+        <div>
+          <ShapeCanvasItem
+            item={item}
+            style={style}
             isSelected={isSelected}
             isRotating={isRotating}
             highlightSnapTarget={isSnapTarget}

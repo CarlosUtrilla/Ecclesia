@@ -59,6 +59,10 @@ export const mediaAPI = {
     newThumbnail?: string
   }> => ipcRenderer.invoke('media:copy-file', sourcePath, targetFolder, isFolder),
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  extractZipMp4: (zipPath: string): Promise<{ tempDir: string; mp4Paths: string[] }> =>
+    ipcRenderer.invoke('media:extract-zip-mp4', zipPath),
+  cleanupTempPath: (targetPath: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('media:cleanup-temp-path', targetPath),
   getServerPort: (): Promise<number> => ipcRenderer.invoke('get-media-server-port'),
   onImportProgress: (callback: (data: { progress: number; fileName: string }) => void) => {
     ipcRenderer.on('media:import-progress', (_event, data) => callback(data))

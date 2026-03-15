@@ -128,10 +128,22 @@ export class PresentationsService {
 
       return {
         id: slide?.id || `slide-${index}`,
+        slideName:
+          typeof slide?.slideName === 'string' && slide.slideName.trim().length > 0
+            ? slide.slideName.trim()
+            : undefined,
         themeId:
           slide?.themeId === null || slide?.themeId === undefined
             ? null
             : Number(slide.themeId) || null,
+        canvaSourceKey:
+          typeof slide?.canvaSourceKey === 'string' && slide.canvaSourceKey.trim().length > 0
+            ? slide.canvaSourceKey.trim()
+            : undefined,
+        canvaSlideNumber:
+          Number.isInteger(slide?.canvaSlideNumber) && Number(slide.canvaSlideNumber) > 0
+            ? Number(slide.canvaSlideNumber)
+            : undefined,
         transitionSettings: slide?.transitionSettings || this.defaultTransitionSettings,
         videoLiveBehavior: slide?.videoLiveBehavior === 'auto' ? 'auto' : 'manual',
         items: normalizedItems,

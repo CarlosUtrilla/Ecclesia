@@ -161,12 +161,13 @@ Gestiona todas las ventanas de la aplicacion:
 
 - `settings`, `stage-control` y `stage-layout` son ventana única: si ya existen, se enfocan.
 - Apertura de ventanas via IPC (`ipcMain.on(...)`) delega en `window.windowAPI.*`.
+- `createThemeWindow()` y `createPresentationWindow()` interceptan el evento nativo `close`, cancelan el cierre inicial y notifican al renderer (`theme-close-requested` / `presentation-close-requested`) para que el editor decida si debe confirmar o bloquear el cierre.
 
 #### Estrategia de pre-warming (Performance)
 
 Todas las ventanas secundarias se pre-calientan al arranque de la app (4s después del `ready-to-show` de la ventana principal):
 
-```
+```text
 prewarmEditorWindows()  →  crea hidden BrowserWindows para:
   song, theme, presentation, tagSongEditor,
   settings, stage-control, stage-layout
@@ -208,6 +209,9 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
   - Genera thumbnails para imagenes/videos.
   - Extrae metadatos (dimensiones, duracion).
   - Registra en DB via `MediaService`.
+  - El borrado de carpetas (`media:delete-folder`) es recursivo en filesystem para permitir eliminar carpetas con subcarpetas y contenido completo desde Library.
+  - Expone extracción de ZIP para flujo Canva (`media:extract-zip-mp4`) que extrae `.mp4` a temporales seguros.
+  - Expone limpieza de temporales (`media:cleanup-temp-path`) restringida al root temporal de importaciones Canva.
 - El renderer construye URLs `http://localhost:{port}/{filePath}` con `useMediaServer()`.
 
 ### Bible Manager (`bibleManager/`)
@@ -260,6 +264,7 @@ Maneja la inicializacion robusta de la base de datos:
 | `tags-saved` | TagSongsEditor | Refetch de tags (`useTagSongs()`) |
 | `song-saved` | SongEditor | Refetch de canciones |
 | `schedule-group-templates-saved` | GroupTemplateManager | Refetch de plantillas |
+| `media-saved` | Media importers (Library/PresentationEditor) | Refetch de biblioteca de medios en todas las ventanas |
 | `display-update` | displayManager | Refetch de displays |
 | `live-screen-ready` | LiveScreen window | Marca pantalla como lista |
 | `liveScreen-hide` | LiveScreen window | Notifica ocultamiento |
@@ -271,7 +276,7 @@ Definidas en `electron/preload/index.ts`:
 | API global | Metodos principales |
 | --- | --- |
 | `window.api` | Namespaces de `database/routes.ts` |
-| `window.mediaAPI` | `getMediaServerPort()`, `importMedia()` |
+| `window.mediaAPI` | `getMediaServerPort()`, `importMedia()`, `extractZipMp4()`, `cleanupTempPath()` |
 | `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `showStageScreen()`, `closeStageScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()`, `updateStageScreenConfig()` |
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `openStageLayoutWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wrappers del bible manager |

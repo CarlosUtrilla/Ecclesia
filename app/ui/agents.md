@@ -134,6 +134,7 @@ PresentationView (index.tsx)
 ```
 
 - `PresentationRender` interpreta `presentationItems` ordenados por `layer` y aplica `animationSettings` por item para entradas independientes.
+- `PresentationRender` también soporta layers `SHAPE` (`rectangle`, `circle`, `arrow`, `line-arrow`, `triangle`, `line`, `cross`) usando `customStyle` del editor de presentaciones para posicionamiento, color de relleno, borde, opacidad y texto interior.
 - En `PresentationRender`, los layers de texto se renderizan mediante `AnimatedText` (preview y live), en lugar de HTML crudo, para mantener consistencia de sanitización, alineación y animación con el resto del sistema.
 - En `PresentationRender`, cuando un layer es bíblico (`resourceType: 'BIBLE'`) y contiene rango, el texto se resuelve con el verso activo provisto por `presentationVerseBySlideKey`, manteniendo un único slide lógico con contenido dinámico.
 - Los layers bíblicos de `PRESENTATION` usan `BibleTextRender` para respetar la configuración de ubicación/formato del versículo: primero configuración global (`useDefaultBibleSettings`), y si el tema de la diapositiva define settings propios, se usan esos.

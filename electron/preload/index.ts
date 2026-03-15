@@ -43,6 +43,7 @@ const windowAPI = {
   cancelClose: () => ipcRenderer.send('app-close-cancel'),
   skipSyncAndClose: () => ipcRenderer.send('app-close-skip-sync'),
   confirmThemeClose: () => ipcRenderer.send('theme-close-confirm'),
+  confirmPresentationClose: () => ipcRenderer.send('presentation-close-confirm'),
   triggerClose: () => ipcRenderer.send('window:trigger-close')
 }
 

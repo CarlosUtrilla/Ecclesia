@@ -66,7 +66,7 @@ export default function MediaLibrary() {
     }
   })
 
-  const { data: folders = [] } = useQuery({
+  const { data: folders = [], refetch: refetchFolders } = useQuery({
     queryKey: ['folders', currentFolder],
     queryFn: () => window.mediaAPI.listFolders(currentFolder || undefined)
   })
@@ -81,7 +81,7 @@ export default function MediaLibrary() {
 
       if (progress >= 100) {
         setTimeout(() => {
-          refetch()
+          void Promise.all([refetch(), refetchFolders()])
           setConversionProgress(null)
         }, 500)
       }
@@ -90,7 +90,18 @@ export default function MediaLibrary() {
     return () => {
       unsubscribe()
     }
-  }, [])
+  }, [refetch, refetchFolders])
+
+  // Refetch si otra ventana importa/crea medios
+  useEffect(() => {
+    const unsubscribe = window.electron.ipcRenderer.on('media-saved', () => {
+      void Promise.all([refetch(), refetchFolders()])
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [refetch, refetchFolders])
 
   // Limpiar selección cuando cambie de carpeta
   useEffect(() => {
@@ -135,16 +146,34 @@ export default function MediaLibrary() {
     try {
       for (const item of selected) {
         if (typeof item === 'string') {
+          const canDeleteFolder = await confirmFolderDeletion(item)
+          if (!canDeleteFolder) continue
           await operations.deleteFolderMutation.mutateAsync(item)
         } else {
           await operations.deleteMutation.mutateAsync(item)
         }
       }
+      window.electron.ipcRenderer.send('media-saved')
       selection.clearSelection()
     } catch (error) {
       console.error('Error al eliminar:', error)
       alert('Error al eliminar algunos elementos')
     }
+  }
+
+  const confirmFolderDeletion = async (folderName: string) => {
+    const folderPath = buildFolderPath(currentFolder, folderName)
+    const nestedFolders = await window.mediaAPI.listFolders(folderPath)
+
+    if (nestedFolders.length === 0) {
+      return confirm(`¿Eliminar la carpeta "${folderName}" y todo su contenido?`)
+    }
+
+    const typedConfirmation = prompt(
+      `La carpeta "${folderName}" contiene subcarpetas. Para eliminar todo de forma recursiva escribe "eliminar".`
+    )
+
+    return typedConfirmation?.trim().toLowerCase() === 'eliminar'
   }
 
   // Handlers
@@ -180,9 +209,12 @@ export default function MediaLibrary() {
   }
 
   const handleDeleteFolder = async (folderName: string) => {
-    if (!confirm(`¿Eliminar la carpeta "${folderName}"?`)) return
+    const canDeleteFolder = await confirmFolderDeletion(folderName)
+    if (!canDeleteFolder) return
+
     try {
       await operations.deleteFolderMutation.mutateAsync(folderName)
+      window.electron.ipcRenderer.send('media-saved')
     } catch (error: any) {
       alert(error.message || 'Error al eliminar carpeta')
     }
@@ -294,7 +326,9 @@ export default function MediaLibrary() {
   // Escuchar drops de dnd-kit sobre carpetas (desde dragAndDropSchedule)
   useEffect(() => {
     const onMediaToFolder = (e: Event) => {
-      const { mediaId, targetFolder } = (e as CustomEvent<{ mediaId: number; targetFolder: string }>).detail
+      const { mediaId, targetFolder } = (
+        e as CustomEvent<{ mediaId: number; targetFolder: string }>
+      ).detail
       const draggedItem = mediaItemsRef.current.find((m) => m.id === mediaId)
       if (!draggedItem) return
 
@@ -311,7 +345,9 @@ export default function MediaLibrary() {
       }
     }
     const onFolderToFolder = (e: Event) => {
-      const { folderName, targetFolder } = (e as CustomEvent<{ folderName: string; targetFolder: string }>).detail
+      const { folderName, targetFolder } = (
+        e as CustomEvent<{ folderName: string; targetFolder: string }>
+      ).detail
       handleDropRef.current({ item: folderName, isFolder: true }, targetFolder)
     }
     document.addEventListener('dnd:media-to-folder', onMediaToFolder)
@@ -338,6 +374,8 @@ export default function MediaLibrary() {
     onDelete: handleDeleteSelection,
     onSelectAll: () => selection.selectAll(allSelectableItems),
     onNavigate: (direction, extendSelection = false) => {
+      if (direction === 'PageUp' || direction === 'PageDown') return
+
       // En vista flexbox, calcular columnas basándose en el ancho disponible
       // Aproximadamente 100px por item (24 * 4 + gaps)
       const containerWidth = containerRef.current?.clientWidth || 400

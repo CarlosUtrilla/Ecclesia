@@ -74,9 +74,25 @@ export function useMediaOperations(currentFolder: string | null) {
 
   // Eliminar carpeta
   const deleteFolderMutation = useMutation({
-    mutationFn: (folderName: string) =>
-      window.mediaAPI.deleteFolder(buildFolderPath(currentFolder, folderName)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['folders'] })
+    mutationFn: async (folderName: string) => {
+      const targetFolderPath = buildFolderPath(currentFolder, folderName)
+      const allMedia = await window.api.media.findAll({ limit: 10000 })
+      const mediaInsideFolder = allMedia.items.filter((item: Media) => {
+        const mediaFolder = normalizeFolder(item.folder)
+        return (
+          mediaFolder === targetFolderPath ||
+          (typeof mediaFolder === 'string' && mediaFolder.startsWith(`${targetFolderPath}/`))
+        )
+      })
+
+      for (const mediaItem of mediaInsideFolder) {
+        await window.api.media.delete(mediaItem.id.toString())
+        await window.mediaAPI.deleteFile(mediaItem.filePath, mediaItem.thumbnail)
+      }
+
+      return window.mediaAPI.deleteFolder(targetFolderPath)
+    },
+    onSuccess: invalidateAll
   })
 
   // Renombrar

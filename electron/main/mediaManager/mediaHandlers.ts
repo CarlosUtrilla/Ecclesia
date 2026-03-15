@@ -2,10 +2,12 @@ import { ipcMain, dialog, app } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
+import os from 'os'
 import { MediaType } from '@prisma/client'
 import sharp from 'sharp'
 import ffmpeg from '@ffmpeg-installer/ffmpeg'
 import { spawn } from 'child_process'
+import AdmZip from 'adm-zip'
 
 // En producción el binario se extrae fuera del .asar (asarUnpack).
 // La ruta que devuelve @ffmpeg-installer apunta al .asar original, hay que
@@ -98,7 +100,7 @@ export function registerMediaHandlers() {
     if (type === 'all') {
       filters.push({
         name: 'Medios',
-        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm', 'mov', 'avi']
+        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm', 'mov', 'avi', 'zip']
       })
     } else if (type === MediaType.IMAGE) {
       filters.push({
@@ -125,7 +127,7 @@ export function registerMediaHandlers() {
   })
 
   // Importar archivo al directorio de la aplicación
-  ipcMain.handle('media:import-file', async (event, sourcePath: string, folder?: string) => {
+  ipcMain.handle('media:import-file', async (_event, sourcePath: string, folder?: string) => {
     try {
       const userDataPath = app.getPath('userData')
       const filesPath = folder
@@ -260,12 +262,7 @@ export function registerMediaHandlers() {
       const fullPath = path.join(userDataPath, 'media', 'files', folderPath)
 
       if (fs.existsSync(fullPath)) {
-        // Verificar que esté vacía
-        const files = fs.readdirSync(fullPath)
-        if (files.length > 0) {
-          throw new Error('La carpeta no está vacía')
-        }
-        fs.rmdirSync(fullPath)
+        fs.rmSync(fullPath, { recursive: true, force: true })
       }
 
       return { success: true }
@@ -434,6 +431,78 @@ export function registerMediaHandlers() {
       }
     }
   )
+
+  ipcMain.handle('media:extract-zip-mp4', async (_event, zipPath: string) => {
+    try {
+      if (!fs.existsSync(zipPath)) {
+        throw new Error('El archivo ZIP no existe')
+      }
+
+      if (!zipPath.toLowerCase().endsWith('.zip')) {
+        throw new Error('El archivo seleccionado no es ZIP')
+      }
+
+      const tempRoot = path.join(os.tmpdir(), 'ecclesia-canva-imports')
+      if (!fs.existsSync(tempRoot)) {
+        fs.mkdirSync(tempRoot, { recursive: true })
+      }
+
+      const tempDir = path.join(
+        tempRoot,
+        `zip-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`
+      )
+      fs.mkdirSync(tempDir, { recursive: true })
+
+      const zip = new AdmZip(zipPath)
+      const entries = zip.getEntries()
+      const mp4Paths: string[] = []
+
+      for (const entry of entries) {
+        if (entry.isDirectory) continue
+
+        const entryName = entry.entryName || ''
+        if (!entryName.toLowerCase().endsWith('.mp4')) continue
+
+        const safeName = path.basename(entryName)
+        if (!safeName) continue
+
+        const outputName = `${mp4Paths.length + 1}-${safeName.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        const outputPath = path.join(tempDir, outputName)
+
+        fs.writeFileSync(outputPath, entry.getData())
+        mp4Paths.push(outputPath)
+      }
+
+      return {
+        tempDir,
+        mp4Paths
+      }
+    } catch (error: any) {
+      console.error('Error al extraer ZIP de Canva:', error)
+      throw error
+    }
+  })
+
+  ipcMain.handle('media:cleanup-temp-path', async (_event, targetPath: string) => {
+    try {
+      const tempRoot = path.join(os.tmpdir(), 'ecclesia-canva-imports')
+      const normalizedRoot = path.resolve(tempRoot)
+      const normalizedTarget = path.resolve(targetPath)
+
+      if (!normalizedTarget.startsWith(normalizedRoot)) {
+        throw new Error('Ruta temporal inválida para limpieza')
+      }
+
+      if (fs.existsSync(normalizedTarget)) {
+        fs.rmSync(normalizedTarget, { recursive: true, force: true })
+      }
+
+      return { success: true }
+    } catch (error: any) {
+      console.error('Error al limpiar temporales de Canva import:', error)
+      throw error
+    }
+  })
 }
 
 // Función auxiliar para copiar carpetas recursivamente

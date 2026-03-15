@@ -46,6 +46,7 @@ import { PresentationSchema, PresentationFormValues } from './schema'
 import BibleTextPicker from './bibleTextPicker'
 import EditorCanvas from './components/editorCanvas'
 import SortableSlideCard from './components/sortableSlideCard'
+import SlideInsertSlot from './components/slideInsertSlot'
 import TextTabContent from './components/textTabContent'
 import AnimationTabContent from './components/animationTabContent'
 import InsertTabContent from './components/insertTabContent'
@@ -59,6 +60,7 @@ import {
   buildPrimaryItemFromSlide,
   BASE_CANVAS_HEIGHT,
   BASE_CANVAS_WIDTH,
+  cloneSlideForDuplication,
   createTextSlide,
   defaultTransitionSettingsString,
   ensureSlideItems,
@@ -96,6 +98,11 @@ export default function PresentationEditor() {
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [renameSlideDialogOpen, setRenameSlideDialogOpen] = useState(false)
+  const [renameSlideIndex, setRenameSlideIndex] = useState<number | null>(null)
+  const [renameSlideName, setRenameSlideName] = useState('')
+  const [isSlideTrayHovered, setIsSlideTrayHovered] = useState(false)
   const shouldSeedHistoryRef = useRef(false)
   const previewAreaRef = useRef<HTMLDivElement>(null)
   const { themes } = useThemes()
@@ -113,7 +120,7 @@ export default function PresentationEditor() {
     setValue,
     reset,
     handleSubmit,
-    formState: { isSubmitting }
+    formState: { isDirty, isSubmitting }
   } = form
 
   const title = watch('title')
@@ -143,20 +150,45 @@ export default function PresentationEditor() {
     setCanvasZoom((current) => clampCanvasZoom(current + direction * step))
   }
 
-  const { fields, append, move } = useFieldArray({
+  const { fields, append, move, insert, remove } = useFieldArray({
     control: form.control,
     name: 'slides'
   })
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
-  const { data: media = [] } = useQuery({
+  const { data: media = [], refetch: refetchMedia } = useQuery({
     queryKey: ['media', 'presentation-editor'],
     queryFn: async () => {
       const all = await window.api.media.findAll({})
       return all.items as Media[]
     }
   })
+
+  useEffect(() => {
+    const unsubscribe = window.electron.ipcRenderer.on('media-saved', () => {
+      void refetchMedia()
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [refetchMedia])
+
+  useEffect(() => {
+    const unsubscribe = window.electron.ipcRenderer.on('presentation-close-requested', () => {
+      if (!isDirty) {
+        window.windowAPI.confirmPresentationClose()
+        return
+      }
+
+      setShowCloseDialog(true)
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [isDirty])
 
   const mediaById = useMemo(() => new Map(media.map((item) => [item.id, item])), [media])
   const slideSortableIndex = useMemo(() => slides.map((slide) => slide.id), [slides])
@@ -310,7 +342,9 @@ export default function PresentationEditor() {
     replaceSelectedMedia,
     handleSelectMedia,
     insertTextInCurrentSlide,
+    insertShapeInCurrentSlide,
     addEmptySlide,
+    importCanvaAssetsAsSlides,
     updateItemLayerById,
     duplicateItemById,
     duplicateSelectedItem,
@@ -323,6 +357,7 @@ export default function PresentationEditor() {
     selectedItemStyle,
     mediaPickerMode,
     globalThemeId,
+    slides,
     slidesLength: slides.length,
     fieldsLength: fields.length,
     setValue,
@@ -335,7 +370,24 @@ export default function PresentationEditor() {
 
   usePresentationEditorShortcuts({
     hasSelectedItem: Boolean(selectedItem),
+    hasSelectedSlide: slides.length > 0,
+    preferSlideShortcuts: isSlideTrayHovered,
     onDelete: removeSelectedItem,
+    onDeleteSlide: () => {
+      if (selectedSlideIndex < 0 || selectedSlideIndex >= slides.length) return
+
+      if (slides.length <= 1) {
+        setValue('slides', [createTextSlide(globalThemeId)], { shouldDirty: true })
+        setSelectedSlideIndex(0)
+        setSelectedItemId(undefined)
+        return
+      }
+
+      remove(selectedSlideIndex)
+      const nextIndex = Math.max(0, Math.min(selectedSlideIndex, slides.length - 2))
+      setSelectedSlideIndex(nextIndex)
+      setSelectedItemId(undefined)
+    },
     onDuplicate: duplicateSelectedItem,
     onUndo: undoHistory,
     onRedo: redoHistory
@@ -419,8 +471,29 @@ export default function PresentationEditor() {
     }
 
     window.electron.ipcRenderer.send('presentation-saved')
-    window.windowAPI.closeCurrentWindow()
+    window.windowAPI.confirmPresentationClose()
   })
+
+  const handleCloseDiscard = () => {
+    setShowCloseDialog(false)
+    window.windowAPI.confirmPresentationClose()
+  }
+
+  const handleCloseCancel = () => {
+    setShowCloseDialog(false)
+  }
+
+  const handleCloseSave = () => {
+    setShowCloseDialog(false)
+
+    if (!title.trim()) {
+      setSaveName(title)
+      setSaveDialogOpen(true)
+      return
+    }
+
+    void onSave()
+  }
 
   const applyGlobalTheme = (nextThemeId: number | null) => {
     setGlobalThemeId(nextThemeId)
@@ -434,6 +507,71 @@ export default function PresentationEditor() {
     )
   }
 
+  const insertEmptySlideAt = (targetIndex: number) => {
+    const clampedIndex = Math.max(0, Math.min(targetIndex, slides.length))
+    insert(clampedIndex, createTextSlide(globalThemeId))
+    setSelectedSlideIndex(clampedIndex)
+    setSelectedItemId(undefined)
+  }
+
+  const deleteSlideAt = (index: number) => {
+    if (slides.length <= 1) {
+      setValue('slides', [createTextSlide(globalThemeId)], { shouldDirty: true })
+      setSelectedSlideIndex(0)
+      setSelectedItemId(undefined)
+      return
+    }
+
+    remove(index)
+    const nextIndex = Math.max(0, Math.min(index, slides.length - 2))
+    setSelectedSlideIndex(nextIndex)
+    setSelectedItemId(undefined)
+  }
+
+  const duplicateSlideAt = (index: number) => {
+    const sourceSlide = slides[index]
+    if (!sourceSlide) return
+
+    const duplicated = cloneSlideForDuplication(sourceSlide)
+    insert(index + 1, duplicated)
+    setSelectedSlideIndex(index + 1)
+    const topItem = [...(duplicated.items || [])]
+      .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
+      .at(-1)
+    setSelectedItemId(topItem?.id)
+  }
+
+  const renameSlideAt = (index: number) => {
+    const currentSlide = slides[index]
+    if (!currentSlide) return
+
+    setRenameSlideIndex(index)
+    setRenameSlideName(currentSlide.slideName?.trim() || '')
+    setRenameSlideDialogOpen(true)
+  }
+
+  const handleRenameSlide = () => {
+    if (renameSlideIndex === null) return
+
+    const trimmed = renameSlideName.trim()
+    setValue(`slides.${renameSlideIndex}.slideName`, trimmed.length > 0 ? trimmed : undefined, {
+      shouldDirty: true
+    })
+
+    setRenameSlideDialogOpen(false)
+    setRenameSlideIndex(null)
+    setRenameSlideName('')
+  }
+
+  const handleRenameSlideDialogChange = (isOpen: boolean) => {
+    setRenameSlideDialogOpen(isOpen)
+
+    if (!isOpen) {
+      setRenameSlideIndex(null)
+      setRenameSlideName('')
+    }
+  }
+
   return (
     <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
       <title>Editor de presentaciones</title>
@@ -443,6 +581,7 @@ export default function PresentationEditor() {
         <button
           type="button"
           onClick={() => {
+            setShowCloseDialog(false)
             setSaveDialogOpen(true)
             setSaveName(title || '')
           }}
@@ -566,6 +705,8 @@ export default function PresentationEditor() {
                 onInsertText={insertTextInCurrentSlide}
                 onOpenBiblePicker={() => setIsBiblePickerOpen(true)}
                 onInsertMedia={insertMediaItem}
+                onInsertShape={insertShapeInCurrentSlide}
+                onImportCanvaSlides={importCanvaAssetsAsSlides}
               />
             </TabsContent>
           </Tabs>
@@ -634,7 +775,11 @@ export default function PresentationEditor() {
       {/* ── SLIDE TRAY + ZOOM ─────────────────────────────────────────── */}
       <div className="flex-shrink-0 px-2.5 py-2 bg-muted/50 border-t">
         <div className="flex items-end gap-3">
-          <div className="min-w-0 flex-1 overflow-x-auto pb-1">
+          <div
+            className="min-w-0 flex-1 overflow-x-auto pb-1"
+            onMouseEnter={() => setIsSlideTrayHovered(true)}
+            onMouseLeave={() => setIsSlideTrayHovered(false)}
+          >
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -642,23 +787,29 @@ export default function PresentationEditor() {
             >
               <SortableContext items={slideSortableIndex} strategy={horizontalListSortingStrategy}>
                 <div className="flex items-center gap-1.5">
+                  <SlideInsertSlot onInsert={() => insertEmptySlideAt(0)} />
                   {slides.map((slide, index) => (
-                    <SortableSlideCard
-                      key={slide.id}
-                      slide={slide}
-                      index={index}
-                      mediaById={mediaById}
-                      themeById={themeById}
-                      activeTheme={activePresentationTheme}
-                      isSelected={selectedSlideIndex === index}
-                      onSelect={() => {
-                        setSelectedSlideIndex(index)
-                        const topItem = [...(slide.items || [])]
-                          .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
-                          .at(-1)
-                        setSelectedItemId(topItem?.id)
-                      }}
-                    />
+                    <div key={slide.id} className="flex items-center gap-1.5">
+                      <SortableSlideCard
+                        slide={slide}
+                        index={index}
+                        mediaById={mediaById}
+                        themeById={themeById}
+                        activeTheme={activePresentationTheme}
+                        isSelected={selectedSlideIndex === index}
+                        onDuplicate={() => duplicateSlideAt(index)}
+                        onDelete={() => deleteSlideAt(index)}
+                        onRename={() => renameSlideAt(index)}
+                        onSelect={() => {
+                          setSelectedSlideIndex(index)
+                          const topItem = [...(slide.items || [])]
+                            .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
+                            .at(-1)
+                          setSelectedItemId(topItem?.id)
+                        }}
+                      />
+                      <SlideInsertSlot onInsert={() => insertEmptySlideAt(index + 1)} />
+                    </div>
                   ))}
                   <Card
                     className="w-36 shrink-0 p-1.5 h-full min-h-24 border-dashed cursor-pointer hover:border-primary/70 transition-colors"
@@ -745,6 +896,70 @@ export default function PresentationEditor() {
               <Save className="size-4 mr-1.5" />
               Guardar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showCloseDialog}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            handleCloseCancel()
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Cambios sin guardar</DialogTitle>
+            <DialogDescription>
+              Tienes cambios sin guardar en esta presentación. ¿Qué deseas hacer?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="ghost" onClick={handleCloseCancel}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleCloseDiscard}>
+              Salir sin guardar
+            </Button>
+            <Button onClick={handleCloseSave} disabled={isSubmitting}>
+              <Save className="size-4" />
+              Guardar y salir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={renameSlideDialogOpen} onOpenChange={handleRenameSlideDialogChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renombrar diapositiva</DialogTitle>
+            <DialogDescription>
+              Escribe un nombre para identificar esta diapositiva en el carrusel.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={renameSlideName}
+            onChange={(event) => setRenameSlideName(event.target.value)}
+            placeholder={
+              renameSlideIndex !== null
+                ? `Diapositiva ${renameSlideIndex + 1}`
+                : 'Nombre de la diapositiva'
+            }
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                handleRenameSlide()
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => handleRenameSlideDialogChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleRenameSlide}>Guardar nombre</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -52,10 +52,25 @@ app/screens/editors/presentationEditor/
 ## Flujos clave
 
 - Inserción de contenido (`Texto`, `Biblia`, `Media`) en la diapositiva seleccionada.
+- Inserción de formas (`Rectángulo`, `Círculo`, `Flecha`, `Flecha de línea`, `Triángulo`, `Línea`, `Cruz`) en la diapositiva seleccionada como items `SHAPE`, usando el mismo sistema de drag/resize/rotate y capas del canvas.
 - Punto único de inserción desde el menú `Insertar` (evita duplicar acciones en toolbar de texto).
 - La opción de media en `Insertar` está etiquetada para indicar origen desde biblioteca (más explícita para usuario).
+- El menú Insertar incluye la acción Importar Canva (MP4/ZIP): permite seleccionar múltiples archivos .mp4 y/o .zip exportados desde Canva; extrae videos .mp4 desde ZIP en temporales, crea una carpeta en Media por ZIP con nombre base del archivo (si existe, usa sufijo incremental "(1)", "(2)", ...), importa cada video y crea automáticamente una diapositiva MEDIA por cada archivo importado.
+- Las diapositivas MEDIA creadas/actualizadas desde importación Canva se normalizan como full-bleed (100% del slide) para que el video ocupe todo el lienzo al importar.
+- Cada slide importada desde Canva persiste metadatos `canvaSourceKey` + `canvaSlideNumber` (número detectado del nombre de archivo, ej. `1.mp4`, `2.mp4`). En reimportaciones del mismo source key, el editor actualiza la diapositiva existente que coincide por número aunque el usuario haya insertado slides intermedias; los números nuevos sin match se agregan al final.
+- El editor escucha el evento IPC `media-saved` y refresca su query local de media para resolver inmediatamente los `mediaId` recién importados (evita slides en blanco por cache desactualizada).
 - Carrusel inferior de diapositivas en formato compacto (`w-36`) para priorizar el espacio útil del canvas.
+- Cada diapositiva soporta nombre opcional (`slideName`), editable desde el menú contextual de la miniatura (`Renombrar diapositiva`) mediante un diálogo propio del editor y persistido al guardar la presentación.
+- El carrusel inferior incluye slots de inserción entre diapositivas (y al inicio) que muestran en hover el botón `Añadir diapositiva aquí`, insertando una slide nueva en la posición exacta.
+- Cada miniatura de slide en el carrusel expone menú contextual (`click derecho`) con acciones `Duplicar diapositiva` y `Eliminar diapositiva`.
+- El menú contextual de miniaturas evita selección implícita al abrirse (no dispara automáticamente la primera acción en click derecho).
+- Al ejecutar acciones del menú contextual de miniaturas (`Duplicar`/`Eliminar`), el menú se cierra inmediatamente para mantener UX consistente.
+- Al duplicar una diapositiva se generan nuevos IDs para `slide` e `items[]` y se limpian metadatos de Canva (`canvaSourceKey`, `canvaSlideNumber`) para evitar conflictos en reimportaciones.
+- Al cerrar la ventana desde Electron, el editor intercepta `presentation-close-requested`: si no hay cambios pendientes confirma cierre inmediato; si hay cambios sin guardar muestra un diálogo con `Cancelar`, `Salir sin guardar` y `Guardar y salir`. Si el título aún está vacío, deriva primero al diálogo de guardado.
+- Atajo `Del/Backspace`: cuando el foco/hover está en el carrusel de slides, elimina la diapositiva seleccionada; fuera del carrusel mantiene el comportamiento de eliminar item de canvas.
 - El área inferior del carrusel incluye control de zoom del canvas (`50%` a `200%`) con slider, botones `+/-` y reset rápido a `100%`.
+- Las formas seleccionadas exponen controles en la pestaña de propiedades: `Texto interior`, presets rápidos (`Énfasis`, `Advertencia`, `Marco`, `Oscuro`), `Relleno`, `Borde`, `Grosor del borde`, `Opacidad` y estilo básico del texto.
+- Al redimensionar con `Shift` presionado, el editor conserva la relación de aspecto original para formas, media y bloques de texto. En items textuales, además recalcula `fontSize` proporcionalmente al nuevo tamaño del contenedor para mantener la escala visual.
 - Al montar el editor, el zoom inicial se calcula automáticamente para que el canvas ocupe el **90%** del contenedor disponible (mide `previewAreaRef` con `getComputedStyle` + `clientWidth/Height`, descuenta paddings del contenedor y del wrapper `p-2`, toma el menor ratio ancho/alto y lo escala a 90%, redondeado al múltiplo de 5 más cercano).
 - Además del slider, el canvas permite zoom directo con `Ctrl/Cmd + rueda` para acercar/alejar rápidamente durante edición.
 - La franja inferior distribuye carrusel y zoom en una sola línea (carrusel a la izquierda con scroll horizontal + bloque de zoom a la derecha) para mejorar legibilidad y uso del espacio.

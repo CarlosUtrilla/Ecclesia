@@ -69,7 +69,7 @@ export function ThemesSidePanel() {
             const isSelected = selectedTheme?.id === theme.id
             return (
               <ContextMenu key={theme.id}>
-                <ContextMenuTrigger className="rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary">
+                <ContextMenuTrigger className="relative rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary">
                   <PresentationView
                     onClick={() => setSelectedTheme(theme)}
                     selected={isSelected}
@@ -82,6 +82,9 @@ export function ThemesSidePanel() {
                       }
                     )}
                   />
+                  <div className="absolute bottom-0 right-0 left-0 p-1 px-1.5 text-xs bg-black/50">
+                    {theme.name}
+                  </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
                   <ContextMenuItem onClick={() => handleEditarTema(theme.id)}>

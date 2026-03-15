@@ -9,6 +9,7 @@ import { AnimatedText } from './AnimatedText'
 import { BibleTextRender } from './BibleTextRender'
 import { getBibleVerseText } from '@/lib/bibleVerseSteps'
 import { resolveSlideVerse } from '@/lib/presentationVerseController'
+import { sanitizeHTML } from '@/lib/utils'
 
 type Props = React.ComponentProps<typeof AnimatedText> & {
   presentationVerseBySlideKey?: Record<string, number>
@@ -62,10 +63,143 @@ const parseInlineStyle = (styleText?: string): CSSProperties => {
       const value = valueParts.join(':').trim()
       if (!property || !value) return acc
 
-      const cssProperty = property.replace(/-([a-z])/g, (_, char) => char.toUpperCase())
+      const cssProperty = property.startsWith('--')
+        ? property
+        : property.replace(/-([a-z])/g, (_, char) => char.toUpperCase())
       ;(acc as Record<string, string>)[cssProperty] = value
       return acc
     }, {})
+}
+
+const renderShapeLayer = (item: PresentationLayerItem, style: CSSProperties) => {
+  const fill = String((style as Record<string, unknown>)['--shape-fill'] || 'rgba(59, 130, 246, 0.18)')
+  const stroke = String((style as Record<string, unknown>)['--shape-stroke'] || '#2563eb')
+  const strokeWidth = Number((style as Record<string, unknown>)['--shape-stroke-width'] || 4)
+  const opacity = Number((style as Record<string, unknown>)['--shape-opacity'] || 1)
+  const resolvedShapeType = item.shapeType || 'rectangle'
+
+  if (resolvedShapeType === 'arrow') {
+    return (
+      <div className="w-full h-full pointer-events-none" style={{ opacity }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+          <polygon
+            points="0,35 68,35 68,12 100,50 68,88 68,65 0,65"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={strokeWidth}
+            vectorEffect="non-scaling-stroke"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    )
+  }
+
+  if (resolvedShapeType === 'line-arrow') {
+    return (
+      <div className="w-full h-full pointer-events-none" style={{ opacity }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+          <line
+            x1="8"
+            y1="50"
+            x2="82"
+            y2="50"
+            stroke={stroke}
+            strokeWidth={strokeWidth * 2}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+          <polyline
+            points="68,32 92,50 68,68"
+            fill="none"
+            stroke={stroke}
+            strokeWidth={strokeWidth * 2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      </div>
+    )
+  }
+
+  if (resolvedShapeType === 'triangle') {
+    return (
+      <div className="w-full h-full pointer-events-none" style={{ opacity }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+          <polygon
+            points="50,6 96,94 4,94"
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={strokeWidth}
+            vectorEffect="non-scaling-stroke"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    )
+  }
+
+  if (resolvedShapeType === 'line') {
+    return (
+      <div className="w-full h-full pointer-events-none" style={{ opacity }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+          <line
+            x1="8"
+            y1="50"
+            x2="92"
+            y2="50"
+            stroke={stroke}
+            strokeWidth={strokeWidth * 2}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      </div>
+    )
+  }
+
+  if (resolvedShapeType === 'cross') {
+    return (
+      <div className="w-full h-full pointer-events-none" style={{ opacity }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+          <line
+            x1="15"
+            y1="15"
+            x2="85"
+            y2="85"
+            stroke={stroke}
+            strokeWidth={strokeWidth * 1.5}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+          <line
+            x1="85"
+            y1="15"
+            x2="15"
+            y2="85"
+            stroke={stroke}
+            strokeWidth={strokeWidth * 1.5}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full h-full pointer-events-none" style={{ opacity }}>
+      <div
+        className="w-full h-full"
+        style={{
+          backgroundColor: fill,
+          border: `${strokeWidth}px solid ${stroke}`,
+          borderRadius: resolvedShapeType === 'circle' ? '9999px' : '24px'
+        }}
+      />
+    </div>
+  )
 }
 
 const parseAnimationSettings = (animationSettings?: string): AnimationSettings => {
@@ -250,6 +384,23 @@ function PresentationLayer({
           ) : (
             <img src={mediaUrl} alt={item.media.name} className="w-full h-full object-contain" />
           )}
+        </div>
+      </m.div>
+    )
+  }
+
+  if (item.resourceType === 'SHAPE') {
+    return (
+      <m.div initial="initial" animate="animate" exit="exit" variants={variants} style={style}>
+        <div className="relative w-full h-full">
+          {renderShapeLayer(item, style)}
+          {item.text && !(hideTextInLive && !isPreview) ? (
+            <div
+              className="absolute inset-0 flex items-center justify-center px-4 text-center break-words overflow-hidden pointer-events-none"
+              style={textOnlyStyle}
+              dangerouslySetInnerHTML={{ __html: sanitizeHTML(item.text) }}
+            />
+          ) : null}
         </div>
       </m.div>
     )

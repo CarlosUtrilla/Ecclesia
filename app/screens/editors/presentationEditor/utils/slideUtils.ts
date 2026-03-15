@@ -3,6 +3,14 @@ import { PresentationFormValues } from '../schema'
 
 export type PresentationSlide = PresentationFormValues['slides'][number]
 export type PresentationSlideItem = NonNullable<PresentationSlide['items']>[number]
+export type PresentationShapeType =
+  | 'rectangle'
+  | 'circle'
+  | 'arrow'
+  | 'line-arrow'
+  | 'triangle'
+  | 'line'
+  | 'cross'
 
 export const BASE_CANVAS_WIDTH = 1280
 export const BASE_CANVAS_HEIGHT = 720
@@ -39,6 +47,10 @@ export type CanvasItemStyle = {
   blockBgPadding?: number | null
   blockBgOpacity?: number
   blockBgRadius?: number
+  shapeFill?: string
+  shapeStroke?: string
+  shapeStrokeWidth?: number
+  shapeOpacity?: number
 }
 
 export const baseTextStyle = {
@@ -81,6 +93,18 @@ const defaultMediaCanvasStyle: CanvasItemStyle = {
   y: 140,
   width: 640,
   height: 360
+}
+
+const defaultShapeCanvasStyle: CanvasItemStyle = {
+  ...defaultTextCanvasStyle,
+  x: 380,
+  y: 220,
+  width: 320,
+  height: 180,
+  shapeFill: 'rgba(59, 130, 246, 0.18)',
+  shapeStroke: '#2563eb',
+  shapeStrokeWidth: 4,
+  shapeOpacity: 1
 }
 
 const estimateTextHeightWithDOM = (text: string, style: CanvasItemStyle) => {
@@ -201,7 +225,12 @@ export const parseCanvasItemStyle = (
   itemType: PresentationSlideItem['type'] = 'TEXT'
 ): CanvasItemStyle => {
   const styleMap = parseInlineStyle(customStyle)
-  const base = itemType === 'MEDIA' ? defaultMediaCanvasStyle : defaultTextCanvasStyle
+  const base =
+    itemType === 'MEDIA'
+      ? defaultMediaCanvasStyle
+      : itemType === 'SHAPE'
+        ? defaultShapeCanvasStyle
+        : defaultTextCanvasStyle
 
   return {
     x: parsePx(styleMap.left, base.x),
@@ -238,7 +267,11 @@ export const parseCanvasItemStyle = (
     blockBgBlur: parseNumber(styleMap['--block-bg-blur'], 0),
     blockBgPadding: parseNullableNumberVar(styleMap['--block-bg-padding'], null),
     blockBgOpacity: parseNumber(styleMap['--block-bg-opacity'], 1),
-    blockBgRadius: parseNumber(styleMap['--block-bg-radius'], 0)
+    blockBgRadius: parseNumber(styleMap['--block-bg-radius'], 0),
+    shapeFill: styleMap['--shape-fill'] || base.shapeFill || 'rgba(59, 130, 246, 0.18)',
+    shapeStroke: styleMap['--shape-stroke'] || base.shapeStroke || '#2563eb',
+    shapeStrokeWidth: parseNumber(styleMap['--shape-stroke-width'], base.shapeStrokeWidth || 4),
+    shapeOpacity: parseNumber(styleMap['--shape-opacity'], base.shapeOpacity || 1)
   }
 }
 
@@ -258,6 +291,27 @@ export const buildCanvasItemStyle = (
 
   if (itemType === 'MEDIA') {
     return [...common, 'overflow: hidden', 'display: block'].join('; ')
+  }
+
+  if (itemType === 'SHAPE') {
+    return [
+      ...common,
+      'display: block',
+      'overflow: visible',
+      `font-size: ${style.fontSize}px`,
+      `font-family: ${style.fontFamily}`,
+      `line-height: ${style.lineHeight}`,
+      `letter-spacing: ${style.letterSpacing}px`,
+      `color: ${style.color}`,
+      `text-align: ${style.textAlign}`,
+      `font-weight: ${style.fontWeight}`,
+      `font-style: ${style.fontStyle}`,
+      `text-decoration: ${style.textDecoration}`,
+      `--shape-fill: ${style.shapeFill || 'rgba(59, 130, 246, 0.18)'}`,
+      `--shape-stroke: ${style.shapeStroke || '#2563eb'}`,
+      `--shape-stroke-width: ${style.shapeStrokeWidth ?? 4}`,
+      `--shape-opacity: ${style.shapeOpacity ?? 1}`
+    ].join('; ')
   }
 
   return [
@@ -309,8 +363,59 @@ export const createSlideItem = (
   animationSettings: partial?.animationSettings,
   customStyle:
     partial?.customStyle ||
-    buildCanvasItemStyle(type === 'MEDIA' ? defaultMediaCanvasStyle : defaultTextCanvasStyle, type)
+    buildCanvasItemStyle(
+      type === 'MEDIA'
+        ? defaultMediaCanvasStyle
+        : type === 'SHAPE'
+          ? defaultShapeCanvasStyle
+          : defaultTextCanvasStyle,
+      type
+    )
 })
+
+export const getShapeTypeFromAccessData = (
+  accessData?: string
+): PresentationShapeType => {
+  if (
+    accessData === 'circle' ||
+    accessData === 'arrow' ||
+    accessData === 'line-arrow' ||
+    accessData === 'triangle' ||
+    accessData === 'line' ||
+    accessData === 'cross'
+  ) {
+    return accessData
+  }
+
+  return 'rectangle'
+}
+
+export const createShapeItem = (
+  shapeType: PresentationShapeType,
+  partial?: Partial<PresentationSlideItem>
+): PresentationSlideItem => {
+  const shapeBaseStyle =
+    shapeType === 'circle'
+      ? { ...defaultShapeCanvasStyle, width: 220, height: 220, x: 530, y: 250 }
+      : shapeType === 'line-arrow'
+        ? { ...defaultShapeCanvasStyle, width: 360, height: 90, x: 460, y: 315 }
+      : shapeType === 'triangle'
+        ? { ...defaultShapeCanvasStyle, width: 260, height: 220, x: 510, y: 250 }
+        : shapeType === 'line'
+          ? { ...defaultShapeCanvasStyle, width: 360, height: 80, x: 460, y: 320 }
+          : shapeType === 'cross'
+            ? { ...defaultShapeCanvasStyle, width: 220, height: 220, x: 530, y: 250 }
+      : shapeType === 'arrow'
+        ? { ...defaultShapeCanvasStyle, width: 360, height: 140, x: 460, y: 290 }
+        : defaultShapeCanvasStyle
+
+  return createSlideItem('SHAPE', {
+    accessData: shapeType,
+    text: partial?.text || '',
+    ...partial,
+    customStyle: partial?.customStyle || buildCanvasItemStyle(shapeBaseStyle, 'SHAPE')
+  })
+}
 
 export const ensureSlideItems = (slide: PresentationSlide): PresentationSlideItem[] => {
   if (Array.isArray(slide.items)) {
@@ -373,6 +478,17 @@ export const createMediaSlide = (mediaId?: number, themeId?: number | null) => (
     })
   ],
   textStyle: { ...baseTextStyle }
+})
+
+export const cloneSlideForDuplication = (slide: PresentationFormValues['slides'][number]) => ({
+  ...slide,
+  id: generateUniqueId(),
+  canvaSourceKey: undefined,
+  canvaSlideNumber: undefined,
+  items: (slide.items || []).map((item) => ({
+    ...item,
+    id: generateUniqueId()
+  }))
 })
 
 export const buildLegacyStyleFromSlide = (slide: PresentationFormValues['slides'][number]) => {

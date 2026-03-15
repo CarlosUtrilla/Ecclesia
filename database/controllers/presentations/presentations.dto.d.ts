@@ -1,7 +1,7 @@
 export type PresentationSlideType = 'TEXT' | 'BIBLE' | 'MEDIA'
 export type PresentationVideoLiveBehavior = 'auto' | 'manual'
 
-export type PresentationSlideItemType = 'TEXT' | 'BIBLE' | 'SONG' | 'MEDIA' | 'GROUP'
+export type PresentationSlideItemType = 'TEXT' | 'BIBLE' | 'SONG' | 'MEDIA' | 'GROUP' | 'SHAPE'
 
 export type PresentationItemAnimationSettings = {
   type?: string
@@ -38,7 +38,10 @@ export type PresentationSlideTextStyle = {
 
 export type PresentationSlide = {
   id: string
+  slideName?: string
   themeId?: number | null
+  canvaSourceKey?: string
+  canvaSlideNumber?: number
   items?: PresentationSlideItem[]
   transitionSettings?: string | PresentationItemAnimationSettings
   videoLiveBehavior?: PresentationVideoLiveBehavior

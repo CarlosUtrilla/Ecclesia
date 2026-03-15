@@ -262,6 +262,12 @@ export function createPresentationWindow(presentationId?: number): BrowserWindow
     }
   })
 
+  presentationWindow.on('close', (event) => {
+    if (presentationWindow.webContents.isDestroyed()) return
+    event.preventDefault()
+    presentationWindow.webContents.send('presentation-close-requested')
+  })
+
   loadRoute(presentationWindow, route)
   return presentationWindow
 }

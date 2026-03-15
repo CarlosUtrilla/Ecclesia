@@ -26,7 +26,7 @@ export const SlideBibleSchema = z.object({
 
 export const SlideItemSchema = z.object({
   id: z.string().min(1),
-  type: z.enum(['TEXT', 'BIBLE', 'SONG', 'MEDIA', 'GROUP']),
+  type: z.enum(['TEXT', 'BIBLE', 'SONG', 'MEDIA', 'GROUP', 'SHAPE']),
   accessData: z.string().optional(),
   text: z.string().optional(),
   customStyle: z.string().optional(),
@@ -37,7 +37,10 @@ export const SlideItemSchema = z.object({
 export const PresentationSlideSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['TEXT', 'BIBLE', 'MEDIA']),
+  slideName: z.string().trim().max(120).optional(),
   themeId: z.number().nullable().optional(),
+  canvaSourceKey: z.string().min(1).optional(),
+  canvaSlideNumber: z.number().int().min(1).optional(),
   items: z.array(SlideItemSchema).optional(),
   transitionSettings: z.string().optional(),
   videoLiveBehavior: z.enum(['auto', 'manual']).optional(),

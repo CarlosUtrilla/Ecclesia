@@ -80,7 +80,10 @@ app/screens/panels/library/
 - Soporta vista en grilla y lista.
 - Navegacion por carpetas con breadcrumbs.
 - Importacion de archivos (drag & drop de archivos del sistema + boton).
+- La importación específica de Canva (MP4/ZIP por diapositiva) se gestiona en `PresentationEditor` desde la pestaña `Insertar`.
+- La biblioteca escucha el evento IPC `media-saved` para refrescar queries de `media` y `folders`, y también refresca ambas al completar importaciones con progreso para mostrar carpetas nuevas sin recargar la ventana.
 - Operaciones: copiar, cortar, pegar, renombrar, eliminar, mover entre carpetas.
+- El borrado de carpetas en Media Library es recursivo (incluye archivos y subcarpetas internas); si la carpeta contiene subcarpetas, exige confirmación explícita escribiendo `eliminar` antes de ejecutar la acción.
 - Usa hooks especializados en `hooks/` para separar logica.
 
 ### Hooks de Media

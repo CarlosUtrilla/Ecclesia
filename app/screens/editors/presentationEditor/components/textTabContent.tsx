@@ -7,11 +7,14 @@ import {
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart,
+  ArrowRight,
   Bold,
+  Circle,
   FileImage,
   Italic,
   Minus,
   Plus,
+  Square,
   TextCursorInput,
   Underline as UnderlineIcon,
   Zap
@@ -22,11 +25,17 @@ import FontFamilySelector from '@/ui/fontFamilySelector'
 import { Input } from '@/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { Slider } from '@/ui/slider'
+import { Textarea } from '@/ui/textarea'
 import FormatLineSpacingIcon from '@/icons/line-spacing'
 import LetterSpacingIcon from '@/icons/letter-spacing'
 import TextEffectsControls from '../../components/textEffectsControls'
 import { buildBibleAccessData, parseBibleAccessData } from '../utils/bibleAccessData'
-import type { CanvasItemStyle, PresentationSlide, PresentationSlideItem } from '../utils/slideUtils'
+import {
+  getShapeTypeFromAccessData,
+  type CanvasItemStyle,
+  type PresentationSlide,
+  type PresentationSlideItem
+} from '../utils/slideUtils'
 
 type TextStyleUpdates = Partial<{
   fontFamily?: string
@@ -55,6 +64,10 @@ type TextStyleUpdates = Partial<{
   blockBgPadding?: number | null
   blockBgOpacity?: number
   blockBgRadius?: number
+  shapeFill?: string
+  shapeStroke?: string
+  shapeStrokeWidth?: number
+  shapeOpacity?: number
 }>
 
 type Props = {
@@ -82,6 +95,49 @@ export default function TextTabContent({
   replaceSelectedMedia,
   onVideoLiveBehaviorChange
 }: Props) {
+  const shapePresets = [
+    {
+      name: 'Énfasis',
+      updates: {
+        shapeFill: 'rgba(59, 130, 246, 0.18)',
+        shapeStroke: '#2563eb',
+        shapeStrokeWidth: 4,
+        shapeOpacity: 1,
+        color: '#1e3a8a'
+      }
+    },
+    {
+      name: 'Advertencia',
+      updates: {
+        shapeFill: 'rgba(245, 158, 11, 0.18)',
+        shapeStroke: '#d97706',
+        shapeStrokeWidth: 5,
+        shapeOpacity: 1,
+        color: '#78350f'
+      }
+    },
+    {
+      name: 'Marco',
+      updates: {
+        shapeFill: 'rgba(255, 255, 255, 0)',
+        shapeStroke: '#0f172a',
+        shapeStrokeWidth: 6,
+        shapeOpacity: 1,
+        color: '#0f172a'
+      }
+    },
+    {
+      name: 'Oscuro',
+      updates: {
+        shapeFill: 'rgba(15, 23, 42, 0.65)',
+        shapeStroke: '#0f172a',
+        shapeStrokeWidth: 2,
+        shapeOpacity: 1,
+        color: '#f8fafc'
+      }
+    }
+  ] as const
+
   const isTextSelected =
     selectedItem &&
     selectedItemStyle &&
@@ -371,6 +427,173 @@ export default function TextTabContent({
             </Select>
           </div>
         )}
+      </div>
+    )
+  }
+
+  if (selectedItem?.type === 'SHAPE' && selectedItemStyle) {
+    const shapeType = getShapeTypeFromAccessData(selectedItem.accessData)
+    const ShapeIcon =
+      shapeType === 'circle' ? Circle : shapeType === 'arrow' ? ArrowRight : Square
+    const shapeLabel =
+      shapeType === 'circle'
+        ? 'Círculo'
+        : shapeType === 'arrow'
+          ? 'Flecha'
+          : shapeType === 'line-arrow'
+            ? 'Flecha de línea'
+            : shapeType === 'triangle'
+              ? 'Triángulo'
+              : shapeType === 'line'
+                ? 'Línea'
+                : shapeType === 'cross'
+                  ? 'Cruz'
+                  : 'Rectángulo'
+
+    return (
+      <div className="p-3 flex flex-col gap-4">
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <ShapeIcon className="size-4" />
+          <span>Forma seleccionada: {shapeLabel}</span>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Presets
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            {shapePresets.map((preset) => (
+              <Button
+                key={preset.name}
+                type="button"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => updateSelectedTextStyle(preset.updates)}
+              >
+                {preset.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Relleno
+          </span>
+          <ColorPicker
+            value={selectedItemStyle.shapeFill || 'rgba(59, 130, 246, 0.18)'}
+            onChange={(shapeFill) => updateSelectedTextStyle({ shapeFill })}
+            className="w-full h-9"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Borde
+          </span>
+          <ColorPicker
+            value={selectedItemStyle.shapeStroke || '#2563eb'}
+            onChange={(shapeStroke) => updateSelectedTextStyle({ shapeStroke })}
+            className="w-full h-9"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Grosor del borde
+          </span>
+          <div className="flex items-center gap-2">
+            <Slider
+              value={[selectedItemStyle.shapeStrokeWidth ?? 4]}
+              min={1}
+              max={12}
+              step={1}
+              className="flex-1"
+              onValueChange={([shapeStrokeWidth]) =>
+                updateSelectedTextStyle({ shapeStrokeWidth })
+              }
+            />
+            <span className="text-xs tabular-nums w-8 text-right shrink-0">
+              {selectedItemStyle.shapeStrokeWidth ?? 4}px
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Opacidad
+          </span>
+          <div className="flex items-center gap-2">
+            <Slider
+              value={[Math.round((selectedItemStyle.shapeOpacity ?? 1) * 100)]}
+              min={10}
+              max={100}
+              step={5}
+              className="flex-1"
+              onValueChange={([value]) => updateSelectedTextStyle({ shapeOpacity: value / 100 })}
+            />
+            <span className="text-xs tabular-nums w-10 text-right shrink-0">
+              {Math.round((selectedItemStyle.shapeOpacity ?? 1) * 100)}%
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Texto
+          </span>
+          <div className="flex items-center gap-2">
+            <Slider
+              value={[selectedItemStyle.fontSize || 36]}
+              min={12}
+              max={96}
+              step={1}
+              className="flex-1"
+              onValueChange={([fontSize]) => updateSelectedTextStyle({ fontSize })}
+            />
+            <span className="text-xs tabular-nums w-10 text-right shrink-0">
+              {selectedItemStyle.fontSize || 36}px
+            </span>
+          </div>
+          <ColorPicker
+            value={selectedItemStyle.color || '#1e293b'}
+            onChange={(color) => updateSelectedTextStyle({ color })}
+            className="w-full h-9"
+          />
+          <div className="flex gap-1">
+            {(
+              [
+                { value: 'left', Icon: AlignLeft, label: 'Izquierda' },
+                { value: 'center', Icon: AlignCenter, label: 'Centro' },
+                { value: 'right', Icon: AlignRight, label: 'Derecha' }
+              ] as const
+            ).map(({ value, Icon, label }) => (
+              <Button
+                key={value}
+                type="button"
+                size="icon"
+                variant={selectedItemStyle.textAlign === value ? 'default' : 'outline'}
+                className="h-8 w-8"
+                title={label}
+                onClick={() => updateSelectedTextStyle({ textAlign: value })}
+              >
+                <Icon className="size-3.5" />
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Texto interior
+          </span>
+          <Textarea
+            value={selectedItem.text || ''}
+            onChange={(event) => updateSelectedItem({ text: event.target.value })}
+            placeholder="Texto dentro de la forma"
+            className="min-h-24 resize-y"
+          />
+        </div>
       </div>
     )
   }

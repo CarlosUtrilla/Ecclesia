@@ -2,7 +2,10 @@ import { useEffect } from 'react'
 
 type Params = {
   hasSelectedItem: boolean
+  hasSelectedSlide: boolean
+  preferSlideShortcuts: boolean
   onDelete: () => void
+  onDeleteSlide: () => void
   onDuplicate: () => void
   onUndo: () => void
   onRedo: () => void
@@ -19,7 +22,10 @@ const isTypingTarget = (target: EventTarget | null) => {
 
 export default function usePresentationEditorShortcuts({
   hasSelectedItem,
+  hasSelectedSlide,
+  preferSlideShortcuts,
   onDelete,
+  onDeleteSlide,
   onDuplicate,
   onUndo,
   onRedo
@@ -29,6 +35,12 @@ export default function usePresentationEditorShortcuts({
       if (isTypingTarget(event.target)) return
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (preferSlideShortcuts && hasSelectedSlide) {
+          event.preventDefault()
+          onDeleteSlide()
+          return
+        }
+
         if (!hasSelectedItem) return
         event.preventDefault()
         onDelete()
@@ -56,5 +68,14 @@ export default function usePresentationEditorShortcuts({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [hasSelectedItem, onDelete, onDuplicate, onRedo, onUndo])
+  }, [
+    hasSelectedItem,
+    hasSelectedSlide,
+    preferSlideShortcuts,
+    onDelete,
+    onDeleteSlide,
+    onDuplicate,
+    onRedo,
+    onUndo
+  ])
 }

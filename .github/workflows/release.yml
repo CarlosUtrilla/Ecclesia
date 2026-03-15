@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build-mac-arm64:
+  build-mac-universal:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,67 +58,10 @@ jobs:
           max_attempts: 3
           command: npm ci --legacy-peer-deps
 
-      - name: Build and publish (macOS arm64)
+      - name: Build and publish (macOS universal)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: npm run build:ci:mac -- --arm64 --publish always
-
-  build-mac-x64:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Free disk space
-        run: |
-          echo "Disk space before cleanup:"
-          df -h /
-          # Simulators
-          sudo rm -rf /Library/Developer/CoreSimulator/Profiles/Runtimes || true
-          xcrun simctl delete all 2>/dev/null || true
-          rm -rf ~/Library/Developer/Xcode/DerivedData || true
-          # Android SDK
-          sudo rm -rf /usr/local/lib/android || true
-          # .NET SDK
-          sudo rm -rf /usr/local/share/dotnet || true
-          # Homebrew
-          brew cleanup --prune=all -q 2>/dev/null || true
-          sudo rm -rf /opt/homebrew/Caches 2>/dev/null || true
-          # Hosted toolcache
-          sudo rm -rf /opt/hostedtoolcache 2>/dev/null || true
-          # Xcode platforms no necesarias para builds de Electron (iOS, watchOS, tvOS, visionOS)
-          sudo rm -rf /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform || true
-          sudo rm -rf /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform || true
-          sudo rm -rf /Applications/Xcode.app/Contents/Developer/Platforms/WatchOS.platform || true
-          sudo rm -rf /Applications/Xcode.app/Contents/Developer/Platforms/WatchSimulator.platform || true
-          sudo rm -rf /Applications/Xcode.app/Contents/Developer/Platforms/AppleTVOS.platform || true
-          sudo rm -rf /Applications/Xcode.app/Contents/Developer/Platforms/AppleTVSimulator.platform || true
-          sudo rm -rf /Applications/Xcode.app/Contents/Developer/Platforms/XROS.platform || true
-          sudo rm -rf /Applications/Xcode.app/Contents/Developer/Platforms/XRSimulator.platform || true
-          echo "Disk space after cleanup:"
-          df -h /
-
-      - name: Set TMPDIR to workspace volume
-        run: |
-          mkdir -p /Users/runner/work/tmp
-          echo "TMPDIR=/Users/runner/work/tmp" >> $GITHUB_ENV
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 10
-          max_attempts: 3
-          command: npm ci --legacy-peer-deps
-
-      - name: Build and publish (macOS x64)
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: npm run build:ci:mac -- --x64 --publish always
+        run: npm run build:ci:mac -- --universal --publish always
 
   build-windows:
     runs-on: windows-latest
