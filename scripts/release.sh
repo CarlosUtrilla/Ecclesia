@@ -73,6 +73,13 @@ ensure_prisma_client_targets() {
   echo -e "  ${GREEN}✓ Prisma Client generado${RESET}"
 }
 
+clean_dist_dir() {
+  echo -e "  Limpiando ${CYAN}dist/${RESET} para evitar artefactos antiguos..."
+  rm -rf dist
+  mkdir -p dist
+  echo -e "  ${GREEN}✓ dist/ limpio${RESET}"
+}
+
 ensure_gh_ready() {
   if ! command -v gh >/dev/null 2>&1; then
     echo -e "${RED}✗ GitHub CLI (gh) no está instalado.${RESET}"
@@ -198,6 +205,7 @@ echo -e "  Ejecutando build local (sin publicar en GitHub Actions)..."
 
 ensure_sharp_ready
 ensure_prisma_client_targets
+clean_dist_dir
 
 echo -e "  -> Build base (electron-vite) en host macOS"
 npm run build:ci
