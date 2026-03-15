@@ -21,8 +21,8 @@ export interface DisplayInfo {
 }
 
 export type ScreenContentUpdate = {
-  itemIndex: number
-  contentScreen: ContentScreen | null
+  itemIndex?: number
+  contentScreen?: ContentScreen | null
   presentationVerseBySlideKey?: Record<string, number>
   liveControls?: {
     hideText?: boolean

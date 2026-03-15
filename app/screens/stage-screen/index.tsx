@@ -146,9 +146,17 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
     const unsubscribeItems = window.electron.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
-        setItemIndex(data.itemIndex)
-        setContent(data.contentScreen)
-        setPresentationVerseBySlideKey(data.presentationVerseBySlideKey || {})
+        if (typeof data.itemIndex === 'number') {
+          setItemIndex(data.itemIndex)
+        }
+
+        if ('contentScreen' in data) {
+          setContent(data.contentScreen ?? null)
+        }
+
+        if (data.presentationVerseBySlideKey !== undefined) {
+          setPresentationVerseBySlideKey(data.presentationVerseBySlideKey)
+        }
       }
     )
 

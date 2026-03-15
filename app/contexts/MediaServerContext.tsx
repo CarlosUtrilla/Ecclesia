@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+  useMemo
+} from 'react'
 
 interface MediaServerContextType {
   port: number | null
@@ -27,13 +35,19 @@ export function MediaServerProvider({ children }: { children: ReactNode }) {
     initializeServer()
   }, [])
 
-  const buildMediaUrl = (filePath: string): string => {
+  const buildMediaUrl = useCallback((filePath: string): string => {
     if (!port || !filePath) return ''
     const encodedPath = encodeURIComponent(filePath)
     return `http://127.0.0.1:${port}/${encodedPath}`
-  }
+  }, [port])
+
+  const contextValue = useMemo(
+    () => ({ port, isReady, buildMediaUrl }),
+    [port, isReady, buildMediaUrl]
+  )
+
   return (
-    <MediaServerContext.Provider value={{ port, isReady, buildMediaUrl }}>
+    <MediaServerContext.Provider value={contextValue}>
       {children}
     </MediaServerContext.Provider>
   )

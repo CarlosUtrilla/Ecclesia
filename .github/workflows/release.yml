@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build-mac-universal:
+  build-mac:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -69,10 +69,15 @@ jobs:
           max_attempts: 3
           command: yarn install --frozen-lockfile
 
-      - name: Build and publish (macOS universal)
+      - name: Build and publish (macOS arm64)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: npm run build:ci:mac -- --universal --publish always
+        run: npm run build:ci:mac -- --arm64 --publish always
+
+      - name: Build and publish (macOS x64)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: npm run build:ci:mac -- --x64 --publish always
 
   build-windows:
     runs-on: windows-latest

@@ -27,6 +27,7 @@ Modulo encargado de la ventana de proyeccion en vivo y su sincronizacion por IPC
 - Entrada IPC:
   - `liveScreen-update`
   - `liveScreen-update-theme`
+- `liveScreen-update` acepta payload parcial (por ejemplo solo `liveControls`), y la pantalla actualiza únicamente las claves presentes para no resetear contenido/video innecesariamente.
 - Salida UI:
   - `PresentationView` con `themeTransitionKey` para controlar transiciones.
 

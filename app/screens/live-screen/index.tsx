@@ -87,14 +87,25 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
         console.log('Received live screen update:', data)
-        setItemIndex(data.itemIndex)
-        setContent(data.contentScreen)
-        setPresentationVerseBySlideKey(data.presentationVerseBySlideKey || {})
-        setLiveControls({
-          hideText: data.liveControls?.hideText ?? false,
-          showLogo: data.liveControls?.showLogo ?? false,
-          blackScreen: data.liveControls?.blackScreen ?? false
-        })
+        if (typeof data.itemIndex === 'number') {
+          setItemIndex(data.itemIndex)
+        }
+
+        if ('contentScreen' in data) {
+          setContent(data.contentScreen ?? null)
+        }
+
+        if (data.presentationVerseBySlideKey !== undefined) {
+          setPresentationVerseBySlideKey(data.presentationVerseBySlideKey)
+        }
+
+        if (data.liveControls) {
+          setLiveControls((prev) => ({
+            hideText: data.liveControls?.hideText ?? prev.hideText,
+            showLogo: data.liveControls?.showLogo ?? prev.showLogo,
+            blackScreen: data.liveControls?.blackScreen ?? prev.blackScreen
+          }))
+        }
       }
     )
     const unsuscribeThemes = window.electron.ipcRenderer.on(

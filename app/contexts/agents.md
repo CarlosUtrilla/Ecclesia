@@ -33,6 +33,7 @@ MediaServerProvider          (top-level, sin dependencias)
 
 - Se inicializa llamando a `window.mediaAPI.getMediaServerPort()`.
 - `buildMediaUrl` genera `http://localhost:{port}/{filePath}`.
+- `buildMediaUrl` esta memoizado con `useCallback` (depende de `port`) y el `value` del provider usa `useMemo` para evitar re-renders/effects innecesarios en consumidores de video.
 - Usado por cualquier componente que muestre imagenes o videos.
 
 ### DisplaysContext

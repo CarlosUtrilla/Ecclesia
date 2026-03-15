@@ -109,9 +109,8 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     }
   }, [showLiveScreen, liveScreens, stageScreens, windowsLiveScreenOpens, windowsStageScreenOpens])
 
-  //USEEFFECT QUE CONTROLA EL MANDO DE LAS PANTALLAS LIVE AL CAMBIAR EL ITEM ON LIVE
+  // Envia cambios de contenido/slide a live/stage.
   useEffect(() => {
-    // Solo enviar updates si las pantallas están listas y hay ventanas abiertas
     if (
       !liveScreensReady ||
       windowsLiveScreenOpens.length + windowsStageScreenOpens.length === 0
@@ -124,12 +123,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       await window.displayAPI.updateLiveScreenContent({
         itemIndex,
         contentScreen,
-        presentationVerseBySlideKey,
-        liveControls: {
-          hideText: hideTextOnLive,
-          showLogo: showLogoOnLive,
-          blackScreen: blackScreenOnLive
-        }
+        presentationVerseBySlideKey
       })
     }
     sendUpdateToLiveScreens()
@@ -138,6 +132,34 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     itemOnLive,
     contentScreen,
     presentationVerseBySlideKey,
+    windowsLiveScreenOpens,
+    windowsStageScreenOpens,
+    liveScreensReady,
+    showedItemKey
+  ])
+
+  // Envia solo cambios de controles live para no invalidar/re-renderizar contenido multimedia.
+  useEffect(() => {
+    if (
+      !liveScreensReady ||
+      windowsLiveScreenOpens.length + windowsStageScreenOpens.length === 0
+    ) {
+      return
+    }
+
+    console.log('Sending live controls update to live screens')
+    const sendLiveControlsUpdate = async () => {
+      await window.displayAPI.updateLiveScreenContent({
+        liveControls: {
+          hideText: hideTextOnLive,
+          showLogo: showLogoOnLive,
+          blackScreen: blackScreenOnLive
+        }
+      })
+    }
+
+    sendLiveControlsUpdate()
+  }, [
     hideTextOnLive,
     showLogoOnLive,
     blackScreenOnLive,

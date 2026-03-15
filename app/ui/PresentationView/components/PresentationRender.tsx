@@ -261,7 +261,15 @@ function LiveSyncedLayerVideo({ src }: { src: string }) {
       ref={videoRef}
       src={src}
       className="w-full h-full object-contain"
+      autoPlay
+      loop
       muted
+      playsInline
+      onLoadedMetadata={(event) => {
+        event.currentTarget.play().catch(() => {
+          // noop: puede fallar temporalmente por foco/autoplay policy
+        })
+      }}
       preload="metadata"
     />
   )

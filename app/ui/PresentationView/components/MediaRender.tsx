@@ -2,14 +2,14 @@ import { PresentationViewItems } from '../types'
 import type { Media } from '@prisma/client'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { getMediaType } from '@/lib/utils'
-import { CSSProperties, useId, useLayoutEffect, useMemo } from 'react'
+import { CSSProperties, memo, useId, useLayoutEffect, useMemo } from 'react'
 
 type MediaRenderProps = {
   currentItem: PresentationViewItems
   live?: boolean
 }
 
-export default function MediaRender({ currentItem, live = false }: MediaRenderProps) {
+function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
   const videoId = useId()
 
   const { buildMediaUrl } = useMediaServer()
@@ -121,7 +121,10 @@ export default function MediaRender({ currentItem, live = false }: MediaRenderPr
             src={originalUrl}
             className="object-contain"
             style={mediaElementStyle}
+            autoPlay
+            loop
             muted
+            playsInline
             onLoadedMetadata={(e) => {
               // Forzar play apenas el video esté listo
               e.currentTarget.play()
@@ -147,3 +150,21 @@ export default function MediaRender({ currentItem, live = false }: MediaRenderPr
     </div>
   )
 }
+
+function areMediaRenderPropsEqual(prevProps: MediaRenderProps, nextProps: MediaRenderProps) {
+  const prevItem = prevProps.currentItem as PresentationViewItems & Partial<Media>
+  const nextItem = nextProps.currentItem as PresentationViewItems & Partial<Media>
+
+  return (
+    prevProps.live === nextProps.live &&
+    prevItem.id === nextItem.id &&
+    prevItem.filePath === nextItem.filePath &&
+    prevItem.thumbnail === nextItem.thumbnail &&
+    prevItem.format === nextItem.format &&
+    prevItem.customStyle === nextItem.customStyle
+  )
+}
+
+const MediaRender = memo(MediaRenderComponent, areMediaRenderPropsEqual)
+
+export default MediaRender

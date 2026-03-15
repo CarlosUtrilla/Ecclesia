@@ -29,6 +29,7 @@ Renderiza el contenido actual con `PresentationView` y superpone widgets de esta
   - `liveScreen-update`
   - `liveScreen-update-theme`
   - `stageScreen-config-updated`
+- `liveScreen-update` puede llegar como payload parcial; stage actualiza solo campos presentes (`itemIndex`, `contentScreen`, `presentationVerseBySlideKey`) para evitar re-renders de `PresentationView` cuando cambian controles de live.
 
 ## Comportamiento actual (MVP)
 

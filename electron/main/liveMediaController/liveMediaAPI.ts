@@ -14,7 +14,14 @@ export const liveMediaAPI = {
    * @returns función para desuscribirse
    */
   onMediaState: (callback: (state: LiveMediaState) => void) => {
-    ipcRenderer.on('live-media-state', (_event, state) => callback(state))
-    return () => ipcRenderer.removeAllListeners('live-media-state')
+    const listener = (_event: Electron.IpcRendererEvent, state: LiveMediaState) => {
+      callback(state)
+    }
+
+    ipcRenderer.on('live-media-state', listener)
+
+    return () => {
+      ipcRenderer.removeListener('live-media-state', listener)
+    }
   }
 }

@@ -21,7 +21,8 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
     - Escucha `presentation-saved` para refetch de queries de presentaciones/medios asociados al cronograma y evitar labels/previews desactualizados.
   - **liveContext.tsx**: Sub-contexto para gestión de pantallas en vivo y sincronización de contenido.
     - Mantiene `presentationVerseBySlideKey` para sincronizar el verso activo de cada slide de presentación entre el panel `items-on-live` y las ventanas `live-screen`.
-    - Mantiene controles de emergencia de proyección (`hideTextOnLive`, `showLogoOnLive`, `blackScreenOnLive`) y los sincroniza por IPC en el payload `liveScreen-update`.
+    - Mantiene controles de emergencia de proyección (`hideTextOnLive`, `showLogoOnLive`, `blackScreenOnLive`) y los sincroniza por IPC en payload parcial de `liveScreen-update`.
+    - Se separa el envío de `liveScreen-update` en dos efectos: uno para `itemIndex/contentScreen/presentationVerseBySlideKey` y otro para `liveControls`, evitando reenviar contenido completo cuando solo cambian controles.
     - Atajos globales del operador:
       - `F7`: abre/activa ventanas live.
       - `F9`: alterna ocultar texto solo en live (no afecta preview).

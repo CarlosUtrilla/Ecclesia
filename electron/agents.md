@@ -184,6 +184,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - Manager dedicado para media en vivo.
 - Canal IPC: `live-media-state`.
 - Expone API en preload como `liveMediaAPI`.
+- `liveMediaAPI.onMediaState` desuscribe con `ipcRenderer.removeListener` del handler registrado (no usar `removeAllListeners`) para no romper otros suscriptores del mismo canal dentro de una misma ventana.
 
 ### Updater Manager (`updaterManager/`)
 
@@ -240,6 +241,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
   - `updateLiveScreenContent(windowId, content)`
   - `updateLiveScreenTheme(windowId, theme)`
 - `updateLiveScreenContent` soporta `liveControls` (`hideText`, `showLogo`, `blackScreen`).
+- `updateLiveScreenContent` admite payload parcial (`itemIndex`, `contentScreen`, `presentationVerseBySlideKey`, `liveControls`) para evitar broadcasts de contenido completo cuando solo cambian controles en vivo.
 - `showLiveScreen` y `showStageScreen` reutilizan instancia por `displayId` si ya existe.
 
 ### Prisma Initialization (`prisma.ts`)
