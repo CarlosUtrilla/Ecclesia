@@ -49,7 +49,7 @@ export default function ViewVerses({
   })
 
   const handleNavigation = (
-    direction: 'up' | 'down' | 'left' | 'right',
+    direction: 'up' | 'down' | 'left' | 'right' | 'PageUp' | 'PageDown',
     extendSelection?: boolean
   ) => {
     if (!completeChapter.length || verse.length === 0) return
@@ -62,9 +62,9 @@ export default function ViewVerses({
     // Marcar que la selección viene del componente interno
     internalSelectionRef.current = true
 
-    if (direction === 'down') {
+    if (direction === 'down' || direction === 'right' || direction === 'PageDown') {
       newIndex = Math.min(currentIndex + 1, completeChapter.length - 1)
-    } else if (direction === 'up') {
+    } else if (direction === 'up' || direction === 'left' || direction === 'PageUp') {
       newIndex = Math.max(currentIndex - 1, 0)
     } else {
       return // Solo soportamos up/down para versículos
@@ -198,7 +198,8 @@ export default function ViewVerses({
         id: '-1',
         order: -1,
         scheduleId: -1,
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        deletedAt: null
       })
     } else {
       showItemOnLiveScreen({
@@ -207,7 +208,8 @@ export default function ViewVerses({
         id: '-1',
         order: -1,
         scheduleId: -1,
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        deletedAt: null
       })
     }
   }
@@ -224,7 +226,6 @@ export default function ViewVerses({
             key={v.verse}
             verse={v}
             index={index}
-            bookData={bookData}
             chapter={chapter}
             version={version}
             selectedVerses={verse}
@@ -244,7 +245,6 @@ export default function ViewVerses({
 function VerseItem({
   verse: v,
   index,
-  bookData,
   chapter,
   version,
   selectedVerses,
@@ -256,7 +256,6 @@ function VerseItem({
 }: {
   verse: any
   index: number
-  bookData?: BibleSchemaDTO
   chapter: number
   version: string
   selectedVerses: number[]

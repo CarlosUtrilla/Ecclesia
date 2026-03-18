@@ -99,6 +99,7 @@ app/screens/panels/library/
 
 - `MediaCard`: Muestra thumbnail, nombre, tipo. Draggable con `data: { type: 'MEDIA', accessData: media.id }`.
 - `FolderCard`: Muestra icono de carpeta. Draggable Y drop target (para mover items a carpetas).
+- Al enviar recursos directo a live (`showItemOnLiveScreen`), los items temporales incluyen `deletedAt: null` para cumplir el tipo `ScheduleItem` de Prisma.
 - Ambos tienen `role="button"`, `tabIndex`, `onKeyDown` para accesibilidad.
 
 ### MediaPicker (`media/MediaPicker.tsx`)
@@ -128,6 +129,7 @@ app/screens/panels/library/
 - Lista de versiculos del capitulo seleccionado.
 - Seleccion multiple con Shift+click (rango) y Ctrl+click (toggle).
 - Navegacion con flechas (Shift+flecha extiende seleccion).
+- Navegacion adicional con `PageUp/PageDown` para retroceder/avanzar versiculos con teclado.
 - Cada versiculo es draggable con `data: { type: 'BIBLE', accessData: "bookId,chapter,verseRange,version" }`.
 - El `bookId` del `accessData` debe salir de `book_id` (identificador bíblico canónico) y no del `id` de la fila de `BibleSchema`; si `book_id` no existe, se usa `id` solo como fallback de compatibilidad.
 - Context menu: Agregar al cronograma, Presentar en vivo.

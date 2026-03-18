@@ -114,6 +114,8 @@ type ThemeWithMedia = Themes & {
   backgroundMedia?: Media | null
   biblePresentationSettings?: BiblePresentationSettings | null
 }
+
+- `PresentationLayerItem` admite `videoLoop?: boolean` para que los layers de video en slides `PRESENTATION` respeten repetición por diapositiva en live.
 ```
 
 ### Arquitectura interna

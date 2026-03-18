@@ -17,7 +17,26 @@ export default defineConfig({
     },
     build: {
       lib: {
-        entry: 'electron/main/index.ts'
+        entry: 'electron/main/index.ts',
+        formats: ['cjs']
+      },
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+          pure_funcs: ['console.log', 'console.info'],
+          passes: 2
+        },
+        mangle: true,
+        format: {
+          comments: false
+        }
+      },
+      rollupOptions: {
+        output: {
+          sourcemap: false
+        }
       }
     }
   },
@@ -25,7 +44,26 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       lib: {
-        entry: 'electron/preload/index.ts'
+        entry: 'electron/preload/index.ts',
+        formats: ['cjs']
+      },
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+          pure_funcs: ['console.log'],
+          passes: 2
+        },
+        mangle: true,
+        format: {
+          comments: false
+        }
+      },
+      rollupOptions: {
+        output: {
+          sourcemap: false
+        }
       }
     }
   },
@@ -53,6 +91,23 @@ export default defineConfig({
       })
     ],
     build: {
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+          pure_funcs: ['console.log', 'console.info', 'console.debug'],
+          passes: 2,
+          toplevel: true
+        },
+        mangle: {
+          toplevel: true
+        },
+        format: {
+          comments: false
+        }
+      },
+      sourcemap: false,
       rollupOptions: {
         input: {
           index: resolve('app/index.html'),
@@ -77,10 +132,7 @@ export default defineConfig({
             }
 
             // TipTap/ProseMirror — solo rutas de editores (/song, /theme, /presentation)
-            if (
-              id.includes('/node_modules/@tiptap/') ||
-              id.includes('/node_modules/prosemirror')
-            ) {
+            if (id.includes('/node_modules/@tiptap/') || id.includes('/node_modules/prosemirror')) {
               return 'editor'
             }
 
@@ -116,6 +168,11 @@ export default defineConfig({
             // Resto de dependencias de node_modules
             return 'vendor'
           }
+        },
+        treeshake: {
+          moduleSideEffects: false,
+          propertyReadSideEffects: false,
+          tryCatchDeoptimization: false
         }
       }
     }

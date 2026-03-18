@@ -237,6 +237,7 @@ app/screens/editors/
 
 - Cada editor se abre en ventana separada (excepto BiblePresentationConfiguration).
 - Usan React Hook Form + Zod para validacion.
+- La suite `themesEditor/__tests__/ThemeToolbar.test.tsx` se mantiene con harness local de estado (`useState`) y `setValue(path, value)` simulado para validar toggles tipográficos sin acoplarse al formulario completo del editor.
 - Al guardar exitosamente:
   1. Llaman al API correspondiente
   2. Emiten evento IPC para notificar a ventana principal

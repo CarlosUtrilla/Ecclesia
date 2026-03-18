@@ -92,7 +92,8 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         type: item.type,
         accessData: String(item.accessData),
         scheduleId: formData.id || -1,
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        deletedAt: null
       }
 
       const updatedItems = [...formData.items]
@@ -155,11 +156,11 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       if (scheduleData.id) {
         // Actualizar schedule existente (incluyendo items)
         // Filtrar campos válidos para items
-        const items = (scheduleData.items || []).map(({ id, order, type, accessData }) => ({
-          id,
+        const items = (scheduleData.items || []).map(({ order, type, accessData, deletedAt }) => ({
           order,
           type,
-          accessData
+          accessData,
+          deletedAt: deletedAt ?? null
         }))
         await window.api.schedule.updateSchedule(scheduleData.id, {
           title: scheduleData.title,

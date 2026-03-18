@@ -33,8 +33,8 @@ const PreviewSchedule = forwardRef<HTMLDivElement, Omit<PreviewScheduleProps, 'p
             Presentar en vivo <Radio className="h-4 w-4" />
           </Button>
         </div>
-        <ScrollArea>
-          <div className="grid flex-1 p-2 grid-cols-2 auto-rows-min gap-2 h-full">
+        <ScrollArea className="h-full flex-1 overflow-hidden">
+          <div className="grid p-2 grid-cols-2 auto-rows-min gap-2">
             {itemContent.map((content, index) => (
               <PresentationView
                 tagSongId={(content as any).tagSongId}

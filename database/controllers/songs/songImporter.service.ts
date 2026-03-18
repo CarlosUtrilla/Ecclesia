@@ -49,6 +49,8 @@ class SongsController {
     if (response.some((res) => res.status === 'fulfilled')) {
       return true
     }
+
+    return false
   }
 }
 export default SongsController

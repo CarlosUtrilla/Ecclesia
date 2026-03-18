@@ -24,12 +24,24 @@ import type { ThemeWithMedia } from '@/ui/PresentationView/types'
 const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
 
 function getThemeFontSize(theme: ThemeWithMedia): string | number | null {
-  try {
-    const parsedTextStyle = JSON.parse(theme.textStyle || '{}') as { fontSize?: string | number }
-    return parsedTextStyle.fontSize ?? null
-  } catch {
-    return null
+  const textStyle = theme.textStyle
+
+  if (!textStyle) return null
+
+  if (typeof textStyle === 'string') {
+    try {
+      const parsedTextStyle = JSON.parse(textStyle) as { fontSize?: string | number }
+      return parsedTextStyle.fontSize ?? null
+    } catch {
+      return null
+    }
   }
+
+  if (typeof textStyle === 'object' && textStyle !== null) {
+    return (textStyle as { fontSize?: string | number }).fontSize ?? null
+  }
+
+  return null
 }
 
 export const useIndexDataItems = (

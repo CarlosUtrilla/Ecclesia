@@ -946,10 +946,11 @@ async function buildSnapshot(
   appInstanceId: string
 ): Promise<SnapshotFile> {
   const prisma = getPrisma()
+  const prismaRecord = prisma as unknown as Record<string, unknown>
   const tables: Record<string, unknown[]> = {}
 
   for (const model of SNAPSHOT_MODELS) {
-    const delegate = (prisma as Record<string, unknown>)[model.delegateName] as
+    const delegate = prismaRecord[model.delegateName] as
       | { findMany: () => Promise<unknown[]> }
       | undefined
     if (!delegate?.findMany) continue

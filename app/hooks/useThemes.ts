@@ -26,6 +26,7 @@ export const BlankTheme: ThemeWithMedia = {
   name: 'Blank',
   background: '#ffffff',
   backgroundMediaId: null,
+  deletedAt: null,
   textStyle: {
     color: '#000000',
     fontSize: 24,

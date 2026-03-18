@@ -235,7 +235,6 @@ export function MediaPicker({
                 onCopy={() => {}}
                 onCut={() => {}}
                 onRename={() => {}}
-                onDrop={() => {}}
                 formatFileSize={formatFileSize}
                 onItemClick={(item, e) => {
                   if (typeof item !== 'string') {

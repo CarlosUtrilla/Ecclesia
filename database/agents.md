@@ -171,6 +171,8 @@ export interface CreateSongDTO {
 - La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones.
 - **`sync.service.ts` NO usa `electron-log`**: Este archivo se bundlea en el preload (renderer). Usar `console.warn`/`console.error` únicamente. `electron-log` solo puede importarse en archivos bajo `electron/main/`.
 - El módulo `settings` acepta claves string públicas (`LOGO_FALLBACK_*`, `BIBLE_LIVE_CHUNK_MODE`, etc.) y las mapea a valores persistidos en DB (`logo.fallback.*`, `bible.live.chunkMode`) con SQL directo, evitando errores cuando una instalación tiene el cliente Prisma con enums desactualizados.
+- `AddScheduleItemDto` omite `id`, `scheduleId` y `updatedAt`; en `ScheduleService` los creates deben mapear items sin desestructurar esos campos y generar `id` nuevo con `crypto.randomUUID()`.
+- `songImporter.service.ts` debe retornar boolean en todos los caminos de `holyricsImporter` (`true` si hubo imports fulfilled, `false` en caso contrario) para cumplir tipado estricto.
 
 ## Serializacion IPC
 

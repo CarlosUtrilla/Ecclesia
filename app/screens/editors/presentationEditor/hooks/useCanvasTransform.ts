@@ -240,7 +240,8 @@ export default function useCanvasTransform({
         }
 
         if (preserveAspectRatio && isTextLikeItem && activeDrag.initialStyle.fontSize > 0) {
-          const scaleFactor = next.width / activeDrag.initialStyle.width
+          const nextWidth = next.width ?? activeDrag.initialStyle.width
+          const scaleFactor = nextWidth / activeDrag.initialStyle.width
           next.fontSize = Math.max(8, Math.round(activeDrag.initialStyle.fontSize * scaleFactor))
         }
 

@@ -2,6 +2,9 @@ import { BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import log from 'electron-log'
+import { ThemeWithMedia } from '../../../database/controllers/themes/themes.dto'
+import { StageScreenConfigUpdate } from './displayType'
+
 const liveScreensByDisplayId = new Map<number, BrowserWindow>()
 const stageScreensByDisplayId = new Map<number, BrowserWindow>()
 

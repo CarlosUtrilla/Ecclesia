@@ -119,6 +119,7 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 - El scheduler tiene backoff exponencial persistido: `retryCount`, `nextRetryAt`, `schedulerHealthy`, `lastSchedulerHeartbeatAt`.
 - Helpers puros de retry exportados: `calculateRetryDelayMs()` y `buildRetryBackoffState()`.
 - `executeSyncCycle()` se exporta para pruebas de recovery del scheduler.
+- En `buildSnapshot`, el acceso dinámico a delegates de Prisma debe usar cast intermedio vía `unknown` (`prisma as unknown as Record<string, unknown>`) para evitar errores de solapamiento de tipos en `tsconfig.node`.
 
 #### Micro-sync (push diferencial inmediato)
 
@@ -244,6 +245,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
   - `updateLiveScreenTheme(windowId, theme)`
 - `updateLiveScreenContent` soporta `liveControls` (`hideText`, `showLogo`, `blackScreen`).
 - `updateLiveScreenContent` admite payload parcial (`itemIndex`, `contentScreen`, `presentationVerseBySlideKey`, `liveControls`) para evitar broadcasts de contenido completo cuando solo cambian controles en vivo.
+- `displayManager/index.ts` importa explícitamente los tipos usados en IPC (`ThemeWithMedia` y `StageScreenConfigUpdate`) para mantener tipado estricto en build de main process.
 - `showLiveScreen` y `showStageScreen` reutilizan instancia por `displayId` si ya existe.
 - `showLiveScreen` refuerza `setBounds(display.bounds)` + `setFullScreen(true)` tanto en creación como en reuso de ventana para evitar aperturas parciales/pequeñas en algunos entornos Windows multi-display.
 - `showStageScreen` también refuerza `setBounds(display.bounds)` + `setFullScreen(true)` tanto en creación como en reuso de ventana para evitar recortes al adaptar resoluciones o reconectar pantallas.

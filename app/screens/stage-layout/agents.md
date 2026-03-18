@@ -46,6 +46,7 @@ El editor aplica `snap` a grilla de 2% durante move/resize para facilitar alinea
 
 - El canvas puede alternar entre fondo negro y `Vista en vivo` para acomodar overlays stage sobre el contenido real proyectado.
 - La vista en vivo usa los eventos IPC `liveScreen-update` y `liveScreen-update-theme`.
+- En `liveScreen-update`, `itemIndex` es opcional; el editor aplica guardia `typeof data.itemIndex === 'number'` antes de actualizar estado local.
 - Si existe tema configurado para la pantalla stage seleccionada, se prioriza sobre el tema live global para la previsualizacion.
 
 ## Flujo

@@ -119,10 +119,8 @@ Ver detalles de implementación y convenciones en los agents de [schedule](../..
 
 ## Buenas prácticas y convenciones
 
-- Mantener la lógica de dominio (edición, validación, persistencia) en el contexto y helpers, no en la UI.
-- Usar hooks y helpers para desacoplar la obtención de datos de la presentación.
-- Sincronizar el estado con la base de datos solo mediante métodos IPC definidos.
-- Documentar cualquier cambio relevante en este agent.
+- Los items temporales creados en renderer (`addItemToSchedule` y payloads ad-hoc) deben incluir `deletedAt: null` para cumplir el tipo `ScheduleItem` generado por Prisma.
+- Al enviar `items` a `schedule.updateSchedule`, el payload debe ajustarse a `AddScheduleItemDto` (`order`, `type`, `accessData`, `deletedAt`) sin reenviar `id/scheduleId/updatedAt`.
 
 ---
 

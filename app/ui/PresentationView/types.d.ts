@@ -72,6 +72,7 @@ export type PresentationViewItems = {
 export type PresentationLayerItem = {
   id: string
   text: string
+  videoLoop?: boolean
   shapeType?: 'rectangle' | 'circle' | 'arrow' | 'line-arrow' | 'triangle' | 'line' | 'cross'
   customStyle?: string
   animationSettings?: string

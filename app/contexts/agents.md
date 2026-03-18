@@ -142,6 +142,7 @@ const { themes, refetchThemes } = useThemes()
 - React Query: `queryKey: ['themes']`
 - Escucha IPC `theme-saved` -> refetch automatico
 - Exporta `BlankTheme` (tema por defecto: fondo blanco, texto negro, Arial)
+- `BlankTheme` replica campos obligatorios del modelo Prisma (`deletedAt: null`) para mantener compatibilidad de tipos en contexto y previews.
 
 ### useTagSongs
 

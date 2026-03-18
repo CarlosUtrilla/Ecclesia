@@ -1,97 +1,82 @@
 // @vitest-environment jsdom
-import React from 'react'
-import { render, fireEvent, screen } from '@testing-library/react'
-// jest-dom matchers are setup globally in tests/setup/vitest.setup.ts
-import ThemesEditor from '../index'
-import React from 'react'
-import * as ReactDOMClient from 'react-dom/client'
-import { act } from 'react-dom/test-utils'
-import ThemesEditor from '../index'
-import { vi } from 'vitest'
-
-// Mock FontFamilySelector to avoid FontsProvider
-vi.mock('@/ui/fontFamilySelector', () => {
-  return {
-    __esModule: true,
-    default: ({ value, onChange }: any) =>
-      React.createElement(
-        'select',
-        {
-          'data-testid': 'font-family',
-          value: value,
-          onChange: (e: any) => onChange(e.target.value)
-        },
-        React.createElement('option', { value: 'Arial' }, 'Arial')
-      )
-  }
-})
-
+import { useState } from 'react'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import ThemeToolbar from '../ThemeToolbar'
-import { useForm } from 'react-hook-form'
 
-describe('ThemeToolbar unit', () => {
-  it('toggles bold in textStyle when Bold button is clicked', async () => {
-    // Test harness that exposes form state
-    function TestHarness() {
-      const { control, setValue, watch } = useForm({
-        defaultValues: {
-          textStyle: {
-            color: '#000000',
-            fontSize: 24
-          }
-        }
-      })
+vi.mock('@/ui/fontFamilySelector', () => ({
+  __esModule: true,
+  default: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <select
+      data-testid="font-family"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="Arial">Arial</option>
+    </select>
+  )
+}))
 
-      const watched = watch()
+type TestData = {
+  textStyle: Record<string, unknown>
+}
 
-      return (
-        <div>
-          <ThemeToolbar
-            control={control}
-            setValue={setValue}
-            watchedData={watched}
-            translateValues={{ x: 0, y: 0 }}
-            handleTextBoundsChange={() => {}}
-            handleBibleVersePositionChange={() => {}}
-            selectedBoundsTarget={'text'}
-            setSelectedBoundsTarget={() => {}}
-            animationSettings={{}}
-            transitionSettings={{}}
-            handleAnimationChange={() => {}}
-            handleTransitionChange={() => {}}
-            handlePreviewAnimation={() => {}}
-            handlePreviewTransition={() => {}}
-          />
-          <pre data-testid="form-state">{JSON.stringify(watched)}</pre>
-        </div>
-      )
+function setByPath(obj: Record<string, unknown>, path: string, value: unknown) {
+  const parts = path.split('.')
+  const root = { ...obj }
+  let current: Record<string, unknown> = root
+
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const key = parts[i]
+    const next = (current[key] as Record<string, unknown>) || {}
+    current[key] = { ...next }
+    current = current[key] as Record<string, unknown>
+  }
+
+  current[parts[parts.length - 1]] = value
+  return root
+}
+
+function TestHarness() {
+  const [watchedData, setWatchedData] = useState<TestData>({
+    textStyle: {
+      color: '#000000',
+      fontSize: 24
     }
+  })
 
-    const container = document.createElement('div')
-    document.body.appendChild(container)
-    const root = ReactDOMClient.createRoot(container)
+  const setValue = (path: string, value: unknown) => {
+    setWatchedData(
+      (previous) => setByPath(previous as Record<string, unknown>, path, value) as TestData
+    )
+  }
 
-    await act(async () => {
-      root.render(React.createElement(TestHarness))
-    })
+  return (
+    <>
+      <ThemeToolbar
+        setValue={setValue}
+        watchedData={watchedData}
+        selectedBoundsTarget="text"
+        canSelectVerseBounds
+        setSelectedBoundsTarget={() => {}}
+        handlePreviewAnimation={() => {}}
+        handlePreviewTransition={() => {}}
+      />
+      <pre data-testid="form-state">{JSON.stringify(watchedData)}</pre>
+    </>
+  )
+}
 
-    const boldBtn = container.querySelector('[data-testid="bold-btn"]') as HTMLButtonElement | null
-    if (!boldBtn) throw new Error('bold button not found')
+describe('ThemeToolbar', () => {
+  it('deberia alternar fontWeight bold al hacer click en el boton de negrita', () => {
+    render(<TestHarness />)
 
-    const formState = () => container.querySelector('[data-testid="form-state"]')?.textContent || ''
+    const boldButton = screen.getByTestId('bold-btn')
 
-    // Click to enable bold
-    await act(async () => {
-      boldBtn.click()
-    })
+    fireEvent.click(boldButton)
+    expect(screen.getByTestId('form-state').textContent).toContain('"fontWeight":"bold"')
 
-    expect(formState()).toContain('"fontWeight":"bold"')
-
-    // Click again to disable
-    await act(async () => {
-      boldBtn.click()
-    })
-
-    expect(formState()).not.toContain('"fontWeight":"bold"')
+    fireEvent.click(boldButton)
+    expect(screen.getByTestId('form-state').textContent).not.toContain('"fontWeight":"bold"')
   })
 })

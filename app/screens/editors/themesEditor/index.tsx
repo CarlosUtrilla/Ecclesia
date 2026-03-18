@@ -528,7 +528,7 @@ export default function ThemesEditor() {
             </div>
             <BiblePresentationConfiguration
               customTheme={previewData}
-              customBibleSettings={watchedData.biblePresentationSettings}
+              customBibleSettings={watchedData.biblePresentationSettings ?? undefined}
               setCustomBibleSettings={(settings) => {
                 logBibleDebug('setCustomBibleSettings-from-dialog', {
                   settings

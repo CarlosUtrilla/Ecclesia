@@ -249,7 +249,9 @@ export default function StageLayoutScreen() {
     const unsubscribeItems = window.electron.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
-        setItemIndex(data.itemIndex)
+        if (typeof data.itemIndex === 'number') {
+          setItemIndex(data.itemIndex)
+        }
         setContent(data.contentScreen)
         setPresentationVerseBySlideKey(data.presentationVerseBySlideKey || {})
       }
