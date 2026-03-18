@@ -187,12 +187,12 @@ export const AutoComplete = ({
       </div>
       <div
         className={cn(
-          'absolute z-10 w-full rounded-lg bg-popover text-popover-foreground outline-none animate-in fade-in-0 zoom-in-95',
+          'absolute z-[120] w-full rounded-lg bg-popover text-popover-foreground outline-none animate-in fade-in-0 zoom-in-95',
           contentPlacement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
           isOpen ? 'block' : 'hidden'
         )}
       >
-        <CommandList className="rounded-lg bg-popover border border-input text-popover-foreground">
+        <CommandList className="max-h-72 overflow-auto rounded-lg bg-popover border border-input text-popover-foreground shadow-lg">
           {isLoading ? (
             <CommandPrimitive.Loading>
               <div className="p-1">

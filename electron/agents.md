@@ -110,6 +110,7 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 - **Media (imágenes/videos)**: Manifest `ecclesia-media-manifest-{workspaceId}.json` con checksum SHA-256. Incluye también archivos de fuentes (`Font` model, `userData/media/fonts/`).
 - **Biblias importadas**: Manifest `ecclesia-bible-manifest-{workspaceId}.json` + blobs `ecclesia-bible-blob-{workspaceId}-{checksum}.bin`. Las biblias bundled en `resources/bibles/` se excluyen de la sincronización.
 - `media_manifest` propaga tombstones (`deletedAt`) para borrado remoto/local.
+- El listado de blobs remotos (media y biblias) usa paginación de Drive (`nextPageToken`) para evitar omitir descargas cuando existen más de 1000 archivos en la carpeta de Ecclesia.
 
 #### Observabilidad y scheduler
 
@@ -142,7 +143,7 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 - `electron/main/googleDriveSyncManager/googleDriveSyncManager.scheduler.test.ts`
   - Incluye escenario de retry disparado por temporizador (sin invocacion manual del ciclo).
 - `electron/main/googleDriveSyncManager/googleDriveSyncManager.media.test.ts`
-  - Valida integridad de media (dedupe por checksum, descarga diferencial, tombstones, manifest remoto invalido) y transferencia por delta.
+  - Valida integridad de media (dedupe por checksum, descarga diferencial, tombstones, manifest remoto invalido), transferencia por delta y paginación de blobs remotos (>1000 archivos).
 
 ### Window Manager (`windowManager.ts`)
 

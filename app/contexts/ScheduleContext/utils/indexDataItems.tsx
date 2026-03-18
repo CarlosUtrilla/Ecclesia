@@ -9,9 +9,33 @@ import { useMemo, useState } from 'react'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useMediaServer } from '../../MediaServerContext'
 import { presentationSlideToViewItem } from '@/lib/presentationSlides'
+import {
+  applyPresentationBibleOverrides,
+  PresentationBibleOverrideMap
+} from '@/lib/presentationBibleVersionOverrides'
 import { useThemes } from '@/hooks/useThemes'
+import {
+  isBibleLiveSplitMode,
+  resolveBibleChunkMaxLength,
+  splitLongBibleVerse
+} from '@/lib/splitLongBibleVerse'
+import type { ThemeWithMedia } from '@/ui/PresentationView/types'
 
-export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
+const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
+
+function getThemeFontSize(theme: ThemeWithMedia): string | number | null {
+  try {
+    const parsedTextStyle = JSON.parse(theme.textStyle || '{}') as { fontSize?: string | number }
+    return parsedTextStyle.fontSize ?? null
+  } catch {
+    return null
+  }
+}
+
+export const useIndexDataItems = (
+  currentSchedule: ScheduleSchemaType,
+  selectedTheme: ThemeWithMedia
+) => {
   const { getCompleteVerseText } = useBibleSchema()
   const { buildMediaUrl } = useMediaServer()
   const { themes } = useThemes()
@@ -178,9 +202,22 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   }
 
   const getScheduleItemContentScreen = useCallback(
-    async (item: ScheduleItem): Promise<ContentScreen> => {
+    async (
+      item: ScheduleItem,
+      options?: { presentationBibleOverrideByKey?: PresentationBibleOverrideMap }
+    ): Promise<ContentScreen> => {
       const { accessData, type } = item
       if (type === 'BIBLE') {
+        const splitSettings = await window.api.setttings.getSettings([
+          BIBLE_LIVE_CHUNK_MODE_KEY as never
+        ])
+        const splitModeValue = splitSettings.find((setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY)?.value
+        const splitMode = isBibleLiveSplitMode(splitModeValue) ? splitModeValue : 'auto'
+        const maxChunkLength = resolveBibleChunkMaxLength(
+          splitMode,
+          getThemeFontSize(selectedTheme)
+        )
+
         const splited = accessData.split(',')
         const versesSplited = splited[2].split('-')
         const versesRange = Array.from(
@@ -202,16 +239,22 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
           version: version //Actualizar para obtener version seleccionada en la app
         })
 
-        const content = texts.map((text) => ({
-          text: text.text,
-          verse: {
-            bookId: book_id,
-            chapter: chapter,
-            verse: text.verse,
-            version: version
-          },
-          resourceType: item.type
-        }))
+        const content = texts.flatMap((text) => {
+          const chunks = splitLongBibleVerse(text.text, maxChunkLength)
+
+          return chunks.map((chunkText, chunkIndex) => ({
+            id: `bible-${book_id}-${chapter}-${text.verse}-${chunkIndex}`,
+            text: chunkText,
+            verse: {
+              bookId: book_id,
+              chapter: chapter,
+              verse: text.verse,
+              version: version
+            },
+            resourceType: item.type
+          }))
+        })
+
         return {
           title: `${texts[0]?.book || ''} ${chapter}:${versesSplited[0]}${
             versesSplited[1] ? `-${versesSplited[1]}` : ''
@@ -316,10 +359,14 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         const mappedSlides = presentation.slides.map((slide) =>
           presentationSlideToViewItem(slide, mediaById, themeById)
         )
+        const content = applyPresentationBibleOverrides(
+          mappedSlides,
+          options?.presentationBibleOverrideByKey
+        )
 
         return {
           title: presentation.title,
-          content: mappedSlides
+          content
         }
       }
       return {

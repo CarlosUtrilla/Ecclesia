@@ -18,9 +18,14 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
     - Para slides legacy de tipo `MEDIA` y para slides mixtos (`items[]`), carga los `Media` requeridos y los mapea a `PresentationViewItems`.
     - En ese mapeo también resuelve `themeId` por slide (desde `useThemes`) para que la proyección respete tema global de presentación cuando existe.
     - Para PRESENTATION en live, conserva una diapositiva lógica por slide (sin expansión por rango) y delega el avance bíblico a un controlador interno de verso por slide.
+    - Para PRESENTATION en live también puede aplicar overrides temporales de versión bíblica por slide o por layer, de modo que el operador cambie la versión en el panel live sin persistir cambios en la presentación original.
+    - Para `BIBLE` directo, divide automáticamente versículos demasiado largos en múltiples slides legibles, manteniendo la misma referencia bíblica (`bookId/chapter/verse`) pero con `id` único por fragmento para navegación/render estable en live.
+    - La longitud de fragmentación se controla con el setting `BIBLE_LIVE_CHUNK_MODE`: valores fijos (`100/150/200/250`) o `auto`, que estima el límite según el `fontSize` del tema activo.
     - Escucha `presentation-saved` para refetch de queries de presentaciones/medios asociados al cronograma y evitar labels/previews desactualizados.
   - **liveContext.tsx**: Sub-contexto para gestión de pantallas en vivo y sincronización de contenido.
     - Mantiene `presentationVerseBySlideKey` para sincronizar el verso activo de cada slide de presentación entre el panel `items-on-live` y las ventanas `live-screen`.
+    - Mantiene `presentationBibleOverrideByKey` para sincronizar overrides temporales `{ version, text }` de contenido bíblico por `slideKey/layerId` entre el panel `items-on-live` y las ventanas `live-screen`.
+    - Mantiene `appliedTheme` como snapshot del tema realmente aplicado al último `showItemOnLiveScreen`; así el panel live puede seguir mostrando el tema proyectado aunque el operador cambie después el selector global.
     - Mantiene controles de emergencia de proyección (`hideTextOnLive`, `showLogoOnLive`, `blackScreenOnLive`) y los sincroniza por IPC en payload parcial de `liveScreen-update`.
     - Se separa el envío de `liveScreen-update` en dos efectos: uno para `itemIndex/contentScreen/presentationVerseBySlideKey` y otro para `liveControls`, evitando reenviar contenido completo cuando solo cambian controles.
     - Atajos globales del operador:
@@ -100,6 +105,7 @@ Ver detalles de implementación y convenciones en los agents de [schedule](../..
 
 - `itemOnLive`, `setItemOnLive`: Item actualmente proyectado en vivo.
 - `selectedTheme`, `setSelectedTheme`: Tema visual activo para la proyección.
+- `appliedTheme`: Tema efectivamente aplicado al item live actual; se congela al presentar y no cambia por seleccionar otro tema hasta reenviar contenido.
 - `selectedTheme` se resincroniza automáticamente cuando `useThemes()` refetchea cambios (por ejemplo al guardar desde ThemeEditor), para aplicar inmediatamente updates de `textStyle`, fondo y animación en `PresentationView` sin re-seleccionar manualmente el tema.
 - `currentSchedule`: Lista ordenada de items del cronograma.
 - `form`: Instancia de React Hook Form para edición y validación.

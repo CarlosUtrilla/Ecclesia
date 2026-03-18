@@ -86,6 +86,7 @@ enum SettingOptions {
   SALES_MONTHLY          @map("goals.monthly")
   LOGO_FALLBACK_MEDIA_ID @map("logo.fallback.mediaId")
   LOGO_FALLBACK_COLOR    @map("logo.fallback.color")
+  BIBLE_LIVE_CHUNK_MODE  @map("bible.live.chunkMode")
 }
 
 model Setting {

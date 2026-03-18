@@ -383,4 +383,90 @@ describe('googleDriveSyncManager media integrity and transfer', () => {
     // que existe al menos 1 blob remoto para el workspace.
     expect(countRemoteBlobFiles('ws-1')).toBeGreaterThanOrEqual(1)
   })
+
+  it('pull de media pagina blobs remotos y descarga archivos aunque existan más de 1000', async () => {
+    mediaRows.push({ filePath: 'videos/evento.mp4', thumbnail: null, fallback: null })
+
+    const workspaceId = 'ws-1'
+    const prefix = `ecclesia-media-blob-${workspaceId}-`
+    const targetChecksum = 'target-checksum-1001'
+
+    const insertRemoteFile = (name: string, content: Buffer) => {
+      const id = `remote-${remoteStore.nextId++}`
+      const file: RemoteFile = {
+        id,
+        name,
+        content,
+        modifiedTime: new Date().toISOString()
+      }
+      remoteStore.files.set(id, file)
+      remoteStore.byName.set(name, id)
+    }
+
+    // Manifest remoto apuntando al checksum del blob objetivo
+    insertRemoteFile(
+      `ecclesia-media-manifest-${workspaceId}.json`,
+      Buffer.from(
+        JSON.stringify({
+          schemaVersion: 1,
+          workspaceId,
+          deviceId: 'pc-remota',
+          updatedAt: '2026-03-15T16:00:00.000Z',
+          entries: [
+            {
+              path: 'videos/evento.mp4',
+              size: 12,
+              checksum: targetChecksum,
+              mtime: Date.now(),
+              deletedAt: null,
+              lastSyncedAt: null
+            }
+          ]
+        })
+      )
+    )
+
+    // Más de 1000 blobs para forzar paginación
+    for (let i = 0; i < 1001; i += 1) {
+      insertRemoteFile(`${prefix}dummy-${i}.bin`, Buffer.from(`dummy-${i}`))
+    }
+    insertRemoteFile(`${prefix}${targetChecksum}.bin`, Buffer.from('video-from-page-2'))
+
+    const originalListImpl = driveMock.files.list.getMockImplementation()
+    driveMock.files.list.mockImplementation(async (params: { q: string; pageSize?: number; pageToken?: string }) => {
+      if (params?.q?.includes(`name contains '${prefix}'`)) {
+        const pageSize = params.pageSize ?? 1000
+        const start = params.pageToken ? Number(params.pageToken) : 0
+
+        const files = Array.from(remoteStore.files.values())
+          .filter((file) => file.name.startsWith(prefix))
+          .sort((a, b) => a.name.localeCompare(b.name))
+
+        const chunk = files.slice(start, start + pageSize)
+        const nextPageToken = start + pageSize < files.length ? String(start + pageSize) : undefined
+
+        return {
+          data: {
+            files: chunk.map((file) => ({ id: file.id, name: file.name, modifiedTime: file.modifiedTime })),
+            nextPageToken
+          }
+        }
+      }
+
+      if (originalListImpl) {
+        return originalListImpl(params as never) as never
+      }
+
+      return { data: { files: [] } } as never
+    })
+
+    const pullResult = await executeSyncCycle('manual-pull')
+
+    expect(pullResult.synced).toBe(true)
+    expect((pullResult as { mediaDownloaded?: number }).mediaDownloaded).toBe(1)
+    expect(await fs.pathExists(getMediaFilePath('videos/evento.mp4'))).toBe(true)
+    expect((await fs.readFile(getMediaFilePath('videos/evento.mp4'))).toString()).toBe(
+      'video-from-page-2'
+    )
+  })
 })

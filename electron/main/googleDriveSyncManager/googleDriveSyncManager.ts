@@ -682,21 +682,28 @@ async function writeRemoteMediaManifest(
 async function listRemoteMediaBlobs(drive: ReturnType<typeof google.drive>, workspaceId: string) {
   const prefix = `${REMOTE_MEDIA_BLOB_FILE_PREFIX}-${toSafeFileSegment(workspaceId)}-`
   const folderId = await getOrCreateEcclesiaFolder(drive)
-  const result = await drive.files.list({
-    q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-    spaces: 'drive',
-    fields: 'files(id, name)',
-    pageSize: 1000
-  })
-
   const byChecksum = new Map<string, string>()
-  for (const file of result.data.files || []) {
-    const name = file.name || ''
-    if (!name.startsWith(prefix) || !name.endsWith('.bin') || !file.id) continue
-    const checksum = name.slice(prefix.length, -'.bin'.length)
-    if (!checksum) continue
-    byChecksum.set(checksum, file.id)
-  }
+
+  let pageToken: string | undefined
+  do {
+    const result = await drive.files.list({
+      q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
+      spaces: 'drive',
+      fields: 'nextPageToken, files(id, name)',
+      pageSize: 1000,
+      pageToken
+    })
+
+    for (const file of result.data.files || []) {
+      const name = file.name || ''
+      if (!name.startsWith(prefix) || !name.endsWith('.bin') || !file.id) continue
+      const checksum = name.slice(prefix.length, -'.bin'.length)
+      if (!checksum) continue
+      byChecksum.set(checksum, file.id)
+    }
+
+    pageToken = result.data.nextPageToken || undefined
+  } while (pageToken)
 
   return byChecksum
 }
@@ -1222,20 +1229,28 @@ async function writeRemoteBibleManifest(
 async function listRemoteBibleBlobs(drive: ReturnType<typeof google.drive>, workspaceId: string) {
   const prefix = `${REMOTE_BIBLE_BLOB_FILE_PREFIX}-${toSafeFileSegment(workspaceId)}-`
   const folderId = await getOrCreateEcclesiaFolder(drive)
-  const result = await drive.files.list({
-    q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-    spaces: 'drive',
-    fields: 'files(id, name)',
-    pageSize: 1000
-  })
-
   const byChecksum = new Map<string, string>()
-  for (const file of result.data.files || []) {
-    const name = file.name || ''
-    if (!name.startsWith(prefix) || !name.endsWith('.bin') || !file.id) continue
-    const checksum = name.slice(prefix.length, -'.bin'.length)
-    if (checksum) byChecksum.set(checksum, file.id)
-  }
+
+  let pageToken: string | undefined
+  do {
+    const result = await drive.files.list({
+      q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
+      spaces: 'drive',
+      fields: 'nextPageToken, files(id, name)',
+      pageSize: 1000,
+      pageToken
+    })
+
+    for (const file of result.data.files || []) {
+      const name = file.name || ''
+      if (!name.startsWith(prefix) || !name.endsWith('.bin') || !file.id) continue
+      const checksum = name.slice(prefix.length, -'.bin'.length)
+      if (checksum) byChecksum.set(checksum, file.id)
+    }
+
+    pageToken = result.data.nextPageToken || undefined
+  } while (pageToken)
+
   return byChecksum
 }
 

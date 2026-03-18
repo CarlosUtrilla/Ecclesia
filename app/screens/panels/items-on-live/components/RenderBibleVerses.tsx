@@ -25,12 +25,12 @@ export default function RenderBibleVerses({ data }: Props) {
   })
   return (
     <div ref={containerRef} className="h-full overflow-y-auto">
-      {data.map(({ text, verse }, i) => (
+      {data.map(({ id, text, verse }, i) => (
         <div
           className={cn('flex border-b items-baseline hover:bg-muted/40 cursor-pointer', {
             'bg-secondary/20 hover:bg-secondary/10': itemIndex === i
           })}
-          key={verse?.verse ?? i}
+          key={id ?? `${verse?.verse ?? 'verse'}-${i}`}
           role="button"
           tabIndex={0}
           onClick={() => setItemIndex(i)}

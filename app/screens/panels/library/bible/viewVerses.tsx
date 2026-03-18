@@ -13,6 +13,7 @@ import { CalendarPlus, Radio } from 'lucide-react'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { useDraggable } from '@dnd-kit/core'
+import { resolveBibleBookAccessId } from './accessData'
 
 type Props = {
   bookData?: BibleSchemaDTO
@@ -39,6 +40,7 @@ export default function ViewVerses({
 
   const { addItemToSchedule } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
+  const bookAccessId = resolveBibleBookAccessId(bookData)
 
   const { data: completeChapter = [] } = useQuery({
     queryKey: ['completeChapter', book, chapter, version],
@@ -167,28 +169,32 @@ export default function ViewVerses({
   }, [verse, completeChapter])
 
   const handleAddToSchedule = (verseNumber: number) => {
+    if (bookAccessId === null) return
+
     if (verse.includes(verseNumber)) {
       const verseRange =
         verse.length === 1 ? verse[0] : `${Math.min(...verse)}-${Math.max(...verse)}`
       addItemToSchedule({
         type: 'BIBLE',
-        accessData: `${bookData?.id},${chapter},${verseRange},${version}`
+        accessData: `${bookAccessId},${chapter},${verseRange},${version}`
       })
     } else {
       addItemToSchedule({
         type: 'BIBLE',
-        accessData: `${bookData?.id},${chapter},${verseNumber},${version}`
+        accessData: `${bookAccessId},${chapter},${verseNumber},${version}`
       })
     }
   }
 
   const handleShowOnLive = (verseNumber: number) => {
+    if (bookAccessId === null) return
+
     if (verse.includes(verseNumber)) {
       const verseRange =
         verse.length === 1 ? verse[0] : `${Math.min(...verse)}-${Math.max(...verse)}`
       showItemOnLiveScreen({
         type: 'BIBLE',
-        accessData: `${bookData?.id},${chapter},${verseRange},${version}`,
+        accessData: `${bookAccessId},${chapter},${verseRange},${version}`,
         id: '-1',
         order: -1,
         scheduleId: -1,
@@ -197,7 +203,7 @@ export default function ViewVerses({
     } else {
       showItemOnLiveScreen({
         type: 'BIBLE',
-        accessData: `${bookData?.id},${chapter},${verseNumber},${version}`,
+        accessData: `${bookAccessId},${chapter},${verseNumber},${version}`,
         id: '-1',
         order: -1,
         scheduleId: -1,
@@ -222,6 +228,7 @@ export default function ViewVerses({
             chapter={chapter}
             version={version}
             selectedVerses={verse}
+            bookAccessId={bookAccessId}
             onItemClick={handleItemClick}
             onAddToSchedule={handleAddToSchedule}
             onShowOnLive={handleShowOnLive}
@@ -241,6 +248,7 @@ function VerseItem({
   chapter,
   version,
   selectedVerses,
+  bookAccessId,
   onItemClick,
   onAddToSchedule,
   onShowOnLive,
@@ -252,18 +260,20 @@ function VerseItem({
   chapter: number
   version: string
   selectedVerses: number[]
+  bookAccessId: number | null
   onItemClick: (item: { verseNumber: number; index: number }, e: React.MouseEvent) => void
   onAddToSchedule: (verseNumber: number) => void
   onShowOnLive: (verseNumber: number) => void
   verseRefs: React.MutableRefObject<Map<number, HTMLDivElement>>
 }) {
   const verseRange = selectedVerses.length === 1 ? selectedVerses[0] : `${Math.min(...selectedVerses)}-${Math.max(...selectedVerses)}`
+  const accessData = bookAccessId === null ? '' : `${bookAccessId},${chapter},${verseRange},${version}`
   
   const { listeners, setNodeRef, isDragging } = useDraggable({
-    id: `verse-${v.verse}-${chapter}-${bookData?.id}`,
+    id: `verse-${v.verse}-${chapter}-${bookAccessId ?? 'unknown'}`,
     data: {
       type: 'BIBLE',
-      accessData: `${bookData?.id},${chapter},${verseRange},${version}`
+      accessData
     }
   })
 

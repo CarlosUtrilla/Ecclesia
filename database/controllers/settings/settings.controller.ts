@@ -1,11 +1,10 @@
 import { SettingsUpdateDTO } from './settings.dto'
 import SettingsService from './settings.service'
-import { SettingOptions } from '@prisma/client'
 
 class SettingsController {
   private SettingsService = new SettingsService()
 
-  async getSettings(settings: SettingOptions[]) {
+  async getSettings(settings: string[]) {
     return await this.SettingsService.getAllSettings(settings)
   }
 

@@ -1,6 +1,4 @@
-import { SettingOptions } from '@prisma/client'
-
 export type SettingsUpdateDTO = {
-  key: SettingOptions
+  key: string
   value: string
 }

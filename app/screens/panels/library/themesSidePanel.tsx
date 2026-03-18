@@ -14,6 +14,7 @@ import { Edit, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Input } from '@/ui/input'
 import { cn } from '@/lib/utils'
+import { ScrollArea } from '@/ui/scroll-area'
 
 export function ThemesSidePanel() {
   const { themes, refetchThemes } = useThemes()
@@ -63,27 +64,28 @@ export function ThemesSidePanel() {
           className="w-full h-7 text-xs px-2 border-muted/40 bg-background"
         />
       </div>
-      <div className="panel-scroll-content h-0 flex-1 w-full px-2 pb-2">
-        <div className="grid grid-cols-2 @max-[250px]:grid-cols-1 gap-2">
-          {filteredThemes.map((theme) => {
+      <ScrollArea className="panel-scroll-content h-0 flex-1 w-full px-2 pb-2">
+        <div className="grid grid-cols-2 @max-[250px]:grid-cols-1 gap-1.5">
+          {filteredThemes.map((theme, index) => {
             const isSelected = selectedTheme?.id === theme.id
             return (
               <ContextMenu key={theme.id}>
-                <ContextMenuTrigger className="relative rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary">
-                  <PresentationView
-                    onClick={() => setSelectedTheme(theme)}
-                    selected={isSelected}
-                    theme={theme}
-                    items={[{ text: 'Preview Text', resourceType: 'BIBLE' }]}
-                    className={cn(
-                      'border border-muted/40 bg-background cursor-pointer transition-all',
-                      {
-                        'border-primary': isSelected
-                      }
-                    )}
-                  />
-                  <div className="absolute bottom-0 right-0 left-0 p-1 px-1.5 text-xs bg-black/50">
-                    {theme.name}
+                <ContextMenuTrigger
+                  asChild
+                  className="relative rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <div className="p-[3px]">
+                    <PresentationView
+                      onClick={() => setSelectedTheme(theme)}
+                      selected={isSelected}
+                      theme={theme}
+                      items={[{ text: theme.name, resourceType: 'BIBLE' }]}
+                      key={`theme-${index}-${theme.name?.slice(0, 20)}`}
+                      className={cn(isSelected ? 'outline-primary' : '')}
+                    />
+                    <div className="absolute text-white bottom-[3px] rounded-b-md right-[3px] left-[3px] p-1 px-1.5 text-xs bg-black/50">
+                      {theme.name}
+                    </div>
                   </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
@@ -98,7 +100,7 @@ export function ThemesSidePanel() {
             )
           })}
         </div>
-      </div>
+      </ScrollArea>
     </aside>
   )
 }

@@ -368,7 +368,14 @@ export function BibleTextRender({
   const verseTextStyle = useMemo(
     () => ({
       ...textStyle,
-      ...verseOverrideStyle
+      ...verseOverrideStyle,
+      width: '100%',
+      whiteSpace: 'nowrap' as const,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      textAlign:
+        (verseOverrideStyle.textAlign as React.CSSProperties['textAlign']) ||
+        ('center' as const)
     }),
     [textStyle, verseOverrideStyle]
   )
@@ -461,13 +468,14 @@ export function BibleTextRender({
         <div
           style={{
             position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            left: 0,
+            width: '100%',
             fontSize: smallFontSize,
             cursor: canEditVerseBounds ? verseCursor : 'default',
             border: shouldShowVerseBounds ? '2px dashed rgba(255,255,255,0.65)' : 'none',
             borderRadius: shouldShowVerseBounds ? 8 : 0,
-            padding: shouldShowVerseBounds ? '2px 6px' : 0,
+            padding: shouldShowVerseBounds ? '2px 6px' : '0 12px',
+            boxSizing: 'border-box',
             touchAction: canEditVerseBounds ? 'none' : 'auto',
             pointerEvents: 'auto',
             zIndex: shouldShowVerseBounds ? 2 : 1,

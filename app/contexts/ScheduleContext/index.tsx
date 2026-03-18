@@ -40,7 +40,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   const formData = form.watch()
 
   const { getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen, songs, media } =
-    useIndexDataItems(formData)
+    useIndexDataItems(formData, selectedTheme)
 
   useEffect(() => {
     if (themes.length > 0 && selectedTheme.name === 'Blank') {

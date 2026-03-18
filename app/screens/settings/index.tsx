@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Button } from '@/ui/button'
-import { CloudCog, ImagePlay, Info, Palette, Settings, X } from 'lucide-react'
+import { BookOpen, CloudCog, ImagePlay, Info, Palette, Settings, X } from 'lucide-react'
 import ColorSettingsSection from './components/colorSettingsSection'
 import SyncSettingsSection from './components/syncSettingsSection'
 import LogoFallbackSection from './components/logoFallbackSection'
 import AboutSection from './components/aboutSection'
+import BibleLiveSection from './components/bibleLiveSection'
 
-type SettingsSection = 'colors' | 'sync' | 'logoFallback' | 'about'
+type SettingsSection = 'colors' | 'sync' | 'logoFallback' | 'bibleLive' | 'about'
 
 export default function SettingsScreen() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('colors')
@@ -43,6 +44,14 @@ export default function SettingsScreen() {
         </Button>
 
         <Button
+          variant={activeSection === 'bibleLive' ? 'secondary' : 'ghost'}
+          className="justify-start"
+          onClick={() => setActiveSection('bibleLive')}
+        >
+          <BookOpen className="size-4" /> Biblia en vivo
+        </Button>
+
+        <Button
           variant={activeSection === 'about' ? 'secondary' : 'ghost'}
           className="justify-start"
           onClick={() => setActiveSection('about')}
@@ -66,6 +75,7 @@ export default function SettingsScreen() {
           {activeSection === 'colors' ? <ColorSettingsSection /> : null}
           {activeSection === 'sync' ? <SyncSettingsSection /> : null}
           {activeSection === 'logoFallback' ? <LogoFallbackSection /> : null}
+          {activeSection === 'bibleLive' ? <BibleLiveSection /> : null}
           {activeSection === 'about' ? <AboutSection /> : null}
         </div>
       </main>

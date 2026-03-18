@@ -100,6 +100,7 @@ MediaServerProvider          (top-level, sin dependencias)
 | `itemIndex` | `number` | Indice del slide actual |
 | `setItemIndex` | `function` | Cambia slide actual |
 | `liveContentVersion` | `number` | Versión incremental del envío a live (cambia en cada `showItemOnLiveScreen`) |
+| `appliedTheme` | `ThemeWithMedia` | Tema congelado que se aplicó al último envío live; no cambia al mover solo el selector |
 | `itemOnLive` | `ScheduleItem \| null` | Item mostrandose en vivo |
 | `liveScreens` | `DisplayWithUsage[]` | Pantallas en modo live |
 | `stageScreens` | `DisplayWithUsage[]` | Pantallas en modo stage |
@@ -110,6 +111,7 @@ MediaServerProvider          (top-level, sin dependencias)
 
 - Abre/cierra ventanas de Electron en displays con rol `LIVE_SCREEN` y `STAGE_SCREEN` cuando se activa/desactiva `showLiveScreen`.
 - Envia contenido y tema via IPC: `updateLiveScreenContent`, `updateLiveScreenTheme`.
+- `appliedTheme` se captura al ejecutar `showItemOnLiveScreen(item, index?)`, separando el tema actualmente aplicado en live del `selectedTheme` del selector de temas.
 - Escucha `live-screen-ready` para saber cuando la ventana esta lista.
 - Si hay item en vivo, `Escape` limpia el item (`setItemOnLive(null)`) y deja la pantalla live abierta mostrando fondo.
 - Depende de `useSchedule()` y `useDisplays()`.

@@ -12,6 +12,11 @@ import {
   getSlideVerseRange,
   resolveSlideVerse
 } from '@/lib/presentationVerseController'
+import {
+  getPresentationBibleTargets,
+  getPresentationBibleVersion
+} from '@/lib/presentationBibleVersionOverrides'
+import BibleVersionSelector from './BibleVersionSelector'
 
 type Props = {
   data: PresentationViewItems[]
@@ -105,7 +110,8 @@ export default function RenderPresentationLiveController({ data }: Props) {
     sendLiveMediaState,
     liveScreensReady,
     presentationVerseBySlideKey,
-    setPresentationVerseBySlideKey
+    setPresentationVerseBySlideKey,
+    setPresentationBibleOverrideByKey
   } = useLive()
   const { buildMediaUrl } = useMediaServer()
   const controllerVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -114,6 +120,7 @@ export default function RenderPresentationLiveController({ data }: Props) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
+  const [isUpdatingBibleVersion, setIsUpdatingBibleVersion] = useState(false)
 
   const totalSlides = data.length
 
@@ -134,6 +141,15 @@ export default function RenderPresentationLiveController({ data }: Props) {
 
   const safeIndex = totalSlides === 0 ? 0 : Math.min(itemIndex, totalSlides - 1)
   const activeSlide = data[safeIndex]
+  const activeSlideBibleTargets = useMemo(
+    () => getPresentationBibleTargets(activeSlide, safeIndex),
+    [activeSlide, safeIndex]
+  )
+  const activePreviewSource = activeSlideBibleTargets[0]
+  const activeSlideBibleVersion = useMemo(
+    () => getPresentationBibleVersion(activeSlide, safeIndex),
+    [activeSlide, safeIndex]
+  )
 
   const activeVerseController = resolveSlideVerse(activeSlide, safeIndex, presentationVerseBySlideKey)
   const activeVerseRange =
@@ -234,6 +250,53 @@ export default function RenderPresentationLiveController({ data }: Props) {
   const handleNextVerse = () => {
     if (!activeVerseController) return
     setActiveVerse(activeVerseController.current + 1)
+  }
+
+  const handleBibleVersionChange = async (newVersion: number | string) => {
+    const nextVersion = String(newVersion || '')
+
+    if (
+      !nextVersion ||
+      activeSlideBibleTargets.length === 0 ||
+      nextVersion === activeSlideBibleVersion
+    ) {
+      return
+    }
+
+    setIsUpdatingBibleVersion(true)
+
+    try {
+      const overrideEntries = await Promise.all(
+        activeSlideBibleTargets.map(async (target) => {
+          const verses = Array.from(
+            { length: target.verseEnd - target.verseStart + 1 },
+            (_, index) => target.verseStart + index
+          )
+
+          const result = await window.api.bible.getVerses({
+            book: target.bookId,
+            chapter: target.chapter,
+            verses,
+            version: nextVersion
+          })
+
+          return [
+            target.overrideKey,
+            {
+              version: nextVersion,
+              text: result.map((verse) => `${verse.verse}. ${verse.text}`).join('<br/>')
+            }
+          ] as const
+        })
+      )
+
+      setPresentationBibleOverrideByKey((previous) => ({
+        ...previous,
+        ...Object.fromEntries(overrideEntries)
+      }))
+    } finally {
+      setIsUpdatingBibleVersion(false)
+    }
   }
 
   const handlePlay = () => {
@@ -398,61 +461,84 @@ export default function RenderPresentationLiveController({ data }: Props) {
           </div>
         ) : null}
 
-        {activeSlideHasVideo ? (
-          <>
-            <div className="h-6 w-px bg-border ml-auto" />
-            <VideoLiveControls
-              className="flex items-center gap-2 w-[min(46rem,60%)] bg-background/80 p-1.5 rounded shadow"
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              volume={volume}
-              onVolumeChange={handleVolumeChange}
-              onSeek={handleSeek}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onRestart={handleRestart}
-            />
-            {activeVideoUrl ? (
-              <video
-                key={activeVideoUrl}
-                ref={controllerVideoRef}
-                src={activeVideoUrl}
-                preload="metadata"
-                loop={activeSlideVideoLoop}
-                style={{
-                  position: 'absolute',
-                  width: 1,
-                  height: 1,
-                  opacity: 0,
-                  pointerEvents: 'none'
-                }}
-                muted
-                playsInline
-                onLoadedMetadata={(e) => {
-                  const nextDuration = e.currentTarget.duration
-                  const safeDuration = Number.isFinite(nextDuration) ? nextDuration : 0
-                  setDuration(safeDuration)
-                  if (controllerVideoRef.current) {
-                    controllerVideoRef.current.volume = volume
-                  }
-                }}
-                onDurationChange={(e) => {
-                  const nextDuration = e.currentTarget.duration
-                  if (Number.isFinite(nextDuration) && nextDuration > 0) {
-                    setDuration(nextDuration)
-                  }
-                }}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onTimeUpdate={handleControllerTimeUpdate}
-                onEnded={handleControllerEnded}
-                onVolumeChange={(e) => {
-                  setVolume(e.currentTarget.volume)
-                }}
+        {activeSlideBibleVersion || activeSlideHasVideo ? (
+          <div className="ml-auto flex items-center gap-2 min-w-0">
+            {activeSlideBibleVersion ? (
+              <BibleVersionSelector
+                value={activeSlideBibleVersion}
+                onValueChange={handleBibleVersionChange}
+                isLoading={isUpdatingBibleVersion}
+                previewSource={
+                  activePreviewSource
+                    ? {
+                        bookId: activePreviewSource.bookId,
+                        chapter: activePreviewSource.chapter,
+                        verseStart: activePreviewSource.verseStart,
+                        verseEnd: activePreviewSource.verseEnd
+                      }
+                    : null
+                }
               />
             ) : null}
-          </>
+
+            {activeSlideHasVideo ? <div className="h-6 w-px bg-border" /> : null}
+
+            {activeSlideHasVideo ? (
+              <>
+                <VideoLiveControls
+                  className="flex items-center gap-2 w-[min(46rem,60%)] bg-background/80 p-1.5 rounded shadow"
+                  isPlaying={isPlaying}
+                  currentTime={currentTime}
+                  duration={duration}
+                  volume={volume}
+                  onVolumeChange={handleVolumeChange}
+                  onSeek={handleSeek}
+                  onPlay={handlePlay}
+                  onPause={handlePause}
+                  onRestart={handleRestart}
+                />
+                {activeVideoUrl ? (
+                  <video
+                    key={activeVideoUrl}
+                    ref={controllerVideoRef}
+                    src={activeVideoUrl}
+                    preload="metadata"
+                    loop={activeSlideVideoLoop}
+                    style={{
+                      position: 'absolute',
+                      width: 1,
+                      height: 1,
+                      opacity: 0,
+                      pointerEvents: 'none'
+                    }}
+                    muted
+                    playsInline
+                    onLoadedMetadata={(e) => {
+                      const nextDuration = e.currentTarget.duration
+                      const safeDuration = Number.isFinite(nextDuration) ? nextDuration : 0
+                      setDuration(safeDuration)
+                      if (controllerVideoRef.current) {
+                        controllerVideoRef.current.volume = volume
+                      }
+                    }}
+                    onDurationChange={(e) => {
+                      const nextDuration = e.currentTarget.duration
+                      if (Number.isFinite(nextDuration) && nextDuration > 0) {
+                        setDuration(nextDuration)
+                      }
+                    }}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onTimeUpdate={handleControllerTimeUpdate}
+                    onEnded={handleControllerEnded}
+                    onVolumeChange={(e) => {
+                      setVolume(e.currentTarget.volume)
+                    }}
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

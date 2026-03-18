@@ -1,6 +1,7 @@
 import { Button } from '@/ui/button'
 import { PresentationView } from '@/ui/PresentationView'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
+import { ScrollArea } from '@/ui/scroll-area'
 import type { ScheduleItem } from '@prisma/client'
 import { Radio } from 'lucide-react'
 import { useState } from 'react'
@@ -32,24 +33,26 @@ const PreviewSchedule = forwardRef<HTMLDivElement, Omit<PreviewScheduleProps, 'p
             Presentar en vivo <Radio className="h-4 w-4" />
           </Button>
         </div>
-        <div className="grid flex-1 p-2 grid-cols-2 auto-rows-min gap-2 h-full overflow-y-auto">
-          {itemContent.map((content, index) => (
-            <PresentationView
-              tagSongId={(content as any).tagSongId}
-              key={`preview-${index}-${content.text?.slice(0, 20)}`}
-              items={[content]}
-              theme={selectedTheme}
-              onClick={(e) => {
-                // Si es doble click, presentar en vivo
-                if (e!.detail === 2) {
-                  onLivePresentation(index)
-                }
-                setSelectedIndex(index)
-              }}
-              selected={selectedIndex === index}
-            />
-          ))}
-        </div>
+        <ScrollArea>
+          <div className="grid flex-1 p-2 grid-cols-2 auto-rows-min gap-2 h-full">
+            {itemContent.map((content, index) => (
+              <PresentationView
+                tagSongId={(content as any).tagSongId}
+                key={`preview-${index}-${content.text?.slice(0, 20)}`}
+                items={[content]}
+                theme={selectedTheme}
+                onClick={(e) => {
+                  // Si es doble click, presentar en vivo
+                  if (e!.detail === 2) {
+                    onLivePresentation(index)
+                  }
+                  setSelectedIndex(index)
+                }}
+                selected={selectedIndex === index}
+              />
+            ))}
+          </div>
+        </ScrollArea>
       </div>
     )
   }

@@ -10,17 +10,17 @@
 
 ### Infraestructura (hacer una sola vez)
 
-- [ ] Crear repositorio público en GitHub bajo `CarlosUtrilla/Ecclesia` (si no existe) o habilitarlo para releases.
-- [ ] Generar un **GitHub Personal Access Token** con scope `repo` y guardarlo localmente.
+- [X] Crear repositorio público en GitHub bajo `CarlosUtrilla/Ecclesia` (si no existe) o habilitarlo para releases.
+- [X] Generar un **GitHub Personal Access Token** con scope `repo` y guardarlo localmente.
   - `GH_TOKEN=ghp_xxx` en `.env` local (no commitear) para que `electron-builder` pueda subir el release.
-- [ ] Verificar configuración de code signing para macOS (`notarize: false` por ahora en `electron-builder.yml`). Para distribución real fuera de la App Store se necesitará al menos un Developer ID.
+- [X] Verificar configuración de code signing para macOS (`notarize: false` por ahora en `electron-builder.yml`). Para distribución real fuera de la App Store se necesitará al menos un Developer ID.
   - Mínimo para beta interna: puede distribuirse sin notarizar (usuarios deberán pasar bypass de Gatekeeper).
-- [ ] Para Windows (futuro): generar certificado de firma o usar modo sin firma para beta interna.
+- [X] Para Windows (futuro): generar certificado de firma o usar modo sin firma para beta interna.
 
 ### Antes de buildear
 
-- [ ] Revisar que no haya errores de TypeScript: `npm run typecheck`
-- [ ] Ejecutar tests: `npm run test`
+- [X] Revisar que no haya errores de TypeScript: `npm run typecheck`
+- [X] Ejecutar tests: `npm run test`
 - [ ] Asegurarse de que `prisma/migrations/` solo tenga la migración de baseline activa.
 - [ ] Verificar que los assets de build estén completos (`build/entitlements.mac.plist`, íconos, etc.).
   - [ ] Agregar `icon.icns` (macOS), `icon.ico` (Windows) e `icon.png` (Linux) en la carpeta `build/`.
@@ -66,8 +66,16 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 - [ ] **`googleDriveSyncManager.ts`** — Implementar `pushSnapshotOnly()` (solo build + upload del snapshot JSON; sin pull, sin media, sin biblia) y `pushMediaOnly()` (solo push side de `syncMediaManifest`; sin DB, sin pull). Exponer `scheduleMicroPush()` y `scheduleMicroMediaPush()` con debounce de 1 s.
 - [ ] **`googleDriveSyncManager.ts`** — En `initializeGoogleDriveSyncManager()`: registrar `scheduleMicroPush` en `setOnOutboxWriteCallback` y `scheduleMicroMediaPush` en `setOnMediaChangeCallback`. Cambiar handler de `auto-save-event` para usar `scheduleMicroPush()` en lugar de `executeSyncCycle('save')`.
 - [ ] **`googleDriveSyncAPI.ts`** — Añadir método `microPushMedia()` con IPC `sync:google-drive:micro-push-media`.
-- [ ] **`library/index.tsx`** — Añadir botón de estado de sync en la cabecera: `✓ Sync` (idle + conectado) / `Sincronizando X%` (en curso). Click = `pushNow()` (ciclo completo). Solo visible cuando hay conexión.
+- [X] **`library/index.tsx`** — Añadir botón de estado de sync en la cabecera: `✓ Sync` (idle + conectado) / `Sincronizando X%` (en curso). Click = `pushNow()` (ciclo completo). Solo visible cuando hay conexión.
 
 ---
 
-7. [ ] Conseguir que los apuntadores (los que se usan para poner diapositiva siguiente y anterior) sean compatibles con la app.
+1. [X] Conseguir que los apuntadores (los que se usan para poner diapositiva siguiente y anterior) sean compatibles con la app.
+
+## Errores encontrados en producción
+
+- [X] Los videos no se sincronizan completamente
+- [X] Los textos directamente de la biblia no se ponen (posible error compartido con el id en vez de book_id)
+- [X] Se necesita hacer un split en texto demasiado grandes o un auto size segun el tamaño del contenedor
+- [ ] Widgets diapositiva anterior y siguiente
+- [X] El el autocomplete de selector de version de biblias, en el items on live, poner como tooltip el texto de la version por ejemplo si en pantalla esta mateo 2:3 y pongo el mouse encima de la opcion TLA debe mostrar el texto mateo 2:3 pero en TLA como tooltip

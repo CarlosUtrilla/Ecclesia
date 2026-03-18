@@ -5,16 +5,24 @@ import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { DisplayWithUsage } from '@/hooks/useDisplays'
 import { UseFormReturn } from 'react-hook-form'
+import { PresentationBibleOverrideMap } from '@/lib/presentationBibleVersionOverrides'
 
 export type ILiveContext = {
   itemIndex: number
   setItemIndex: (index: number) => void
   liveContentVersion: number
+  appliedTheme: ThemeWithMedia
   presentationVerseBySlideKey: Record<string, number>
   setPresentationVerseBySlideKey: (
     updater:
       | Record<string, number>
       | ((previous: Record<string, number>) => Record<string, number>)
+  ) => void
+  presentationBibleOverrideByKey: PresentationBibleOverrideMap
+  setPresentationBibleOverrideByKey: (
+    updater:
+      | PresentationBibleOverrideMap
+      | ((previous: PresentationBibleOverrideMap) => PresentationBibleOverrideMap)
   ) => void
   itemOnLive: ScheduleItem | null
   liveScreens: DisplayWithUsage[]
@@ -44,7 +52,10 @@ type IScheduleContext = {
   form: UseFormReturn<ScheduleSchemaType>
   getScheduleItemIcon: (item: ScheduleItem) => React.ReactNode
   getScheduleItemLabel: (item: ScheduleItem) => Promise<string | JSX.Element>
-  getScheduleItemContentScreen: (item: ScheduleItem) => Promise<ContentScreen>
+  getScheduleItemContentScreen: (
+    item: ScheduleItem,
+    options?: { presentationBibleOverrideByKey?: PresentationBibleOverrideMap }
+  ) => Promise<ContentScreen>
   songs: SongResponseDTO[]
   media: Media[]
   addItemToSchedule: (item: AddItemToSchedule) => void

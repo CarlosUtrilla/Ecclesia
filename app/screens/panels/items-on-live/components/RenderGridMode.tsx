@@ -1,4 +1,3 @@
-import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { PresentationView } from '@/ui/PresentationView'
 import { PresentationViewItems, ThemeWithMedia } from '@/ui/PresentationView/types'
@@ -22,9 +21,8 @@ export default function RenderGridMode({
   previewBadgeByIndex,
   presentationVerseBySlideKey
 }: Props) {
-  const { selectedTheme } = useSchedule()
-  const { itemIndex, setItemIndex } = useLive()
-  const themeToUse = themeOverride || selectedTheme
+  const { itemIndex, setItemIndex, appliedTheme } = useLive()
+  const themeToUse = themeOverride || appliedTheme
   const activeIndex = activeIndexOverride ?? itemIndex
 
   return (

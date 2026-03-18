@@ -2,7 +2,6 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useQuery } from '@tanstack/react-query'
 import { LayoutGrid, List, Radio } from 'lucide-react'
 import { RenderSongLyrics } from './components/RenderSongLyrics'
-import RenderBibleVerses from './components/RenderBibleVerses'
 import RenderBibleLiveControls from './components/RenderBibleLiveControls'
 import { RenderMedia } from './components/RenderMedia'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -13,6 +12,7 @@ import RenderPresentationLiveController from './components/RenderPresentationLiv
 import { useLive } from '../../../contexts/ScheduleContext/utils/liveContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { resolveSlideVerse } from '@/lib/presentationVerseController'
+import { ScrollArea } from '@/ui/scroll-area'
 
 const LIVE_VIEW_MODE_KEY = 'items-on-live-view-mode'
 
@@ -28,7 +28,8 @@ export default function LivePanel() {
     itemIndex,
     setItemIndex,
     presentationVerseBySlideKey,
-    setPresentationVerseBySlideKey
+    setPresentationVerseBySlideKey,
+    presentationBibleOverrideByKey
   } = useLive()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [viewMode, setViewMode] = useState<ViewModeTypes>(getInitialViewMode)
@@ -38,9 +39,16 @@ export default function LivePanel() {
   }, [viewMode])
 
   const { data } = useQuery({
-    queryKey: ['liveItemContent', itemOnLive?.accessData, liveContentVersion],
+    queryKey: [
+      'liveItemContent',
+      itemOnLive?.accessData,
+      liveContentVersion,
+      presentationBibleOverrideByKey
+    ],
     queryFn: () => {
-      return getScheduleItemContentScreen(itemOnLive!)
+      return getScheduleItemContentScreen(itemOnLive!, {
+        presentationBibleOverrideByKey
+      })
     },
     enabled: !!itemOnLive
   })
@@ -173,7 +181,7 @@ export default function LivePanel() {
           </div>
         </div>
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden">{data?.content ? renderContent() : null}</div>
+      <ScrollArea className="flex-1 min-h-0">{data?.content ? renderContent() : null}</ScrollArea>
     </div>
   )
 }

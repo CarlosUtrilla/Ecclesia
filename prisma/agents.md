@@ -30,9 +30,6 @@ model Song {
   title     String
   author    String?
   copyright String?
-  fullText  String   @default("")  // Busqueda full-text (contenido de letras concatenado)
-  lyrics    Lyrics[]
-  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 ```
@@ -176,6 +173,11 @@ model BiblePresentationSettings {
 - Controla como se muestra la referencia biblica en la presentacion.
 - `isGlobal: true` marca la configuracion por defecto que se usa si un tema no tiene la suya propia.
 
+### Setting
+
+- `SettingOptions` incluye claves persistentes de UI/runtime como `LOGO_FALLBACK_*` y `BIBLE_LIVE_CHUNK_MODE`.
+- `BIBLE_LIVE_CHUNK_MODE` controla cómo se fragmentan versículos largos en live: `auto`, `100`, `150`, `200` o `250`.
+
 ### Schedule y ScheduleItem
 
 ```prisma
@@ -254,7 +256,7 @@ model StageScreenConfig {
 - Modelo dedicado para configuración altamente customizable de cada pantalla stage.
 - Se relaciona 1:1 con `SelectedScreens` para separar infraestructura de display vs configuración stage.
 
-### Setting
+### Setting (Legacy Sync Docs)
 
 ```prisma
 model Setting {

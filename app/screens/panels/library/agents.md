@@ -129,6 +129,7 @@ app/screens/panels/library/
 - Seleccion multiple con Shift+click (rango) y Ctrl+click (toggle).
 - Navegacion con flechas (Shift+flecha extiende seleccion).
 - Cada versiculo es draggable con `data: { type: 'BIBLE', accessData: "bookId,chapter,verseRange,version" }`.
+- El `bookId` del `accessData` debe salir de `book_id` (identificador bíblico canónico) y no del `id` de la fila de `BibleSchema`; si `book_id` no existe, se usa `id` solo como fallback de compatibilidad.
 - Context menu: Agregar al cronograma, Presentar en vivo.
 - Usa `useKeyboardShortcuts()` para navegacion por teclado.
 

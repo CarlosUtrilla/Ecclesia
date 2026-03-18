@@ -4,6 +4,9 @@ import { useSchedule } from '..'
 import { DisplayWithUsage, useDisplays } from '../../displayContext'
 import type { ScheduleItem } from '@prisma/client'
 import { BlankTheme } from '@/hooks/useThemes'
+import { PresentationBibleOverrideMap } from '@/lib/presentationBibleVersionOverrides'
+import { ThemeWithMedia } from '@/ui/PresentationView/types'
+import { resolveAppliedLiveTheme } from './resolveAppliedLiveTheme'
 
 // Extensión: stub para sincronización de media
 type LiveMediaState = { action: 'play' | 'pause' | 'seek' | 'restart'; time: number }
@@ -18,10 +21,13 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const { getScheduleItemContentScreen, itemOnLive, selectedTheme, setItemOnLive } = useSchedule()
   const { displays, mainDisplay } = useDisplays()
   const [itemIndex, setItemIndex] = useState(0)
+  const [appliedTheme, setAppliedTheme] = useState<ThemeWithMedia>(BlankTheme)
   const [showLiveScreen, setShowLiveScreen] = useState(false)
   const [presentationVerseBySlideKey, setPresentationVerseBySlideKeyState] = useState<
     Record<string, number>
   >({})
+  const [presentationBibleOverrideByKey, setPresentationBibleOverrideByKeyState] =
+    useState<PresentationBibleOverrideMap>({})
   const [liveScreens, setLiveScreens] = useState<DisplayWithUsage[]>([])
   const [stageScreens, setStageScreens] = useState<DisplayWithUsage[]>([])
   const [contentScreen, setContentScreen] = useState<ContentScreen | null>(null)
@@ -54,14 +60,25 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   useEffect(() => {
     const fetchContentScreen = async () => {
       if (itemOnLive) {
-        const screen = await getScheduleItemContentScreen(itemOnLive)
+        const screen = await getScheduleItemContentScreen(itemOnLive, {
+          presentationBibleOverrideByKey
+        })
         setContentScreen(screen)
       } else {
         setContentScreen(null)
       }
     }
     fetchContentScreen()
-  }, [itemOnLive])
+  }, [getScheduleItemContentScreen, itemOnLive, presentationBibleOverrideByKey])
+
+  useEffect(() => {
+    if (itemOnLive?.type === 'PRESENTATION') {
+      return
+    }
+
+    setPresentationVerseBySlideKeyState({})
+    setPresentationBibleOverrideByKeyState({})
+  }, [itemOnLive?.accessData, itemOnLive?.type])
 
   useEffect(() => {
     if ((liveScreens.length > 0 || stageScreens.length > 0) && showLiveScreen) {
@@ -180,8 +197,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     }
     console.log('Sending theme update to live screens')
     const sendThemeToLiveScreens = async () => {
-      const liveTheme = itemOnLive?.type === 'PRESENTATION' ? BlankTheme : selectedTheme
-      await window.displayAPI.updateLiveScreenTheme(liveTheme)
+      await window.displayAPI.updateLiveScreenTheme(appliedTheme)
     }
     sendThemeToLiveScreens()
   }, [
@@ -190,7 +206,8 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     windowsStageScreenOpens,
     liveScreensReady,
     showedItemKey,
-    itemOnLive
+    itemOnLive,
+    appliedTheme
   ])
 
   useEffect(() => {
@@ -244,6 +261,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       if (event.key === 'Escape' && itemOnLive) {
         setItemOnLive(null)
         setPresentationVerseBySlideKeyState({})
+        setPresentationBibleOverrideByKeyState({})
         setItemIndex(0)
       }
     }
@@ -256,7 +274,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
 
   const showItemOnLiveScreen = async (item: ScheduleItem, index?: number) => {
     setItemOnLive({ ...item })
+    setAppliedTheme(resolveAppliedLiveTheme(item, selectedTheme))
     setPresentationVerseBySlideKeyState({})
+    setPresentationBibleOverrideByKeyState({})
     if (typeof index === 'number') {
       setItemIndex(index)
     }
@@ -271,14 +291,25 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     )
   }
 
+  const setPresentationBibleOverrideByKey: ILiveContext['setPresentationBibleOverrideByKey'] = (
+    updater
+  ) => {
+    setPresentationBibleOverrideByKeyState((previous) =>
+      typeof updater === 'function' ? updater(previous) : updater
+    )
+  }
+
   return (
     <LiveContext.Provider
       value={{
         itemIndex,
         setItemIndex,
         liveContentVersion: showedItemKey,
+        appliedTheme,
         presentationVerseBySlideKey,
         setPresentationVerseBySlideKey,
+        presentationBibleOverrideByKey,
+        setPresentationBibleOverrideByKey,
         itemOnLive,
         liveScreens,
         stageScreens,
