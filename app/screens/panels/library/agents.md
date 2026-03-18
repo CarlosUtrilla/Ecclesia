@@ -121,6 +121,7 @@ app/screens/panels/library/
 
 - Input compuesto: [Libro] [Cap.] [Vers.].
 - Autocompletado progresivo: al escribir libro, auto-avanza a capitulo, luego a versiculo.
+- Si el libro inicia con prefijo numerico (ej: `1` para `1 Corintios`), inserta automaticamente un espacio tras el numero (`1` + espacio) para facilitar la escritura.
 - Usa `useBibleSchema()` para validar libros y capitulos.
 - Patron render-time reset (ref para sincronizar props -> state).
 

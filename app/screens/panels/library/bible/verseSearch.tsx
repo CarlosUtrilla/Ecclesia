@@ -73,7 +73,11 @@ export default function VerseSearch({
       setVers('')
       inputCapRef.current?.focus()
     } else {
-      setBook(e.target.value)
+      const value = e.target.value
+      const valueWithNumericPrefixSpace = /^\d(?!\s)/.test(value)
+        ? `${value.charAt(0)} ${value.slice(1)}`
+        : value
+      setBook(valueWithNumericPrefixSpace)
     }
   }
 
