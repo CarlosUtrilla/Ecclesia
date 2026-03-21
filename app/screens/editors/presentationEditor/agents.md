@@ -29,7 +29,7 @@ app/screens/editors/presentationEditor/
 │   └── sortableSlideCard.tsx              # Miniatura sortable para carrusel
 ├── hooks/
 │   ├── usePresentationEditorHistory.ts    # Undo/redo con snapshots
-│   ├── usePresentationEditorShortcuts.ts  # Delete/Duplicate/Undo/Redo globales
+│   ├── usePresentationEditorShortcuts.ts  # Delete/Duplicate/Undo/Redo + Copy/Paste globales
 │   ├── usePresentationEditorActions.ts    # Acciones de negocio del editor
 │   ├── useCanvasSnapping.ts               # Snapping magnético y guías visuales
 │   └── useCanvasTransform.ts              # Transformaciones pointer-driven (move/resize/rotate)
@@ -59,6 +59,12 @@ app/screens/editors/presentationEditor/
 - Las diapositivas MEDIA creadas/actualizadas desde importación Canva se normalizan como full-bleed (100% del slide) para que el video ocupe todo el lienzo al importar.
 - Cada slide importada desde Canva persiste metadatos `canvaSourceKey` + `canvaSlideNumber` (número detectado del nombre de archivo, ej. `1.mp4`, `2.mp4`). En reimportaciones del mismo source key, el editor actualiza la diapositiva existente que coincide por número aunque el usuario haya insertado slides intermedias; los números nuevos sin match se agregan al final.
 - El editor escucha el evento IPC `media-saved` y refresca su query local de media para resolver inmediatamente los `mediaId` recién importados (evita slides en blanco por cache desactualizada).
+- Atajos de clipboard en editor: `Ctrl/Cmd + C` copia el item seleccionado al portapapeles interno del editor y `Ctrl/Cmd + V` lo pega en la diapositiva activa como nuevo item (nuevo `id`, `layer` superior y leve offset para feedback visual).
+- El canvas permite selección múltiple de items con `Cmd/Ctrl + click`; el copy/paste del editor aplica sobre toda la selección activa y al pegar mantiene orden relativo con capas consecutivas.
+- Cuando el foco está en un `contenteditable` del canvas, `Ctrl/Cmd + C` mantiene copia nativa si hay texto realmente seleccionado; si no hay selección de texto, se interpreta como copia del item seleccionado.
+- El editor maneja evento global `paste`: si el portapapeles contiene una imagen (`image/*`), la importa automáticamente a Media (`window.mediaAPI.importFile` + `window.api.media.create`) y la inserta como item `MEDIA` en la diapositiva activa.
+- Si la imagen pegada no expone ruta de archivo (caso común al copiar desde WhatsApp Web/navegador), el editor usa importación por bytes de portapapeles (`window.mediaAPI.importClipboardImage`) para permitir pegado desde apps externas.
+- El menú contextual de items del canvas incluye acciones explícitas `Copiar` y `Pegar` además de `Duplicar`/`Eliminar`.
 - Carrusel inferior de diapositivas en formato compacto (`w-36`) para priorizar el espacio útil del canvas.
 - Cada diapositiva soporta nombre opcional (`slideName`), editable desde el menú contextual de la miniatura (`Renombrar diapositiva`) mediante un diálogo propio del editor y persistido al guardar la presentación.
 - El carrusel inferior incluye slots de inserción entre diapositivas (y al inicio) que muestran en hover el botón `Añadir diapositiva aquí`, insertando una slide nueva en la posición exacta.

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { Button } from '@/ui/button'
 import { useThemes } from '@/hooks/useThemes'
+import { buildGlobalStageUpsertPayloads, getGlobalStageConfig } from '@/screens/stage/shared/globalStageConfig'
 
 type StageScreenRecord = {
   id: number
@@ -33,18 +34,26 @@ export default function StageThemesPanel() {
     staleTime: Infinity
   })
 
-  const configByScreenId = useMemo(() => {
-    return new Map(stageConfigs.map((config) => [config.selectedScreenId, config]))
-  }, [stageConfigs])
+  const globalConfig = useMemo(() => {
+    return getGlobalStageConfig(stageScreens, stageConfigs)
+  }, [stageConfigs, stageScreens])
 
-  const { mutate: saveThemeByScreen, isPending } = useMutation({
-    mutationFn: (payload: { selectedScreenId: number; themeId: number | null }) =>
-      window.api.stageScreenConfig.upsertStageScreenConfig(payload),
-    onSuccess: async (updatedConfig) => {
+  const { mutate: saveGlobalTheme, isPending } = useMutation({
+    mutationFn: async (payload: { themeId: number | null }) => {
+      const updates = buildGlobalStageUpsertPayloads(stageScreens, payload)
+      await Promise.all(
+        updates.map((update) => window.api.stageScreenConfig.upsertStageScreenConfig(update))
+      )
+    },
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-      await window.displayAPI.updateStageScreenConfig({
-        selectedScreenId: updatedConfig.selectedScreenId
-      })
+      await Promise.all(
+        stageScreens.map((screen) =>
+          window.displayAPI.updateStageScreenConfig({
+            selectedScreenId: screen.id
+          })
+        )
+      )
     }
   })
 
@@ -53,7 +62,7 @@ export default function StageThemesPanel() {
       <CardHeader>
         <CardTitle>Tema de Stage</CardTitle>
         <CardDescription>
-          Asigna el tema visual por pantalla stage y abre el editor de recursos/layout.
+          Usa un tema global compartido por todas las pantallas stage.
         </CardDescription>
         <div className="pt-2">
           <Button
@@ -70,47 +79,51 @@ export default function StageThemesPanel() {
         {stageScreens.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hay pantallas stage configuradas.</p>
         ) : (
-          stageScreens.map((screen) => {
-            const selectedThemeId = configByScreenId.get(screen.id)?.themeId ?? null
-
-            return (
-              <div
-                key={screen.id}
-                className="rounded-lg border p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Monitor className="size-4 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{screen.screenName}</p>
-                    <p className="text-xs text-muted-foreground">Display ID: {screen.screenId}</p>
-                  </div>
+          <div className="space-y-3">
+            <div className="rounded-lg border p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <Monitor className="size-4 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">Tema global de stage</p>
+                  <p className="text-xs text-muted-foreground">
+                    Se aplica a {stageScreens.length} pantalla(s) stage.
+                  </p>
                 </div>
-
-                <Select
-                  value={selectedThemeId !== null ? String(selectedThemeId) : 'none'}
-                  onValueChange={(value) => {
-                    saveThemeByScreen({
-                      selectedScreenId: screen.id,
-                      themeId: value === 'none' ? null : Number(value)
-                    })
-                  }}
-                  disabled={isPending}
-                >
-                  <SelectTrigger className="w-full md:w-64">
-                    <SelectValue placeholder="Seleccionar tema" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin tema stage</SelectItem>
-                    {themes.map((theme) => (
-                      <SelectItem key={theme.id} value={String(theme.id)}>
-                        {theme.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
-            )
-          })
+
+              <Select
+                value={
+                  globalConfig?.config?.themeId !== null && globalConfig?.config?.themeId !== undefined
+                    ? String(globalConfig.config.themeId)
+                    : 'none'
+                }
+                onValueChange={(value) => {
+                  saveGlobalTheme({
+                    themeId: value === 'none' ? null : Number(value)
+                  })
+                }}
+                disabled={isPending}
+              >
+                <SelectTrigger className="w-full md:w-64">
+                  <SelectValue placeholder="Seleccionar tema" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin tema stage</SelectItem>
+                  {themes.map((theme) => (
+                    <SelectItem key={theme.id} value={String(theme.id)}>
+                      {theme.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">
+                Pantallas incluidas: {stageScreens.map((screen) => screen.screenName).join(', ')}
+              </p>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

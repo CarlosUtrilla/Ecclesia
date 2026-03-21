@@ -37,6 +37,9 @@ type Props = {
   }
   onTextBoundsChange: PresentationViewProps['onTextBoundsChange']
   onBibleVersePositionChange: PresentationViewProps['onBibleVersePositionChange']
+  onBibleVerseWidthChange: PresentationViewProps['onBibleVerseWidthChange']
+  onBibleVerseTranslateXChange: PresentationViewProps['onBibleVerseTranslateXChange']
+  onBibleVerseHorizontalBoundsChange: PresentationViewProps['onBibleVerseHorizontalBoundsChange']
   onEditableTargetSelect: PresentationViewProps['onEditableTargetSelect']
   hideTextInLive: boolean
   blockBgStyle: React.CSSProperties | null
@@ -66,6 +69,9 @@ function ResourceContentComponent({
   textBoundsScale,
   onTextBoundsChange,
   onBibleVersePositionChange,
+  onBibleVerseWidthChange,
+  onBibleVerseTranslateXChange,
+  onBibleVerseHorizontalBoundsChange,
   onEditableTargetSelect,
   hideTextInLive,
   blockBgStyle,
@@ -131,6 +137,9 @@ function ResourceContentComponent({
         textBoundsScale={textBoundsScale}
         onTextBoundsChange={onTextBoundsChange}
         onBibleVersePositionChange={onBibleVersePositionChange}
+        onBibleVerseWidthChange={onBibleVerseWidthChange}
+        onBibleVerseTranslateXChange={onBibleVerseTranslateXChange}
+        onBibleVerseHorizontalBoundsChange={onBibleVerseHorizontalBoundsChange}
         onEditableTargetSelect={onEditableTargetSelect}
         hideTextInLive={hideTextInLive}
         blockBgStyle={blockBgStyle}
@@ -189,6 +198,9 @@ function areResourceContentPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.textBoundsScale === nextProps.textBoundsScale &&
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
     prevProps.onBibleVersePositionChange === nextProps.onBibleVersePositionChange &&
+    prevProps.onBibleVerseWidthChange === nextProps.onBibleVerseWidthChange &&
+    prevProps.onBibleVerseTranslateXChange === nextProps.onBibleVerseTranslateXChange &&
+    prevProps.onBibleVerseHorizontalBoundsChange === nextProps.onBibleVerseHorizontalBoundsChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
     prevProps.hideTextInLive === nextProps.hideTextInLive &&
     prevProps.blockBgStyle === nextProps.blockBgStyle &&

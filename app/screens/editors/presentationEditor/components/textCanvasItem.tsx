@@ -28,7 +28,7 @@ type Props = {
   isEditable: boolean
   highlightSnapTarget?: boolean
   isEditing: boolean
-  onSelect: () => void
+  onSelect: (event: React.MouseEvent<HTMLDivElement>) => void
   onStartMove: (event: React.PointerEvent<HTMLDivElement>) => void
   onRequestEdit: () => void
   onExitEdit: () => void
@@ -287,7 +287,7 @@ export default function TextCanvasItem({
       highlightSnapTarget={highlightSnapTarget}
       onSelect={(event) => {
         event.stopPropagation()
-        onSelect()
+        onSelect(event)
         if (isEditable && event.detail >= 2) {
           onRequestEdit()
         }
@@ -364,11 +364,11 @@ export default function TextCanvasItem({
           }}
           onClick={(event) => {
             event.stopPropagation()
-            onSelect()
+            onSelect(event as unknown as React.MouseEvent<HTMLDivElement>)
           }}
           onDoubleClick={(event) => {
             event.stopPropagation()
-            onSelect()
+            onSelect(event as unknown as React.MouseEvent<HTMLDivElement>)
             onRequestEdit()
           }}
           onInput={(event) => {
@@ -414,7 +414,7 @@ export default function TextCanvasItem({
             title={isEditable ? 'Doble click: editar. Click y arrastra para mover.' : undefined}
             onClick={(event) => {
               event.stopPropagation()
-              onSelect()
+              onSelect(event as unknown as React.MouseEvent<HTMLDivElement>)
               if (isEditable && event.detail >= 2) {
                 onRequestEdit()
               }

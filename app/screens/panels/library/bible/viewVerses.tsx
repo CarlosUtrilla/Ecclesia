@@ -37,6 +37,7 @@ export default function ViewVerses({
   const anchorIndexRef = useRef<number | null>(null)
   const lastClickedIndexRef = useRef<number | null>(null)
   const verseRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+  const scopeKeyRef = useRef('')
 
   const { addItemToSchedule } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
@@ -110,7 +111,7 @@ export default function ViewVerses({
             anchorIndexRef.current = currentVerseIndex
           }
         }
-        
+
         if (anchorIndexRef.current !== null) {
           const start = Math.min(anchorIndexRef.current, index)
           const end = Math.max(anchorIndexRef.current, index)
@@ -143,6 +144,28 @@ export default function ViewVerses({
   })
 
   useEffect(() => {
+    const currentScopeKey = `${version}:${book}:${chapter}`
+    const scopeChanged = scopeKeyRef.current !== currentScopeKey
+    if (scopeChanged) {
+      scopeKeyRef.current = currentScopeKey
+    }
+
+    if (scopeChanged || !internalSelectionRef.current) {
+      if (verse.length > 0 && completeChapter.length > 0) {
+        const selectedVerseIndex = completeChapter.findIndex((v) => v.verse === verse[0])
+        if (selectedVerseIndex !== -1) {
+          anchorIndexRef.current = selectedVerseIndex
+          lastClickedIndexRef.current = selectedVerseIndex
+        } else {
+          anchorIndexRef.current = null
+          lastClickedIndexRef.current = null
+        }
+      } else {
+        anchorIndexRef.current = null
+        lastClickedIndexRef.current = null
+      }
+    }
+
     // Scroll automático al verso seleccionado solo si viene del panel superior
     if (
       verse.length > 0 &&
@@ -166,7 +189,7 @@ export default function ViewVerses({
 
     // Reset del flag después de procesar el cambio
     internalSelectionRef.current = false
-  }, [verse, completeChapter])
+  }, [verse, completeChapter, version, book, chapter])
 
   const handleAddToSchedule = (verseNumber: number) => {
     if (bookAccessId === null) return

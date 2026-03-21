@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { cn } from '@/lib/utils'
 import { Button } from '@/ui/button'
+import { Switch } from '@/ui/switch'
 import { Radio } from 'lucide-react'
 import LiveScreen from '@/screens/live-screen'
 import StageScreen from '@/screens/stage-screen/index'
+import {
+  buildGlobalStageUpsertPayloads,
+  getGlobalStageConfig
+} from '@/screens/stage/shared/globalStageConfig'
 
 type StageTimerState = {
   id?: string | number
@@ -17,11 +22,16 @@ type StageTimerState = {
 
 type StageState = {
   timers?: StageTimerState[]
+  focusMode?: boolean
 }
 
 type StageConfigRecord = {
   selectedScreenId: number
   state: string
+}
+
+type StageScreenRecord = {
+  id: number
 }
 
 function resolveRemainingMs(timer: StageTimerState, now: number): number {
@@ -68,6 +78,20 @@ function parseTimers(rawState: string | undefined): StageTimerState[] {
   }
 }
 
+function parseStageState(rawState: string | undefined): StageState {
+  if (!rawState) return { timers: [], focusMode: false }
+
+  try {
+    const parsed = JSON.parse(rawState) as StageState
+    return {
+      timers: Array.isArray(parsed.timers) ? parsed.timers : [],
+      focusMode: Boolean(parsed.focusMode)
+    }
+  } catch {
+    return { timers: [], focusMode: false }
+  }
+}
+
 export default function LiveScreens() {
   const queryClient = useQueryClient()
   const {
@@ -85,6 +109,11 @@ export default function LiveScreens() {
   } = useLive()
 
   const [nowMs, setNowMs] = useState(() => Date.now())
+
+  const { data: stageScreensForConfig = [] } = useQuery<StageScreenRecord[]>({
+    queryKey: ['selectedScreens', 'stage'],
+    queryFn: () => window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
+  })
 
   const { data: stageConfigs = [] } = useQuery<StageConfigRecord[]>({
     queryKey: ['stageScreenConfig'],
@@ -112,21 +141,53 @@ export default function LiveScreens() {
     }
   }, [queryClient])
 
-  const activeStageTimers = useMemo(() => {
-    const timers = stageConfigs.flatMap((config) => {
-      return parseTimers(config.state).map((timer, index) => {
-        const remainingMs = resolveRemainingMs(timer, nowMs)
-        return {
-          key: `${config.selectedScreenId}-${timer.id ?? index}`,
-          label: timer.label?.trim() || `Timer ${index + 1}`,
-          remainingMs
-        }
+  const globalStageConfig = useMemo(() => {
+    return getGlobalStageConfig(stageScreensForConfig, stageConfigs)?.config ?? null
+  }, [stageConfigs, stageScreensForConfig])
+
+  const globalStageState = useMemo(() => {
+    return parseStageState(globalStageConfig?.state)
+  }, [globalStageConfig?.state])
+
+  const { mutate: updateGlobalFocusMode, isPending: isUpdatingGlobalFocusMode } = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const currentState = parseStageState(globalStageConfig?.state)
+      const updates = buildGlobalStageUpsertPayloads(stageScreensForConfig, {
+        state: JSON.stringify({
+          ...currentState,
+          focusMode: enabled
+        })
       })
+
+      await Promise.all(
+        updates.map((update) => window.api.stageScreenConfig.upsertStageScreenConfig(update))
+      )
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
+      await Promise.all(
+        stageScreensForConfig.map((screen) =>
+          window.displayAPI.updateStageScreenConfig({
+            selectedScreenId: screen.id
+          })
+        )
+      )
+    }
+  })
+
+  const activeStageTimers = useMemo(() => {
+    const timers = parseTimers(globalStageConfig?.state).map((timer, index) => {
+      const remainingMs = resolveRemainingMs(timer, nowMs)
+      return {
+        key: `${timer.id ?? index}`,
+        label: timer.label?.trim() || `Timer ${index + 1}`,
+        remainingMs
+      }
     })
 
     if (timers.length === 0) return []
     return timers
-  }, [stageConfigs, nowMs])
+  }, [globalStageConfig?.state, nowMs])
 
   return (
     <div className="flex flex-col h-full">
@@ -166,7 +227,17 @@ export default function LiveScreens() {
           )}
         </div>
 
-        <div className="p-2 bg-muted/40 border-t">Pantallas stage</div>
+        <div className="p-2 bg-muted/40 border-t flex items-center justify-between gap-2">
+          <span>Pantallas stage</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Modo enfoque</span>
+            <Switch
+              checked={globalStageState.focusMode ?? false}
+              onCheckedChange={(checked) => updateGlobalFocusMode(checked)}
+              disabled={isUpdatingGlobalFocusMode || stageScreensForConfig.length === 0}
+            />
+          </div>
+        </div>
         <div className="flex gap-2 p-2">
           {stageScreens.length > 0 ? (
             stageScreens.map((screen, idx) => (

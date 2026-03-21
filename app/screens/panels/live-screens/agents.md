@@ -10,7 +10,8 @@ Panel de monitoreo de pantallas live en la vista principal. Permite activar/desa
 
 - `index.tsx`: toolbar de control (`En Vivo`, `Gestionar pantallas`) y lista de previews `LiveScreen` en modo `isPreview`.
 - `index.tsx` también muestra la sección `Pantallas stage` con preview visual embebido por display (no solo nombre), reutilizando `StageScreen` en modo `isPreview`.
-- `index.tsx` incluye una barra de estado sobre los controles `F9/F10/F11` para mostrar la lista de timers stage activos (etiqueta + tiempo restante), ordenados por el que vence antes.
+- `index.tsx` incluye una barra de estado sobre los controles `F9/F10/F11` para mostrar la lista de timers stage activos (etiqueta + tiempo restante) usando solo la config stage global (sin duplicar por display).
+- `index.tsx` incluye un switch rápido de `Modo enfoque` en la cabecera de `Pantallas stage`, persistido en el estado global de stage y replicado a todas las pantallas stage.
 - Los chips de timer en esa barra cambian a rojo cuando el tiempo restante está en negativo (timer vencido).
 
 ## Convenciones UI

@@ -530,8 +530,13 @@ async function buildLocalMediaManifest(
     const stats = await fs.stat(fullPath)
     if (!stats.isFile()) continue
 
-    const checksum = await computeFileChecksum(fullPath)
     const previous = existingByPath.get(relativePath)
+    const canReuseChecksum =
+      !!previous &&
+      !previous.deletedAt &&
+      previous.size === stats.size &&
+      previous.mtime === stats.mtimeMs
+    const checksum = canReuseChecksum ? previous.checksum : await computeFileChecksum(fullPath)
 
     nextEntriesMap.set(relativePath, {
       path: relativePath,
@@ -733,7 +738,12 @@ async function uploadMediaBlob(
     fields: 'id'
   })
 
-  return created.data.id || ''
+  const fileId = created.data.id
+  if (!fileId) {
+    throw new Error(`[sync] Drive no devolvió fileId para blob de media: ${entry.path}`)
+  }
+
+  return fileId
 }
 
 async function downloadMediaBlobToLocal(
@@ -1123,8 +1133,13 @@ async function buildLocalBibleManifest(
       const stats = await fs.stat(fullPath)
       if (!stats.isFile()) continue
 
-      const checksum = await computeFileChecksum(fullPath)
       const previous = existingByName.get(fileName)
+      const canReuseChecksum =
+        !!previous &&
+        !previous.deletedAt &&
+        previous.size === stats.size &&
+        previous.mtime === stats.mtimeMs
+      const checksum = canReuseChecksum ? previous.checksum : await computeFileChecksum(fullPath)
 
       entries.push({
         fileName,
@@ -1417,6 +1432,7 @@ async function syncMediaManifest(
 
   let uploaded = 0
   let downloaded = 0
+  let missingRemoteBlobs = 0
   const nowIso = new Date().toISOString()
 
   if (mode === 'push') {
@@ -1453,9 +1469,14 @@ async function syncMediaManifest(
 
       if (!remoteBlobByChecksum.has(localEntry.checksum)) {
         const fileId = await uploadMediaBlob(drive, config.workspaceId, localEntry)
-        if (fileId) {
-          remoteBlobByChecksum.set(localEntry.checksum, fileId)
-        }
+        remoteBlobByChecksum.set(localEntry.checksum, fileId)
+      }
+
+      if (!remoteBlobByChecksum.has(localEntry.checksum)) {
+        log.error(
+          `[sync] Se omitió actualizar manifest para ${localEntry.path}: blob remoto no confirmado (${localEntry.checksum.slice(0, 12)}...)`
+        )
+        continue
       }
 
       uploaded += 1
@@ -1493,7 +1514,13 @@ async function syncMediaManifest(
       }
 
       const remoteFileId = remoteBlobByChecksum.get(remoteEntry.checksum)
-      if (!remoteFileId) continue
+      if (!remoteFileId) {
+        missingRemoteBlobs += 1
+        log.warn(
+          `[sync] Manifest remoto referencia blob inexistente para ${remoteEntry.path} (${remoteEntry.checksum.slice(0, 12)}...)`
+        )
+        continue
+      }
 
       await downloadMediaBlobToLocal(drive, remoteFileId, remoteEntry.path)
       downloaded += 1
@@ -1529,7 +1556,8 @@ async function syncMediaManifest(
 
   return {
     uploaded,
-    downloaded
+    downloaded,
+    missingRemoteBlobs
   }
 }
 
@@ -1589,6 +1617,100 @@ async function updateLocalSyncState(patch: SyncState) {
   }
   await writeJson(getStateFilePath(), nextState)
   return nextState
+}
+
+async function getLatestPendingOutboxChangeId(workspaceId: string, deviceId: string) {
+  const prisma = getPrisma() as unknown as {
+    syncOutboxChange?: {
+      findFirst?: (args: {
+        where: { workspaceId: string; deviceId: string; ackedAt: null }
+        orderBy: { id: 'desc' }
+        select: { id: true }
+      }) => Promise<{ id: number } | null>
+    }
+  }
+
+  if (!prisma.syncOutboxChange?.findFirst) return null
+
+  const latest = await prisma.syncOutboxChange.findFirst({
+    where: { workspaceId, deviceId, ackedAt: null },
+    orderBy: { id: 'desc' },
+    select: { id: true }
+  })
+
+  return typeof latest?.id === 'number' ? latest.id : null
+}
+
+async function acknowledgeOutboxUpToId(workspaceId: string, deviceId: string, upToId: number) {
+  const prisma = getPrisma() as unknown as {
+    syncOutboxChange?: {
+      updateMany?: (args: {
+        where: {
+          workspaceId: string
+          deviceId: string
+          ackedAt: null
+          id: { lte: number }
+        }
+        data: { ackedAt: Date }
+      }) => Promise<unknown>
+    }
+    syncState?: {
+      upsert?: (args: {
+        where: {
+          workspaceId_deviceId: {
+            workspaceId: string
+            deviceId: string
+          }
+        }
+        create: {
+          workspaceId: string
+          deviceId: string
+          lastAckedChangeId: number
+          lastPushedAt: Date
+        }
+        update: {
+          lastAckedChangeId: number
+          lastPushedAt: Date
+        }
+      }) => Promise<unknown>
+    }
+  }
+
+  if (!prisma.syncOutboxChange?.updateMany) return
+
+  const now = new Date()
+  await prisma.syncOutboxChange.updateMany({
+    where: {
+      workspaceId,
+      deviceId,
+      ackedAt: null,
+      id: { lte: upToId }
+    },
+    data: {
+      ackedAt: now
+    }
+  })
+
+  if (!prisma.syncState?.upsert) return
+
+  await prisma.syncState.upsert({
+    where: {
+      workspaceId_deviceId: {
+        workspaceId,
+        deviceId
+      }
+    },
+    create: {
+      workspaceId,
+      deviceId,
+      lastAckedChangeId: upToId,
+      lastPushedAt: now
+    },
+    update: {
+      lastAckedChangeId: upToId,
+      lastPushedAt: now
+    }
+  })
 }
 
 async function syncDifferential(reason: SyncReason) {
@@ -1660,20 +1782,38 @@ async function syncDifferential(reason: SyncReason) {
 
     // ── PUSH: en todos los ciclos excepto manual-pull ────────────────────────
     let snapshotUploaded = false
-    let pushMediaResult = { uploaded: 0 }
+    let pushMediaResult = { uploaded: 0, missingRemoteBlobs: 0 }
     let pushBibleResult = { uploaded: 0 }
 
     if (reason !== 'manual-pull') {
       notifySyncState(true, 60)
-      const snapshot = await buildSnapshot(config, appInstanceId)
-      await uploadSnapshot(drive, config, snapshot)
-      snapshotUploaded = true
+      const latestPendingOutboxId = await getLatestPendingOutboxChangeId(
+        config.workspaceId,
+        config.deviceName
+      )
+
+      if (latestPendingOutboxId !== null) {
+        const snapshot = await buildSnapshot(config, appInstanceId)
+        await uploadSnapshot(drive, config, snapshot)
+        await acknowledgeOutboxUpToId(config.workspaceId, config.deviceName, latestPendingOutboxId)
+        snapshotUploaded = true
+      }
+
       notifySyncState(true, 75)
       pushMediaResult = await syncMediaManifest(drive, config, 'push', appInstanceId)
       notifySyncState(true, 85)
       pushBibleResult = await syncBibleFiles(drive, config, 'push', appInstanceId)
       notifySyncState(true, 92)
-      await writeRemoteManifest(drive, config)
+
+      const hasPushChanges =
+        snapshotUploaded ||
+        pushMediaResult.uploaded > 0 ||
+        pushBibleResult.uploaded > 0 ||
+        pushMediaResult.missingRemoteBlobs > 0
+
+      if (hasPushChanges) {
+        await writeRemoteManifest(drive, config)
+      }
     }
 
     const syncedAt = new Date().toISOString()
@@ -1693,6 +1833,7 @@ async function syncDifferential(reason: SyncReason) {
       stale: pullResult.stale,
       snapshotUploaded,
       mediaDownloaded: pullMediaResult.downloaded,
+      missingRemoteBlobs: pullMediaResult.missingRemoteBlobs,
       mediaUploaded: pushMediaResult.uploaded,
       biblesDownloaded: pullBibleResult.downloaded,
       biblesUploaded: pushBibleResult.uploaded

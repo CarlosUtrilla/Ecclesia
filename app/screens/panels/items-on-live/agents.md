@@ -52,6 +52,13 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - El selector de vista del panel (`list/grid`) se persiste en `localStorage` (`items-on-live-view-mode`) para restaurar la preferencia del operador al reiniciar la app.
 - El contenedor principal usa `useKeyboardShortcuts` para navegación por teclado con foco: `ArrowLeft/ArrowUp` retrocede slide y `ArrowRight/ArrowDown` avanza slide cuando hay item en vivo con múltiples diapositivas.
 - En `PRESENTATION`, la navegación con flechas respeta rangos bíblicos por slide: primero avanza/retrocede versículos internos y solo cambia de diapositiva al llegar al final/inicio del rango.
+- En la sección de `Verso` de `RenderPresentationLiveController`, los botones de retroceso y avance muestran `Tooltip` con preview del verso anterior/siguiente en la versión bíblica seleccionada; el texto incluye referencia corta del libro (`book_short`, ej. `Mat 3:16`), con carga por hover/focus y caché.
+- `RenderPresentationLiveController` extrae el render de botones de verso con tooltip en `VerseTooltipButton.tsx` y comparte una sola función para resolver previews adyacentes (`previous/next`) evitando duplicación de lógica.
+- El controlador de rango de versos se separa en `VerseRangeController.tsx` (estado local, caché y carga lazy de previews), dejando `RenderPresentationLiveController` enfocado en orquestación de navegación de diapositivas y media.
+- La familia de archivos de PRESENTATION ahora está agrupada en `components/RenderPresentationLiveController/` (`index.tsx`, `VerseRangeController.tsx`, `VerseTooltipButton.tsx`, `nextSlidePreview.utils.ts`) para mantener cohesión del módulo.
+- `LivePanel` importa explícitamente `components/RenderPresentationLiveController/index` para evitar resoluciones transitorias al archivo legacy `RenderPresentationLiveController.tsx` después de moverlo a carpeta.
+- La lógica de reproducción/sincronización de video del controlador se extrae a `usePresentationVideoController.ts` (estado de reproducción, seek, volumen, sync con live y fallback de duración), para aislar efectos de media del render.
+- La barra inferior del controlador se extrae a `PresentationControllerFooter.tsx`, centralizando navegación de diapositivas, control de rango bíblico, selector de versión y controles de video en una sola pieza composable.
 
 ## Soporte de BIBLE en items-on-live
 

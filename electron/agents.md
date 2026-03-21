@@ -100,6 +100,7 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 #### Arquitectura snapshot-based (actual)
 
 - **Flujo push**: `reconcileSyncData()` → `buildSnapshot()` (todos los modelos de BD) → `uploadSnapshot()` → `syncMediaManifest push` → `syncBibleFiles push` → `writeRemoteManifest`.
+- **Optimización idle**: en ciclos normales, el snapshot solo se construye/sube si existe outbox local pendiente (`SyncOutboxChange.ackedAt = null`). Tras upload exitoso, se confirma outbox (`ackedAt`) para evitar re-subidas de snapshot en ciclos sin cambios de BD.
 - **Flujo pull**: `pullAllRemoteSnapshots()` → descarga snapshots de otros dispositivos → `applySnapshotRows()` (lastWriteWins por `updatedAt`) → `syncMediaManifest pull` → `syncBibleFiles pull`.
 - **Ping-pong fix**: Prisma `@updatedAt` auto-incrementa en cada write. Se usa `$executeRawUnsafe` dentro de `prisma.$transaction` para restaurar el `updatedAt` original del snapshot después de cada apply.
 - **Archivos en Drive**: `ecclesia-snapshot-{workspaceId}-{deviceId}.json` (un snapshot por dispositivo).
@@ -108,6 +109,9 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 #### Sincronizacion de archivos
 
 - **Media (imágenes/videos)**: Manifest `ecclesia-media-manifest-{workspaceId}.json` con checksum SHA-256. Incluye también archivos de fuentes (`Font` model, `userData/media/fonts/`).
+- El build de manifests local (media y biblias) reutiliza checksum previo cuando `size` y `mtime` no cambian, evitando recalcular hash de archivos sin cambios en cada ciclo.
+- En push de media, el manifest remoto/local solo se actualiza cuando el blob queda confirmado en Drive (si Drive no devuelve `fileId`, el ciclo falla y no publica checksum huérfano).
+- En pull de media, entradas de manifest con checksum sin blob remoto se registran como `missingRemoteBlobs` para observabilidad (sin marcar descarga falsa ni sobrescribir archivo local).
 - **Biblias importadas**: Manifest `ecclesia-bible-manifest-{workspaceId}.json` + blobs `ecclesia-bible-blob-{workspaceId}-{checksum}.bin`. Las biblias bundled en `resources/bibles/` se excluyen de la sincronización.
 - `media_manifest` propaga tombstones (`deletedAt`) para borrado remoto/local.
 - El listado de blobs remotos (media y biblias) usa paginación de Drive (`nextPageToken`) para evitar omitir descargas cuando existen más de 1000 archivos en la carpeta de Ecclesia.
@@ -209,6 +213,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - `mediaServer.ts`: servidor HTTP local para servir archivos de medios.
 - `mediaHandlers.ts`: importacion de medios.
   - Copia archivos al directorio de datos.
+  - Soporta importación de imágenes pegadas desde portapapeles sin ruta de archivo (`media:import-clipboard-image`) escribiendo temporal local y reutilizando el flujo normal de importación.
   - Genera thumbnails para imagenes/videos.
   - Para imágenes, intenta `sharp` con carga diferida; si `sharp` no está disponible para el runtime actual, hace fallback a `ffmpeg` para evitar crash del proceso principal.
   - Extrae metadatos (dimensiones, duracion).

@@ -6,6 +6,7 @@ import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { PresentationView } from '@/ui/PresentationView'
 import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 import { DEFAULT_STAGE_LAYOUT, StageLayout, parseStageLayout } from '../stage/shared/layout'
+import { getGlobalStageConfig } from '../stage/shared/globalStageConfig'
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { FocusModeOverlay } from './FocusModeOverlay'
 import { StageWidgets } from './StageWidgets'
@@ -111,9 +112,11 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
     if (!displayId) return
 
     const loadStageConfig = async () => {
-      const selectedScreen = await window.api.selectedScreens.getSelectedScreenByScreenId(displayId)
+      const stageScreens = await window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
+      const allConfigs = await window.api.stageScreenConfig.getAllStageScreenConfigs()
+      const globalConfig = getGlobalStageConfig(stageScreens, allConfigs)
 
-      if (!selectedScreen || selectedScreen.rol !== 'STAGE_SCREEN') {
+      if (!globalConfig) {
         selectedScreenIdRef.current = null
         hasConfiguredThemeRef.current = false
         setLayout(DEFAULT_STAGE_LAYOUT)
@@ -122,11 +125,9 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
         return
       }
 
-      selectedScreenIdRef.current = selectedScreen.id
+      selectedScreenIdRef.current = globalConfig.selectedScreenId
 
-      const config = await window.api.stageScreenConfig.getStageScreenConfigBySelectedScreenId(
-        selectedScreen.id
-      )
+      const config = globalConfig.config
 
       if (!config) {
         configuredThemeIdRef.current = null
@@ -194,11 +195,25 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
     const unsubscribeStageConfig = window.electron.ipcRenderer.on(
       'stageScreen-config-updated',
       async (_, data: StageScreenConfigUpdate) => {
-        if (selectedScreenIdRef.current !== data.selectedScreenId) return
+        if (selectedScreenIdRef.current !== null && selectedScreenIdRef.current !== data.selectedScreenId) {
+          return
+        }
 
-        const config = await window.api.stageScreenConfig.getStageScreenConfigBySelectedScreenId(
-          data.selectedScreenId
-        )
+        const stageScreens = await window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
+        const allConfigs = await window.api.stageScreenConfig.getAllStageScreenConfigs()
+        const globalConfig = getGlobalStageConfig(stageScreens, allConfigs)
+
+        if (!globalConfig?.config) {
+          setLayout(DEFAULT_STAGE_LAYOUT)
+          setStageState(DEFAULT_STATE)
+          configuredThemeIdRef.current = null
+          hasConfiguredThemeRef.current = false
+          applyTheme(liveTheme, `live:${liveTheme.id}`)
+          return
+        }
+
+        selectedScreenIdRef.current = globalConfig.selectedScreenId
+        const config = globalConfig.config
 
         if (!config) {
           setLayout(DEFAULT_STAGE_LAYOUT)

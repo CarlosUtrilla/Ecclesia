@@ -24,8 +24,23 @@ export const mediaAPI = {
     filePath: string
     fileSize: number
     thumbnail?: string
+    fallback?: string
     folder?: string
   }> => ipcRenderer.invoke('media:import-file', sourcePath, folder),
+  importClipboardImage: (
+    bytes: number[],
+    mimeType: string,
+    folder?: string
+  ): Promise<{
+    name: string
+    type: MediaType
+    format: string
+    filePath: string
+    fileSize: number
+    thumbnail?: string
+    fallback?: string
+    folder?: string
+  }> => ipcRenderer.invoke('media:import-clipboard-image', bytes, mimeType, folder),
   getFullPath: (fileName: string): Promise<string> =>
     ipcRenderer.invoke('media:get-full-path', fileName),
   deleteFile: (filePath: string, thumbnail?: string | null): Promise<boolean> =>

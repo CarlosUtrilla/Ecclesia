@@ -13,6 +13,8 @@ type Props = {
   children: ReactNode
   onLayerUp?: () => void
   onLayerDown?: () => void
+  onCopy?: () => void
+  onPaste?: () => void
   onDuplicate?: () => void
   onDelete?: () => void
   onEditText?: () => void
@@ -22,6 +24,8 @@ export default function CanvasItemContextMenu({
   children,
   onLayerUp,
   onLayerDown,
+  onCopy,
+  onPaste,
   onDuplicate,
   onDelete,
   onEditText
@@ -47,6 +51,17 @@ export default function CanvasItemContextMenu({
         <ContextMenuItem onSelect={onLayerDown}>
           <ArrowDown className="size-4" />
           Bajar capa
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={onCopy}>
+          <Copy className="size-4" />
+          Copiar
+          <ContextMenuShortcut>⌘/Ctrl+C</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={onPaste}>
+          <Copy className="size-4" />
+          Pegar
+          <ContextMenuShortcut>⌘/Ctrl+V</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={onDuplicate}>

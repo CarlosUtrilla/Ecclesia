@@ -4,13 +4,14 @@
 
 ## Descripcion
 
-Ventana dedicada para editar el `layout` de pantallas `STAGE_SCREEN`.
+Ventana dedicada para editar el `layout` global de pantallas `STAGE_SCREEN`.
 Implementa editor visual de recursos stage con posicionamiento y tamano por porcentaje.
 
 ## Archivos
 
-- `index.tsx`: ruta `/stage-layout`, selector de pantalla stage, canvas visual y panel de propiedades.
+- `index.tsx`: ruta `/stage-layout`, preview automático usando la primera pantalla stage detectada, canvas visual y panel de propiedades.
 - `../stage/shared/layout.ts`: tipos y normalización de layout (`StageLayout`, `StageLayoutItem`, defaults).
+- `../stage/shared/globalStageConfig.ts`: resolución de configuración stage global y utilidades de replicación de payloads a todas las pantallas stage.
 
 ## Recursos editables
 
@@ -51,6 +52,6 @@ El editor aplica `snap` a grilla de 2% durante move/resize para facilitar alinea
 
 ## Flujo
 
-- Persistencia de layout: `window.api.stageScreenConfig.upsertStageScreenConfig`.
+- Persistencia de layout: `window.api.stageScreenConfig.upsertStageScreenConfig` replicado a todas las pantallas stage.
 - Notificación en caliente: `window.displayAPI.updateStageScreenConfig`.
 - Se abre desde preload: `window.windowAPI.openStageLayoutWindow()`.

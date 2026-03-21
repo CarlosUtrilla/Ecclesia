@@ -23,6 +23,7 @@ import { PresentationView } from '@/ui/PresentationView'
 import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 import { useCanvasWidgetTransform, WidgetResizeHandle } from '@/hooks/useCanvasWidgetTransform'
 import { fontSizes } from '@/lib/themeConstants'
+import { buildGlobalStageUpsertPayloads, getGlobalStageConfig } from '../stage/shared/globalStageConfig'
 
 type StageScreenRecord = {
   id: number
@@ -129,7 +130,6 @@ const createWidget = (type: StageWidgetType, index: number): StageLayoutItem => 
 
 export default function StageLayoutScreen() {
   const queryClient = useQueryClient()
-  const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null)
   const [layoutDraft, setLayoutDraft] = useState<StageLayout>(DEFAULT_STAGE_LAYOUT)
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null)
   const [showLivePreview, setShowLivePreview] = useState(false)
@@ -154,21 +154,16 @@ export default function StageLayoutScreen() {
   })
 
   useEffect(() => {
-    if (selectedScreenId !== null) return
     if (stageScreens.length === 0) return
 
-    const firstId = stageScreens[0].id
-    setSelectedScreenId(firstId)
-    const current = stageConfigs.find((config) => config.selectedScreenId === firstId)
-    const parsed = parseStageLayout(current?.layout)
+    const parsed = parseStageLayout(getGlobalStageConfig(stageScreens, stageConfigs)?.config?.layout)
     setLayoutDraft(parsed)
     setSelectedWidgetId(parsed.items[0]?.id ?? null)
-  }, [selectedScreenId, stageScreens, stageConfigs])
+  }, [stageConfigs, stageScreens])
 
   const selectedScreen = useMemo(() => {
-    if (selectedScreenId === null) return null
-    return stageScreens.find((screen) => screen.id === selectedScreenId) ?? null
-  }, [stageScreens, selectedScreenId])
+    return stageScreens[0] ?? null
+  }, [stageScreens])
 
   const sortedWidgets = useMemo(() => {
     return [...layoutDraft.items].sort((a, b) => a.z - b.z)
@@ -182,13 +177,21 @@ export default function StageLayoutScreen() {
   }, [layoutDraft.items, selectedWidgetId])
 
   const { mutate: saveLayout, isPending } = useMutation({
-    mutationFn: (payload: { selectedScreenId: number; layout: string }) =>
-      window.api.stageScreenConfig.upsertStageScreenConfig(payload),
-    onSuccess: async (updatedConfig) => {
+    mutationFn: async (payload: { layout: string }) => {
+      const updates = buildGlobalStageUpsertPayloads(stageScreens, payload)
+      await Promise.all(
+        updates.map((update) => window.api.stageScreenConfig.upsertStageScreenConfig(update))
+      )
+    },
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-      await window.displayAPI.updateStageScreenConfig({
-        selectedScreenId: updatedConfig.selectedScreenId
-      })
+      await Promise.all(
+        stageScreens.map((screen) =>
+          window.displayAPI.updateStageScreenConfig({
+            selectedScreenId: screen.id
+          })
+        )
+      )
     }
   })
 
@@ -271,14 +274,12 @@ export default function StageLayoutScreen() {
   }, [])
 
   useEffect(() => {
-    if (selectedScreenId === null) {
+    if (stageScreens.length === 0) {
       setStageTheme(null)
       return
     }
 
-    const currentConfig = stageConfigs.find(
-      (config) => config.selectedScreenId === selectedScreenId
-    )
+    const currentConfig = getGlobalStageConfig(stageScreens, stageConfigs)?.config
     if (!currentConfig?.themeId) {
       setStageTheme(null)
       return
@@ -290,13 +291,12 @@ export default function StageLayoutScreen() {
     }
 
     loadTheme()
-  }, [selectedScreenId, stageConfigs])
+  }, [stageConfigs, stageScreens])
 
   const handleSaveLayout = () => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
 
     saveLayout({
-      selectedScreenId,
       layout: stageLayoutToJson(layoutDraft)
     })
   }
@@ -336,33 +336,8 @@ export default function StageLayoutScreen() {
             ) : (
               <>
                 <div className="flex min-h-0 flex-col gap-3">
-                  <Select
-                    value={selectedScreenId !== null ? String(selectedScreenId) : undefined}
-                    onValueChange={(value) => {
-                      const nextId = Number(value)
-                      setSelectedScreenId(nextId)
-                      const current = stageConfigs.find(
-                        (config) => config.selectedScreenId === nextId
-                      )
-                      const parsed = parseStageLayout(current?.layout)
-                      setLayoutDraft(parsed)
-                      setSelectedWidgetId(parsed.items[0]?.id ?? null)
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar pantalla stage" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stageScreens.map((screen) => (
-                        <SelectItem key={screen.id} value={String(screen.id)}>
-                          {screen.screenName} ({screen.screenId})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
                   <div className="text-xs text-muted-foreground">
-                    Editando: {selectedScreen?.screenName ?? 'Ninguna'}
+                    Editando layout global. Preview automático: {selectedScreen?.screenName ?? 'Ninguna'}
                   </div>
 
                   <div className="flex gap-2">
@@ -496,14 +471,14 @@ export default function StageLayoutScreen() {
                   <div className="flex gap-2">
                     <Button
                       onClick={handleSaveLayout}
-                      disabled={isPending || selectedScreenId === null}
+                      disabled={isPending || stageScreens.length === 0}
                     >
                       Guardar layout
                     </Button>
                     <Button
                       variant="outline"
                       onClick={handleResetBase}
-                      disabled={isPending || selectedScreenId === null}
+                      disabled={isPending || stageScreens.length === 0}
                     >
                       Restablecer base
                     </Button>

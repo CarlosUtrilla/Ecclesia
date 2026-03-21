@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { m } from 'framer-motion'
 import { sanitizeHTML } from '@/lib/utils'
 import { wordVariants, AnimationType } from '@/lib/animations'
-import { BASE_PRESENTATION_HEIGHT } from '@/lib/themeConstants'
+import { BASE_PRESENTATION_HEIGHT, BASE_PRESENTATION_WIDTH } from '@/lib/themeConstants'
 import {
   EditableBoundsTarget,
   PresentationViewItems,
@@ -12,8 +12,9 @@ import {
 import useBiblePresentationSetting from '../hooks/useBibleSetting'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { AnimatedText } from './AnimatedText'
-import { canProcessVerseDragMove, hasMeaningfulVerseDrag } from '../utils/verseInteraction'
 import { splitHtmlForWordAnimation } from '../utils/splitHtmlForWordAnimation'
+import { resolveBibleVerseTranslateX, resolveBibleVerseWidthPercent } from '../utils/verseWidth'
+import { useTextBoundsInteraction } from '../hooks/useTextBoundsInteraction'
 
 interface BibleTextRenderProps {
   item: PresentationViewItems
@@ -44,6 +45,9 @@ interface BibleTextRenderProps {
   }
   onTextBoundsChange?: (next: TextBoundsValues) => void
   onBibleVersePositionChange?: (next: number) => void
+  onBibleVerseWidthChange?: (next: number) => void
+  onBibleVerseTranslateXChange?: (next: number) => void
+  onBibleVerseHorizontalBoundsChange?: (next: { widthPercent: number; translateX: number }) => void
   onEditableTargetSelect?: (target: EditableBoundsTarget) => void
   hideTextInLive?: boolean
   blockBgStyle?: React.CSSProperties | null
@@ -51,14 +55,19 @@ interface BibleTextRenderProps {
   animationDuration?: number
 }
 
-type ActiveVerseInteraction = {
-  startY: number
-  startValue: number
-  position: 'upScreen' | 'downScreen'
-  isDragging: boolean
-}
-
 const MAX_BIBLE_EDGE_OFFSET_BASE = 72
+const SIDE_HANDLE_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  top: '50%',
+  width: 11,
+  height: 11,
+  borderRadius: '50%',
+  border: '1px solid rgba(255,255,255,0.75)',
+  background: 'rgba(20,184,166,0.9)',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.28)',
+  transform: 'translateY(-50%)',
+  zIndex: 3
+}
 
 const toFiniteNumber = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -101,14 +110,15 @@ export function BibleTextRender({
   textBoundsScale,
   onTextBoundsChange,
   onBibleVersePositionChange,
+  onBibleVerseWidthChange,
+  onBibleVerseTranslateXChange,
+  onBibleVerseHorizontalBoundsChange,
   onEditableTargetSelect,
   hideTextInLive = false,
   blockBgStyle,
   blockBgPadding,
   animationDuration
 }: BibleTextRenderProps) {
-  const activeVerseInteractionRef = useRef<ActiveVerseInteraction | null>(null)
-  const [verseCursor, setVerseCursor] = useState<React.CSSProperties['cursor']>('move')
   const { text: rawText, verse } = item
   const { biblePresentationSettings } = useBiblePresentationSetting()
   const { getCompleteNameById, getShortNameById } = useBibleSchema()
@@ -138,87 +148,131 @@ export function BibleTextRender({
   )
 
   const shouldShowVerseBounds = showTextBounds && bibleVerseIsSelected && isScreenModeVerse
-  const canEditVerseBounds =
+  const canEditVersePosition =
     showTextBounds &&
     onBibleVersePositionChange !== undefined &&
     positionIsScreenMode &&
     scaleFactor > 0
-
-  const handleVersePointerMove = useCallback(
-    (event: PointerEvent) => {
-      const activeVerse = activeVerseInteractionRef.current
-      if (!activeVerse || !scaleFactor || !onBibleVersePositionChange) return
-
-      if (!canProcessVerseDragMove(event.buttons)) {
-        return
-      }
-
-      const deltaYBase = (event.clientY - activeVerse.startY) / scaleFactor
-
-      if (!activeVerse.isDragging && !hasMeaningfulVerseDrag(deltaYBase)) {
-        return
-      }
-
-      activeVerse.isDragging = true
-
-      const nextValueRaw =
-        activeVerse.position === 'upScreen'
-          ? activeVerse.startValue + deltaYBase
-          : activeVerse.startValue - deltaYBase
-
-      const nextValue = Math.round(Math.min(Math.max(0, nextValueRaw), MAX_BIBLE_EDGE_OFFSET_BASE))
-
-      onBibleVersePositionChange(nextValue)
-    },
-    [onBibleVersePositionChange, scaleFactor]
+  const canEditVerseWidth =
+    showTextBounds &&
+    (onBibleVerseWidthChange !== undefined || onBibleVerseHorizontalBoundsChange !== undefined) &&
+    positionIsScreenMode &&
+    scaleFactor > 0
+  const verseWidthPercent = useMemo(
+    () =>
+      resolveBibleVerseWidthPercent(
+        (theme.textStyle as Record<string, unknown> | undefined)?.verseWidthPercent
+      ),
+    [theme.textStyle]
+  )
+  const verseTranslateX = useMemo(
+    () =>
+      resolveBibleVerseTranslateX(
+        (theme.textStyle as Record<string, unknown> | undefined)?.verseTranslateX
+      ),
+    [theme.textStyle]
   )
 
-  const stopVerseInteraction = useCallback(() => {
-    activeVerseInteractionRef.current = null
-    setVerseCursor('move')
-    document.body.style.cursor = ''
-    window.removeEventListener('pointermove', handleVersePointerMove)
-    window.removeEventListener('pointerup', stopVerseInteraction)
-  }, [handleVersePointerMove])
+  const verseBoundsBaseValues = useMemo<TextBoundsValues | undefined>(() => {
+    if (!positionIsScreenMode) return undefined
 
-  useEffect(() => {
-    return () => {
-      document.body.style.cursor = ''
-      window.removeEventListener('pointermove', handleVersePointerMove)
-      window.removeEventListener('pointerup', stopVerseInteraction)
+    const paddingInline = (BASE_PRESENTATION_WIDTH * (100 - verseWidthPercent)) / 200
+    const clampedTranslateX = Math.max(-paddingInline, Math.min(paddingInline, verseTranslateX))
+    const translateY =
+      selectedBiblePresentationSettings?.position === 'upScreen'
+        ? clampedVersePositionStyle - MAX_BIBLE_EDGE_OFFSET_BASE
+        : MAX_BIBLE_EDGE_OFFSET_BASE - clampedVersePositionStyle
+
+    return {
+      paddingInline,
+      paddingBlock: MAX_BIBLE_EDGE_OFFSET_BASE,
+      translateX: clampedTranslateX,
+      translateY
     }
-  }, [handleVersePointerMove, stopVerseInteraction])
+  }, [
+    clampedVersePositionStyle,
+    positionIsScreenMode,
+    selectedBiblePresentationSettings?.position,
+    verseTranslateX,
+    verseWidthPercent
+  ])
 
-  const startVerseInteraction = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0) return
-      if (!canEditVerseBounds) return
-      event.preventDefault()
-      event.stopPropagation()
+  const verseBoundsScale = useMemo(
+    () => ({
+      x: textBoundsScale?.x ?? scaleFactor,
+      y: textBoundsScale?.y ?? scaleFactor
+    }),
+    [scaleFactor, textBoundsScale?.x, textBoundsScale?.y]
+  )
 
-      const currentPosition = selectedBiblePresentationSettings?.position
-      if (currentPosition !== 'upScreen' && currentPosition !== 'downScreen') return
+  const handleVerseBoundsChange = useCallback(
+    (next: TextBoundsValues) => {
+      if (!positionIsScreenMode) return
 
-      activeVerseInteractionRef.current = {
-        startY: event.clientY,
-        startValue: clampedVersePositionStyle,
-        position: currentPosition,
-        isDragging: false
+      const nextWidth = resolveBibleVerseWidthPercent(
+        100 - ((next.paddingInline * 2) / BASE_PRESENTATION_WIDTH) * 100
+      )
+      const nextTranslateX = Math.round(next.translateX)
+
+      if (onBibleVerseHorizontalBoundsChange) {
+        onBibleVerseHorizontalBoundsChange({
+          widthPercent: nextWidth,
+          translateX: nextTranslateX
+        })
+      } else {
+        onBibleVerseWidthChange?.(nextWidth)
+        onBibleVerseTranslateXChange?.(nextTranslateX)
       }
 
-      setVerseCursor('ns-resize')
-      document.body.style.cursor = 'ns-resize'
-      window.addEventListener('pointermove', handleVersePointerMove)
-      window.addEventListener('pointerup', stopVerseInteraction)
+      if (onBibleVersePositionChange) {
+        const nextPosition =
+          selectedBiblePresentationSettings?.position === 'upScreen'
+            ? next.paddingBlock + next.translateY
+            : next.paddingBlock - next.translateY
+
+        onBibleVersePositionChange(
+          Math.round(Math.min(Math.max(0, nextPosition), MAX_BIBLE_EDGE_OFFSET_BASE))
+        )
+      }
     },
     [
-      canEditVerseBounds,
-      clampedVersePositionStyle,
-      handleVersePointerMove,
-      selectedBiblePresentationSettings?.position,
-      stopVerseInteraction
+      onBibleVersePositionChange,
+      onBibleVerseHorizontalBoundsChange,
+      onBibleVerseTranslateXChange,
+      onBibleVerseWidthChange,
+      positionIsScreenMode,
+      selectedBiblePresentationSettings?.position
     ]
   )
+
+  const canEditVerseBounds = Boolean(
+    shouldShowVerseBounds &&
+      verseBoundsBaseValues !== undefined &&
+      (canEditVersePosition || canEditVerseWidth) &&
+      verseBoundsScale.x > 0 &&
+      verseBoundsScale.y > 0
+  )
+
+  const {
+    boundsCursor,
+    snapGuides,
+    onBoundsPointerMove,
+    onBoundsPointerLeave,
+    onBoundsPointerDown,
+    startInteraction
+  } =
+    useTextBoundsInteraction({
+      canEditBounds: canEditVerseBounds,
+      textBoundsBaseValues: verseBoundsBaseValues,
+      textBoundsScale: verseBoundsScale,
+      onTextBoundsChange: handleVerseBoundsChange,
+      allowedModes: ['move', 'resize-left', 'resize-right'],
+      lockPaddingBlock: true,
+      snapAxes: {
+        x: true,
+        y: false
+      }
+    })
 
   const verseText = useMemo(() => {
     if (!verse || !selectedBiblePresentationSettings) return ''
@@ -370,6 +424,7 @@ export function BibleTextRender({
       ...textStyle,
       ...verseOverrideStyle,
       width: '100%',
+      maxWidth: '100%',
       whiteSpace: 'nowrap' as const,
       overflow: 'hidden',
       textOverflow: 'ellipsis',
@@ -441,6 +496,14 @@ export function BibleTextRender({
     onEditableTargetSelect?.('verse')
   }, [onEditableTargetSelect])
 
+  const handleVerseResizeHandlePointerDown = useCallback(
+    (mode: 'resize-left' | 'resize-right', event: React.PointerEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      startInteraction(mode, event)
+    },
+    [startInteraction]
+  )
+
   return (
     <>
       <AnimatedText
@@ -464,14 +527,32 @@ export function BibleTextRender({
         animationDuration={animationDuration}
       />
 
+      {canEditVerseBounds && snapGuides.centerX ? (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: 0,
+            bottom: 0,
+            width: 1,
+            background: 'rgba(20,184,166,0.85)',
+            transform: 'translateX(-0.5px)',
+            pointerEvents: 'none',
+            zIndex: 10
+          }}
+        />
+      ) : null}
+
       {isScreenModeVerse && verseText && !(hideTextInLive && !isPreview) && (
         <div
           style={{
             position: 'absolute',
-            left: 0,
-            width: '100%',
+            left: '50%',
+            width: `${verseWidthPercent}%`,
+            maxWidth: '100%',
             fontSize: smallFontSize,
-            cursor: canEditVerseBounds ? verseCursor : 'default',
+            cursor: canEditVerseBounds ? boundsCursor : 'default',
             border: shouldShowVerseBounds ? '2px dashed rgba(255,255,255,0.65)' : 'none',
             borderRadius: shouldShowVerseBounds ? 8 : 0,
             padding: shouldShowVerseBounds ? '2px 6px' : '0 12px',
@@ -479,6 +560,7 @@ export function BibleTextRender({
             touchAction: canEditVerseBounds ? 'none' : 'auto',
             pointerEvents: 'auto',
             zIndex: shouldShowVerseBounds ? 2 : 1,
+            transform: `translateX(calc(-50% + ${(verseBoundsBaseValues?.translateX ?? 0) * verseBoundsScale.x}px))`,
             bottom:
               selectedBiblePresentationSettings?.position === 'downScreen'
                 ? verseEdgeOffsetPx
@@ -489,6 +571,11 @@ export function BibleTextRender({
                 : 'auto'
           }}
           onPointerDown={(event) => {
+            const target = event.target as HTMLElement | null
+            if (target?.closest('[data-verse-resize-handle="true"]')) {
+              return
+            }
+
             if (showTextBounds) {
               handleSelectTarget()
             }
@@ -497,19 +584,49 @@ export function BibleTextRender({
               return
             }
 
-            startVerseInteraction(event)
+            onBoundsPointerDown(event)
           }}
-          onPointerMove={() => {
-            if (canEditVerseBounds && !activeVerseInteractionRef.current) {
-              setVerseCursor('ns-resize')
-            }
+          onPointerMove={(event) => {
+            onBoundsPointerMove(event)
           }}
           onPointerLeave={() => {
-            if (!activeVerseInteractionRef.current) {
-              setVerseCursor('move')
-            }
+            onBoundsPointerLeave()
           }}
         >
+          {canEditVerseBounds ? (
+            <>
+              <button
+                type="button"
+                data-verse-resize-handle="true"
+                aria-label="Redimensionar indicador desde la izquierda"
+                style={{
+                  ...SIDE_HANDLE_STYLE,
+                  left: -5.5,
+                  cursor: 'ew-resize'
+                }}
+                onPointerDownCapture={(event) => {
+                  event.stopPropagation()
+                }}
+                onPointerDown={(event) => handleVerseResizeHandlePointerDown('resize-left', event)}
+              />
+              <button
+                type="button"
+                data-verse-resize-handle="true"
+                aria-label="Redimensionar indicador desde la derecha"
+                style={{
+                  ...SIDE_HANDLE_STYLE,
+                  right: -5.5,
+                  cursor: 'ew-resize'
+                }}
+                onPointerDownCapture={(event) => {
+                  event.stopPropagation()
+                }}
+                onPointerDown={(event) =>
+                  handleVerseResizeHandlePointerDown('resize-right', event)
+                }
+              />
+            </>
+          ) : null}
           {renderVerseContent(formattedVerseText)}
         </div>
       )}

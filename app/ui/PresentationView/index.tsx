@@ -31,6 +31,7 @@ function PresentationViewComponent({
   themeTransitionKey,
   hideTextInLive = false,
   onClick,
+  onDoubleClick,
   selected,
   tagSongId,
   className,
@@ -42,6 +43,9 @@ function PresentationViewComponent({
   bibleVerseIsSelected = false,
   onTextBoundsChange,
   onBibleVersePositionChange,
+  onBibleVerseWidthChange,
+  onBibleVerseTranslateXChange,
+  onBibleVerseHorizontalBoundsChange,
   onEditableTargetSelect
 }: PresentationViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -182,6 +186,7 @@ function PresentationViewComponent({
       setVideoError={setVideoError}
       containerRef={containerRef as React.RefObject<HTMLDivElement>}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       hasTagSong={tagSong !== null}
       containerStyle={containerStyle}
       tagSong={tagSong}
@@ -202,6 +207,9 @@ function PresentationViewComponent({
       textBoundsScale={textBoundsScale}
       onTextBoundsChange={onTextBoundsChange}
       onBibleVersePositionChange={onBibleVersePositionChange}
+      onBibleVerseWidthChange={onBibleVerseWidthChange}
+      onBibleVerseTranslateXChange={onBibleVerseTranslateXChange}
+      onBibleVerseHorizontalBoundsChange={onBibleVerseHorizontalBoundsChange}
       onEditableTargetSelect={onEditableTargetSelect}
       currentIndex={currentIndex}
       presentationVerseBySlideKey={presentationVerseBySlideKey}
@@ -223,7 +231,7 @@ function PresentationViewComponent({
           'relative w-full h-full overflow-hidden',
           {
             'outline-[3px] outline-secondary transition-colors': selected,
-            'cursor-pointer': onClick !== undefined,
+            'cursor-pointer': onClick !== undefined || onDoubleClick !== undefined,
             'rounded-md': true
           },
           className
@@ -249,7 +257,7 @@ function PresentationViewComponent({
         'relative w-full h-full overflow-hidden',
         {
           'outline-[3px] outline-secondary transition-colors': selected,
-          'cursor-pointer': onClick !== undefined,
+          'cursor-pointer': onClick !== undefined || onDoubleClick !== undefined,
           'rounded-md': !live
         },
         className
@@ -278,6 +286,7 @@ function arePresentationViewPropsEqual(
     prevProps.presentationVerseBySlideKey === nextProps.presentationVerseBySlideKey &&
     prevProps.themeTransitionKey === nextProps.themeTransitionKey &&
     prevProps.onClick === nextProps.onClick &&
+    prevProps.onDoubleClick === nextProps.onDoubleClick &&
     prevProps.selected === nextProps.selected &&
     prevProps.tagSongId === nextProps.tagSongId &&
     prevProps.className === nextProps.className &&
@@ -289,6 +298,9 @@ function arePresentationViewPropsEqual(
     prevProps.bibleVerseIsSelected === nextProps.bibleVerseIsSelected &&
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
     prevProps.onBibleVersePositionChange === nextProps.onBibleVersePositionChange &&
+    prevProps.onBibleVerseWidthChange === nextProps.onBibleVerseWidthChange &&
+    prevProps.onBibleVerseTranslateXChange === nextProps.onBibleVerseTranslateXChange &&
+    prevProps.onBibleVerseHorizontalBoundsChange === nextProps.onBibleVerseHorizontalBoundsChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
     prevProps.items === nextProps.items &&
     prevProps.theme === nextProps.theme

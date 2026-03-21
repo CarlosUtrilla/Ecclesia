@@ -13,7 +13,7 @@ type Props = {
   isSelected: boolean
   isRotating?: boolean
   highlightSnapTarget?: boolean
-  onSelectItem: (itemId: string) => void
+  onSelectItem: (itemId: string, options?: { toggle?: boolean }) => void
   onStartMove: (event: React.PointerEvent<HTMLDivElement>) => void
   onStartRotate: (event: React.PointerEvent<HTMLDivElement>) => void
   onStartResize: (event: React.PointerEvent<HTMLDivElement>, corner: ResizeHandle) => void
@@ -47,7 +47,7 @@ export default function ShapeCanvasItem({
       highlightSnapTarget={highlightSnapTarget}
       onSelect={(event) => {
         event.stopPropagation()
-        onSelectItem(item.id)
+        onSelectItem(item.id, event.metaKey || event.ctrlKey ? { toggle: true } : undefined)
       }}
       onPointerDown={onStartMove}
       handles={

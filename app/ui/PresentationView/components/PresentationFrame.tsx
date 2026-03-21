@@ -8,16 +8,26 @@ type Props = {
   backgroundLayer: ReactNode
   contentLayer: ReactNode
   tagSongLayer: ReactNode
+  onDoubleClick?: (e?: React.MouseEvent) => void
 }
 
 export const PresentationFrame = forwardRef<HTMLDivElement, Props>(function PresentationFrame(
-  { onClick, hasTagSong, containerStyle, backgroundLayer, contentLayer, tagSongLayer },
+  {
+    onClick,
+    onDoubleClick,
+    hasTagSong,
+    containerStyle,
+    backgroundLayer,
+    contentLayer,
+    tagSongLayer
+  },
   ref
 ) {
   return (
     <div
       ref={ref}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={

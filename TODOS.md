@@ -79,3 +79,7 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 - [X] Se necesita hacer un split en texto demasiado grandes o un auto size segun el tamaño del contenedor
 - [ ] Widgets diapositiva anterior y siguiente
 - [X] El el autocomplete de selector de version de biblias, en el items on live, poner como tooltip el texto de la version por ejemplo si en pantalla esta mateo 2:3 y pongo el mouse encima de la opcion TLA debe mostrar el texto mateo 2:3 pero en TLA como tooltip
+
+[X] unificar las pantallas stage en una sola, osea, solo hay un tema y una configuracion para todas, o mejor aun, detectar la pantalla que esta en ese momento
+[X] mostrar preview de siguiente texto en diapositiva en el controlado, ej. siguiente> Mat 2:1 "Texto bla bla.."
+[X] el controlador de diapositivas se baja con el scroll cuando deberia estar flotando para estar a la mano

@@ -24,6 +24,7 @@ type Props = {
   setVideoError: (value: boolean) => void
   containerRef: RefObject<HTMLDivElement>
   onClick: PresentationViewProps['onClick']
+  onDoubleClick: PresentationViewProps['onDoubleClick']
   hasTagSong: boolean
   containerStyle: React.CSSProperties
   tagSong: { color: string; name: string } | null
@@ -58,6 +59,9 @@ type Props = {
   }
   onTextBoundsChange: PresentationViewProps['onTextBoundsChange']
   onBibleVersePositionChange: PresentationViewProps['onBibleVersePositionChange']
+  onBibleVerseWidthChange: PresentationViewProps['onBibleVerseWidthChange']
+  onBibleVerseTranslateXChange: PresentationViewProps['onBibleVerseTranslateXChange']
+  onBibleVerseHorizontalBoundsChange: PresentationViewProps['onBibleVerseHorizontalBoundsChange']
   onEditableTargetSelect: PresentationViewProps['onEditableTargetSelect']
   currentIndex: number
   presentationVerseBySlideKey?: Record<string, number>
@@ -81,6 +85,7 @@ function PresentationBodyComponent({
   setVideoError,
   containerRef,
   onClick,
+  onDoubleClick,
   hasTagSong,
   containerStyle,
   tagSong,
@@ -101,6 +106,9 @@ function PresentationBodyComponent({
   textBoundsScale,
   onTextBoundsChange,
   onBibleVersePositionChange,
+  onBibleVerseWidthChange,
+  onBibleVerseTranslateXChange,
+  onBibleVerseHorizontalBoundsChange,
   onEditableTargetSelect,
   currentIndex,
   presentationVerseBySlideKey,
@@ -185,6 +193,9 @@ function PresentationBodyComponent({
         textBoundsScale={textBoundsScale}
         onTextBoundsChange={onTextBoundsChange}
         onBibleVersePositionChange={onBibleVersePositionChange}
+        onBibleVerseWidthChange={onBibleVerseWidthChange}
+        onBibleVerseTranslateXChange={onBibleVerseTranslateXChange}
+        onBibleVerseHorizontalBoundsChange={onBibleVerseHorizontalBoundsChange}
         onEditableTargetSelect={onEditableTargetSelect}
         hideTextInLive={hideTextInLive}
         blockBgStyle={blockBgStyle}
@@ -222,6 +233,7 @@ function PresentationBodyComponent({
     <PresentationFrame
       ref={containerRef}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       hasTagSong={hasTagSong}
       containerStyle={containerStyle}
       backgroundLayer={backgroundLayer}
@@ -268,6 +280,9 @@ function arePresentationBodyPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.textBoundsScale === nextProps.textBoundsScale &&
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
     prevProps.onBibleVersePositionChange === nextProps.onBibleVersePositionChange &&
+    prevProps.onBibleVerseWidthChange === nextProps.onBibleVerseWidthChange &&
+    prevProps.onBibleVerseTranslateXChange === nextProps.onBibleVerseTranslateXChange &&
+    prevProps.onBibleVerseHorizontalBoundsChange === nextProps.onBibleVerseHorizontalBoundsChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
     prevProps.currentIndex === nextProps.currentIndex &&
     prevProps.presentationVerseBySlideKey === nextProps.presentationVerseBySlideKey &&

@@ -9,6 +9,7 @@ import ShapeCanvasItem from './shapeCanvasItem'
 import TextCanvasItem from './textCanvasItem'
 
 type DragMode = 'move' | 'resize' | 'rotate'
+type SelectionOptions = { toggle?: boolean }
 
 type Props = {
   item: PresentationSlideItem
@@ -21,7 +22,9 @@ type Props = {
   isRotating: boolean
   animationPreviewKey?: number
   theme: ThemeWithMedia
-  onSelectItem: (itemId: string) => void
+  onSelectItem: (itemId: string, options?: SelectionOptions) => void
+  onCopySelection?: () => void
+  onPasteSelection?: () => void
   onSetEditingItemId: (itemId: string | null) => void
   onStartDrag: (
     event: PointerEvent<HTMLDivElement>,
@@ -50,6 +53,8 @@ export default function CanvasItemNode({
   animationPreviewKey = 0,
   theme,
   onSelectItem,
+  onCopySelection,
+  onPasteSelection,
   onSetEditingItemId,
   onStartDrag,
   onItemTextChange,
@@ -63,6 +68,11 @@ export default function CanvasItemNode({
   const withSelection = (action?: (itemId: string) => void) => () => {
     onSelectItem(item.id)
     action?.(item.id)
+  }
+
+  const withSelectionAction = (action?: () => void) => () => {
+    onSelectItem(item.id)
+    action?.()
   }
 
   const requestTextEdit = () => {
@@ -80,6 +90,8 @@ export default function CanvasItemNode({
       <CanvasItemContextMenu
         onLayerUp={withSelection(onLayerUpItem)}
         onLayerDown={withSelection(onLayerDownItem)}
+        onCopy={withSelectionAction(onCopySelection)}
+        onPaste={withSelectionAction(onPasteSelection)}
         onDuplicate={withSelection(onDuplicateItem)}
         onDelete={withSelection(onDeleteItem)}
       >
@@ -106,6 +118,8 @@ export default function CanvasItemNode({
       <CanvasItemContextMenu
         onLayerUp={withSelection(onLayerUpItem)}
         onLayerDown={withSelection(onLayerDownItem)}
+        onCopy={withSelectionAction(onCopySelection)}
+        onPaste={withSelectionAction(onPasteSelection)}
         onDuplicate={withSelection(onDuplicateItem)}
         onDelete={withSelection(onDeleteItem)}
       >
@@ -131,6 +145,8 @@ export default function CanvasItemNode({
       onEditText={item.type === 'TEXT' ? requestTextEdit : undefined}
       onLayerUp={withSelection(onLayerUpItem)}
       onLayerDown={withSelection(onLayerDownItem)}
+      onCopy={withSelectionAction(onCopySelection)}
+      onPaste={withSelectionAction(onPasteSelection)}
       onDuplicate={withSelection(onDuplicateItem)}
       onDelete={withSelection(onDeleteItem)}
     >
@@ -151,7 +167,10 @@ export default function CanvasItemNode({
           isEditable={item.type === 'TEXT'}
           highlightSnapTarget={isSnapTarget}
           isEditing={isEditingText}
-          onSelect={() => onSelectItem(item.id)}
+          onSelect={(event) => {
+            const shouldToggle = event.metaKey || event.ctrlKey
+            onSelectItem(item.id, shouldToggle ? { toggle: true } : undefined)
+          }}
           onStartMove={(event) => onStartDrag(event, item, 'move')}
           onRequestEdit={requestTextEdit}
           onExitEdit={() => onSetEditingItemId(null)}

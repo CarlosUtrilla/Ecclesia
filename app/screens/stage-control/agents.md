@@ -11,8 +11,8 @@ Centraliza toda la operación stage fuera de `Settings`.
 ## Archivos
 
 - `index.tsx`: shell de ventana (`/stage-control`) y cierre de ventana actual; organiza el contenido en tabs (`Control Stage` primero, `Temas Stage` segundo).
-- `components/stageThemesPanel.tsx`: asignación de tema por pantalla stage y acceso a `Stage Layout`.
-- `components/stageControlsPanel.tsx`: layout en dos columnas en desktop: izquierda con selector de pantalla stage + mensaje persistente en `textarea`, derecha con preview embebido de salida stage; además timers (máximo 5) con entrada de horas/minutos/segundos, contador restante visible en la lista y formato de reloj.
+- `components/stageThemesPanel.tsx`: asignación de tema **global** compartido para todas las pantallas stage y acceso a `Stage Layout`.
+- `components/stageControlsPanel.tsx`: layout en dos columnas en desktop: izquierda con controles globales (mensaje/timers/reloj/modo enfoque), derecha con preview embebido de salida stage usando automáticamente la primera pantalla stage detectada.
 - `components/stageControlsPanel.tsx`: incluye presets rápidos de duración para timers (1, 2, 5, 10, 15, 20, 30, 45 y 60 minutos) que rellenan automáticamente `horas/minutos/segundos`.
 
 ## Flujo
@@ -21,10 +21,11 @@ Centraliza toda la operación stage fuera de `Settings`.
 - Refresco en tiempo real: `window.displayAPI.updateStageScreenConfig`.
 - Se abre desde preload: `window.windowAPI.openStageControlWindow()`.
 - Desde esta ventana se abre `Stage Layout` con `window.windowAPI.openStageLayoutWindow()`.
+- En modo global, cada guardado se replica a todas las filas `StageScreenConfig` de pantallas con rol `STAGE_SCREEN` para mantener consistencia total entre displays.
 
 ## Reglas operativas
 
-- Timers stage limitados a 5 visibles por pantalla (`state.timers`).
+- Timers stage limitados a 5 visibles en estado global compartido (`state.timers`).
 - Creación de timer con duración configurable por `horas`, `minutos` y `segundos`.
 - Presets rápidos para precargar duración de timer sin edición manual de inputs.
 - Selector de estilo visual de timers por pantalla (`Broadcast` y `Compacto`) persistido en `state.timerVisualMode`.

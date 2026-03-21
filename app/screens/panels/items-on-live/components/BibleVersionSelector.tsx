@@ -140,6 +140,7 @@ export default function BibleVersionSelector({
           isLoading={versionsLoading || isLoading}
           className="w-72 max-w-full"
           contentPlacement="top"
+          showAllOnFocus
           renderOption={shouldRenderPreviewTooltip ? renderVersionOption : undefined}
         />
       </div>

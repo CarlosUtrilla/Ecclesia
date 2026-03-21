@@ -58,16 +58,21 @@ import usePresentationEditorHistory, {
   PresentationEditorHistorySnapshot
 } from './hooks/usePresentationEditorHistory'
 import { parseBibleAccessData } from './utils/bibleAccessData'
+import { cloneClipboardItems, getPastedImagePayload } from './utils/presentationClipboard'
 import {
   buildPrimaryItemFromSlide,
   BASE_CANVAS_HEIGHT,
   BASE_CANVAS_WIDTH,
   cloneSlideForDuplication,
+  createMediaSlide,
+  createSlideItem,
   createTextSlide,
   defaultTransitionSettingsString,
   ensureSlideItems,
+  getNextLayer,
   parseCanvasItemStyle,
-  PresentationSlide
+  PresentationSlide,
+  PresentationSlideItem
 } from './utils/slideUtils'
 
 const getUniformThemeId = (slides: PresentationFormValues['slides']): number | null => {
@@ -88,6 +93,7 @@ export default function PresentationEditor() {
 
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(0)
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>(undefined)
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false)
   const [mediaPickerMode, setMediaPickerMode] = useState<'insert-current' | 'replace-current'>(
     'insert-current'
@@ -105,6 +111,7 @@ export default function PresentationEditor() {
   const [renameSlideIndex, setRenameSlideIndex] = useState<number | null>(null)
   const [renameSlideName, setRenameSlideName] = useState('')
   const [isSlideTrayHovered, setIsSlideTrayHovered] = useState(false)
+  const copiedItemsRef = useRef<PresentationSlideItem[]>([])
   const shouldSeedHistoryRef = useRef(false)
   const previewAreaRef = useRef<HTMLDivElement>(null)
   const { themes } = useThemes()
@@ -239,15 +246,31 @@ export default function PresentationEditor() {
     const normalizedItems = ensureSlideItems(selectedSlide)
     if ((selectedSlide.items || []).length !== normalizedItems.length) {
       setValue(`slides.${selectedSlideIndex}.items`, normalizedItems, { shouldDirty: true })
-      setSelectedItemId(normalizedItems[normalizedItems.length - 1]?.id)
+      const fallbackItemId = normalizedItems[normalizedItems.length - 1]?.id
+      setSelectedItemId(fallbackItemId)
+      setSelectedItemIds(fallbackItemId ? [fallbackItemId] : [])
       return
     }
 
-    if (!selectedItemId || !normalizedItems.some((item) => item.id === selectedItemId)) {
+    const normalizedItemIdSet = new Set(normalizedItems.map((item) => item.id))
+    const nextSelectedIds = selectedItemIds.filter((itemId) => normalizedItemIdSet.has(itemId))
+
+    if (nextSelectedIds.length !== selectedItemIds.length) {
+      setSelectedItemIds(nextSelectedIds)
+    }
+
+    if (!selectedItemId || !normalizedItemIdSet.has(selectedItemId)) {
       const topItem = [...normalizedItems]
         .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
         .at(-1)
-      setSelectedItemId(topItem?.id)
+      const fallbackItemId = topItem?.id
+      setSelectedItemId(fallbackItemId)
+      setSelectedItemIds(fallbackItemId ? [fallbackItemId] : [])
+      return
+    }
+
+    if (nextSelectedIds.length === 0 && selectedItemId) {
+      setSelectedItemIds([selectedItemId])
     }
   }, [selectedSlide?.id, selectedSlideIndex])
 
@@ -290,6 +313,120 @@ export default function PresentationEditor() {
     return Number.isFinite(mediaId) && mediaId > 0 ? mediaId : undefined
   }, [selectedItem?.id, selectedItem?.type, selectedItem?.accessData])
 
+  const handleCanvasSelection = (itemId?: string, options?: { toggle?: boolean }) => {
+    if (!itemId) {
+      setSelectedItemId(undefined)
+      setSelectedItemIds([])
+      return
+    }
+
+    if (options?.toggle) {
+      setSelectedItemIds((current) => {
+        if (current.includes(itemId)) {
+          const next = current.filter((id) => id !== itemId)
+          setSelectedItemId(next[next.length - 1])
+          return next
+        }
+
+        const next = [...current, itemId]
+        setSelectedItemId(itemId)
+        return next
+      })
+      return
+    }
+
+    setSelectedItemId(itemId)
+    setSelectedItemIds([itemId])
+  }
+
+  const copySelectedItem = () => {
+    if (!selectedSlide) return
+
+    const items = ensureSlideItems(selectedSlide)
+    const selectedIds =
+      selectedItemIds.length > 0 ? selectedItemIds : selectedItem ? [selectedItem.id] : []
+    if (selectedIds.length === 0) return
+
+    const selectedSet = new Set(selectedIds)
+    copiedItemsRef.current = items
+      .filter((item) => selectedSet.has(item.id))
+      .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
+      .map((item) => JSON.parse(JSON.stringify(item)) as PresentationSlideItem)
+  }
+
+  const pasteCopiedItem = () => {
+    if (!selectedSlide) return false
+
+    const copiedItems = copiedItemsRef.current
+    if (copiedItems.length === 0) return false
+
+    const items = ensureSlideItems(selectedSlide)
+    const duplicatedItems = cloneClipboardItems({
+      copiedItems,
+      existingItems: items
+    })
+    if (duplicatedItems.length === 0) return false
+
+    setValue(`slides.${selectedSlideIndex}.items`, [...items, ...duplicatedItems], {
+      shouldDirty: true
+    })
+
+    const duplicatedIds = duplicatedItems.map((item) => item.id)
+    setSelectedItemIds(duplicatedIds)
+    setSelectedItemId(duplicatedIds[duplicatedIds.length - 1])
+    return true
+  }
+
+  const handlePasteInEditor = async (event: ClipboardEvent) => {
+    const imagePayload = await getPastedImagePayload(event)
+    if (imagePayload) {
+      event.preventDefault()
+
+      try {
+        const sourcePath = window.mediaAPI.getPathForFile(imagePayload.file)
+        const importedFile = sourcePath
+          ? await window.mediaAPI.importFile(sourcePath)
+          : await window.mediaAPI.importClipboardImage(
+              imagePayload.bytes,
+              imagePayload.mimeType
+            )
+        const mediaRecord = await window.api.media.create(importedFile)
+        const mediaId = Number(mediaRecord.id)
+
+        if (!Number.isFinite(mediaId) || mediaId <= 0) return
+
+        if (!selectedSlide) {
+          append(createMediaSlide(mediaId, globalThemeId))
+          setSelectedSlideIndex(fields.length)
+          setSelectedItemId(undefined)
+          setSelectedItemIds([])
+        } else {
+          const items = ensureSlideItems(selectedSlide)
+          const newItem = createSlideItem('MEDIA', {
+            accessData: String(mediaId),
+            layer: getNextLayer(items)
+          })
+
+          setValue(`slides.${selectedSlideIndex}.items`, [...items, newItem], {
+            shouldDirty: true
+          })
+          setSelectedItemId(newItem.id)
+          setSelectedItemIds([newItem.id])
+        }
+
+        window.electron.ipcRenderer.send('media-saved')
+        return
+      } catch (error) {
+        console.error('No se pudo importar la imagen pegada:', error)
+        return
+      }
+    }
+
+    if (pasteCopiedItem()) {
+      event.preventDefault()
+    }
+  }
+
   const historySnapshot = useMemo<PresentationEditorHistorySnapshot>(
     () => ({
       title,
@@ -309,9 +446,23 @@ export default function PresentationEditor() {
       })
       setSelectedSlideIndex(snapshot.selectedSlideIndex)
       setSelectedItemId(snapshot.selectedItemId)
+      setSelectedItemIds(snapshot.selectedItemId ? [snapshot.selectedItemId] : [])
     },
     isCapturePaused: isCanvasDragging
   })
+
+  useEffect(() => {
+    if (!selectedItemId) {
+      if (selectedItemIds.length > 0) {
+        setSelectedItemIds([])
+      }
+      return
+    }
+
+    if (selectedItemIds.length === 0) {
+      setSelectedItemIds([selectedItemId])
+    }
+  }, [selectedItemId, selectedItemIds])
 
   useEffect(() => {
     if (!shouldSeedHistoryRef.current) return
@@ -380,7 +531,7 @@ export default function PresentationEditor() {
   })
 
   usePresentationEditorShortcuts({
-    hasSelectedItem: Boolean(selectedItem),
+    hasSelectedItem: selectedItemIds.length > 0 || Boolean(selectedItem),
     hasSelectedSlide: slides.length > 0,
     preferSlideShortcuts: isSlideTrayHovered,
     onDelete: removeSelectedItem,
@@ -391,6 +542,7 @@ export default function PresentationEditor() {
         setValue('slides', [createTextSlide(globalThemeId)], { shouldDirty: true })
         setSelectedSlideIndex(0)
         setSelectedItemId(undefined)
+        setSelectedItemIds([])
         return
       }
 
@@ -398,10 +550,15 @@ export default function PresentationEditor() {
       const nextIndex = Math.max(0, Math.min(selectedSlideIndex, slides.length - 2))
       setSelectedSlideIndex(nextIndex)
       setSelectedItemId(undefined)
+      setSelectedItemIds([])
     },
     onDuplicate: duplicateSelectedItem,
     onUndo: undoHistory,
-    onRedo: redoHistory
+    onRedo: redoHistory,
+    onCopy: copySelectedItem,
+    onPaste: (event) => {
+      void handlePasteInEditor(event)
+    }
   })
 
   const handleSelectedItemAnimationChange = (settings: AnimationSettings) => {
@@ -776,6 +933,7 @@ export default function PresentationEditor() {
           onPointerDown={(event) => {
             if (event.target === event.currentTarget) {
               setSelectedItemId(undefined)
+              setSelectedItemIds([])
             }
           }}
         >
@@ -803,8 +961,13 @@ export default function PresentationEditor() {
                     theme={editorCanvasTheme}
                     canvasScale={zoomScale}
                     animationPreviewKey={animationPreviewKey}
+                    selectedItemIds={selectedItemIds}
                     selectedItemId={selectedItemId}
-                    onSelectItem={setSelectedItemId}
+                    onSelectItem={handleCanvasSelection}
+                    onCopySelection={copySelectedItem}
+                    onPasteSelection={() => {
+                      pasteCopiedItem()
+                    }}
                     onDuplicateItem={duplicateItemById}
                     onDeleteItem={removeItemById}
                     onLayerUpItem={(itemId) => updateItemLayerById(itemId, 'up')}
@@ -862,6 +1025,7 @@ export default function PresentationEditor() {
                             .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
                             .at(-1)
                           setSelectedItemId(topItem?.id)
+                          setSelectedItemIds(topItem?.id ? [topItem.id] : [])
                         }}
                       />
                       <SlideInsertSlot onInsert={() => insertEmptySlideAt(index + 1)} />

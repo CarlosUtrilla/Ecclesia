@@ -9,6 +9,8 @@ type Params = {
   onDuplicate: () => void
   onUndo: () => void
   onRedo: () => void
+  onCopy?: () => void
+  onPaste?: (event: ClipboardEvent) => void
 }
 
 const isTypingTarget = (target: EventTarget | null) => {
@@ -20,6 +22,20 @@ const isTypingTarget = (target: EventTarget | null) => {
   return target.closest('[contenteditable="true"]') !== null
 }
 
+const shouldSkipItemCopyShortcut = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return false
+
+  const tagName = target.tagName
+  if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') return true
+
+  if (target.isContentEditable || target.closest('[contenteditable="true"]')) {
+    const selectedText = window.getSelection()?.toString().trim() || ''
+    return selectedText.length > 0
+  }
+
+  return false
+}
+
 export default function usePresentationEditorShortcuts({
   hasSelectedItem,
   hasSelectedSlide,
@@ -28,10 +44,19 @@ export default function usePresentationEditorShortcuts({
   onDeleteSlide,
   onDuplicate,
   onUndo,
-  onRedo
+  onRedo,
+  onCopy,
+  onPaste
 }: Params) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
+        if (!hasSelectedItem || !onCopy || shouldSkipItemCopyShortcut(event.target)) return
+        event.preventDefault()
+        onCopy()
+        return
+      }
+
       if (isTypingTarget(event.target)) return
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -75,7 +100,22 @@ export default function usePresentationEditorShortcuts({
     onDelete,
     onDeleteSlide,
     onDuplicate,
+    onCopy,
     onRedo,
     onUndo
   ])
+
+  useEffect(() => {
+    if (!onPaste) return
+
+    const handlePaste = (event: ClipboardEvent) => {
+      if (isTypingTarget(event.target)) return
+      onPaste(event)
+    }
+
+    window.addEventListener('paste', handlePaste)
+    return () => {
+      window.removeEventListener('paste', handlePaste)
+    }
+  }, [onPaste])
 }

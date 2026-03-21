@@ -364,6 +364,93 @@ describe('googleDriveSyncManager media integrity and transfer', () => {
     expect(await fs.pathExists(getMediaFilePath('images/bg.jpg'))).toBe(false)
   })
 
+  it('pull reporta blobs remotos faltantes cuando el manifest referencia checksums inexistentes', async () => {
+    mediaRows.push({ filePath: 'videos/missing.mp4', thumbnail: null, fallback: null })
+
+    const workspaceId = 'ws-1'
+    const missingChecksum = 'checksum-not-uploaded-anywhere'
+    const id = `remote-${remoteStore.nextId++}`
+
+    const manifestFile: RemoteFile = {
+      id,
+      name: `ecclesia-media-manifest-${workspaceId}.json`,
+      content: Buffer.from(
+        JSON.stringify({
+          schemaVersion: 1,
+          workspaceId,
+          deviceId: 'pc-remota',
+          updatedAt: '2026-03-15T16:00:00.000Z',
+          entries: [
+            {
+              path: 'videos/missing.mp4',
+              size: 12,
+              checksum: missingChecksum,
+              mtime: Date.now(),
+              deletedAt: null,
+              lastSyncedAt: null
+            }
+          ]
+        })
+      ),
+      modifiedTime: new Date().toISOString()
+    }
+
+    remoteStore.files.set(id, manifestFile)
+    remoteStore.byName.set(manifestFile.name, id)
+
+    const pullResult = await executeSyncCycle('manual-pull')
+
+    expect(pullResult.synced).toBe(true)
+    expect((pullResult as { mediaDownloaded?: number }).mediaDownloaded).toBe(0)
+    expect((pullResult as { missingRemoteBlobs?: number }).missingRemoteBlobs).toBe(1)
+    expect(await fs.pathExists(getMediaFilePath('videos/missing.mp4'))).toBe(false)
+  })
+
+  it('push de media falla si Drive no devuelve fileId para un blob nuevo', async () => {
+    mediaRows.push({ filePath: 'videos/broken-upload.mp4', thumbnail: null, fallback: null })
+
+    await fs.ensureDir(path.dirname(getMediaFilePath('videos/broken-upload.mp4')))
+    await fs.writeFile(getMediaFilePath('videos/broken-upload.mp4'), Buffer.from('broken-upload'))
+
+    const originalCreate = driveMock.files.create.getMockImplementation()
+    try {
+      driveMock.files.create.mockImplementation(
+        async (params: { requestBody: { name: string }; media: { body: unknown } }) => {
+          if (params.requestBody.name.startsWith('ecclesia-media-blob-ws-1-')) {
+            return {
+              data: {
+                id: '',
+                modifiedTime: new Date().toISOString()
+              }
+            }
+          }
+
+          if (originalCreate) {
+            return (await originalCreate(params as never)) as never
+          }
+
+          return {
+            data: {
+              id: '',
+              modifiedTime: new Date().toISOString()
+            }
+          } as never
+        }
+      )
+
+      await expect(executeSyncCycle('manual-push')).rejects.toThrow('Drive no devolvió fileId')
+
+      const remoteManifest = getRemoteFileByName('ecclesia-media-manifest-ws-1.json')
+      expect(remoteManifest).toBeNull()
+    } finally {
+      if (originalCreate) {
+        driveMock.files.create.mockImplementation(originalCreate)
+      } else {
+        driveMock.files.create.mockReset()
+      }
+    }
+  })
+
   it('transferencia por delta: sin cambios no sube blobs adicionales y con cambio sube solo el nuevo', async () => {
     mediaRows.push({ filePath: 'clips/track.mp3', thumbnail: null, fallback: null })
 
@@ -382,6 +469,24 @@ describe('googleDriveSyncManager media integrity and transfer', () => {
     // En el entorno de test la re-subida puede variar según mocks; aseguramos al menos
     // que existe al menos 1 blob remoto para el workspace.
     expect(countRemoteBlobFiles('ws-1')).toBeGreaterThanOrEqual(1)
+  })
+
+  it('no rehace checksum de media en ciclos sin cambios', async () => {
+    mediaRows.push({ filePath: 'images/static.png', thumbnail: null, fallback: null })
+
+    await fs.ensureDir(path.dirname(getMediaFilePath('images/static.png')))
+    await fs.writeFile(getMediaFilePath('images/static.png'), Buffer.from('static-v1'))
+
+    await executeSyncCycle('manual-push')
+
+    const streamSpy = vi.spyOn(fs, 'createReadStream')
+    const callsBefore = streamSpy.mock.calls.length
+
+    await executeSyncCycle('manual-push')
+
+    const callsAfter = streamSpy.mock.calls.length
+    expect(callsAfter - callsBefore).toBe(0)
+    streamSpy.mockRestore()
   })
 
   it('pull de media pagina blobs remotos y descarga archivos aunque existan más de 1000', async () => {

@@ -17,8 +17,11 @@ type Props = {
   canvasScale?: number
   animationPreviewKey?: number
   theme: ThemeWithMedia
+  selectedItemIds?: string[]
   selectedItemId?: string
-  onSelectItem: (itemId?: string) => void
+  onSelectItem: (itemId?: string, options?: { toggle?: boolean }) => void
+  onCopySelection?: () => void
+  onPasteSelection?: () => void
   onItemStyleChange: (itemId: string, next: Partial<CanvasItemStyle>) => void
   onItemTextChange?: (itemId: string, nextText: string) => void
   onDuplicateItem?: (itemId: string) => void
@@ -34,8 +37,11 @@ export default function EditorCanvas({
   canvasScale = 1,
   animationPreviewKey = 0,
   theme,
+  selectedItemIds = [],
   selectedItemId,
   onSelectItem,
+  onCopySelection,
+  onPasteSelection,
   onItemStyleChange,
   onItemTextChange,
   onDuplicateItem,
@@ -64,11 +70,11 @@ export default function EditorCanvas({
 
   const resolvedBackground = background === 'media' ? '#ffffff' : background
 
-  const handleSelectItem = (itemId?: string) => {
+  const handleSelectItem = (itemId?: string, options?: { toggle?: boolean }) => {
     if (!itemId || (editingItemId && editingItemId !== itemId)) {
       setEditingItemId(null)
     }
-    onSelectItem(itemId)
+    onSelectItem(itemId, options)
   }
 
   const sortedItems = useMemo(
@@ -265,7 +271,10 @@ export default function EditorCanvas({
       ) : null}
 
       {parsedItems.map(({ item, style }) => {
-        const isSelected = selectedItemId === item.id
+        const isSelected =
+          selectedItemIds.length > 0
+            ? selectedItemIds.includes(item.id)
+            : selectedItemId === item.id
         const isSnapTarget =
           snapGuides.xTargetItemId === item.id || snapGuides.yTargetItemId === item.id
         const isEditingText = isSelected && item.type === 'TEXT' && editingItemId === item.id
@@ -284,6 +293,8 @@ export default function EditorCanvas({
             animationPreviewKey={animationPreviewKey}
             theme={theme}
             onSelectItem={handleSelectItem}
+            onCopySelection={onCopySelection}
+            onPasteSelection={onPasteSelection}
             onSetEditingItemId={setEditingItemId}
             onStartDrag={startDrag}
             onItemTextChange={onItemTextChange}

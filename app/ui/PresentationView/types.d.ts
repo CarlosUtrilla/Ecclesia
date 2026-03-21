@@ -25,6 +25,7 @@ export type PresentationViewProps = {
   hideTextInLive?: boolean
   items: PresentationViewItems[]
   onClick?: (e?: React.MouseEvent) => void
+  onDoubleClick?: (e?: React.MouseEvent) => void
   selected?: boolean
   tagSongId?: number | null
   className?: string
@@ -36,6 +37,9 @@ export type PresentationViewProps = {
   bibleVerseIsSelected?: boolean
   onTextBoundsChange?: (next: TextBoundsValues) => void
   onBibleVersePositionChange?: (next: number) => void
+  onBibleVerseWidthChange?: (next: number) => void
+  onBibleVerseTranslateXChange?: (next: number) => void
+  onBibleVerseHorizontalBoundsChange?: (next: { widthPercent: number; translateX: number }) => void
   onEditableTargetSelect?: (target: EditableBoundsTarget) => void
 }
 

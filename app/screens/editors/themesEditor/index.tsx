@@ -35,6 +35,7 @@ import BiblePresentationConfiguration from '../biblePresentationConfiguration'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { clampBibleEdgeOffset, shouldDetachDefaultBibleSettings } from './utils/bibleSettings'
+import { clampBibleVerseWidthPercent } from '@/ui/PresentationView/utils/verseWidth'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -66,6 +67,7 @@ export default function ThemesEditor() {
   const [animationKey, setAnimationKey] = useState(0)
   const [themeTransitionPreviewKey, setThemeTransitionPreviewKey] = useState(0)
   const [selectedBoundsTarget, setSelectedBoundsTarget] = useState<EditableBoundsTarget>('text')
+  const selectedBoundsTargetRef = useRef<EditableBoundsTarget>('text')
 
   const {
     control,
@@ -134,6 +136,25 @@ export default function ThemesEditor() {
   // Observar valores para preview - optimizado por react-hook-form
   const watchedData = watch()
   const { previewData, animationSettings, transitionSettings } = useThemePreview(watchedData)
+  const watchedTextStyleRef = useRef<FormData['textStyle']>(watchedData.textStyle)
+  const watchedBibleSettingsRef = useRef<FormData['biblePresentationSettings']>(
+    watchedData.biblePresentationSettings
+  )
+  const watchedUseDefaultBibleSettingsRef = useRef<boolean>(watchedData.useDefaultBibleSettings)
+
+  useEffect(() => {
+    watchedTextStyleRef.current = watchedData.textStyle
+    watchedBibleSettingsRef.current = watchedData.biblePresentationSettings
+    watchedUseDefaultBibleSettingsRef.current = watchedData.useDefaultBibleSettings
+  }, [
+    watchedData.textStyle,
+    watchedData.biblePresentationSettings,
+    watchedData.useDefaultBibleSettings
+  ])
+
+  useEffect(() => {
+    selectedBoundsTargetRef.current = selectedBoundsTarget
+  }, [selectedBoundsTarget])
 
   const prevBibleDebugStateRef = useRef<{
     useDefaultBibleSettings?: boolean
@@ -359,11 +380,14 @@ export default function ThemesEditor() {
 
   const handleBibleVersePositionChange = useCallback(
     (next: number) => {
+      const currentUseDefaultBibleSettings = watchedUseDefaultBibleSettingsRef.current
+      const currentBibleSettings = watchedBibleSettingsRef.current
+
       logBibleDebug('verse-position-change-received', {
         next,
         selectedBoundsTarget,
-        useDefaultBibleSettings: watchedData.useDefaultBibleSettings,
-        currentCustomPositionStyle: watchedData.biblePresentationSettings?.positionStyle ?? null
+        useDefaultBibleSettings: currentUseDefaultBibleSettings,
+        currentCustomPositionStyle: currentBibleSettings?.positionStyle ?? null
       })
 
       if (selectedBoundsTarget !== 'verse') {
@@ -375,9 +399,8 @@ export default function ThemesEditor() {
 
       const bounded = clampBibleEdgeOffset(next)
 
-      if (watchedData.useDefaultBibleSettings) {
-        const sourceSettings =
-          watchedData.biblePresentationSettings || defaultBiblePresentationSettings
+      if (currentUseDefaultBibleSettings) {
+        const sourceSettings = currentBibleSettings || defaultBiblePresentationSettings
         if (!sourceSettings) return
 
         const startPositionStyle =
@@ -411,13 +434,13 @@ export default function ThemesEditor() {
         return
       }
 
-      if (!watchedData.biblePresentationSettings) return
+      if (!currentBibleSettings) return
 
       const currentCustomPosition =
-        watchedData.biblePresentationSettings.positionStyle === null ||
-        watchedData.biblePresentationSettings.positionStyle === undefined
+        currentBibleSettings.positionStyle === null ||
+        currentBibleSettings.positionStyle === undefined
           ? NEW_THEME_DEFAULT_VERSE_EDGE
-          : watchedData.biblePresentationSettings.positionStyle
+          : currentBibleSettings.positionStyle
 
       if (currentCustomPosition === bounded) {
         logBibleDebug('verse-position-change-ignored-no-real-change-custom', {
@@ -437,10 +460,75 @@ export default function ThemesEditor() {
       defaultBiblePresentationSettings,
       selectedBoundsTarget,
       setValue,
-      watchedData.biblePresentationSettings,
-      watchedData.useDefaultBibleSettings
+      watchedBibleSettingsRef,
+      watchedUseDefaultBibleSettingsRef
     ]
   )
+
+  const handleBibleVerseHorizontalBoundsChange = useCallback(
+    (next: { widthPercent: number; translateX: number }) => {
+      if (selectedBoundsTargetRef.current !== 'verse') {
+        return
+      }
+
+      const boundedWidth = clampBibleVerseWidthPercent(next.widthPercent)
+      const boundedTranslateX = Math.round(next.translateX)
+
+      const currentTextStyle = watchedTextStyleRef.current || {}
+      const currentWidth =
+        (currentTextStyle as Record<string, unknown> | undefined)?.verseWidthPercent ?? null
+      const currentTranslateX =
+        (currentTextStyle as Record<string, unknown> | undefined)?.verseTranslateX ?? 0
+
+      if (currentWidth === boundedWidth && currentTranslateX === boundedTranslateX) {
+        return
+      }
+
+      pendingVerseHorizontalBoundsRef.current = {
+        widthPercent: boundedWidth,
+        translateX: boundedTranslateX
+      }
+
+      if (verseHorizontalBoundsRafRef.current !== null) {
+        return
+      }
+
+      verseHorizontalBoundsRafRef.current = window.requestAnimationFrame(() => {
+        verseHorizontalBoundsRafRef.current = null
+        const pendingBounds = pendingVerseHorizontalBoundsRef.current
+        pendingVerseHorizontalBoundsRef.current = null
+
+        if (!pendingBounds) {
+          return
+        }
+
+        const latestTextStyle = watchedTextStyleRef.current || {}
+        const nextTextStyle = {
+          ...latestTextStyle,
+          verseWidthPercent: pendingBounds.widthPercent,
+          verseTranslateX: pendingBounds.translateX
+        } as React.CSSProperties
+
+        watchedTextStyleRef.current = nextTextStyle
+        setValue('textStyle', nextTextStyle, { shouldDirty: true })
+      })
+    },
+    [setValue, watchedTextStyleRef]
+  )
+
+  const pendingVerseHorizontalBoundsRef = useRef<{
+    widthPercent: number
+    translateX: number
+  } | null>(null)
+  const verseHorizontalBoundsRafRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (verseHorizontalBoundsRafRef.current !== null) {
+        cancelAnimationFrame(verseHorizontalBoundsRafRef.current)
+      }
+    }
+  }, [])
   return (
     <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
       <div className="flex-shrink-0">
@@ -580,6 +668,7 @@ export default function ThemesEditor() {
             bibleVerseIsSelected={selectedBoundsTarget === 'verse'}
             onTextBoundsChange={handleTextBoundsChange}
             onBibleVersePositionChange={handleBibleVersePositionChange}
+            onBibleVerseHorizontalBoundsChange={handleBibleVerseHorizontalBoundsChange}
             onEditableTargetSelect={setSelectedBoundsTarget}
           />
         </div>

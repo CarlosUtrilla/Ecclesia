@@ -80,7 +80,7 @@ export default function PresentationsPanel() {
           </Button>
         </div>
 
-        <div className="panel-scroll-content p-2 space-y-1">
+        <div className="panel-scroll-content p-2 flex flex-col gap-1">
           {isLoadingPresentations ? (
             <div className="text-sm text-muted-foreground p-2">Cargando presentaciones...</div>
           ) : presentations.length === 0 ? (

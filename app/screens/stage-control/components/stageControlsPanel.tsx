@@ -8,6 +8,7 @@ import { Textarea } from '@/ui/textarea'
 import { Button } from '@/ui/button'
 import { Switch } from '@/ui/switch'
 import StageScreen from '@/screens/stage-screen'
+import { buildGlobalStageUpsertPayloads, getGlobalStageConfig } from '@/screens/stage/shared/globalStageConfig'
 
 type StageScreenRecord = {
   id: number
@@ -92,7 +93,6 @@ function safeParseState(raw: string | undefined): StageState {
 export default function StageControlsPanel() {
   const queryClient = useQueryClient()
 
-  const [selectedScreenId, setSelectedScreenId] = useState<number | null>(null)
   const [messageInput, setMessageInput] = useState('')
   const [timerLabelInput, setTimerLabelInput] = useState('')
   const [timerHoursInput, setTimerHoursInput] = useState('0')
@@ -111,27 +111,17 @@ export default function StageControlsPanel() {
     staleTime: Infinity
   })
 
-  useEffect(() => {
-    if (selectedScreenId !== null) return
-    if (stageScreens.length === 0) return
-
-    const firstScreenId = stageScreens[0].id
-    setSelectedScreenId(firstScreenId)
-    const firstState = safeParseState(
-      stageConfigs.find((item) => item.selectedScreenId === firstScreenId)?.state
-    )
-    setMessageInput(firstState.message ?? '')
-  }, [selectedScreenId, stageScreens, stageConfigs])
-
-  const configByScreenId = useMemo(() => {
-    return new Map(stageConfigs.map((config) => [config.selectedScreenId, config]))
-  }, [stageConfigs])
+  const globalConfig = useMemo(() => {
+    return getGlobalStageConfig(stageScreens, stageConfigs)
+  }, [stageConfigs, stageScreens])
 
   const selectedState = useMemo(() => {
-    if (selectedScreenId === null) return EMPTY_STAGE_STATE
-    const currentConfig = configByScreenId.get(selectedScreenId)
-    return safeParseState(currentConfig?.state)
-  }, [configByScreenId, selectedScreenId])
+    return safeParseState(globalConfig?.config?.state)
+  }, [globalConfig])
+
+  useEffect(() => {
+    setMessageInput(selectedState.message ?? '')
+  }, [selectedState.message])
 
   const timers = selectedState.timers ?? []
   const selectedTimerVisualMode = selectedState.timerVisualMode ?? 'broadcast'
@@ -150,24 +140,30 @@ export default function StageControlsPanel() {
   }, [timers.length])
 
   const { mutate: persistState, isPending } = useMutation({
-    mutationFn: (payload: { selectedScreenId: number; state: StageState }) =>
-      window.api.stageScreenConfig.upsertStageScreenConfig({
-        selectedScreenId: payload.selectedScreenId,
+    mutationFn: async (payload: { state: StageState }) => {
+      const updates = buildGlobalStageUpsertPayloads(stageScreens, {
         state: JSON.stringify(payload.state)
-      }),
-    onSuccess: async (updatedConfig) => {
-      await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-      await window.displayAPI.updateStageScreenConfig({
-        selectedScreenId: updatedConfig.selectedScreenId
       })
+      await Promise.all(
+        updates.map((update) => window.api.stageScreenConfig.upsertStageScreenConfig(update))
+      )
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
+      await Promise.all(
+        stageScreens.map((screen) =>
+          window.displayAPI.updateStageScreenConfig({
+            selectedScreenId: screen.id
+          })
+        )
+      )
     }
   })
 
   const handleSaveMessage = () => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
 
     persistState({
-      selectedScreenId,
       state: {
         ...selectedState,
         message: messageInput.trim() || null
@@ -176,11 +172,10 @@ export default function StageControlsPanel() {
   }
 
   const handleClearMessage = () => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
 
     setMessageInput('')
     persistState({
-      selectedScreenId,
       state: {
         ...selectedState,
         message: null
@@ -189,7 +184,7 @@ export default function StageControlsPanel() {
   }
 
   const handleAddTimer = () => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
     if (timers.length >= MAX_STAGE_TIMERS) return
 
     const hours = Number(timerHoursInput)
@@ -213,7 +208,6 @@ export default function StageControlsPanel() {
     }
 
     persistState({
-      selectedScreenId,
       state: {
         ...selectedState,
         timers: [...timers, timer]
@@ -237,18 +231,16 @@ export default function StageControlsPanel() {
   }
 
   const handleFocusModeToggle = (enabled: boolean) => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
     persistState({
-      selectedScreenId,
       state: { ...selectedState, focusMode: enabled }
     })
   }
 
   const handleTimerVisualModeChange = (mode: 'compact' | 'broadcast') => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
 
     persistState({
-      selectedScreenId,
       state: {
         ...selectedState,
         timerVisualMode: mode
@@ -257,10 +249,9 @@ export default function StageControlsPanel() {
   }
 
   const handleClockConfigChange = (next: { hourFormat?: '12' | '24'; showMeridiem?: boolean }) => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
 
     persistState({
-      selectedScreenId,
       state: {
         ...selectedState,
         clock: {
@@ -272,10 +263,9 @@ export default function StageControlsPanel() {
   }
 
   const handleRemoveTimer = (timerId: string) => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
 
     persistState({
-      selectedScreenId,
       state: {
         ...selectedState,
         timers: timers.filter((timer) => timer.id !== timerId)
@@ -284,10 +274,9 @@ export default function StageControlsPanel() {
   }
 
   const handleClearTimers = () => {
-    if (selectedScreenId === null) return
+    if (stageScreens.length === 0) return
 
     persistState({
-      selectedScreenId,
       state: {
         ...selectedState,
         timers: []
@@ -295,8 +284,7 @@ export default function StageControlsPanel() {
     })
   }
 
-  const selectedScreen =
-    selectedScreenId !== null ? stageScreens.find((screen) => screen.id === selectedScreenId) : null
+  const selectedScreen = stageScreens[0] ?? null
 
   return (
     <Card>
@@ -314,33 +302,9 @@ export default function StageControlsPanel() {
           <>
             <div className="grid gap-3 grid-cols-2">
               <div className="space-y-2 rounded-lg border bg-muted/10 p-3">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Pantalla stage</label>
-                  <Select
-                    value={selectedScreenId !== null ? String(selectedScreenId) : undefined}
-                    onValueChange={(value) => {
-                      const nextId = Number(value)
-                      setSelectedScreenId(nextId)
-                      const state = safeParseState(configByScreenId.get(nextId)?.state)
-                      setMessageInput(state.message ?? '')
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar pantalla stage" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stageScreens.map((screen) => (
-                        <SelectItem key={screen.id} value={String(screen.id)}>
-                          {screen.screenName} ({screen.screenId})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="text-sm font-medium">Mensaje de escenario</div>
                 <p className="text-xs text-muted-foreground">
-                  Pantalla seleccionada: {selectedScreen?.screenName ?? 'Ninguna'}
+                  Configuracion global activa para todas las pantallas stage.
                 </p>
 
                 <Textarea
@@ -356,7 +320,7 @@ export default function StageControlsPanel() {
                   <Button
                     size="sm"
                     onClick={handleSaveMessage}
-                    disabled={isPending || !selectedScreenId}
+                    disabled={isPending || stageScreens.length === 0}
                   >
                     Guardar mensaje
                   </Button>
@@ -364,7 +328,7 @@ export default function StageControlsPanel() {
                     size="sm"
                     variant="outline"
                     onClick={handleClearMessage}
-                    disabled={isPending || !selectedScreenId}
+                    disabled={isPending || stageScreens.length === 0}
                   >
                     Limpiar
                   </Button>
@@ -374,7 +338,9 @@ export default function StageControlsPanel() {
               <div className="space-y-2 rounded-lg border bg-muted/10 p-2">
                 <div className="px-1">
                   <div className="text-sm font-medium">Preview Stage</div>
-                  <p className="text-xs text-muted-foreground">Vista rápida de la salida stage.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Vista rápida automática usando la primera pantalla stage detectada.
+                  </p>
                 </div>
 
                 <div className="overflow-hidden rounded-md border bg-black">
@@ -383,7 +349,7 @@ export default function StageControlsPanel() {
                       <StageScreen isPreview previewDisplayId={selectedScreen.screenId} />
                     ) : (
                       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                        Selecciona una pantalla stage para ver preview.
+                        No hay pantalla stage disponible para preview.
                       </div>
                     )}
                   </div>
@@ -400,7 +366,7 @@ export default function StageControlsPanel() {
                   onValueChange={(value: 'compact' | 'broadcast') =>
                     handleTimerVisualModeChange(value)
                   }
-                  disabled={isPending || !selectedScreenId}
+                  disabled={isPending || stageScreens.length === 0}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar estilo" />
@@ -421,7 +387,7 @@ export default function StageControlsPanel() {
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={isPending || !selectedScreenId}
+                      disabled={isPending || stageScreens.length === 0}
                       onClick={() => handleApplyTimerPreset(presetMinutes)}
                       className="h-7 px-2 text-xs"
                     >
@@ -480,7 +446,7 @@ export default function StageControlsPanel() {
                 <Button
                   size="sm"
                   onClick={handleAddTimer}
-                  disabled={isPending || !selectedScreenId || timers.length >= MAX_STAGE_TIMERS}
+                  disabled={isPending || stageScreens.length === 0 || timers.length >= MAX_STAGE_TIMERS}
                   className="self-end"
                 >
                   <Plus className="size-4" />
@@ -512,7 +478,7 @@ export default function StageControlsPanel() {
                         variant="ghost"
                         className="size-7"
                         onClick={() => handleRemoveTimer(timer.id)}
-                        disabled={isPending || !selectedScreenId}
+                        disabled={isPending || stageScreens.length === 0}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -522,7 +488,7 @@ export default function StageControlsPanel() {
                     size="sm"
                     variant="outline"
                     onClick={handleClearTimers}
-                    disabled={isPending || !selectedScreenId}
+                    disabled={isPending || stageScreens.length === 0}
                     className="w-full"
                   >
                     <TimerReset className="size-4" />
@@ -547,7 +513,7 @@ export default function StageControlsPanel() {
                   id="focus-mode-switch"
                   checked={selectedState.focusMode ?? false}
                   onCheckedChange={handleFocusModeToggle}
-                  disabled={isPending || !selectedScreenId}
+                  disabled={isPending || stageScreens.length === 0}
                 />
               </div>
             </div>
@@ -564,7 +530,7 @@ export default function StageControlsPanel() {
                       showMeridiem: forceMeridiem
                     })
                   }}
-                  disabled={isPending || !selectedScreenId}
+                  disabled={isPending || stageScreens.length === 0}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Formato" />
@@ -583,7 +549,9 @@ export default function StageControlsPanel() {
                     })
                   }}
                   disabled={
-                    isPending || !selectedScreenId || (selectedClock.hourFormat ?? '24') === '24'
+                    isPending ||
+                    stageScreens.length === 0 ||
+                    (selectedClock.hourFormat ?? '24') === '24'
                   }
                 >
                   <SelectTrigger>

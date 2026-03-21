@@ -8,11 +8,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
 import { ViewModeTypes } from './types'
 import RenderGridMode from './components/RenderGridMode'
-import RenderPresentationLiveController from './components/RenderPresentationLiveController'
 import { useLive } from '../../../contexts/ScheduleContext/utils/liveContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { resolveSlideVerse } from '@/lib/presentationVerseController'
-import { ScrollArea } from '@/ui/scroll-area'
+import RenderPresentationLiveController from './components/RenderPresentationLiveController/index'
 
 const LIVE_VIEW_MODE_KEY = 'items-on-live-view-mode'
 
@@ -181,7 +180,7 @@ export default function LivePanel() {
           </div>
         </div>
       </div>
-      <ScrollArea className="flex-1 min-h-0">{data?.content ? renderContent() : null}</ScrollArea>
+      <div className="flex-1 min-h-0 overflow-hidden">{data?.content ? renderContent() : null}</div>
     </div>
   )
 }

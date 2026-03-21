@@ -5,7 +5,10 @@ import { BlankTheme } from '@/hooks/useThemes'
 import { useThemes } from '@/hooks/useThemes'
 import { PresentationView } from '@/ui/PresentationView'
 import { presentationSlideToViewItem } from '@/lib/presentationSlides'
-import { useMemo } from 'react'
+import { generateUniqueId } from '@/lib/utils'
+import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
+import { useMemo, useRef, useState } from 'react'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 type Props = {
   presentation: {
@@ -17,12 +20,38 @@ type Props = {
 }
 
 export default function PresentationPreview({ presentation, presentationMediaById }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const { themes } = useThemes()
+  const { showItemOnLiveScreen } = useLive()
   const themeById = useMemo(() => new Map(themes.map((theme) => [theme.id, theme])), [themes])
+  const [selectedSlide, setSelectedSlide] = useState<number | null>(null)
 
+  const handleShowSlideOnLive = (slideIndex: number) => {
+    showItemOnLiveScreen(
+      {
+        id: generateUniqueId(),
+        type: 'PRESENTATION',
+        accessData: presentation.id.toString(),
+        order: -1,
+        scheduleId: -1,
+        updatedAt: new Date(),
+        deletedAt: null
+      },
+      slideIndex
+    )
+  }
+
+  useKeyboardShortcuts(containerRef, {
+    onEnter: () => {
+      console.log('on entewr')
+      if (selectedSlide !== null) {
+        handleShowSlideOnLive(selectedSlide)
+      }
+    }
+  })
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="panel-scrollable h-full">
+      <div className="panel-header flex items-center justify-between pb-3">
         <div>
           <h3 className="font-semibold">{presentation.title}</h3>
           <p className="text-xs text-muted-foreground">
@@ -35,13 +64,19 @@ export default function PresentationPreview({ presentation, presentationMediaByI
           Editar
         </Button>
       </div>
-      <div className="flex items-center flex-wrap gap-2">
-        {presentation.slides.slice(0, 8).map((slide) => (
+      <div
+        ref={containerRef}
+        className="panel-scroll-content flex flex-wrap items-start content-start gap-2 p-1"
+      >
+        {presentation.slides.map((slide, slideIndex) => (
           <PresentationView
-            key={slide.id}
             items={[presentationSlideToViewItem(slide, presentationMediaById, themeById)]}
             theme={BlankTheme}
-            className="max-w-40"
+            className="max-w-40 h-auto"
+            selected={selectedSlide === slideIndex}
+            onClick={() => setSelectedSlide(slideIndex)}
+            onDoubleClick={() => handleShowSlideOnLive(slideIndex)}
+            key={slideIndex}
           />
         ))}
       </div>

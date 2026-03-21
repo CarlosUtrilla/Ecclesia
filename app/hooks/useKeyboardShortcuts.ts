@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useOnClickOutside } from 'usehooks-ts'
 
 interface KeyboardShortcuts {
   onCopy?: () => void
@@ -13,6 +12,8 @@ interface KeyboardShortcuts {
   ) => void
   onItemClick?: (item: any, event: React.MouseEvent) => void
   onClickOutside?: () => void
+  onEnter?: () => void
+  onEscape?: () => void
 }
 
 type RefType = React.RefObject<HTMLElement | null>
@@ -33,34 +34,31 @@ export function useKeyboardShortcuts(
     }
   }
 
-  // Usar focusin/focusout para detectar foco en cualquier hijo
-  useOnClickOutside(
-    containerRef as any,
-    () => {
+  // Gestionar foco activo por click global para evitar múltiples paneles capturando teclas.
+  useEffect(() => {
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      const container = containerRef.current
+      if (!target || !container) return
+
+      if (container.contains(target)) {
+        setContainerFocused(true)
+        return
+      }
+
+      for (const ref of excludeRefs) {
+        if (ref.current && ref.current.contains(target)) {
+          return
+        }
+      }
+
       setContainerFocused(false)
       shortcuts.onClickOutside?.()
-    },
-    excludeRefs as any
-  )
-
-  // Click outside detection mejorada
-  useEffect(() => {
-    if (!shortcuts.onClickOutside) return
-    function handleDocumentClick(e: MouseEvent) {
-      const container = containerRef.current
-      if (!container) return
-      // Si el click fue dentro del contenedor, ignorar
-      if (container.contains(e.target as Node)) return
-      // Si el click fue dentro de algún ref excluido, ignorar
-      for (const ref of excludeRefs) {
-        if (ref.current && ref.current.contains(e.target as Node)) return
-      }
-      // Si no, es click outside
-      shortcuts.onClickOutside?.()
     }
-    document.addEventListener('mousedown', handleDocumentClick, true)
-    return () => document.removeEventListener('mousedown', handleDocumentClick, true)
-  }, [containerRef, excludeRefs, shortcuts])
+
+    document.addEventListener('mousedown', handleDocumentMouseDown, true)
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true)
+  }, [containerRef, excludeRefs, shortcuts.onClickOutside])
 
   useEffect(() => {
     const handleFocus = () => setContainerFocused(true)
@@ -151,6 +149,18 @@ export function useKeyboardShortcuts(
         }
         // Pasar si Shift está presionado para extender la selección
         shortcuts.onNavigate(directionMap[e.key], e.shiftKey)
+      }
+
+      if (e.key === 'Enter' && shortcuts.onEnter) {
+        e.preventDefault()
+        shortcuts.onEnter()
+        return
+      }
+
+      if (e.key === 'Escape' && shortcuts.onEscape) {
+        e.preventDefault()
+        shortcuts.onEscape()
+        return
       }
     }
 

@@ -24,7 +24,9 @@ Renderiza el contenido actual con `PresentationView` y superpone widgets de esta
 ## Fuentes de datos
 
 - `window.api.selectedScreens.getSelectedScreenByScreenId(displayId)`
-- `window.api.stageScreenConfig.getStageScreenConfigBySelectedScreenId(selectedScreenId)`
+- `window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')`
+- `window.api.stageScreenConfig.getAllStageScreenConfigs()`
+- Resolución de config global via `../stage/shared/globalStageConfig.ts`
 - Eventos IPC:
   - `liveScreen-update`
   - `liveScreen-update-theme`
@@ -33,7 +35,7 @@ Renderiza el contenido actual con `PresentationView` y superpone widgets de esta
 
 ## Comportamiento actual (MVP)
 
-- Si hay `theme` configurado en `StageScreenConfig`, se usa ese tema para stage.
+- Si hay `theme` configurado en la config global stage, se usa ese tema para stage.
 - Si no hay tema configurado, stage hereda el tema live recibido por IPC.
 - Renderiza widgets definidos en `layout.items` (ordenados por `z` y respetando `visible`).
 - Widgets soportados: `liveScreen`, `message`, `timers`, `clock`, `liveTitle`.
@@ -73,5 +75,5 @@ Renderiza el contenido actual con `PresentationView` y superpone widgets de esta
 - **Modo enfoque** (`stageState.focusMode`): cuando está activo (live y preview), se muestra un overlay `z-50` con fondo oscuro semitransparente que renderiza reloj, timers y mensaje en gran tamaño. El reloj usa ajuste por ancho para evitar overflow en textos con meridiem. El mensaje escala por alto de contenedor y además se ajusta al ancho útil para mantener proporciones entre preview y pantalla real sin desbordes. Los timers usan `StageTimerTextLine` con font sizes proporcionales a la altura disponible. El overlay se calcula sobre `containerSize` real (igual que los demás widgets). Solo aparece si hay widget `clock`/`timers`/`message` visible en el layout.
 - En modo enfoque, los cards de timer usan borde sutil + fondo cian translúcido y tamaños de fuente menos agresivos para evitar ruido visual y mantener balance con reloj/mensaje.
 - Las posiciones y tamaños (`x`, `y`, `w`, `h`) se aplican en porcentaje sobre el viewport stage.
-- Al recibir `stageScreen-config-updated`, la pantalla recarga config desde DB para aplicar cambios de tema/layout/state en caliente.
+- Al recibir `stageScreen-config-updated`, la pantalla recarga la config global desde DB para aplicar cambios de tema/layout/state en caliente.
 - Para evitar micro-cortes de video durante cambios frecuentes de estado (ej. `message`), la pantalla stage memoiza `configuredThemeId` y no vuelve a pedir/aplicar tema si `themeId` no cambió; solo actualiza `layout/state`.

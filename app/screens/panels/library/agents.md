@@ -129,6 +129,7 @@ app/screens/panels/library/
 
 - Lista de versiculos del capitulo seleccionado.
 - Seleccion multiple con Shift+click (rango) y Ctrl+click (toggle).
+- Cuando la selección cambia externamente (ej: cambio de libro/capítulo o selección inicial desde panel superior), `ViewVerses` sincroniza el ancla interna de rango con el verso seleccionado actual para que `Shift+click` extienda desde ese verso (ej: 1 -> Shift+6 selecciona 1..6).
 - Navegacion con flechas (Shift+flecha extiende seleccion).
 - Navegacion adicional con `PageUp/PageDown` para retroceder/avanzar versiculos con teclado.
 - Cada versiculo es draggable con `data: { type: 'BIBLE', accessData: "bookId,chapter,verseRange,version" }`.
@@ -161,8 +162,10 @@ Los tres tipos de items de biblioteca son draggables con dnd-kit:
 - Cada presentación es draggable con `type: 'PRESENTATION'`.
 - Acciones por context menu: editar, añadir al cronograma, presentar en vivo y eliminar.
 - Preview lateral con miniaturas de diapositivas usando `PresentationView`.
+- En `PresentationPreview`, cada miniatura permite doble click para enviar la presentación a live iniciando en esa diapositiva (índice específico) mediante `showItemOnLiveScreen(item, slideIndex)`.
 - En previews, resuelve medios de slides legacy y de slides mixtos (`items[]` con `type: 'MEDIA'`) para renderizar capas correctamente.
 - En previews, también resuelve `themeId` por diapositiva para que miniaturas de presentación reflejen el tema global guardado (si existe).
+- `PresentationPreview` usa el patrón de layout `panel-scrollable` + `panel-header` + `panel-scroll-content` para evitar desbordes verticales y mantener scroll interno consistente con el resto de paneles.
 - Escucha `presentation-saved` para refrescar la lista de presentaciones y el mapeo de medios del preview en caliente.
 
 El `DragAndDropSchedule` (en ScheduleContext) detecta estos drags y los inserta en el cronograma.

@@ -148,6 +148,75 @@ function generateVideoFallback(sourcePath: string, destPath: string): Promise<vo
   })
 }
 
+function getImageExtensionFromMimeType(mimeType: string): string {
+  if (mimeType === 'image/png') return '.png'
+  if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') return '.jpg'
+  if (mimeType === 'image/webp') return '.webp'
+  if (mimeType === 'image/gif') return '.gif'
+  return '.png'
+}
+
+async function importMediaFromSourcePath(sourcePath: string, folder?: string) {
+  const userDataPath = app.getPath('userData')
+  const filesPath = folder
+    ? path.join(userDataPath, 'media', 'files', folder)
+    : path.join(userDataPath, 'media', 'files')
+  const thumbnailsPath = path.join(userDataPath, 'media', 'thumbnails')
+
+  if (!fs.existsSync(filesPath)) {
+    fs.mkdirSync(filesPath, { recursive: true })
+  }
+  if (!fs.existsSync(thumbnailsPath)) {
+    fs.mkdirSync(thumbnailsPath, { recursive: true })
+  }
+
+  const ext = path.extname(sourcePath).toLowerCase()
+  const stats = fs.statSync(sourcePath)
+  const originalName = path.basename(sourcePath, ext)
+  const hash = crypto.randomBytes(8).toString('hex')
+
+  let type: MediaType
+  if (SUPPORTED_IMAGE_FORMATS.includes(ext)) {
+    type = MediaType.IMAGE
+  } else if (SUPPORTED_VIDEO_FORMATS.includes(ext)) {
+    type = MediaType.VIDEO
+  } else {
+    throw new Error(`Formato no soportado: ${ext}`)
+  }
+
+  const newFileName = `${originalName}-${hash}${ext}`
+  const destPath = path.join(filesPath, newFileName)
+  fs.copyFileSync(sourcePath, destPath)
+
+  const thumbnailFileName = `thumb-${originalName.replaceAll(' ', '_')}-${hash}.jpg`
+  const thumbnailPath = path.join(thumbnailsPath, thumbnailFileName)
+
+  let fallbackFileName: string | undefined
+
+  if (type === MediaType.IMAGE) {
+    await generateImageThumbnail(sourcePath, thumbnailPath)
+  } else {
+    await generateVideoThumbnail(destPath, thumbnailPath)
+
+    fallbackFileName = `fallback-${originalName.replaceAll(' ', '_')}-${hash}.jpg`
+    const fallbackPath = path.join(thumbnailsPath, fallbackFileName)
+    await generateVideoFallback(destPath, fallbackPath)
+  }
+
+  const filePath = folder ? `files/${folder}/${newFileName}` : `files/${newFileName}`
+
+  return {
+    name: originalName,
+    type,
+    format: ext.slice(1),
+    filePath,
+    fileSize: stats.size,
+    thumbnail: `thumbnails/${thumbnailFileName}`,
+    fallback: fallbackFileName ? `thumbnails/${fallbackFileName}` : undefined,
+    folder: folder ?? undefined
+  }
+}
+
 export function registerMediaHandlers() {
   // Abrir diálogo para seleccionar archivos
   ipcMain.handle('media:select-files', async (_event, type: MediaType | 'all') => {
@@ -185,79 +254,51 @@ export function registerMediaHandlers() {
   // Importar archivo al directorio de la aplicación
   ipcMain.handle('media:import-file', async (_event, sourcePath: string, folder?: string) => {
     try {
-      const userDataPath = app.getPath('userData')
-      const filesPath = folder
-        ? path.join(userDataPath, 'media', 'files', folder)
-        : path.join(userDataPath, 'media', 'files')
-      const thumbnailsPath = path.join(userDataPath, 'media', 'thumbnails')
-
-      // Crear directorios si no existen
-      if (!fs.existsSync(filesPath)) {
-        fs.mkdirSync(filesPath, { recursive: true })
-      }
-      if (!fs.existsSync(thumbnailsPath)) {
-        fs.mkdirSync(thumbnailsPath, { recursive: true })
-      }
-
-      // Obtener información del archivo
-      const ext = path.extname(sourcePath).toLowerCase()
-      const stats = fs.statSync(sourcePath)
-      const originalName = path.basename(sourcePath, ext)
-
-      // Generar nombre único
-      const hash = crypto.randomBytes(8).toString('hex')
-
-      // Determinar tipo
-      let type: MediaType
-      if (SUPPORTED_IMAGE_FORMATS.includes(ext)) {
-        type = MediaType.IMAGE
-      } else if (SUPPORTED_VIDEO_FORMATS.includes(ext)) {
-        type = MediaType.VIDEO
-      } else {
-        throw new Error(`Formato no soportado: ${ext}`)
-      }
-
-      // Importar video directamente sin verificación ni conversión
-      const newFileName = `${originalName}-${hash}${ext}`
-      const destPath = path.join(filesPath, newFileName)
-
-      fs.copyFileSync(sourcePath, destPath)
-
-      // Crear thumbnail optimizado y fallback para videos
-      const thumbnailFileName = `thumb-${originalName.replaceAll(' ', '_')}-${hash}.jpg`
-      const thumbnailPath = path.join(thumbnailsPath, thumbnailFileName)
-
-      let fallbackFileName: string | undefined
-      let fallbackPath: string | undefined
-
-      if (type === MediaType.IMAGE) {
-        await generateImageThumbnail(sourcePath, thumbnailPath)
-      } else {
-        // Para videos: generar thumbnail (segundo 1.5) y fallback (frame inicial)
-        await generateVideoThumbnail(destPath, thumbnailPath)
-
-        fallbackFileName = `fallback-${originalName.replaceAll(' ', '_')}-${hash}.jpg`
-        fallbackPath = path.join(thumbnailsPath, fallbackFileName)
-        await generateVideoFallback(destPath, fallbackPath)
-      }
-
-      const filePath = folder ? `files/${folder}/${newFileName}` : `files/${newFileName}`
-
-      return {
-        name: originalName,
-        type,
-        format: ext.slice(1),
-        filePath,
-        fileSize: stats.size,
-        thumbnail: `thumbnails/${thumbnailFileName}`,
-        fallback: fallbackFileName ? `thumbnails/${fallbackFileName}` : undefined,
-        folder: folder ?? undefined
-      }
+      return await importMediaFromSourcePath(sourcePath, folder)
     } catch (error: any) {
       console.error('Error al importar archivo:', error)
       throw error
     }
   })
+
+  ipcMain.handle(
+    'media:import-clipboard-image',
+    async (_event, bytes: number[], mimeType: string, folder?: string) => {
+      try {
+        if (!Array.isArray(bytes) || bytes.length === 0) {
+          throw new Error('La imagen del portapapeles está vacía')
+        }
+
+        if (!mimeType.startsWith('image/')) {
+          throw new Error('El contenido del portapapeles no es una imagen válida')
+        }
+
+        const extension = getImageExtensionFromMimeType(mimeType)
+        const tempRoot = path.join(os.tmpdir(), 'ecclesia-clipboard-imports')
+        if (!fs.existsSync(tempRoot)) {
+          fs.mkdirSync(tempRoot, { recursive: true })
+        }
+
+        const tempFilePath = path.join(
+          tempRoot,
+          `clipboard-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`
+        )
+
+        fs.writeFileSync(tempFilePath, Buffer.from(bytes))
+
+        try {
+          return await importMediaFromSourcePath(tempFilePath, folder)
+        } finally {
+          if (fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath)
+          }
+        }
+      } catch (error: any) {
+        console.error('Error al importar imagen desde portapapeles:', error)
+        throw error
+      }
+    }
+  )
 
   // Obtener ruta completa de un archivo de media
   ipcMain.handle('media:get-full-path', (_event, fileName: string) => {
