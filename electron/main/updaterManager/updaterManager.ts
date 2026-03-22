@@ -1,6 +1,8 @@
 import { autoUpdater } from 'electron-updater'
 import { ipcMain, BrowserWindow } from 'electron'
 import log from 'electron-log'
+import { getPrisma } from '../prisma'
+import { stopMediaServer } from '../mediaManager/mediaServer'
 
 autoUpdater.logger = log
 autoUpdater.channel = 'latest'
@@ -146,7 +148,36 @@ export function initializeUpdaterManager(): void {
   })
 
   // Canal IPC para instalar y reiniciar
-  ipcMain.on('updater:install', () => {
+  ipcMain.on('updater:install', async () => {
+    try {
+      // Cleanup antes de actualizar: liberar todos los recursos para evitar archivos bloqueados en Windows
+      log.info('[updater] Iniciando limpieza pre-actualización...')
+
+      // 1. Detener servidor de medios
+      try {
+        stopMediaServer()
+        log.info('[updater] Servidor de medios detenido')
+      } catch (err) {
+        log.warn('[updater] Error al detener media server:', err)
+      }
+
+      // 2. Desconectar Prisma (libera SQLite, archivos de biblias, etc)
+      try {
+        const prisma = getPrisma()
+        if (prisma) {
+          log.info('[updater] Desconectando Prisma...')
+          await prisma.$disconnect()
+          log.info('[updater] Prisma desconectado correctamente')
+        }
+      } catch (err) {
+        log.error('[updater] Error al desconectar Prisma:', err)
+      }
+
+      log.info('[updater] Limpieza completada, procediendo a instalar actualización')
+    } catch (err) {
+      log.error('[updater] Error en limpieza pre-actualización:', err)
+    }
+
     autoUpdater.quitAndInstall(false, true)
   })
 

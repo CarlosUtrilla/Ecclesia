@@ -44,26 +44,18 @@ export default function SongEditor() {
     const fetchSong = async () => {
       const song = await window.api.songs.getSongById(Number(id))
       if (song) {
+        const normalizedLyrics = [...song.lyrics]
+          .sort((a, b) => a.id - b.id)
+          .map((lyric) => ({
+            content: lyric.content,
+            tagSongsId: lyric.tagSongsId
+          }))
+
         reset({
           title: song.title,
           author: song.author || '',
           copyright: song.copyright || '',
-          lyrics: song.lyrics.reduce((prev, curr) => {
-            prev.push({
-              content: curr.content,
-              tagSongsId: curr.tagSongsId
-            })
-            // preguntar si la siguiente letra pertenece a una etiqueta diferente para agregar un bloque vacío
-            const nextLyric = song.lyrics[song.lyrics.indexOf(curr) + 1]
-            if (nextLyric && nextLyric.tagSongsId === curr.tagSongsId) {
-              prev.push({
-                content: '',
-                tagSongsId: curr.tagSongsId
-              })
-            }
-
-            return prev
-          }, [] as BlockEditor[])
+          lyrics: normalizedLyrics as BlockEditor[]
         })
         setEditorKeyRender((prev) => prev + 1)
       }

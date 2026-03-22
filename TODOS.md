@@ -83,3 +83,6 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 [X] unificar las pantallas stage en una sola, osea, solo hay un tema y una configuracion para todas, o mejor aun, detectar la pantalla que esta en ese momento
 [X] mostrar preview de siguiente texto en diapositiva en el controlado, ej. siguiente> Mat 2:1 "Texto bla bla.."
 [X] el controlador de diapositivas se baja con el scroll cuando deberia estar flotando para estar a la mano
+
+[X] Al guardar la letra en el editor de canciones, el estado anterior queda y se concatena lo añadido o editado, como si fuera un historial de cambios pero no se sobreescribe la cancion
+[X] cuando activo el f9, no se manda en automatico el hide de las letras que estan en la pantalla live, hasta que no cambio de letra o slide no se refleja el cambio

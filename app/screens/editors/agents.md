@@ -69,6 +69,7 @@ app/screens/editors/
 
 - **Formulario**: titulo, autor, copyright (React Hook Form + Zod).
 - **Editor de letras**: TipTap rich text editor con estrofas agrupadas por tags.
+- **Hidratación en edición**: al cargar una canción existente, `lyrics` se hidrata 1:1 desde DB (ordenado por `id`) sin inyectar bloques vacíos artificiales entre tags repetidos, evitando acumulación/concatenación inesperada al guardar.
 - **SongGroup**: Cada estrofa tiene un selector de tag (Verso, Coro, Puente) con color.
 - **Preview**: Muestra slides de la cancion usando `PresentationView` con el tema seleccionado.
 - **fullText**: Se genera automaticamente concatenando el contenido de todas las estrofas (sin HTML).

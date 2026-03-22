@@ -25,7 +25,19 @@ const getThemeTransitionSignature = (theme: ThemeWithMedia): string => {
   ].join('|')
 }
 
-export default function LiveScreen({ isPreview = false }: { isPreview?: boolean }) {
+type LiveControlsOverride = {
+  hideText: boolean
+  showLogo: boolean
+  blackScreen: boolean
+}
+
+export default function LiveScreen({
+  isPreview = false,
+  liveControlsOverride
+}: {
+  isPreview?: boolean
+  liveControlsOverride?: LiveControlsOverride
+}) {
   const displayId = useParams().displayId
   const { buildMediaUrl } = useMediaServer()
   const shouldApplyFallback = !isPreview
@@ -178,9 +190,10 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
   const fallbackThumbnailUrl = fallbackMedia?.thumbnail
     ? buildMediaUrl(fallbackMedia.thumbnail)
     : null
-  const shouldShowBlackScreen = shouldApplyFallback && liveControls.blackScreen
+  const effectiveLiveControls = liveControlsOverride ?? liveControls
+  const shouldShowBlackScreen = shouldApplyFallback && effectiveLiveControls.blackScreen
   const shouldForceLogoFallback =
-    shouldApplyFallback && liveControls.showLogo && !shouldShowBlackScreen
+    shouldApplyFallback && effectiveLiveControls.showLogo && !shouldShowBlackScreen
   const shouldShowFallbackBackground =
     shouldApplyFallback &&
     !shouldShowBlackScreen &&
@@ -221,7 +234,7 @@ export default function LiveScreen({ isPreview = false }: { isPreview?: boolean 
             currentIndex={itemIndex}
             themeTransitionKey={themeKey}
             presentationVerseBySlideKey={presentationVerseBySlideKey}
-            hideTextInLive={liveControls.hideText}
+            hideTextInLive={effectiveLiveControls.hideText}
             live
             displayId={displayId && !isPreview ? parseInt(displayId) : undefined}
           />

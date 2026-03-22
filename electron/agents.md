@@ -110,9 +110,20 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 - **Media (imágenes/videos)**: Manifest `ecclesia-media-manifest-{workspaceId}.json` con checksum SHA-256. Incluye también archivos de fuentes (`Font` model, `userData/media/fonts/`).
 - El build de manifests local (media y biblias) reutiliza checksum previo cuando `size` y `mtime` no cambian, evitando recalcular hash de archivos sin cambios en cada ciclo.
-- En push de media, el manifest remoto/local solo se actualiza cuando el blob queda confirmado en Drive (si Drive no devuelve `fileId`, el ciclo falla y no publica checksum huérfano).
+- Cuando se reutiliza checksum local, también se preserva `driveFileId` del manifest local anterior para evitar depender de `files.list()` en cada ciclo.
+- **Optimización de búsqueda de blobs:** Cada entry de manifest ahora incluye campo opcional `driveFileId` (Google Drive fileId del blob). En push, al subir un blob, se guarda el `driveFileId` en el manifest remoto. En pull, se carga primero desde `driveFileId` (búsqueda directa vía API), y solo en manifests viejos sin `driveFileId` se hace fallback a búsqueda lenta por nombre (`files.list()` con `name contains`). Esto elimina latencia de indexación de Google Drive que causaba que blobs recién subidos no se encontraran en syncs subsecuentes.
+- **Descarga con verificación rápida**: Se introdujo `downloadAndVerifyBlobChecksum()` que descarga blob directo por fileId (sin esperar `files.list()` indexing) y verifica checksum antes de confirmar descarga. En **push**, cuando manifest remoto válido pero blob no está aún indexado: si tenemos `driveFileId` conocido, intenta descargar+verificar primero (evita grace window innecesario si el blob está disponible). En **pull**, todas las descargas usan verificación de checksum para detectar blobs corruptos/incompletos durante transfer.
+- En push, cuando checksum coincide y hay blob remoto, se hace **backfill automático** de `driveFileId` en manifest local/remoto si faltaba (sin re-subir blob), facilitando migración de manifests viejos.
+- Para detectar `driveFileId` stale sin saturar cuota, se valida existencia remota de IDs en forma acotada (`MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE`), y solo si falla se fuerza re-upload/reparación.
+- En push de media, el manifest remoto/local solo se actualiza cuando el blob queda confirmado en Drive. Si `uploadMediaBlob` falla (sin fileId o error de red/archivo bloqueado), se registra el error (con contexto completo) y ese entry se salta; el ciclo continúa con los demás (no se publica checksum huérfano, se loguea para observabilidad). Igual para biblias en `syncBibleFiles push`.
+- Si un manifest remoto conserva el mismo checksum pero el blob físico ya no existe en Drive, el siguiente push local reintenta subir ese blob y sana el manifest huérfano automáticamente en vez de saltarlo por igualdad de checksum.
+- Para evitar loops de re-upload cuando Drive todavía está asentando/indexando un blob recién subido, el push de media y biblias aplica una ventana de gracia (`BLOB_REUPLOAD_GRACE_MS`, basada en `lastSyncedAt`) antes de reintentar subida por checksum igual + blob no visible. La misma gracia se aplica en pull antes de "reparar" blobs remotos desde copia local. Sin embargo, si hay `driveFileId` conocido, la descarga+verificación intenta primero sin gracia.
 - En pull de media, entradas de manifest con checksum sin blob remoto se registran como `missingRemoteBlobs` para observabilidad (sin marcar descarga falsa ni sobrescribir archivo local).
-- **Biblias importadas**: Manifest `ecclesia-bible-manifest-{workspaceId}.json` + blobs `ecclesia-bible-blob-{workspaceId}-{checksum}.bin`. Las biblias bundled en `resources/bibles/` se excluyen de la sincronización.
+- En pull de media, si `downloadAndVerifyBlobChecksum()` falla por checksum mismatch (blob corrupto/incompleto), la descarga se rechaza y se log como error; el ciclo continúa y marca como faltante. Si falla por 404/notFound del fileId, se marca como `missingRemoteBlobs` y se limpia ese checksum del mapa.
+- En pull de media, si falta blob remoto pero existe copia local con el mismo checksum, se re-sube automáticamente el blob para reparar el estado remoto en el mismo ciclo; solo se incrementa `missingRemoteBlobs` cuando no hay forma de reparar.
+- En push de media para tombstones (`deletedAt`), no se indexan entradas remotas ya eliminadas para búsqueda por checksum; esto evita trabajo innecesario cuando hay muchos eliminados.
+- Si `drive.files.delete(media-blob)` responde `404/notFound`, se considera ya eliminado y se limpia `driveFileId` del tombstone local/remoto para no reintentar borrado en cada ciclo.
+- **Biblias importadas**: Manifest `ecclesia-bible-manifest-{workspaceId}.json` + blobs `ecclesia-bible-blob-{workspaceId}-{checksum}.bin`. Las biblias bundled en `resources/bibles/` se excluyen de la sincronización. Usan el mismo sistema de `driveFileId` que media.
 - `media_manifest` propaga tombstones (`deletedAt`) para borrado remoto/local.
 - El listado de blobs remotos (media y biblias) usa paginación de Drive (`nextPageToken`) para evitar omitir descargas cuando existen más de 1000 archivos en la carpeta de Ecclesia.
 
@@ -120,6 +131,7 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 - OAuth se carga con `loadAppEnv()` (`.env`, `.env.local` o `userData/.env`).
 - `status` reporta: `nextRunAt`, `lastRunStatus`, `lastRunReason`, `lastRunAt`, `lastRunError`, `deviceName`, `systemHostname`.
+- El sync manager detecta y loguea explícitamente respuestas de rate limit/quota de Google Drive (`429` y `403` con razones `rateLimitExceeded`, `userRateLimitExceeded`, `quotaExceeded`, `dailyLimitExceeded`, `sharingRateLimitExceeded`) incluyendo operación y contexto del archivo/checksum cuando aplica.
 - El scheduler tiene backoff exponencial persistido: `retryCount`, `nextRetryAt`, `schedulerHealthy`, `lastSchedulerHeartbeatAt`.
 - Helpers puros de retry exportados: `calculateRetryDelayMs()` y `buildRetryBackoffState()`.
 - `executeSyncCycle()` se exporta para pruebas de recovery del scheduler.
@@ -200,10 +212,14 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
   - Verifica actualizaciones automaticamente 10 segundos despues del arranque.
   - `setFeedURL` con `private: true` y `channel: 'latest'` para repos privados de GitHub.
   - Emite eventos IPC a todas las ventanas: `updater:checking-for-update`, `updater:update-available`, `updater:update-not-available`, `updater:error`, `updater:download-progress`, `updater:update-downloaded`.
+  - **Cleanup pre-actualización** (Windows fix EPERM): Antes de `quitAndInstall`:
+    1. Detiene servidor de medios (`stopMediaServer()`)
+    2. Desconecta Prisma (`prisma.$disconnect()`) — libera SQLite/archivos de biblias
+    - Esto evita archivos bloqueados/permisos corruptos en Windows durante actualización
   - Canales IPC manejados:
     - `updater:check` (invoke) — verificacion manual
     - `updater:download` (invoke) — iniciar descarga
-    - `updater:install` (on) — instalar y reiniciar
+    - `updater:install` (on) — **ahora con cleanup automático antes de instalar**
     - `updater:get-version` (invoke) — version actual
 - `updaterAPI.ts`: API expuesta al renderer via contextBridge en `window.updaterAPI`.
 - La configuracion del proveedor esta en `electron-builder.yml` (GitHub, canal `latest`).

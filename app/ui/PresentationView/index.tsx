@@ -303,7 +303,8 @@ function arePresentationViewPropsEqual(
     prevProps.onBibleVerseHorizontalBoundsChange === nextProps.onBibleVerseHorizontalBoundsChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
     prevProps.items === nextProps.items &&
-    prevProps.theme === nextProps.theme
+    prevProps.theme === nextProps.theme &&
+    prevProps.hideTextInLive === nextProps.hideTextInLive
   )
 }
 

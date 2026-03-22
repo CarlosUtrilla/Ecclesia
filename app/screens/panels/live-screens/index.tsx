@@ -220,7 +220,15 @@ export default function LiveScreens() {
         <div className="flex gap-2 p-2">
           {contentScreen ? (
             liveScreens.map((screen, idx) => (
-              <LiveScreen key={`screen-${(screen as any)?.id ?? idx}`} isPreview />
+              <LiveScreen
+                key={`screen-${(screen as any)?.id ?? idx}`}
+                isPreview
+                liveControlsOverride={{
+                  hideText: hideTextOnLive,
+                  showLogo: showLogoOnLive,
+                  blackScreen: blackScreenOnLive
+                }}
+              />
             ))
           ) : (
             <div>No hay contenido para mostrar</div>

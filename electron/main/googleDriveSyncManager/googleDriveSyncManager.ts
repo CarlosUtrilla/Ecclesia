@@ -100,6 +100,7 @@ type MediaManifestEntry = {
   mtime: number
   deletedAt?: string | null
   lastSyncedAt?: string | null
+  driveFileId?: string | null
 }
 
 type MediaManifestFile = {
@@ -118,6 +119,7 @@ type BibleManifestEntry = {
   mtime: number
   deletedAt?: string | null
   lastSyncedAt?: string | null
+  driveFileId?: string | null
 }
 
 type BibleManifestFile = {
@@ -169,6 +171,8 @@ const RETRY_BASE_DELAY_MS = 30 * 1000
 const RETRY_MAX_DELAY_MS = 10 * 60 * 1000
 const HEALTH_CHECK_INTERVAL_MS = 60 * 1000
 const SCHEDULER_STALE_THRESHOLD_MS = AUTO_SYNC_INTERVAL_MS * 2 + 30 * 1000
+const MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE = 20
+const BLOB_REUPLOAD_GRACE_MS = 5 * 60 * 1000
 
 // Orden topológico: las tablas con FK dependencies van después de sus dependencias.
 // TagSongs → Song → Lyrics (FK: Song, TagSongs)
@@ -308,6 +312,99 @@ function normalizeConfig(config: Partial<GoogleDriveSyncConfig>): GoogleDriveSyn
   }
 }
 
+function getDriveErrorMeta(error: unknown): {
+  status?: number
+  reason?: string
+  message?: string
+} {
+  const direct = (error || {}) as Record<string, unknown>
+  const response =
+    typeof direct.response === 'object' && direct.response
+      ? (direct.response as Record<string, unknown>)
+      : null
+  const responseData =
+    response && typeof response.data === 'object' && response.data
+      ? (response.data as Record<string, unknown>)
+      : null
+  const responseError =
+    responseData && typeof responseData.error === 'object' && responseData.error
+      ? (responseData.error as Record<string, unknown>)
+      : null
+
+  const statusFromDirect = typeof direct.code === 'number' ? direct.code : undefined
+  const statusFromResponse =
+    response && typeof response.status === 'number' ? response.status : undefined
+  const statusFromError =
+    responseError && typeof responseError.code === 'number' ? responseError.code : undefined
+
+  let reason: string | undefined
+  const errorList =
+    responseError && Array.isArray(responseError.errors)
+      ? (responseError.errors as Array<Record<string, unknown>>)
+      : []
+  if (errorList.length > 0 && typeof errorList[0]?.reason === 'string') {
+    reason = errorList[0].reason
+  }
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof direct.message === 'string'
+        ? direct.message
+        : undefined
+
+  return {
+    status: statusFromDirect ?? statusFromResponse ?? statusFromError,
+    reason,
+    message
+  }
+}
+
+function isDriveRateLimitError(error: unknown) {
+  const { status, reason, message } = getDriveErrorMeta(error)
+  if (status === 429) return true
+  if (status !== 403) return false
+
+  const knownReasons = new Set([
+    'rateLimitExceeded',
+    'userRateLimitExceeded',
+    'quotaExceeded',
+    'dailyLimitExceeded',
+    'sharingRateLimitExceeded'
+  ])
+  if (reason && knownReasons.has(reason)) return true
+
+  const normalizedMessage = (message || '').toLowerCase()
+  return normalizedMessage.includes('rate limit') || normalizedMessage.includes('quota')
+}
+
+function isDriveNotFoundError(error: unknown) {
+  const { status, reason, message } = getDriveErrorMeta(error)
+  if (status === 404) return true
+  if (reason === 'notFound') return true
+
+  const normalizedMessage = (message || '').toLowerCase()
+  return normalizedMessage.includes('file not found') || normalizedMessage.includes('not found')
+}
+
+function logDriveRateLimitIfAny(
+  error: unknown,
+  operation: string,
+  context?: Record<string, string | number | null | undefined>
+) {
+  if (!isDriveRateLimitError(error)) return
+  const { status, reason, message } = getDriveErrorMeta(error)
+  const contextText = context
+    ? Object.entries(context)
+        .map(([k, v]) => `${k}=${v ?? 'null'}`)
+        .join(', ')
+    : ''
+
+  log.warn(
+    `[sync] Google Drive rate limit detectado en ${operation}${contextText ? ` (${contextText})` : ''}: status=${status ?? 'unknown'}, reason=${reason ?? 'unknown'}, message=${message ?? 'n/a'}`
+  )
+}
+
 function getManifestFileName(workspaceId?: string) {
   const normalizedWorkspace = workspaceId?.trim() || 'default'
   return `ecclesia-diff-manifest-${normalizedWorkspace}.json`
@@ -342,6 +439,13 @@ function getRemoteBibleBlobFileName(workspaceId: string, checksum: string) {
 
 function isAutoReason(reason: SyncReason) {
   return reason === 'startup' || reason === 'interval' || reason === 'save' || reason === 'close'
+}
+
+function isWithinBlobReuploadGraceWindow(lastSyncedAt: string | null | undefined, nowMs: number) {
+  if (!lastSyncedAt) return false
+  const lastSyncedAtMs = Date.parse(lastSyncedAt)
+  if (Number.isNaN(lastSyncedAtMs)) return false
+  return nowMs - lastSyncedAtMs < BLOB_REUPLOAD_GRACE_MS
 }
 
 export function calculateRetryDelayMs(retryCount: number) {
@@ -420,6 +524,13 @@ function isValidMediaManifestEntry(value: unknown): value is MediaManifestEntry 
     candidate.lastSyncedAt !== undefined &&
     candidate.lastSyncedAt !== null &&
     (typeof candidate.lastSyncedAt !== 'string' || Number.isNaN(Date.parse(candidate.lastSyncedAt)))
+  ) {
+    return false
+  }
+  if (
+    candidate.driveFileId !== undefined &&
+    candidate.driveFileId !== null &&
+    typeof candidate.driveFileId !== 'string'
   ) {
     return false
   }
@@ -544,7 +655,8 @@ async function buildLocalMediaManifest(
       checksum,
       mtime: stats.mtimeMs,
       deletedAt: null,
-      lastSyncedAt: previous?.lastSyncedAt || null
+      lastSyncedAt: previous?.lastSyncedAt || null,
+      driveFileId: canReuseChecksum ? previous?.driveFileId || null : null
     })
   }
 
@@ -691,13 +803,22 @@ async function listRemoteMediaBlobs(drive: ReturnType<typeof google.drive>, work
 
   let pageToken: string | undefined
   do {
-    const result = await drive.files.list({
-      q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-      spaces: 'drive',
-      fields: 'nextPageToken, files(id, name)',
-      pageSize: 1000,
-      pageToken
-    })
+    let result
+    try {
+      result = await drive.files.list({
+        q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
+        spaces: 'drive',
+        fields: 'nextPageToken, files(id, name)',
+        pageSize: 1000,
+        pageToken
+      })
+    } catch (err) {
+      logDriveRateLimitIfAny(err, 'drive.files.list(media-blobs)', {
+        workspaceId,
+        pageToken: pageToken || null
+      })
+      throw err
+    }
 
     for (const file of result.data.files || []) {
       const name = file.name || ''
@@ -711,6 +832,16 @@ async function listRemoteMediaBlobs(drive: ReturnType<typeof google.drive>, work
   } while (pageToken)
 
   return byChecksum
+}
+
+async function remoteFileIdExists(drive: ReturnType<typeof google.drive>, fileId: string) {
+  try {
+    await drive.files.get({ fileId, fields: 'id' })
+    return true
+  } catch (err) {
+    logDriveRateLimitIfAny(err, 'drive.files.get(fileId-exists)', { fileId })
+    return false
+  }
 }
 
 async function uploadMediaBlob(
@@ -746,22 +877,52 @@ async function uploadMediaBlob(
   return fileId
 }
 
-async function downloadMediaBlobToLocal(
+/**
+ * Descarga un blob de Drive por fileId directo, verifica el checksum y lo mueve a destino final.
+ * Esto es más rápido que esperar a que el blob esté indexado en files.list().
+ * Si el checksum no coincide, lanza error y limpia el archivo temporal.
+ */
+async function downloadAndVerifyBlobChecksum(
   drive: ReturnType<typeof google.drive>,
   fileId: string,
-  relativePath: string
-) {
+  relativePath: string,
+  expectedChecksum: string
+): Promise<string> {
+  const tempFile = path.join(app.getPath('userData'), 'media', `.${randomUUID()}.tmp`)
   const destination = path.join(app.getPath('userData'), 'media', relativePath)
-  await fs.ensureDir(path.dirname(destination))
 
-  const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' })
+  try {
+    // Descargar a archivo temporal
+    await fs.ensureDir(path.dirname(tempFile))
+    const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' })
 
-  await new Promise<void>((resolve, reject) => {
-    const writer = fs.createWriteStream(destination)
-    ;(response.data as NodeJS.ReadableStream).pipe(writer)
-    writer.on('finish', () => resolve())
-    writer.on('error', reject)
-  })
+    await new Promise<void>((resolve, reject) => {
+      const writer = fs.createWriteStream(tempFile)
+      ;(response.data as NodeJS.ReadableStream).pipe(writer)
+      writer.on('finish', () => resolve())
+      writer.on('error', reject)
+    })
+
+    // Verificar checksum
+    const actualChecksum = await computeFileChecksum(tempFile)
+    if (actualChecksum !== expectedChecksum) {
+      await fs.remove(tempFile)
+      throw new Error(
+        `Checksum mismatch for blob ${fileId}: expected ${expectedChecksum}, got ${actualChecksum}`
+      )
+    }
+
+    // Mover a destino final
+    await fs.ensureDir(path.dirname(destination))
+    await fs.move(tempFile, destination, { overwrite: true })
+    return actualChecksum
+  } catch (err) {
+    // Limpiar temporal si aún existe
+    if (await fs.pathExists(tempFile)) {
+      await fs.remove(tempFile).catch(() => undefined)
+    }
+    throw err
+  }
 }
 
 declare const __GOOGLE_CLIENT_ID__: string
@@ -1147,7 +1308,8 @@ async function buildLocalBibleManifest(
         checksum,
         mtime: stats.mtimeMs,
         deletedAt: null,
-        lastSyncedAt: previous?.lastSyncedAt || null
+        lastSyncedAt: previous?.lastSyncedAt || null,
+        driveFileId: canReuseChecksum ? previous?.driveFileId || null : null
       })
     }
   }
@@ -1168,6 +1330,23 @@ function isValidBibleManifestEntry(value: unknown): value is BibleManifestEntry 
   if (typeof c.size !== 'number' || !Number.isFinite(c.size) || c.size < 0) return false
   if (typeof c.checksum !== 'string' || c.checksum.length === 0) return false
   if (typeof c.mtime !== 'number' || !Number.isFinite(c.mtime) || c.mtime < 0) return false
+  if (
+    c.deletedAt !== undefined &&
+    c.deletedAt !== null &&
+    (typeof c.deletedAt !== 'string' || Number.isNaN(Date.parse(c.deletedAt)))
+  ) {
+    return false
+  }
+  if (
+    c.lastSyncedAt !== undefined &&
+    c.lastSyncedAt !== null &&
+    (typeof c.lastSyncedAt !== 'string' || Number.isNaN(Date.parse(c.lastSyncedAt)))
+  ) {
+    return false
+  }
+  if (c.driveFileId !== undefined && c.driveFileId !== null && typeof c.driveFileId !== 'string') {
+    return false
+  }
   return true
 }
 
@@ -1249,13 +1428,22 @@ async function listRemoteBibleBlobs(drive: ReturnType<typeof google.drive>, work
 
   let pageToken: string | undefined
   do {
-    const result = await drive.files.list({
-      q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-      spaces: 'drive',
-      fields: 'nextPageToken, files(id, name)',
-      pageSize: 1000,
-      pageToken
-    })
+    let result
+    try {
+      result = await drive.files.list({
+        q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
+        spaces: 'drive',
+        fields: 'nextPageToken, files(id, name)',
+        pageSize: 1000,
+        pageToken
+      })
+    } catch (err) {
+      logDriveRateLimitIfAny(err, 'drive.files.list(bible-blobs)', {
+        workspaceId,
+        pageToken: pageToken || null
+      })
+      throw err
+    }
 
     for (const file of result.data.files || []) {
       const name = file.name || ''
@@ -1286,7 +1474,13 @@ async function uploadBibleBlob(
     media: { mimeType: 'application/octet-stream', body: fs.createReadStream(fullPath) },
     fields: 'id'
   })
-  return created.data.id || ''
+
+  const fileId = created.data.id || ''
+  if (!fileId) {
+    throw new Error(`[sync] Drive no devolvió fileId para blob de biblia: ${entry.fileName}`)
+  }
+
+  return fileId
 }
 
 async function downloadBibleBlobToLocal(
@@ -1333,10 +1527,42 @@ async function syncBibleFiles(
     remoteManifest.entries.map((entry) => [entry.fileName, entry] as const)
   )
 
-  const remoteBlobByChecksum = await listRemoteBibleBlobs(drive, config.workspaceId)
+  // Construir mapa de blobs remotos: primero desde manifest (driveFileId), luego desde búsqueda por nombre
+  const remoteBlobByChecksum = new Map<string, string>()
+
+  // Cargar fileIds desde manifest remoto (rápido, sin verificación)
+  const checksumsSinFileId = new Set<string>()
+
+  for (const remoteEntry of remoteManifest.entries) {
+    if (remoteEntry.deletedAt) {
+      continue
+    }
+
+    if (remoteEntry.driveFileId) {
+      // Confiar en que si el manifest remoto lo tiene, es válido
+      // (evita llamadas costosas a drive.files.get por cada blob)
+      remoteBlobByChecksum.set(remoteEntry.checksum, remoteEntry.driveFileId)
+    } else {
+      checksumsSinFileId.add(remoteEntry.checksum)
+    }
+  }
+
+  // Fallback: búsqueda lenta por nombre solo para manifests viejos o blobs sin driveFileId
+  if (checksumsSinFileId.size > 0) {
+    const blobsBySearch = await listRemoteBibleBlobs(drive, config.workspaceId)
+    for (const checksum of checksumsSinFileId) {
+      const fileId = blobsBySearch.get(checksum)
+      if (fileId) {
+        remoteBlobByChecksum.set(checksum, fileId)
+      }
+    }
+  }
+
   let uploaded = 0
   let downloaded = 0
+  let driveFileIdVerifications = 0
   const nowIso = new Date().toISOString()
+  const nowMs = Date.now()
 
   if (mode === 'push') {
     for (const localEntry of localManifest.entries) {
@@ -1347,19 +1573,126 @@ async function syncBibleFiles(
       }
 
       const remoteEntry = remoteByName.get(localEntry.fileName)
-      if (remoteEntry?.checksum === localEntry.checksum && !remoteEntry.deletedAt) continue
+      let hasRemoteBlob = remoteBlobByChecksum.has(localEntry.checksum)
+
+      if (!hasRemoteBlob && localEntry.driveFileId) {
+        remoteBlobByChecksum.set(localEntry.checksum, localEntry.driveFileId)
+        hasRemoteBlob = true
+      }
+
+      if (
+        remoteEntry?.checksum === localEntry.checksum &&
+        !remoteEntry.deletedAt &&
+        hasRemoteBlob
+      ) {
+        let resolvedFileId =
+          localEntry.driveFileId ||
+          remoteEntry.driveFileId ||
+          remoteBlobByChecksum.get(localEntry.checksum) ||
+          null
+
+        if (
+          resolvedFileId &&
+          remoteEntry.driveFileId === resolvedFileId &&
+          driveFileIdVerifications < MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE
+        ) {
+          driveFileIdVerifications += 1
+          const exists = await remoteFileIdExists(drive, resolvedFileId)
+          if (!exists) {
+            hasRemoteBlob = false
+            remoteBlobByChecksum.delete(localEntry.checksum)
+            resolvedFileId = null
+            remoteByName.set(localEntry.fileName, {
+              ...remoteEntry,
+              driveFileId: null
+            })
+          }
+        }
+
+        if (hasRemoteBlob && resolvedFileId) {
+          if (!remoteEntry.driveFileId) {
+            remoteByName.set(localEntry.fileName, {
+              ...remoteEntry,
+              driveFileId: resolvedFileId
+            })
+          }
+
+          if (!localEntry.driveFileId) {
+            localByName.set(localEntry.fileName, {
+              ...localEntry,
+              driveFileId: resolvedFileId
+            })
+          }
+
+          continue
+        }
+      }
+
+      if (
+        remoteEntry?.checksum === localEntry.checksum &&
+        !remoteEntry.deletedAt &&
+        !hasRemoteBlob
+      ) {
+        const lastSyncedAt = localEntry.lastSyncedAt || remoteEntry.lastSyncedAt
+        if (isWithinBlobReuploadGraceWindow(lastSyncedAt, nowMs)) {
+          log.info(
+            `[sync] Blob de biblia aún en ventana de asentamiento remoto; se difiere reupload: ${localEntry.fileName} (${localEntry.checksum.slice(0, 12)}...)`
+          )
+          continue
+        }
+
+        log.warn(
+          `[sync] Biblia con manifest remoto válido pero blob faltante en Drive; reintentando upload: ${localEntry.fileName} (${localEntry.checksum.slice(0, 12)}...)`
+        )
+      }
 
       if (!remoteBlobByChecksum.has(localEntry.checksum)) {
-        const fileId = await uploadBibleBlob(drive, config.workspaceId, localEntry)
-        if (fileId) remoteBlobByChecksum.set(localEntry.checksum, fileId)
+        try {
+          const fileId = await uploadBibleBlob(drive, config.workspaceId, localEntry)
+          if (!fileId) {
+            throw new Error(`Drive no devolvió fileId válido (${typeof fileId})`)
+          }
+          remoteBlobByChecksum.set(localEntry.checksum, fileId)
+          log.info(
+            `[sync] Blob de biblia subido: ${localEntry.fileName} (${localEntry.checksum.slice(0, 12)}...)`
+          )
+          // Guardar driveFileId en el entry para futuras búsquedas
+          localEntry.driveFileId = fileId
+        } catch (err) {
+          logDriveRateLimitIfAny(err, 'drive.files.create(bible-blob)', {
+            workspaceId: config.workspaceId,
+            fileName: localEntry.fileName,
+            checksum: localEntry.checksum.slice(0, 12)
+          })
+          log.error(
+            `[sync] Error subiendo blob de biblia para ${localEntry.fileName} (${localEntry.checksum.slice(0, 12)}...):`,
+            err instanceof Error ? err.message : err
+          )
+          // No marcar como subido; no incrementar counter
+          continue
+        }
+      }
+
+      // Doble chequeo: solo incrementar uploaded si el blob fue confirmado en remoteBlobByChecksum
+      if (!remoteBlobByChecksum.has(localEntry.checksum)) {
+        log.warn(
+          `[sync] Se omitió actualizar manifest de biblia para ${localEntry.fileName}: blob remoto no confirmado (${localEntry.checksum.slice(0, 12)}...)`
+        )
+        continue
       }
 
       uploaded += 1
-      localByName.set(localEntry.fileName, { ...localEntry, deletedAt: null, lastSyncedAt: nowIso })
+      localByName.set(localEntry.fileName, {
+        ...localEntry,
+        deletedAt: null,
+        lastSyncedAt: nowIso,
+        driveFileId: localEntry.driveFileId
+      })
       remoteByName.set(localEntry.fileName, {
         ...localEntry,
         deletedAt: null,
-        lastSyncedAt: nowIso
+        lastSyncedAt: nowIso,
+        driveFileId: localEntry.driveFileId
       })
     }
 
@@ -1428,52 +1761,237 @@ async function syncMediaManifest(
   const localByPath = new Map(localManifest.entries.map((entry) => [entry.path, entry] as const))
   const remoteByPath = new Map(remoteManifest.entries.map((entry) => [entry.path, entry] as const))
 
-  const remoteBlobByChecksum = await listRemoteMediaBlobs(drive, config.workspaceId)
+  // Construir mapa de blobs remotos: primero desde manifest (driveFileId), luego desde búsqueda por nombre
+  const remoteBlobByChecksum = new Map<string, string>()
+
+  // Cargar fileIds desde manifest remoto (rápido, sin verificación)
+  const checksumsSinFileId = new Set<string>()
+
+  for (const remoteEntry of remoteManifest.entries) {
+    if (remoteEntry.driveFileId) {
+      // Confiar en que si el manifest remoto lo tiene, es válido
+      // (evita llamadas costosas a drive.files.get por cada blob)
+      remoteBlobByChecksum.set(remoteEntry.checksum, remoteEntry.driveFileId)
+    } else {
+      checksumsSinFileId.add(remoteEntry.checksum)
+    }
+  }
+
+  // Fallback: búsqueda lenta por nombre solo para manifests viejos o blobs sin driveFileId
+  if (checksumsSinFileId.size > 0) {
+    const blobsBySearch = await listRemoteMediaBlobs(drive, config.workspaceId)
+    for (const checksum of checksumsSinFileId) {
+      const fileId = blobsBySearch.get(checksum)
+      if (fileId) {
+        remoteBlobByChecksum.set(checksum, fileId)
+      }
+    }
+  }
 
   let uploaded = 0
   let downloaded = 0
   let missingRemoteBlobs = 0
+  let driveFileIdVerifications = 0
   const nowIso = new Date().toISOString()
+  const nowMs = Date.now()
 
   if (mode === 'push') {
     for (const localEntry of localManifest.entries) {
       if (localEntry.deletedAt) {
+        const remoteEntry = remoteByPath.get(localEntry.path)
+        let shouldClearDriveFileId = false
+
         // Eliminar el blob del archivo en Drive si todavía existe
-        const blobFileId = localEntry.checksum
-          ? remoteBlobByChecksum.get(localEntry.checksum)
-          : undefined
+        const blobFileId =
+          localEntry.driveFileId ||
+          remoteEntry?.driveFileId ||
+          (localEntry.checksum ? remoteBlobByChecksum.get(localEntry.checksum) : undefined)
+
         if (blobFileId) {
           try {
             await drive.files.delete({ fileId: blobFileId })
-            remoteBlobByChecksum.delete(localEntry.checksum!)
+            shouldClearDriveFileId = true
+            if (localEntry.checksum) {
+              remoteBlobByChecksum.delete(localEntry.checksum)
+            }
           } catch (err) {
-            log.warn(`[sync] No se pudo eliminar blob de Drive para ${localEntry.path}:`, err)
+            if (isDriveNotFoundError(err)) {
+              // Si Drive responde 404, el blob ya no existe: limpiar fileId stale para no reintentar
+              shouldClearDriveFileId = true
+              if (localEntry.checksum) {
+                remoteBlobByChecksum.delete(localEntry.checksum)
+              }
+              log.info(
+                `[sync] Blob remoto ya eliminado para ${localEntry.path}; se limpia referencia stale (${blobFileId})`
+              )
+            } else {
+              logDriveRateLimitIfAny(err, 'drive.files.delete(media-blob)', {
+                workspaceId: config.workspaceId,
+                path: localEntry.path,
+                checksum: localEntry.checksum?.slice(0, 12)
+              })
+              log.warn(`[sync] No se pudo eliminar blob de Drive para ${localEntry.path}:`, err)
+            }
           }
         }
 
         remoteByPath.set(localEntry.path, {
           ...localEntry,
-          lastSyncedAt: nowIso
+          lastSyncedAt: nowIso,
+          driveFileId: shouldClearDriveFileId
+            ? null
+            : localEntry.driveFileId || remoteEntry?.driveFileId || null
         })
         localByPath.set(localEntry.path, {
           ...localEntry,
-          lastSyncedAt: nowIso
+          lastSyncedAt: nowIso,
+          driveFileId: shouldClearDriveFileId
+            ? null
+            : localEntry.driveFileId || remoteEntry?.driveFileId || null
         })
         continue
       }
 
       const remoteEntry = remoteByPath.get(localEntry.path)
-      if (remoteEntry?.checksum === localEntry.checksum && !remoteEntry.deletedAt) {
-        continue
+      let hasRemoteBlob = remoteBlobByChecksum.has(localEntry.checksum)
+
+      if (!hasRemoteBlob && localEntry.driveFileId) {
+        remoteBlobByChecksum.set(localEntry.checksum, localEntry.driveFileId)
+        hasRemoteBlob = true
+      }
+
+      if (
+        remoteEntry?.checksum === localEntry.checksum &&
+        !remoteEntry.deletedAt &&
+        hasRemoteBlob
+      ) {
+        let resolvedFileId =
+          localEntry.driveFileId ||
+          remoteEntry.driveFileId ||
+          remoteBlobByChecksum.get(localEntry.checksum) ||
+          null
+
+        if (
+          resolvedFileId &&
+          remoteEntry.driveFileId === resolvedFileId &&
+          driveFileIdVerifications < MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE
+        ) {
+          driveFileIdVerifications += 1
+          const exists = await remoteFileIdExists(drive, resolvedFileId)
+          if (!exists) {
+            hasRemoteBlob = false
+            remoteBlobByChecksum.delete(localEntry.checksum)
+            resolvedFileId = null
+            remoteByPath.set(localEntry.path, {
+              ...remoteEntry,
+              driveFileId: null
+            })
+          }
+        }
+
+        if (hasRemoteBlob && resolvedFileId) {
+          if (!remoteEntry.driveFileId) {
+            remoteByPath.set(localEntry.path, {
+              ...remoteEntry,
+              driveFileId: resolvedFileId
+            })
+          }
+
+          if (!localEntry.driveFileId) {
+            localByPath.set(localEntry.path, {
+              ...localEntry,
+              driveFileId: resolvedFileId
+            })
+          }
+
+          continue
+        }
+      }
+
+      if (
+        remoteEntry?.checksum === localEntry.checksum &&
+        !remoteEntry.deletedAt &&
+        !hasRemoteBlob
+      ) {
+        // Intentar descargar + verificar checksum con fileId conocido (más rápido que esperar indexing)
+        if (remoteEntry.driveFileId) {
+          try {
+            await downloadAndVerifyBlobChecksum(
+              drive,
+              remoteEntry.driveFileId,
+              remoteEntry.path,
+              remoteEntry.checksum
+            )
+            // Éxito: checksum coincide, marcar como que el blob existe
+            remoteBlobByChecksum.set(remoteEntry.checksum, remoteEntry.driveFileId)
+            hasRemoteBlob = true
+            log.info(
+              `[sync] Blob de media verificado directamente por fileId: ${remoteEntry.path} (${remoteEntry.checksum.slice(0, 12)}...)`
+            )
+            continue
+          } catch (err) {
+            // Falló la descarga/verificación con fileId; puede ser incompleto o corrupto
+            if (isDriveNotFoundError(err)) {
+              log.info(
+                `[sync] driveFileId ${remoteEntry.driveFileId} ya no existe; procederá a re-subir: ${remoteEntry.path}`
+              )
+              remoteByPath.set(remoteEntry.path, {
+                ...remoteEntry,
+                driveFileId: null
+              })
+              hasRemoteBlob = false
+            } else {
+              log.warn(
+                `[sync] Falló verificación de blob ${remoteEntry.path} por fileId (posiblemente incompleto en Drive): ${err instanceof Error ? err.message : err}`
+              )
+            }
+          }
+        }
+
+        // Si aún sin blob, aplicar grace window antes de re-subir
+        if (!hasRemoteBlob) {
+          const lastSyncedAt = localEntry.lastSyncedAt || remoteEntry.lastSyncedAt
+          if (isWithinBlobReuploadGraceWindow(lastSyncedAt, nowMs)) {
+            log.info(
+              `[sync] Blob de media aún en ventana de asentamiento remoto; se difiere reupload: ${localEntry.path} (${localEntry.checksum.slice(0, 12)}...)`
+            )
+            continue
+          }
+
+          log.warn(
+            `[sync] Media con manifest remoto válido pero blob faltante en Drive; reintentando upload: ${localEntry.path} (${localEntry.checksum.slice(0, 12)}...)`
+          )
+        }
       }
 
       if (!remoteBlobByChecksum.has(localEntry.checksum)) {
-        const fileId = await uploadMediaBlob(drive, config.workspaceId, localEntry)
-        remoteBlobByChecksum.set(localEntry.checksum, fileId)
+        try {
+          const fileId = await uploadMediaBlob(drive, config.workspaceId, localEntry)
+          if (!fileId) {
+            throw new Error(`Drive no devolvió fileId válido (${typeof fileId})`)
+          }
+          remoteBlobByChecksum.set(localEntry.checksum, fileId)
+          localEntry.driveFileId = fileId
+          log.info(
+            `[sync] Blob de media subido: ${localEntry.path} (${localEntry.checksum.slice(0, 12)}...)`
+          )
+        } catch (err) {
+          logDriveRateLimitIfAny(err, 'drive.files.create(media-blob)', {
+            workspaceId: config.workspaceId,
+            path: localEntry.path,
+            checksum: localEntry.checksum.slice(0, 12)
+          })
+          log.error(
+            `[sync] Error subiendo blob para ${localEntry.path} (${localEntry.checksum.slice(0, 12)}...):`,
+            err instanceof Error ? err.message : err
+          )
+          // No marcar como subido; el manifest no debe referenciar blobs faltantes
+          continue
+        }
       }
 
       if (!remoteBlobByChecksum.has(localEntry.checksum)) {
-        log.error(
+        log.warn(
           `[sync] Se omitió actualizar manifest para ${localEntry.path}: blob remoto no confirmado (${localEntry.checksum.slice(0, 12)}...)`
         )
         continue
@@ -1483,12 +2001,14 @@ async function syncMediaManifest(
       localByPath.set(localEntry.path, {
         ...localEntry,
         deletedAt: null,
-        lastSyncedAt: nowIso
+        lastSyncedAt: nowIso,
+        driveFileId: localEntry.driveFileId
       })
       remoteByPath.set(localEntry.path, {
         ...localEntry,
         deletedAt: null,
-        lastSyncedAt: nowIso
+        lastSyncedAt: nowIso,
+        driveFileId: localEntry.driveFileId
       })
     }
   }
@@ -1509,20 +2029,106 @@ async function syncMediaManifest(
       }
 
       const localEntry = localByPath.get(remoteEntry.path)
+      let remoteFileId = remoteBlobByChecksum.get(remoteEntry.checksum)
+
+      if (
+        remoteFileId &&
+        remoteEntry.driveFileId === remoteFileId &&
+        driveFileIdVerifications < MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE
+      ) {
+        driveFileIdVerifications += 1
+        const exists = await remoteFileIdExists(drive, remoteFileId)
+        if (!exists) {
+          remoteBlobByChecksum.delete(remoteEntry.checksum)
+          remoteFileId = undefined
+        }
+      }
+
+      if (!remoteFileId) {
+        const canHealFromLocal =
+          localEntry?.checksum === remoteEntry.checksum &&
+          !localEntry.deletedAt &&
+          (await fs.pathExists(path.join(app.getPath('userData'), 'media', remoteEntry.path)))
+
+        if (canHealFromLocal) {
+          const lastSyncedAt = localEntry?.lastSyncedAt || remoteEntry.lastSyncedAt
+          if (isWithinBlobReuploadGraceWindow(lastSyncedAt, nowMs)) {
+            log.info(
+              `[sync] Blob de media aún en ventana de asentamiento remoto; se difiere reparación desde pull: ${remoteEntry.path} (${remoteEntry.checksum.slice(0, 12)}...)`
+            )
+            continue
+          }
+
+          try {
+            const healedFileId = await uploadMediaBlob(drive, config.workspaceId, remoteEntry)
+            remoteBlobByChecksum.set(remoteEntry.checksum, healedFileId)
+            remoteFileId = healedFileId
+
+            localByPath.set(remoteEntry.path, {
+              ...(localEntry || remoteEntry),
+              path: remoteEntry.path,
+              size: remoteEntry.size,
+              checksum: remoteEntry.checksum,
+              mtime: remoteEntry.mtime,
+              deletedAt: null,
+              lastSyncedAt: nowIso,
+              driveFileId: healedFileId
+            })
+
+            log.info(
+              `[sync] Blob remoto reparado desde copia local: ${remoteEntry.path} (${remoteEntry.checksum.slice(0, 12)}...)`
+            )
+          } catch (err) {
+            logDriveRateLimitIfAny(err, 'drive.files.create(media-blob-heal)', {
+              workspaceId: config.workspaceId,
+              path: remoteEntry.path,
+              checksum: remoteEntry.checksum.slice(0, 12)
+            })
+            log.warn(
+              `[sync] No se pudo reparar blob remoto desde copia local para ${remoteEntry.path}:`,
+              err instanceof Error ? err.message : err
+            )
+          }
+        }
+
+        if (!remoteFileId) {
+          missingRemoteBlobs += 1
+          log.warn(
+            `[sync] Manifest remoto referencia blob inexistente para ${remoteEntry.path} (${remoteEntry.checksum.slice(0, 12)}...)`
+          )
+          continue
+        }
+      }
+
       if (localEntry?.checksum === remoteEntry.checksum && !localEntry.deletedAt) {
         continue
       }
 
-      const remoteFileId = remoteBlobByChecksum.get(remoteEntry.checksum)
-      if (!remoteFileId) {
-        missingRemoteBlobs += 1
-        log.warn(
-          `[sync] Manifest remoto referencia blob inexistente para ${remoteEntry.path} (${remoteEntry.checksum.slice(0, 12)}...)`
+      try {
+        // Intentar descargar con verificación de checksum (detecta blobs corruptos o incomp)
+        await downloadAndVerifyBlobChecksum(
+          drive,
+          remoteFileId,
+          remoteEntry.path,
+          remoteEntry.checksum
         )
-        continue
+      } catch (err) {
+        if (isDriveNotFoundError(err)) {
+          remoteBlobByChecksum.delete(remoteEntry.checksum)
+          missingRemoteBlobs += 1
+          log.warn(
+            `[sync] Blob remoto no disponible al descargar ${remoteEntry.path} (${remoteEntry.checksum.slice(0, 12)}...), se omite este ciclo`
+          )
+          continue
+        }
+
+        // Si el checksum no coincide o hay otro error, log de advertencia
+        log.warn(
+          `[sync] Error descargando/verificando blob ${remoteEntry.path}: ${err instanceof Error ? err.message : err}`
+        )
+        throw err
       }
 
-      await downloadMediaBlobToLocal(drive, remoteFileId, remoteEntry.path)
       downloaded += 1
 
       localByPath.set(remoteEntry.path, {
@@ -1839,6 +2445,7 @@ async function syncDifferential(reason: SyncReason) {
       biblesUploaded: pushBibleResult.uploaded
     }
   } catch (error: unknown) {
+    logDriveRateLimitIfAny(error, 'syncDifferential', { reason })
     await updateLocalSyncState({
       lastRunAt: new Date().toISOString(),
       lastRunReason: reason,
