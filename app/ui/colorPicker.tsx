@@ -19,9 +19,15 @@ export function ColorPicker({ value, onChange, className = 'h-8 w-20' }: ColorPi
           type="button"
           className={`cursor-pointer rounded border-2 ${className}`}
           style={{ backgroundColor: value }}
+          onMouseDown={(event) => event.preventDefault()}
         />
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 text-black" align="start">
+      <PopoverContent
+        className="w-auto p-0 text-black"
+        align="start"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
         <Chrome
           color={value}
           style={{ float: 'left' }}

@@ -18,14 +18,26 @@ describe('sanitizeHTML', () => {
     expect(output).not.toContain('<img')
   })
 
-  it('mantiene etiquetas permitidas y font-size en em', () => {
+  it('mantiene etiquetas permitidas y propiedades de formato inline de texto', () => {
     const input =
-      '<p><strong>Texto</strong> <span style="font-size: 1.2em; color: red;">Visible</span></p>'
+      '<p><strong>Texto</strong> <span style="font-size: 1.2em; color: red; font-weight: bold;">Visible</span></p>'
 
     const output = sanitizeHTML(input)
 
     expect(output).toContain('<strong>Texto</strong>')
     expect(output).toContain('font-size: 1.2em')
-    expect(output).not.toContain('color: red')
+    expect(output).toContain('color: red')
+    expect(output).toContain('font-weight: bold')
+  })
+
+  it('bloquea propiedades CSS peligrosas (expresiones, URLs JavaScript)', () => {
+    const xss1 = '<span style="background: url(javascript:alert(1))">test</span>'
+    const xss2 = '<span style="color: expression(alert(1))">test</span>'
+    const xss3 = '<span style="margin: 10px; position: absolute; top: 0">test</span>'
+
+    expect(sanitizeHTML(xss1)).not.toContain('url(')
+    expect(sanitizeHTML(xss2)).not.toContain('expression(')
+    expect(sanitizeHTML(xss3)).not.toContain('position')
+    expect(sanitizeHTML(xss3)).not.toContain('margin')
   })
 })

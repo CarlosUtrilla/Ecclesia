@@ -8,6 +8,7 @@ import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSett
 import { CanvasItemStyle } from '../utils/slideUtils'
 import { parseBibleAccessData } from '../utils/bibleAccessData'
 import { getBibleVerseText } from '@/lib/bibleVerseSteps'
+import { saveSelection, restoreSelection, registerActiveEditable } from '../utils/textSelection'
 import CanvasItemShell from './canvasItemShell'
 import { AnimatedText } from '@/ui/PresentationView/components/AnimatedText'
 import { BibleTextRender } from '@/ui/PresentationView/components/BibleTextRender'
@@ -78,12 +79,21 @@ export default function TextCanvasItem({
   const inputCommitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latestInputHtmlRef = useRef<string>(text || '')
   const latestPropTextRef = useRef<string>(text || '')
+  const savedSelectionRef = useRef<Range | null>(null)
   const [editorVerse, setEditorVerse] = useState<number | null>(null)
 
   useEffect(() => {
     latestPropTextRef.current = text || ''
     latestInputHtmlRef.current = text || ''
   }, [text])
+
+  useEffect(() => {
+    if (isEditing && editableRef.current) {
+      registerActiveEditable(editableRef.current)
+    } else if (!isEditing) {
+      registerActiveEditable(null)
+    }
+  }, [isEditing])
 
   useEffect(() => {
     if (!isEditing) {
@@ -96,19 +106,18 @@ export default function TextCanvasItem({
     const safeText = sanitizeHTML(text || '')
 
     if (isEditing) {
-      const shouldFocus = !wasEditingRef.current
-      if (element.innerHTML !== safeText) {
-        element.innerHTML = safeText
-      }
-
-      if (shouldFocus) {
+      if (!wasEditingRef.current) {
+        if (element.innerHTML !== safeText) {
+          element.innerHTML = safeText
+        }
         requestAnimationFrame(() => {
           element.focus()
           setCaretToEnd(element)
         })
+        wasEditingRef.current = true
       }
-
-      wasEditingRef.current = true
+      // Ya estamos editando: no sobreescribir el DOM desde props para no perder
+      // selección y estilos inline aplicados al fragmento seleccionado.
       return
     }
 
@@ -374,9 +383,18 @@ export default function TextCanvasItem({
           onInput={(event) => {
             scheduleTextChange(event.currentTarget.innerHTML)
           }}
+          onMouseUp={() => {
+            savedSelectionRef.current = saveSelection()
+          }}
+          onKeyUp={() => {
+            savedSelectionRef.current = saveSelection()
+          }}
           onBlur={() => {
+            savedSelectionRef.current = saveSelection()
             flushBufferedInput()
-            onExitEdit()
+          }}
+          onFocus={() => {
+            restoreSelection(savedSelectionRef.current)
           }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {

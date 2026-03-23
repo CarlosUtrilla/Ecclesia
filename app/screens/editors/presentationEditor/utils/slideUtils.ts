@@ -107,8 +107,13 @@ const defaultShapeCanvasStyle: CanvasItemStyle = {
   shapeOpacity: 1
 }
 
-const estimateTextHeightWithDOM = (text: string, style: CanvasItemStyle) => {
-  if (typeof document === 'undefined') return style.height
+const estimateTextSizeWithDOM = (text: string, style: CanvasItemStyle) => {
+  if (typeof document === 'undefined') {
+    return {
+      width: style.width,
+      height: style.height
+    }
+  }
 
   const measurementNode = document.createElement('div')
   measurementNode.style.position = 'absolute'
@@ -116,7 +121,8 @@ const estimateTextHeightWithDOM = (text: string, style: CanvasItemStyle) => {
   measurementNode.style.pointerEvents = 'none'
   measurementNode.style.left = '-99999px'
   measurementNode.style.top = '-99999px'
-  measurementNode.style.width = `${Math.max(80, Math.round(style.width))}px`
+  measurementNode.style.maxWidth = `${Math.max(80, Math.round(style.width))}px`
+  measurementNode.style.width = 'fit-content'
   measurementNode.style.boxSizing = 'border-box'
   measurementNode.style.padding = '8px'
   measurementNode.style.fontSize = `${style.fontSize}px`
@@ -132,10 +138,18 @@ const estimateTextHeightWithDOM = (text: string, style: CanvasItemStyle) => {
   measurementNode.innerHTML = sanitizeHTML(text || '') || '&nbsp;'
 
   document.body.appendChild(measurementNode)
+  const measuredWidth = measurementNode.scrollWidth
+  const nextWidth = Math.max(80, Math.min(Math.round(style.width), Math.ceil(measuredWidth)))
+
+  measurementNode.style.maxWidth = 'none'
+  measurementNode.style.width = `${nextWidth}px`
   const measuredHeight = measurementNode.scrollHeight
   document.body.removeChild(measurementNode)
 
-  return Number.isFinite(measuredHeight) ? measuredHeight : style.height
+  return {
+    width: Number.isFinite(nextWidth) ? nextWidth : style.width,
+    height: Number.isFinite(measuredHeight) ? measuredHeight : style.height
+  }
 }
 
 export const getAutoSizedTextStyle = (
@@ -150,14 +164,16 @@ export const getAutoSizedTextStyle = (
     ...baseStyle
   }
 
-  const measuredHeight = estimateTextHeightWithDOM(text, mergedStyle)
-  const nextHeight = Math.max(60, Math.min(620, Math.ceil(measuredHeight)))
+  const measuredSize = estimateTextSizeWithDOM(text, mergedStyle)
+  const nextWidth = Math.max(80, Math.min(mergedStyle.width, Math.ceil(measuredSize.width)))
+  const nextHeight = Math.max(60, Math.min(620, Math.ceil(measuredSize.height)))
 
-  const centeredX = Math.round((BASE_CANVAS_WIDTH - mergedStyle.width) / 2)
+  const centeredX = Math.round((BASE_CANVAS_WIDTH - nextWidth) / 2)
   const centeredY = Math.round((BASE_CANVAS_HEIGHT - nextHeight) / 2)
 
   return {
     ...mergedStyle,
+    width: nextWidth,
     height: nextHeight,
     x: options?.centerInCanvas ? centeredX : mergedStyle.x,
     y: options?.centerInCanvas ? centeredY : mergedStyle.y
@@ -451,16 +467,8 @@ export const createTextSlide = (themeId?: number | null) => ({
   transitionSettings: defaultTransitionSettingsString,
   videoLoop: false,
   videoLiveBehavior: 'manual' as const,
-  text: 'Nuevo texto',
-  items: [
-    createSlideItem('TEXT', {
-      text: 'Nuevo texto',
-      layer: 0,
-      customStyle: buildAutoSizedTextCanvasItemStyle('Nuevo texto', undefined, {
-        centerInCanvas: true
-      })
-    })
-  ],
+  text: '',
+  items: [],
   textStyle: { ...baseTextStyle }
 })
 

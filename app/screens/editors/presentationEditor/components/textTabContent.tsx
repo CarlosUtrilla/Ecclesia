@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import type { Media } from '@prisma/client'
 import {
   AlignCenter,
@@ -30,6 +31,12 @@ import FormatLineSpacingIcon from '@/icons/line-spacing'
 import LetterSpacingIcon from '@/icons/letter-spacing'
 import TextEffectsControls from '../../components/textEffectsControls'
 import { buildBibleAccessData, parseBibleAccessData } from '../utils/bibleAccessData'
+import {
+  applyStylesToTextSelection,
+  getActiveEditableElement,
+  getSelectionStyleState,
+  type SelectionStyleState
+} from '../utils/textSelection'
 import {
   getShapeTypeFromAccessData,
   type CanvasItemStyle,
@@ -97,6 +104,67 @@ export default function TextTabContent({
   onVideoLiveBehaviorChange,
   onVideoLoopChange
 }: Props) {
+  const [selectionStyle, setSelectionStyle] = useState<SelectionStyleState | null>(null)
+
+  const isTextItem =
+    selectedItem?.type === 'TEXT' ||
+    selectedItem?.type === 'BIBLE' ||
+    selectedItem?.type === 'SONG' ||
+    selectedItem?.type === 'GROUP'
+
+  useEffect(() => {
+    if (!isTextItem) {
+      setSelectionStyle(null)
+      return
+    }
+
+    const syncFromSelection = () => {
+      setSelectionStyle(getSelectionStyleState())
+    }
+
+    syncFromSelection()
+    document.addEventListener('selectionchange', syncFromSelection)
+    window.addEventListener('mouseup', syncFromSelection)
+    window.addEventListener('keyup', syncFromSelection)
+
+    return () => {
+      document.removeEventListener('selectionchange', syncFromSelection)
+      window.removeEventListener('mouseup', syncFromSelection)
+      window.removeEventListener('keyup', syncFromSelection)
+    }
+  }, [isTextItem, selectedItem?.id])
+
+  const handleTextStyleChange = (updates: TextStyleUpdates) => {
+    if (!isTextItem) {
+      updateSelectedTextStyle(updates)
+      return
+    }
+
+    const cssStyles: Record<string, unknown> = {}
+    if (updates.fontFamily !== undefined) cssStyles.fontFamily = updates.fontFamily
+    if (updates.fontSize !== undefined) cssStyles.fontSize = updates.fontSize
+    if (updates.color !== undefined) cssStyles.color = updates.color
+    if (updates.fontWeight !== undefined) cssStyles.fontWeight = updates.fontWeight
+    if (updates.fontStyle !== undefined) cssStyles.fontStyle = updates.fontStyle
+    if (updates.textDecoration !== undefined) cssStyles.textDecoration = updates.textDecoration
+    if (updates.lineHeight !== undefined) cssStyles.lineHeight = updates.lineHeight
+    if (updates.letterSpacing !== undefined) cssStyles.letterSpacing = updates.letterSpacing
+
+    const appliedToSelection =
+      Object.keys(cssStyles).length > 0 && applyStylesToTextSelection(cssStyles)
+
+    if (appliedToSelection) {
+      const editable = getActiveEditableElement()
+      if (editable) {
+        updateSelectedItem({ text: editable.innerHTML })
+        setSelectionStyle(getSelectionStyleState())
+        return
+      }
+    }
+
+    updateSelectedTextStyle(updates)
+  }
+
   const selectedMediaItem = selectedMediaId
     ? media.find((item) => item.id === selectedMediaId)
     : undefined
@@ -153,6 +221,53 @@ export default function TextTabContent({
       selectedItem.type === 'SONG' ||
       selectedItem.type === 'GROUP')
 
+  const toolbarState = useMemo(() => {
+    if (!selectedItemStyle) return null
+
+    const boldMixed = selectionStyle?.mixed.fontWeight ?? false
+    const italicMixed = selectionStyle?.mixed.fontStyle ?? false
+    const underlineMixed = selectionStyle?.mixed.textDecoration ?? false
+
+    const fontWeight =
+      selectionStyle?.fontWeight && !boldMixed
+        ? selectionStyle.fontWeight
+        : (selectedItemStyle.fontWeight ?? 'normal')
+
+    const fontStyle =
+      selectionStyle?.fontStyle && !italicMixed
+        ? selectionStyle.fontStyle
+        : (selectedItemStyle.fontStyle ?? 'normal')
+
+    const textDecoration =
+      selectionStyle?.textDecoration && !underlineMixed
+        ? selectionStyle.textDecoration
+        : (selectedItemStyle.textDecoration ?? 'none')
+
+    const color =
+      selectionStyle?.color && !(selectionStyle?.mixed.color ?? false)
+        ? selectionStyle.color
+        : (selectedItemStyle.color ?? '#ffffff')
+
+    const selectedFontSize = selectionStyle?.fontSize ?? null
+    const fontSize =
+      selectedFontSize !== null && !(selectionStyle?.mixed.fontSize ?? false)
+        ? Math.round(selectedFontSize)
+        : (selectedItemStyle.fontSize ?? 24)
+
+    return {
+      fontWeight,
+      fontStyle,
+      textDecoration,
+      color,
+      fontSize,
+      mixed: {
+        fontWeight: boldMixed,
+        fontStyle: italicMixed,
+        textDecoration: underlineMixed
+      }
+    }
+  }, [selectedItemStyle, selectionStyle])
+
   if (isTextSelected) {
     return (
       <div className="p-3 flex flex-col gap-4">
@@ -162,7 +277,7 @@ export default function TextTabContent({
           </span>
           <FontFamilySelector
             value={selectedItemStyle.fontFamily || 'Arial'}
-            onChange={(fontFamily) => updateSelectedTextStyle({ fontFamily })}
+            onChange={(fontFamily) => handleTextStyleChange({ fontFamily })}
             className="w-full"
           />
         </div>
@@ -178,8 +293,11 @@ export default function TextTabContent({
               variant="outline"
               className="h-8 w-8 shrink-0"
               onClick={() =>
-                updateSelectedTextStyle({
-                  fontSize: Math.max(1, (selectedItemStyle.fontSize || 24) - 1)
+                handleTextStyleChange({
+                  fontSize: Math.max(
+                    1,
+                    (toolbarState?.fontSize ?? selectedItemStyle.fontSize ?? 24) - 1
+                  )
                 })
               }
             >
@@ -189,8 +307,8 @@ export default function TextTabContent({
               type="number"
               containerClassName="w-auto flex-1"
               className="h-8 text-center"
-              value={selectedItemStyle.fontSize || 24}
-              onChange={(e) => updateSelectedTextStyle({ fontSize: Number(e.target.value) })}
+              value={toolbarState?.fontSize ?? selectedItemStyle.fontSize ?? 24}
+              onChange={(e) => handleTextStyleChange({ fontSize: Number(e.target.value) })}
             />
             <Button
               type="button"
@@ -198,8 +316,8 @@ export default function TextTabContent({
               variant="outline"
               className="h-8 w-8 shrink-0"
               onClick={() =>
-                updateSelectedTextStyle({
-                  fontSize: (selectedItemStyle.fontSize || 24) + 1
+                handleTextStyleChange({
+                  fontSize: (toolbarState?.fontSize ?? selectedItemStyle.fontSize ?? 24) + 1
                 })
               }
             >
@@ -216,12 +334,20 @@ export default function TextTabContent({
             <Button
               type="button"
               size="icon"
-              variant={selectedItemStyle.fontWeight === 'bold' ? 'default' : 'outline'}
+              variant={
+                toolbarState?.fontWeight === 'bold' && !toolbarState.mixed.fontWeight
+                  ? 'default'
+                  : 'outline'
+              }
               className="h-8 w-8"
-              title="Negrita"
+              title={toolbarState?.mixed.fontWeight ? 'Negrita (mixto)' : 'Negrita'}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() =>
-                updateSelectedTextStyle({
-                  fontWeight: selectedItemStyle.fontWeight === 'bold' ? 'normal' : 'bold'
+                handleTextStyleChange({
+                  fontWeight:
+                    toolbarState?.fontWeight === 'bold' && !toolbarState.mixed.fontWeight
+                      ? 'normal'
+                      : 'bold'
                 })
               }
             >
@@ -230,12 +356,20 @@ export default function TextTabContent({
             <Button
               type="button"
               size="icon"
-              variant={selectedItemStyle.fontStyle === 'italic' ? 'default' : 'outline'}
+              variant={
+                toolbarState?.fontStyle === 'italic' && !toolbarState.mixed.fontStyle
+                  ? 'default'
+                  : 'outline'
+              }
               className="h-8 w-8"
-              title="Cursiva"
+              title={toolbarState?.mixed.fontStyle ? 'Cursiva (mixto)' : 'Cursiva'}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() =>
-                updateSelectedTextStyle({
-                  fontStyle: selectedItemStyle.fontStyle === 'italic' ? 'normal' : 'italic'
+                handleTextStyleChange({
+                  fontStyle:
+                    toolbarState?.fontStyle === 'italic' && !toolbarState.mixed.fontStyle
+                      ? 'normal'
+                      : 'italic'
                 })
               }
             >
@@ -244,13 +378,21 @@ export default function TextTabContent({
             <Button
               type="button"
               size="icon"
-              variant={selectedItemStyle.textDecoration === 'underline' ? 'default' : 'outline'}
+              variant={
+                toolbarState?.textDecoration === 'underline' && !toolbarState.mixed.textDecoration
+                  ? 'default'
+                  : 'outline'
+              }
               className="h-8 w-8"
-              title="Subrayado"
+              title={toolbarState?.mixed.textDecoration ? 'Subrayado (mixto)' : 'Subrayado'}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() =>
-                updateSelectedTextStyle({
+                handleTextStyleChange({
                   textDecoration:
-                    selectedItemStyle.textDecoration === 'underline' ? 'none' : 'underline'
+                    toolbarState?.textDecoration === 'underline' &&
+                    !toolbarState.mixed.textDecoration
+                      ? 'none'
+                      : 'underline'
                 })
               }
             >
@@ -279,7 +421,7 @@ export default function TextTabContent({
                 variant={selectedItemStyle.textAlign === value ? 'default' : 'outline'}
                 className="h-8 w-8"
                 title={label}
-                onClick={() => updateSelectedTextStyle({ textAlign: value })}
+                onClick={() => handleTextStyleChange({ textAlign: value })}
               >
                 <Icon className="size-3.5" />
               </Button>
@@ -306,7 +448,7 @@ export default function TextTabContent({
                 variant={selectedItemStyle.verticalAlign === value ? 'default' : 'outline'}
                 className="h-8 w-8"
                 title={label}
-                onClick={() => updateSelectedTextStyle({ verticalAlign: value })}
+                onClick={() => handleTextStyleChange({ verticalAlign: value })}
               >
                 <Icon className="size-3.5" />
               </Button>
@@ -327,7 +469,7 @@ export default function TextTabContent({
               max={3}
               step={0.1}
               className="flex-1"
-              onValueChange={([v]) => updateSelectedTextStyle({ lineHeight: v })}
+              onValueChange={([v]) => handleTextStyleChange({ lineHeight: v })}
             />
             <span className="text-xs tabular-nums w-7 text-right shrink-0">
               {(selectedItemStyle.lineHeight ?? 1.2).toFixed(1)}
@@ -342,7 +484,7 @@ export default function TextTabContent({
               max={20}
               step={0.5}
               className="flex-1"
-              onValueChange={([v]) => updateSelectedTextStyle({ letterSpacing: v })}
+              onValueChange={([v]) => handleTextStyleChange({ letterSpacing: v })}
             />
             <span className="text-xs tabular-nums w-7 text-right shrink-0">
               {(selectedItemStyle.letterSpacing ?? 0).toFixed(1)}
@@ -355,8 +497,8 @@ export default function TextTabContent({
             Color de texto
           </span>
           <ColorPicker
-            value={selectedItemStyle.color || '#ffffff'}
-            onChange={(color) => updateSelectedTextStyle({ color })}
+            value={toolbarState?.color ?? selectedItemStyle.color ?? '#ffffff'}
+            onChange={(color) => handleTextStyleChange({ color })}
             className="w-full h-9"
           />
         </div>
@@ -366,7 +508,7 @@ export default function TextTabContent({
             Efectos
           </span>
           <div className="flex flex-wrap gap-1">
-            <TextEffectsControls value={selectedItemStyle} onChange={updateSelectedTextStyle} />
+            <TextEffectsControls value={selectedItemStyle} onChange={handleTextStyleChange} />
           </div>
         </div>
 
@@ -456,8 +598,7 @@ export default function TextTabContent({
 
   if (selectedItem?.type === 'SHAPE' && selectedItemStyle) {
     const shapeType = getShapeTypeFromAccessData(selectedItem.accessData)
-    const ShapeIcon =
-      shapeType === 'circle' ? Circle : shapeType === 'arrow' ? ArrowRight : Square
+    const ShapeIcon = shapeType === 'circle' ? Circle : shapeType === 'arrow' ? ArrowRight : Square
     const shapeLabel =
       shapeType === 'circle'
         ? 'Círculo'
@@ -532,9 +673,7 @@ export default function TextTabContent({
               max={12}
               step={1}
               className="flex-1"
-              onValueChange={([shapeStrokeWidth]) =>
-                updateSelectedTextStyle({ shapeStrokeWidth })
-              }
+              onValueChange={([shapeStrokeWidth]) => updateSelectedTextStyle({ shapeStrokeWidth })}
             />
             <span className="text-xs tabular-nums w-8 text-right shrink-0">
               {selectedItemStyle.shapeStrokeWidth ?? 4}px

@@ -17,29 +17,47 @@ export function cn(...inputs: ClassValue[]) {
 export function sanitizeHTML(html: string): string {
   const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ['p', 'strong', 'em', 'u', 'span', 'br'],
-    ALLOWED_ATTR: ['style'],
-    ALLOWED_STYLES: {
-      '*': {
-        'font-size': [/^[\d.]+em$/]
-      }
-    }
+    ALLOWED_ATTR: ['style']
   } as unknown as DOMPurify.Config)
 
-  // Refuerzo defensivo: conservar solo font-size en em y remover cualquier otra propiedad inline.
+  // Refuerzo defensivo: conservar solo propiedades de formato de texto y remover
+  // cualquier propiedad peligrosa (expresiones, URLs, etc.).
   return sanitized.replace(/\sstyle="([^"]*)"/g, (_fullMatch, styleContent: string) => {
     const allowed = styleContent
       .split(';')
       .map((part) => part.trim())
       .filter(Boolean)
-      .map((part) => {
-        const [rawName, rawValue] = part.split(':')
-        return {
-          name: rawName?.trim().toLowerCase(),
-          value: rawValue?.trim() || ''
-        }
+      .flatMap((part) => {
+        // Usar indexOf para manejar valores con : (ej: rgb(255,0,0))
+        const colonIdx = part.indexOf(':')
+        if (colonIdx === -1) return []
+        const name = part.slice(0, colonIdx).trim().toLowerCase()
+        const value = part.slice(colonIdx + 1).trim()
+
+        if (name === 'font-size' && /^[\d.]+(?:em|px)$/.test(value)) return [`font-size: ${value}`]
+        if (
+          name === 'color' &&
+          /^(?:#[0-9a-fA-F]{3,8}|rgb\(\d+,\s*\d+,\s*\d+\)|rgba\(\d+,\s*\d+,\s*\d+,\s*[\d.]+\)|[a-z]+)$/.test(
+            value
+          )
+        )
+          return [`color: ${value}`]
+        if (name === 'font-family' && /^["']?[\w\s,'".:-]+["']?$/.test(value))
+          return [`font-family: ${value}`]
+        if (name === 'font-weight' && /^(?:bold|normal|\d{3})$/.test(value))
+          return [`font-weight: ${value}`]
+        if (name === 'font-style' && /^(?:italic|normal|oblique)$/.test(value))
+          return [`font-style: ${value}`]
+        if (
+          name === 'text-decoration' &&
+          /^(?:underline|line-through|none|overline)$/.test(value)
+        )
+          return [`text-decoration: ${value}`]
+        if (name === 'letter-spacing' && /^-?[\d.]+(?:em|px)$/.test(value))
+          return [`letter-spacing: ${value}`]
+
+        return []
       })
-      .filter((entry) => entry.name === 'font-size' && /^[\d.]+em$/i.test(entry.value))
-      .map((entry) => `font-size: ${entry.value}`)
 
     if (allowed.length === 0) {
       return ''

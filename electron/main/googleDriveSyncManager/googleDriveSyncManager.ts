@@ -2375,9 +2375,11 @@ async function syncDifferential(reason: SyncReason) {
     notifySyncState(true, 20)
     const pullResult = await pullAllRemoteSnapshots(drive, config, syncService, appInstanceId)
     notifySyncState(true, 40)
-    const pullMediaResult = await syncMediaManifest(drive, config, 'pull', appInstanceId)
+    const [pullMediaResult, pullBibleResult] = await Promise.all([
+      syncMediaManifest(drive, config, 'pull', appInstanceId),
+      syncBibleFiles(drive, config, 'pull', appInstanceId)
+    ])
     notifySyncState(true, 50)
-    const pullBibleResult = await syncBibleFiles(drive, config, 'pull', appInstanceId)
 
     // Notificar al renderer que hay datos nuevos en la BD para que refetch las queries
     if (pullResult.applied > 0) {
@@ -2406,9 +2408,12 @@ async function syncDifferential(reason: SyncReason) {
       }
 
       notifySyncState(true, 75)
-      pushMediaResult = await syncMediaManifest(drive, config, 'push', appInstanceId)
-      notifySyncState(true, 85)
-      pushBibleResult = await syncBibleFiles(drive, config, 'push', appInstanceId)
+      const [mediaRes, bibleRes] = await Promise.all([
+        syncMediaManifest(drive, config, 'push', appInstanceId),
+        syncBibleFiles(drive, config, 'push', appInstanceId)
+      ])
+      pushMediaResult = mediaRes
+      pushBibleResult = bibleRes
       notifySyncState(true, 92)
 
       const hasPushChanges =

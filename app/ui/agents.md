@@ -267,6 +267,7 @@ Renderiza texto genérico del slide con animaciones:
 
 - Wrapper de `react-color` ChromePicker en un Popover.
 - Usa `value` prop directamente (sin estado local, onChange se propaga inmediatamente).
+- El trigger y el contenido del Popover previenen `autoFocus` por defecto para no colapsar la selección activa del `contenteditable` al abrir/cerrar el picker desde toolbars de edición.
 - Soporta cuentagotas nativo del navegador (`EyeDropper`) en contexto seguro (`window.isSecureContext`): muestra botón de icono integrado dentro del propio `ChromePicker` (lado derecho del bloque inferior de inputs) y aplica el color seleccionado (`sRGBHex`) al `onChange`.
 - Si el usuario cancela el cuentagotas o el permiso falla, se silencia el error para mantener UX fluida.
 

@@ -201,6 +201,11 @@ app/screens/editors/
 - En PresentationEditor, las miniaturas de slides soportan `click derecho` para duplicar/eliminar diapositiva; la duplicación no arrastra metadatos de Canva para evitar colisiones con reimportación.
 - En PresentationEditor, cada miniatura de slide permite `Renombrar diapositiva` desde menú contextual; abre un diálogo del editor, guarda el nombre en `slideName` y lo muestra en el overlay de la miniatura.
 - En PresentationEditor, la pestaña `Insertar` permite añadir formas (`Rectángulo`, `Círculo`, `Flecha`, `Flecha de línea`, `Triángulo`, `Línea`, `Cruz`) como layers `SHAPE` reordenables y editables visualmente; soportan texto interior, presets y resize proporcional con `Shift`. El resize proporcional también aplica a media y texto, recalculando `fontSize` en items textuales.
+- En PresentationEditor, cuando hay `themeId` activo, la inserción de `TEXT/BIBLE` puede partir desde `theme.textStyle` (posición, contenedor y escala de tipografía/efectos) mapeado al baseline del canvas para mantener apariencia consistente con el tema.
+- En inserciones bíblicas con tema, si la referencia bíblica está desacoplada del texto principal (por ejemplo `Debajo del texto` o modos de borde), el contenedor inicial se expande para incluir también el bloque del indicador.
+- El ajuste de ese bloque desacoplado replica la geometría del render final: en `Debajo/Encima` no agrega separación extra y la altura del indicador se mide con la tipografía efectiva del tema.
+- En el dialog de selección bíblica de PresentationEditor, al buscar una referencia (`Libro capítulo:verso`) el listado de versos hace scroll automático al verso seleccionado.
+- En PresentationEditor, cuando no hay tema global seleccionado, solo la inserción de `Versículo bíblico` crea el bloque inicial con `90%` de ancho y `90%` de alto del canvas, centrado.
 - PresentationEditor reutiliza el patrón de cierre seguro de ThemesEditor: al intentar cerrar la ventana con cambios sin guardar, Electron emite `presentation-close-requested`, el renderer muestra un diálogo de confirmación y solo destruye la ventana tras `window.windowAPI.confirmPresentationClose()`.
 - Incluye transición por slide (`slide.transitionSettings`) editable con `AnimationSelector` reutilizado.
 - Incluye importación directa de assets Canva desde la pestaña `Insertar` en formato MP4 y ZIP (con extracción automática de MP4), creando una carpeta en Media por ZIP con sufijo incremental cuando aplica y una diapositiva por cada video importado.
@@ -259,3 +264,10 @@ app/screens/editors/
 - PresentationView para previews -> `/app/ui/agents.md`
 - Hooks de temas y tags -> `/app/contexts/agents.md`
 - IPC de ventanas -> `/electron/agents.md`
+
+## Cambios recientes
+
+- **Theme-aware Bible/Text insertion** (current): Cuando se insertan textos bíblicos o nuevos textos en el PresentationEditor, se aplica la configuración visual del tema (color, fontFamily, efectos de sombra/contorno/fondo) **excepto fontSize y posición**.
+  - El fontSize se deja en auto-sizing (default 48) para que el texto sea legible en el canvas de edición (que es mucho más grande que la pantalla de presentación).
+  - La posición se mantiene centrada (centerInCanvas: true) para consistencia visual.
+  - Se aplican: fontFamily, color, textAlign, letterSpacing, lineHeight, verticalAlign, textShadowEnabled/Color/Blur/OffsetX/Y, textStrokeEnabled/Color/Width, blockBgEnabled/Color/Blur/Padding/Opacity/Radius.

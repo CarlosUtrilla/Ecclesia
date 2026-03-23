@@ -1,6 +1,6 @@
 import {
   ArrowRight,
-  BookText,
+  BookPlus,
   Circle,
   FileImage,
   Film,
@@ -48,7 +48,7 @@ export default function InsertTabContent({
         className="w-full h-10 justify-start gap-3"
         onClick={onOpenBiblePicker}
       >
-        <BookText className="size-4" />
+        <BookPlus className="size-4" />
         Versículo bíblico
       </Button>
       <Button

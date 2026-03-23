@@ -15,6 +15,43 @@ export type DragState = {
   initialStyle: CanvasItemStyle
 }
 
+const isTextContentItemType = (itemType: DragState['itemType']) =>
+  itemType === 'TEXT' || itemType === 'BIBLE' || itemType === 'SONG' || itemType === 'GROUP'
+
+export const getTextResizeBehavior = (itemType: DragState['itemType'], shiftKey: boolean) => {
+  const isTextItem = isTextContentItemType(itemType)
+
+  if (isTextItem) {
+    return {
+      preserveAspectRatio: !shiftKey,
+      scaleFontSizeWithResize: !shiftKey
+    }
+  }
+
+  return {
+    preserveAspectRatio: shiftKey,
+    scaleFontSizeWithResize: false
+  }
+}
+
+export const shouldScaleTextFontOnResize = (
+  itemType: DragState['itemType'],
+  shiftKey: boolean,
+  resizeCorner: ResizeHandle
+) => {
+  if (!isTextContentItemType(itemType)) return false
+  if (
+    resizeCorner === 'left' ||
+    resizeCorner === 'right' ||
+    resizeCorner === 'top' ||
+    resizeCorner === 'bottom'
+  )
+    return false
+
+  const behavior = getTextResizeBehavior(itemType, shiftKey)
+  return behavior.scaleFontSizeWithResize
+}
+
 type Params = {
   dragRef: MutableRefObject<DragState | null>
   canvasScale?: number
@@ -185,18 +222,21 @@ export default function useCanvasTransform({
       const corner = activeDrag.resizeCorner || 'bottom-right'
       const minWidth = 80
       const minHeight = 60
-      const preserveAspectRatio = event.shiftKey
+      const resizeBehavior = getTextResizeBehavior(activeDrag.itemType, event.shiftKey)
+      const scaleFontSizeWithResize = shouldScaleTextFontOnResize(
+        activeDrag.itemType,
+        event.shiftKey,
+        corner
+      )
+      const preserveAspectRatio =
+        corner === 'left' || corner === 'right' || corner === 'top' || corner === 'bottom'
+          ? false
+          : resizeBehavior.preserveAspectRatio
       const aspectRatio = Math.max(0.01, activeDrag.initialStyle.width / activeDrag.initialStyle.height)
       const initialLeft = activeDrag.initialStyle.x
       const initialTop = activeDrag.initialStyle.y
       const initialRight = activeDrag.initialStyle.x + activeDrag.initialStyle.width
       const initialBottom = activeDrag.initialStyle.y + activeDrag.initialStyle.height
-      const isTextLikeItem =
-        activeDrag.itemType === 'TEXT' ||
-        activeDrag.itemType === 'BIBLE' ||
-        activeDrag.itemType === 'SONG' ||
-        activeDrag.itemType === 'GROUP' ||
-        activeDrag.itemType === 'SHAPE'
 
       const getConstrainedSize = (width: number, height: number) => {
         if (!preserveAspectRatio) {
@@ -208,21 +248,30 @@ export default function useCanvasTransform({
 
         const safeWidth = Math.max(minWidth, width)
         const safeHeight = Math.max(minHeight, height)
-        const widthDelta = Math.abs(safeWidth - activeDrag.initialStyle.width)
-        const heightDelta = Math.abs(safeHeight - activeDrag.initialStyle.height)
 
-        if (widthDelta >= heightDelta) {
-          const constrainedWidth = Math.max(minWidth, Math.round(safeWidth))
+        // Evaluar dos candidatos (driver por ancho o por alto) y escoger el que
+        // mantiene el handle más cerca del puntero para evitar saltos bruscos.
+        const widthDrivenWidth = Math.max(minWidth, Math.round(safeWidth))
+        const widthDrivenHeight = Math.max(minHeight, Math.round(widthDrivenWidth / aspectRatio))
+
+        const heightDrivenHeight = Math.max(minHeight, Math.round(safeHeight))
+        const heightDrivenWidth = Math.max(minWidth, Math.round(heightDrivenHeight * aspectRatio))
+
+        // Error respecto al tamaño "deseado" por el puntero en cada eje.
+        // Menor error => menor sensación de salto del handle.
+        const widthDrivenError = Math.abs(widthDrivenHeight - safeHeight)
+        const heightDrivenError = Math.abs(heightDrivenWidth - safeWidth)
+
+        if (widthDrivenError <= heightDrivenError) {
           return {
-            width: constrainedWidth,
-            height: Math.max(minHeight, Math.round(constrainedWidth / aspectRatio))
+            width: widthDrivenWidth,
+            height: widthDrivenHeight
           }
         }
 
-        const constrainedHeight = Math.max(minHeight, Math.round(safeHeight))
         return {
-          width: Math.max(minWidth, Math.round(constrainedHeight * aspectRatio)),
-          height: constrainedHeight
+          width: heightDrivenWidth,
+          height: heightDrivenHeight
         }
       }
 
@@ -239,7 +288,7 @@ export default function useCanvasTransform({
           height: Math.max(minHeight, Math.round(nextHeight))
         }
 
-        if (preserveAspectRatio && isTextLikeItem && activeDrag.initialStyle.fontSize > 0) {
+        if (scaleFontSizeWithResize && activeDrag.initialStyle.fontSize > 0) {
           const nextWidth = next.width ?? activeDrag.initialStyle.width
           const scaleFactor = nextWidth / activeDrag.initialStyle.width
           next.fontSize = Math.max(8, Math.round(activeDrag.initialStyle.fontSize * scaleFactor))

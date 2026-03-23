@@ -99,9 +99,9 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 #### Arquitectura snapshot-based (actual)
 
-- **Flujo push**: `reconcileSyncData()` → `buildSnapshot()` (todos los modelos de BD) → `uploadSnapshot()` → `syncMediaManifest push` → `syncBibleFiles push` → `writeRemoteManifest`.
+- **Flujo push**: `reconcileSyncData()` → `buildSnapshot()` (todos los modelos de BD) → `uploadSnapshot()` → **Promise.all**: `syncMediaManifest push` + `syncBibleFiles push` (paralelos) → `writeRemoteManifest`.
 - **Optimización idle**: en ciclos normales, el snapshot solo se construye/sube si existe outbox local pendiente (`SyncOutboxChange.ackedAt = null`). Tras upload exitoso, se confirma outbox (`ackedAt`) para evitar re-subidas de snapshot en ciclos sin cambios de BD.
-- **Flujo pull**: `pullAllRemoteSnapshots()` → descarga snapshots de otros dispositivos → `applySnapshotRows()` (lastWriteWins por `updatedAt`) → `syncMediaManifest pull` → `syncBibleFiles pull`.
+- **Flujo pull**: `pullAllRemoteSnapshots()` → descarga snapshots de otros dispositivos → `applySnapshotRows()` (lastWriteWins por `updatedAt`) → **Promise.all**: `syncMediaManifest pull` + `syncBibleFiles pull` (paralelos).
 - **Ping-pong fix**: Prisma `@updatedAt` auto-incrementa en cada write. Se usa `$executeRawUnsafe` dentro de `prisma.$transaction` para restaurar el `updatedAt` original del snapshot después de cada apply.
 - **Archivos en Drive**: `ecclesia-snapshot-{workspaceId}-{deviceId}.json` (un snapshot por dispositivo).
 - **deviceId / deviceName**: basado en `os.hostname()`; dos dispositivos con el mismo hostname no pueden sincronizarse correctamente.

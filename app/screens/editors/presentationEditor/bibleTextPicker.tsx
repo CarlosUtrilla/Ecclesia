@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Button } from '@/ui/button'
@@ -22,14 +22,76 @@ type Props = {
   onAddToPresentation: (selection: BibleTextSelection) => void
 }
 
+export const scrollToVerseInContainer = (
+  verseRefs: Map<number, HTMLDivElement>,
+  verseNumber: number
+) => {
+  const verseElement = verseRefs.get(verseNumber)
+  if (!verseElement) return false
+
+  verseElement.scrollIntoView({
+    behavior: 'auto',
+    block: 'center'
+  })
+
+  return true
+}
+
+const STORAGE_KEY = 'bible-picker-last-selection'
+
+type BiblePickerPersistedState = {
+  version: string
+  book: number
+  chapter: number
+  verseStart: number
+  verseEnd: number
+}
+
+const DEFAULT_STATE: BiblePickerPersistedState = {
+  version: 'RVR1960',
+  book: 43,
+  chapter: 3,
+  verseStart: 16,
+  verseEnd: 16
+}
+
+function loadLastBiblePickerState(): BiblePickerPersistedState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return DEFAULT_STATE
+    return { ...DEFAULT_STATE, ...JSON.parse(raw) }
+  } catch {
+    return DEFAULT_STATE
+  }
+}
+
 export default function BibleTextPicker({ open, onOpenChange, onAddToPresentation }: Props) {
   const { bibleSchema } = useBibleSchema()
+  const verseRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
-  const [selectedVersion, setSelectedVersion] = useState('RVR1960')
-  const [selectedBook, setSelectedBook] = useState(43)
-  const [selectedChapter, setSelectedChapter] = useState(3)
-  const [selectedVerseStart, setSelectedVerseStart] = useState<number>(16)
-  const [selectedVerseEnd, setSelectedVerseEnd] = useState<number>(16)
+  const [initialState] = useState(() => loadLastBiblePickerState())
+  const [selectedVersion, setSelectedVersion] = useState(initialState.version)
+  const [selectedBook, setSelectedBook] = useState(initialState.book)
+  const [selectedChapter, setSelectedChapter] = useState(initialState.chapter)
+  const [selectedVerseStart, setSelectedVerseStart] = useState<number>(initialState.verseStart)
+  const [selectedVerseEnd, setSelectedVerseEnd] = useState<number>(initialState.verseEnd)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: selectedVersion,
+          book: selectedBook,
+          chapter: selectedChapter,
+          verseStart: selectedVerseStart,
+          verseEnd: selectedVerseEnd
+        })
+      )
+    } catch {
+      // localStorage no disponible (modo privado extremo, etc.)
+    }
+  }, [selectedVersion, selectedBook, selectedChapter, selectedVerseStart, selectedVerseEnd])
 
   const selectedBookData = useMemo(
     () => bibleSchema.find((book) => book.book_id === selectedBook),
@@ -84,6 +146,14 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
       ),
     [completeChapter, verseRange.end, verseRange.start]
   )
+
+  useEffect(() => {
+    if (!open || completeChapter.length === 0) return
+
+    requestAnimationFrame(() => {
+      scrollToVerseInContainer(verseRefs.current, verseRange.start)
+    })
+  }, [open, completeChapter, verseRange.start])
 
   const handleAdd = () => {
     if (selectedVerses.length === 0) return
@@ -192,6 +262,13 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
               {completeChapter.map((verse) => (
                 <div
                   key={verse.verse}
+                  ref={(element) => {
+                    if (element) {
+                      verseRefs.current.set(verse.verse, element)
+                    } else {
+                      verseRefs.current.delete(verse.verse)
+                    }
+                  }}
                   className={cn(
                     'flex border-b py-0.5 items-baseline hover:bg-muted/40 cursor-pointer',
                     {

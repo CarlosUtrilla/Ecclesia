@@ -102,7 +102,17 @@ export default function PresentationEditor() {
   const [isCanvasDragging, setIsCanvasDragging] = useState(false)
   const [animationPreviewKey, setAnimationPreviewKey] = useState(0)
   const [canvasZoom, setCanvasZoom] = useState(100)
-  const [globalThemeId, setGlobalThemeId] = useState<number | null>(null)
+  const [globalThemeId, setGlobalThemeId] = useState<number | null>(() => {
+    if (!isCreating) return null
+    try {
+      const raw = localStorage.getItem('presentation-editor-last-theme-id')
+      if (raw === null) return null
+      const parsed = Number(raw)
+      return Number.isFinite(parsed) ? parsed : null
+    } catch {
+      return null
+    }
+  })
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
@@ -111,6 +121,9 @@ export default function PresentationEditor() {
   const [renameSlideIndex, setRenameSlideIndex] = useState<number | null>(null)
   const [renameSlideName, setRenameSlideName] = useState('')
   const [isSlideTrayHovered, setIsSlideTrayHovered] = useState(false)
+  const [activeInspectorTab, setActiveInspectorTab] = useState<'texto' | 'animar' | 'insertar'>(
+    'texto'
+  )
   const copiedItemsRef = useRef<PresentationSlideItem[]>([])
   const shouldSeedHistoryRef = useRef(false)
   const previewAreaRef = useRef<HTMLDivElement>(null)
@@ -386,10 +399,7 @@ export default function PresentationEditor() {
         const sourcePath = window.mediaAPI.getPathForFile(imagePayload.file)
         const importedFile = sourcePath
           ? await window.mediaAPI.importFile(sourcePath)
-          : await window.mediaAPI.importClipboardImage(
-              imagePayload.bytes,
-              imagePayload.mimeType
-            )
+          : await window.mediaAPI.importClipboardImage(imagePayload.bytes, imagePayload.mimeType)
         const mediaRecord = await window.api.media.create(importedFile)
         const mediaId = Number(mediaRecord.id)
 
@@ -530,6 +540,39 @@ export default function PresentationEditor() {
     setIsMediaPickerOpen
   })
 
+  const focusTextInspectorTab = () => {
+    setActiveInspectorTab('texto')
+  }
+
+  const handleInsertTextAndFocus = () => {
+    insertTextInCurrentSlide()
+    focusTextInspectorTab()
+  }
+
+  const handleInsertShapeAndFocus = (
+    shapeType: Parameters<typeof insertShapeInCurrentSlide>[0]
+  ) => {
+    insertShapeInCurrentSlide(shapeType)
+    focusTextInspectorTab()
+  }
+
+  const handleInsertMediaAndFocus = () => {
+    insertMediaItem()
+    focusTextInspectorTab()
+  }
+
+  const handleSelectMediaAndFocus = (selectedMedia: Media) => {
+    handleSelectMedia(selectedMedia)
+    focusTextInspectorTab()
+  }
+
+  const handleAddBibleToPresentationAndFocus = (
+    selection: Parameters<typeof handleAddBibleToPresentation>[0]
+  ) => {
+    handleAddBibleToPresentation(selection)
+    focusTextInspectorTab()
+  }
+
   usePresentationEditorShortcuts({
     hasSelectedItem: selectedItemIds.length > 0 || Boolean(selectedItem),
     hasSelectedSlide: slides.length > 0,
@@ -666,6 +709,15 @@ export default function PresentationEditor() {
 
   const applyGlobalTheme = (nextThemeId: number | null) => {
     setGlobalThemeId(nextThemeId)
+    try {
+      if (nextThemeId !== null) {
+        localStorage.setItem('presentation-editor-last-theme-id', String(nextThemeId))
+      } else {
+        localStorage.removeItem('presentation-editor-last-theme-id')
+      }
+    } catch {
+      // localStorage no disponible
+    }
     setValue(
       'slides',
       slides.map((slide) => ({
@@ -848,7 +900,13 @@ export default function PresentationEditor() {
       <div className="flex flex-1 min-h-0">
         {/* LEFT SIDEBAR */}
         <aside className="w-[280px] border-r flex flex-col shrink-0 bg-background">
-          <Tabs defaultValue="texto" className="flex flex-col flex-1 min-h-0 gap-0">
+          <Tabs
+            value={activeInspectorTab}
+            onValueChange={(value) =>
+              setActiveInspectorTab(value as 'texto' | 'animar' | 'insertar')
+            }
+            className="flex flex-col flex-1 min-h-0 gap-0"
+          >
             <TabsList className="w-full rounded-none border-b h-10 bg-transparent p-0">
               <TabsTrigger
                 value="texto"
@@ -915,10 +973,10 @@ export default function PresentationEditor() {
             {/* TAB: INSERTAR */}
             <TabsContent value="insertar" className="flex-1 overflow-y-auto m-0 p-3">
               <InsertTabContent
-                onInsertText={insertTextInCurrentSlide}
+                onInsertText={handleInsertTextAndFocus}
                 onOpenBiblePicker={() => setIsBiblePickerOpen(true)}
-                onInsertMedia={insertMediaItem}
-                onInsertShape={insertShapeInCurrentSlide}
+                onInsertMedia={handleInsertMediaAndFocus}
+                onInsertShape={handleInsertShapeAndFocus}
                 onImportCanvaSlides={importCanvaAssetsAsSlides}
               />
             </TabsContent>
@@ -1187,14 +1245,14 @@ export default function PresentationEditor() {
       <MediaPicker
         open={isMediaPickerOpen}
         onOpenChange={setIsMediaPickerOpen}
-        onSelect={handleSelectMedia}
+        onSelect={handleSelectMediaAndFocus}
         title="Seleccionar imagen o video"
       />
 
       <BibleTextPicker
         open={isBiblePickerOpen}
         onOpenChange={setIsBiblePickerOpen}
-        onAddToPresentation={handleAddBibleToPresentation}
+        onAddToPresentation={handleAddBibleToPresentationAndFocus}
       />
 
       <ThemePicker
