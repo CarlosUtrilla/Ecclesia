@@ -190,6 +190,7 @@ PresentationView (index.tsx)
 - `AutoComplete` admite `showAllOnFocus` para limpiar temporalmente el término de búsqueda cuando el input gana foco y estaba mostrando el label seleccionado; útil en selectores como fuentes para listar todas las opciones al abrir y filtrar solo cuando el usuario escribe.
 - `AutoComplete` sincroniza el texto visible con `value` cuando las opciones cargan de forma asíncrona (por ejemplo fuentes del sistema), evitando que el input quede en placeholder aunque exista valor inicial seleccionado.
 - En `preview`, los videos (fondo y capas de presentación) no se reproducen: se renderizan thumbnails estáticos para reducir CPU/GPU cuando hay muchas instancias simultáneas.
+- En `live`, cuando el slide actual es `resourceType: 'MEDIA'` (imagen/video solo), `PresentationView` omite el tema seleccionado y usa un tema neutro negro sin transición para evitar que fondos degradados del tema se superpongan al contenido multimedia.
 - Las transiciones de tema/slide (`useMemo` + `AnimatePresence` + `m.div`) se encapsulan en shells solo de `live`, evitando cálculo/instanciación en `preview`.
 - En `preview`, fondos de imagen y thumbnails de video usan `<img>` estático (`loading="lazy"`) en lugar de componentes animados, para minimizar costo de render masivo.
 - `PresentationView` está memoizado (`React.memo`) con comparación explícita de props para evitar re-renders en cascada cuando se renderiza muchas veces en paralelo.

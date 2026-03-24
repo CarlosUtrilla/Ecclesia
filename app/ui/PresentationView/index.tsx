@@ -11,6 +11,7 @@ import { usePresentationSizing } from './hooks/usePresentationSizing'
 import { usePresentationBackground } from './hooks/usePresentationBackground'
 import { usePresentationTextLayout } from './hooks/usePresentationTextLayout'
 import { parseAnimationSettings } from './utils/parseAnimationSettings'
+import { LIVE_MEDIA_NEUTRAL_THEME, shouldOmitThemeForLiveMediaItem } from './utils/mediaThemePolicy'
 import { LiveThemeTransitionShell } from './components/LiveThemeTransitionShell'
 import { PresentationBody } from './components/PresentationBody'
 
@@ -91,12 +92,17 @@ function PresentationViewComponent({
     return null
   }, [currentItem, live])
   const isMediaItem = currentItem?.resourceType === 'MEDIA'
+  const shouldOmitThemeForMedia = shouldOmitThemeForLiveMediaItem({
+    live,
+    currentItem
+  })
   const slideTheme =
     currentItem?.resourceType === 'PRESENTATION' && currentItem && 'theme' in currentItem
       ? (currentItem as { theme?: typeof theme }).theme
       : undefined
-  const effectiveTheme =
-    slideTheme || (currentItem?.resourceType === 'PRESENTATION' ? BlankTheme : theme)
+  const effectiveTheme = shouldOmitThemeForMedia
+    ? LIVE_MEDIA_NEUTRAL_THEME
+    : slideTheme || (currentItem?.resourceType === 'PRESENTATION' ? BlankTheme : theme)
 
   const {
     background,
