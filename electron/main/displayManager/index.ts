@@ -27,6 +27,14 @@ function focusDisplayWindow(
   return windowRef.id
 }
 
+function focusLiveDisplayWindow(
+  windowRef: BrowserWindow,
+  targetBounds?: { x: number; y: number; width: number; height: number }
+): number {
+  windowRef.setSkipTaskbar(true)
+  return focusDisplayWindow(windowRef, targetBounds)
+}
+
 const rendererReadyResolvers = new Map<number, () => void>()
 
 export function initializeDisplayManager() {
@@ -78,7 +86,7 @@ export function initializeDisplayManager() {
 
     const existingLiveScreen = liveScreensByDisplayId.get(displayId)
     if (existingLiveScreen && !existingLiveScreen.isDestroyed()) {
-      return focusDisplayWindow(existingLiveScreen, targetDisplay.bounds)
+      return focusLiveDisplayWindow(existingLiveScreen, targetDisplay.bounds)
     }
 
     const mainWindow = BrowserWindow.fromWebContents(event.sender)
@@ -92,6 +100,7 @@ export function initializeDisplayManager() {
       width: targetDisplay.bounds.width,
       height: targetDisplay.bounds.height,
       show: false,
+      skipTaskbar: true,
       autoHideMenuBar: true,
       frame: false,
       alwaysOnTop: true,
@@ -110,6 +119,7 @@ export function initializeDisplayManager() {
 
     // Mostrar la ventana después de cargar
     liveScreen.once('ready-to-show', () => {
+      liveScreen.setSkipTaskbar(true)
       liveScreen.setBounds(targetDisplay.bounds, false)
       liveScreen.setFullScreen(true)
       liveScreen.show()

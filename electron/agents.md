@@ -269,6 +269,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - `displayManager/index.ts` importa explícitamente los tipos usados en IPC (`ThemeWithMedia` y `StageScreenConfigUpdate`) para mantener tipado estricto en build de main process.
 - `showLiveScreen` y `showStageScreen` reutilizan instancia por `displayId` si ya existe.
 - `showLiveScreen` refuerza `setBounds(display.bounds)` + `setFullScreen(true)` tanto en creación como en reuso de ventana para evitar aperturas parciales/pequeñas en algunos entornos Windows multi-display.
+- `showLiveScreen` crea y mantiene la ventana con `skipTaskbar: true` (y `setSkipTaskbar(true)` en creación/reuso) para que las pantallas de proyección en vivo no aparezcan en la barra de tareas/dock.
 - `showStageScreen` también refuerza `setBounds(display.bounds)` + `setFullScreen(true)` tanto en creación como en reuso de ventana para evitar recortes al adaptar resoluciones o reconectar pantallas.
 
 ### Prisma Initialization (`prisma.ts`)
