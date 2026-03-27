@@ -13,7 +13,7 @@ import { CalendarPlus, Radio } from 'lucide-react'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { useDraggable } from '@dnd-kit/core'
-import { resolveBibleBookAccessId } from './accessData'
+import { buildBibleAccessData, resolveBibleBookAccessId, serializeBibleVerseRange } from './accessData'
 
 type Props = {
   bookData?: BibleSchemaDTO
@@ -194,47 +194,42 @@ export default function ViewVerses({
   const handleAddToSchedule = (verseNumber: number) => {
     if (bookAccessId === null) return
 
-    if (verse.includes(verseNumber)) {
-      const verseRange =
-        verse.length === 1 ? verse[0] : `${Math.min(...verse)}-${Math.max(...verse)}`
-      addItemToSchedule({
-        type: 'BIBLE',
-        accessData: `${bookAccessId},${chapter},${verseRange},${version}`
+    const verseRange = verse.includes(verseNumber)
+      ? serializeBibleVerseRange(verse)
+      : String(verseNumber)
+
+    addItemToSchedule({
+      type: 'BIBLE',
+      accessData: buildBibleAccessData({
+        bookId: bookAccessId,
+        chapter,
+        verseRange,
+        version
       })
-    } else {
-      addItemToSchedule({
-        type: 'BIBLE',
-        accessData: `${bookAccessId},${chapter},${verseNumber},${version}`
-      })
-    }
+    })
   }
 
   const handleShowOnLive = (verseNumber: number) => {
     if (bookAccessId === null) return
 
-    if (verse.includes(verseNumber)) {
-      const verseRange =
-        verse.length === 1 ? verse[0] : `${Math.min(...verse)}-${Math.max(...verse)}`
-      showItemOnLiveScreen({
-        type: 'BIBLE',
-        accessData: `${bookAccessId},${chapter},${verseRange},${version}`,
-        id: '-1',
-        order: -1,
-        scheduleId: -1,
-        updatedAt: new Date(),
-        deletedAt: null
-      })
-    } else {
-      showItemOnLiveScreen({
-        type: 'BIBLE',
-        accessData: `${bookAccessId},${chapter},${verseNumber},${version}`,
-        id: '-1',
-        order: -1,
-        scheduleId: -1,
-        updatedAt: new Date(),
-        deletedAt: null
-      })
-    }
+    const verseRange = verse.includes(verseNumber)
+      ? serializeBibleVerseRange(verse)
+      : String(verseNumber)
+
+    showItemOnLiveScreen({
+      type: 'BIBLE',
+      accessData: buildBibleAccessData({
+        bookId: bookAccessId,
+        chapter,
+        verseRange,
+        version
+      }),
+      id: '-1',
+      order: -1,
+      scheduleId: -1,
+      updatedAt: new Date(),
+      deletedAt: null
+    })
   }
 
   return (
@@ -288,8 +283,16 @@ function VerseItem({
   onShowOnLive: (verseNumber: number) => void
   verseRefs: React.MutableRefObject<Map<number, HTMLDivElement>>
 }) {
-  const verseRange = selectedVerses.length === 1 ? selectedVerses[0] : `${Math.min(...selectedVerses)}-${Math.max(...selectedVerses)}`
-  const accessData = bookAccessId === null ? '' : `${bookAccessId},${chapter},${verseRange},${version}`
+  const verseRange = serializeBibleVerseRange(selectedVerses)
+  const accessData =
+    bookAccessId === null
+      ? ''
+      : buildBibleAccessData({
+          bookId: bookAccessId,
+          chapter,
+          verseRange: verseRange || String(v.verse),
+          version
+        })
   
   const { listeners, setNodeRef, isDragging } = useDraggable({
     id: `verse-${v.verse}-${chapter}-${bookAccessId ?? 'unknown'}`,

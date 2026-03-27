@@ -12,6 +12,7 @@ type Props = {
   previewSource?: {
     bookId: number
     chapter: number
+    verses?: number[]
     verseStart: number
     verseEnd?: number
   } | null
@@ -53,12 +54,17 @@ export default function BibleVersionSelector({
       setLoadingVersionSet((previous) => ({ ...previous, [version]: true }))
 
       try {
-        const startVerse = previewSource.verseStart
-        const endVerse = previewSource.verseEnd ?? previewSource.verseStart
-        const verses = Array.from(
-          { length: endVerse - startVerse + 1 },
-          (_, index) => startVerse + index
-        )
+        const verses =
+          previewSource.verses && previewSource.verses.length > 0
+            ? previewSource.verses
+            : Array.from(
+                {
+                  length: (previewSource.verseEnd ?? previewSource.verseStart) -
+                    previewSource.verseStart +
+                    1
+                },
+                (_, index) => previewSource.verseStart + index
+              )
 
         const result = await window.api.bible.getVerses({
           book: previewSource.bookId,

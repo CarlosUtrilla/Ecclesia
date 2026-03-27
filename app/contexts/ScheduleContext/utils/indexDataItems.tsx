@@ -20,6 +20,7 @@ import {
   splitLongBibleVerse
 } from '@/lib/splitLongBibleVerse'
 import type { ThemeWithMedia } from '@/ui/PresentationView/types'
+import { parseBibleAccessData, parseBibleVerseRange } from '@/screens/panels/library/bible/accessData'
 
 const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
 
@@ -48,7 +49,7 @@ export const useIndexDataItems = (
   currentSchedule: ScheduleSchemaType,
   selectedTheme: ThemeWithMedia
 ) => {
-  const { getCompleteVerseText } = useBibleSchema()
+  const { getCompleteNameById } = useBibleSchema()
   const { buildMediaUrl } = useMediaServer()
   const { themes } = useThemes()
   const [directLiveSongs, setDirectLiveSongs] = useState<SongResponseDTO[]>([])
@@ -182,20 +183,19 @@ export const useIndexDataItems = (
         return `Medio desconocido`
       }
       case 'BIBLE': {
-        const splited = accessData.split(',')
-        const versesRange = splited[2].split('-')
+        const parsedBibleAccessData = parseBibleAccessData(accessData)
+
+        if (!parsedBibleAccessData) {
+          return accessData
+        }
+
         const text =
-          getCompleteVerseText(
-            parseInt(splited[0]),
-            parseInt(splited[1]),
-            parseInt(versesRange[0]),
-            versesRange[1] ? parseInt(versesRange[1]) : undefined
-          ) || accessData
+          `${getCompleteNameById(parsedBibleAccessData.bookId) || parsedBibleAccessData.bookId} ${parsedBibleAccessData.chapter}:${parsedBibleAccessData.verseRange}`
         return (
           <div>
             {text}{' '}
-            {splited[3] ? (
-              <span className="text-muted-foreground text-xs">({splited[3]})</span>
+            {parsedBibleAccessData.version ? (
+              <span className="text-muted-foreground text-xs">({parsedBibleAccessData.version})</span>
             ) : null}
           </div>
         )
@@ -230,25 +230,30 @@ export const useIndexDataItems = (
           getThemeFontSize(selectedTheme)
         )
 
-        const splited = accessData.split(',')
-        const versesSplited = splited[2].split('-')
-        const versesRange = Array.from(
-          {
-            length:
-              (versesSplited[1] ? parseInt(versesSplited[1]) : parseInt(versesSplited[0])) -
-              parseInt(versesSplited[0]) +
-              1
-          },
-          (_, i) => (i + parseInt(versesSplited[0])).toString()
-        )
-        const book_id = parseInt(splited[0])
-        const chapter = parseInt(splited[1])
-        const version = splited[3] || 'RVR1960'
+        const parsedBibleAccessData = parseBibleAccessData(accessData)
+        if (!parsedBibleAccessData) {
+          return {
+            title: 'Referencia bíblica inválida',
+            content: []
+          }
+        }
+
+        const versesRange = parseBibleVerseRange(parsedBibleAccessData.verseRange)
+        if (versesRange.length === 0) {
+          return {
+            title: 'Referencia bíblica inválida',
+            content: []
+          }
+        }
+
+        const book_id = parsedBibleAccessData.bookId
+        const chapter = parsedBibleAccessData.chapter
+        const version = parsedBibleAccessData.version
         const texts = await window.api.bible.getVerses({
           book: book_id,
           chapter: chapter,
-          verses: versesRange.map((v) => parseInt(v)),
-          version: version //Actualizar para obtener version seleccionada en la app
+          verses: versesRange,
+          version
         })
 
         const content = texts.flatMap((text) => {
@@ -268,9 +273,7 @@ export const useIndexDataItems = (
         })
 
         return {
-          title: `${texts[0]?.book || ''} ${chapter}:${versesSplited[0]}${
-            versesSplited[1] ? `-${versesSplited[1]}` : ''
-          }`,
+          title: `${texts[0]?.book || getCompleteNameById(book_id) || ''} ${chapter}:${parsedBibleAccessData.verseRange}`,
           content
         }
       }

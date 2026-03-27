@@ -71,6 +71,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - Al seleccionar una versión, el componente reconstruye el `accessData` (`bookId,chapter,verseRange,<nueva_version>`) y llama `setItemOnLive({ ...itemOnLive, accessData })`. Esto hace que:
   1. El `useEffect` de `liveContext` que observa `itemOnLive` re-compute el contenido y lo envíe a las pantallas live.
   2. La `useQuery` de `LivePanel` haga refetch automático (el key incluye `itemOnLive.accessData`).
+- El cambio de versión preserva rangos no contiguos del `verseRange` (ej: `1-3,8,12`) sin colapsarlos a un rango continuo, y la preview del selector usa la lista exacta de versos seleccionados.
 - Las versiones disponibles se obtienen de `useBibleVersions()` (`window.api.bible.getAvailableBibles()`); el campo relevante es `v.version` (nombre del archivo `.ebbl` sin extensión).
 
 ## Nota Stage

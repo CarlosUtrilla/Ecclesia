@@ -129,10 +129,12 @@ app/screens/panels/library/
 
 - Lista de versiculos del capitulo seleccionado.
 - Seleccion multiple con Shift+click (rango) y Ctrl+click (toggle).
+- La selección múltiple preserva segmentos no contiguos (ej: `1-3,8,12`) al arrastrar o enviar a cronograma/live, evitando colapsar automáticamente a un único rango continuo.
 - Cuando la selección cambia externamente (ej: cambio de libro/capítulo o selección inicial desde panel superior), `ViewVerses` sincroniza el ancla interna de rango con el verso seleccionado actual para que `Shift+click` extienda desde ese verso (ej: 1 -> Shift+6 selecciona 1..6).
 - Navegacion con flechas (Shift+flecha extiende seleccion).
 - Navegacion adicional con `PageUp/PageDown` para retroceder/avanzar versiculos con teclado.
 - Cada versiculo es draggable con `data: { type: 'BIBLE', accessData: "bookId,chapter,verseRange,version" }`.
+- El parser de `accessData` bíblico soporta `verseRange` con comas internas (`bookId,chapter,1-3,8,12,version`) reconstruyendo correctamente el rango desde los segmentos intermedios.
 - El `bookId` del `accessData` debe salir de `book_id` (identificador bíblico canónico) y no del `id` de la fila de `BibleSchema`; si `book_id` no existe, se usa `id` solo como fallback de compatibilidad.
 - Context menu: Agregar al cronograma, Presentar en vivo.
 - Usa `useKeyboardShortcuts()` para navegacion por teclado.

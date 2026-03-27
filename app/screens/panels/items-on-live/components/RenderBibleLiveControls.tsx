@@ -2,33 +2,40 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import RenderBibleVerses from './RenderBibleVerses'
 import BibleVersionSelector from './BibleVersionSelector'
+import {
+  buildBibleAccessData,
+  parseBibleAccessData,
+  parseBibleVerseRange
+} from '@/screens/panels/library/bible/accessData'
 
 type Props = {
   data: PresentationViewItems[]
 }
 
 function parseBibleVersion(accessData: string): string {
-  return accessData.split(',')[3] || 'RVR1960'
+  return parseBibleAccessData(accessData)?.version || 'RVR1960'
 }
 
 function parseBiblePreviewSource(accessData: string) {
-  const [bookRaw, chapterRaw, verseRangeRaw] = accessData.split(',')
-  const [verseStartRaw, verseEndRaw] = (verseRangeRaw || '').split('-')
-
-  const bookId = Number(bookRaw)
-  const chapter = Number(chapterRaw)
-  const verseStart = Number(verseStartRaw)
-  const verseEnd = verseEndRaw ? Number(verseEndRaw) : verseStart
-
-  if (!Number.isFinite(bookId) || !Number.isFinite(chapter) || !Number.isFinite(verseStart)) {
+  const parsed = parseBibleAccessData(accessData)
+  if (!parsed) {
     return null
   }
 
+  const verses = parseBibleVerseRange(parsed.verseRange)
+  if (verses.length === 0) {
+    return null
+  }
+
+  const verseStart = verses[0]
+  const verseEnd = verses[verses.length - 1]
+
   return {
-    bookId,
-    chapter,
+    bookId: parsed.bookId,
+    chapter: parsed.chapter,
     verseStart,
-    verseEnd: Number.isFinite(verseEnd) ? verseEnd : verseStart
+    verseEnd,
+    verses
   }
 }
 
@@ -40,9 +47,17 @@ export default function RenderBibleLiveControls({ data }: Props) {
 
   const handleVersionChange = (newVersion: number | string) => {
     if (!itemOnLive || !newVersion || String(newVersion) === currentVersion) return
-    const parts = itemOnLive.accessData.split(',')
-    parts[3] = String(newVersion)
-    setItemOnLive({ ...itemOnLive, accessData: parts.join(',') })
+
+    const parsed = parseBibleAccessData(itemOnLive.accessData)
+    if (!parsed) return
+
+    setItemOnLive({
+      ...itemOnLive,
+      accessData: buildBibleAccessData({
+        ...parsed,
+        version: String(newVersion)
+      })
+    })
   }
 
   return (

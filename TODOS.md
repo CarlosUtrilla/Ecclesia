@@ -86,3 +86,7 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 
 [X] Al guardar la letra en el editor de canciones, el estado anterior queda y se concatena lo añadido o editado, como si fuera un historial de cambios pero no se sobreescribe la cancion
 [X] cuando activo el f9, no se manda en automatico el hide de las letras que estan en la pantalla live, hasta que no cambio de letra o slide no se refleja el cambio
+
+[X] Permitir rangos multiples de biblia ejemplo levitico 13:1-3,8,12
+[ ] Poder poner un tamaño de letra diferente o mas grande pero solamente para el stage screen
+[X] el drop area de media no se adapta al tamaño del scroll

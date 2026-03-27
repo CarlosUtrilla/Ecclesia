@@ -503,8 +503,13 @@ export default function MediaLibrary() {
         <ResizableHandle />
         {/* Área de contenido principal */}
         <ResizablePanel className="flex-1 panel-scrollable">
+          {/*
+            Wrapper no-scrollable: los drag handlers y el overlay viven aquí.
+            absolute inset-0 se posiciona relativo a este div, no al área de scroll,
+            así el overlay siempre cubre el área visible sin importar cuánto se haya scrolleado.
+          */}
           <div
-            className="panel-scroll-content p-2 relative"
+            className="relative flex flex-col h-full min-h-0"
             onDragEnter={dragAndDrop.handleDragEnter}
             onDragOver={dragAndDrop.handleDragOver}
             onDragLeave={dragAndDrop.handleDragLeave}
@@ -512,7 +517,13 @@ export default function MediaLibrary() {
           >
             {/* Overlay cuando se está arrastrando */}
             {dragAndDrop.isDragging && (
-              <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50">
+              <div
+                className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50"
+                onDragEnter={dragAndDrop.handleDragEnter}
+                onDragOver={dragAndDrop.handleDragOver}
+                onDragLeave={dragAndDrop.handleDragLeave}
+                onDrop={dragAndDrop.handleDrop}
+              >
                 <div className="bg-background rounded-lg p-4 shadow-lg pointer-events-none">
                   <p className="text-sm font-semibold">Suelta los archivos aquí</p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -522,46 +533,48 @@ export default function MediaLibrary() {
               </div>
             )}
 
-            {/* Grid o Lista de medios */}
-            <div className="h-full">
-              {viewMode === 'grid' ? (
-                <MediaGridWrapper
-                  items={mediaItems}
-                  folders={folders}
-                  currentFolder={currentFolder}
-                  onDelete={handleDelete}
-                  onDeleteFolder={handleDeleteFolder}
-                  onNavigateToFolder={navigateToFolder}
-                  onCopy={handleCopySingle}
-                  onCut={handleCutSingle}
-                  onPaste={handlePaste}
-                  onDrop={handleDrop}
-                  onRename={(item, isFolder, currentName) => {
-                    setRenameTarget({ item, isFolder, currentName })
-                    setShowRenameDialog(true)
-                  }}
-                  formatFileSize={formatFileSize}
-                  onItemClick={handleKeyboardItemClick}
-                  isSelected={selection.isSelected}
-                  onClearSelection={selection.clearSelection}
-                />
-              ) : (
-                <MediaList
-                  items={mediaItems}
-                  folders={folders}
-                  onDelete={handleDelete}
-                  onDeleteFolder={handleDeleteFolder}
-                  onNavigateToFolder={navigateToFolder}
-                  onCopy={handleCopySingle}
-                  onCut={handleCutSingle}
-                  onRename={(item, isFolder, currentName) => {
-                    setRenameTarget({ item, isFolder, currentName })
-                    setShowRenameDialog(true)
-                  }}
-                  onItemClick={handleKeyboardItemClick}
-                  isSelected={selection.isSelected}
-                />
-              )}
+            <div className="panel-scroll-content p-2">
+              {/* Grid o Lista de medios */}
+              <div className="h-full">
+                {viewMode === 'grid' ? (
+                  <MediaGridWrapper
+                    items={mediaItems}
+                    folders={folders}
+                    currentFolder={currentFolder}
+                    onDelete={handleDelete}
+                    onDeleteFolder={handleDeleteFolder}
+                    onNavigateToFolder={navigateToFolder}
+                    onCopy={handleCopySingle}
+                    onCut={handleCutSingle}
+                    onPaste={handlePaste}
+                    onDrop={handleDrop}
+                    onRename={(item, isFolder, currentName) => {
+                      setRenameTarget({ item, isFolder, currentName })
+                      setShowRenameDialog(true)
+                    }}
+                    formatFileSize={formatFileSize}
+                    onItemClick={handleKeyboardItemClick}
+                    isSelected={selection.isSelected}
+                    onClearSelection={selection.clearSelection}
+                  />
+                ) : (
+                  <MediaList
+                    items={mediaItems}
+                    folders={folders}
+                    onDelete={handleDelete}
+                    onDeleteFolder={handleDeleteFolder}
+                    onNavigateToFolder={navigateToFolder}
+                    onCopy={handleCopySingle}
+                    onCut={handleCutSingle}
+                    onRename={(item, isFolder, currentName) => {
+                      setRenameTarget({ item, isFolder, currentName })
+                      setShowRenameDialog(true)
+                    }}
+                    onItemClick={handleKeyboardItemClick}
+                    isSelected={selection.isSelected}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </ResizablePanel>
