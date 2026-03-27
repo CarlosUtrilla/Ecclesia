@@ -170,11 +170,17 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         })
       } else {
         // Crear nuevo schedule con items
+        const items = (scheduleData.items || []).map(({ order, type, accessData, deletedAt }) => ({
+          order,
+          type,
+          accessData,
+          deletedAt: deletedAt ?? null
+        }))
         const created = await window.api.schedule.createSchedule(
           scheduleData.title,
           scheduleData.dateFrom || undefined,
           scheduleData.dateTo || undefined,
-          scheduleData.items || []
+          items
         )
         // Asignar el id al form
         form.setValue('id', created.id)
