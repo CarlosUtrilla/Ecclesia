@@ -10,14 +10,17 @@ import { ChevronDown, Palette, Image as ImageIcon, Video, Sparkles } from 'lucid
 import { MediaPicker, Media, MediaType } from '@/screens/panels/library/media/exports'
 import { ColorPicker } from '@/ui/colorPicker'
 import { useMediaServer } from '@/contexts/MediaServerContext'
+import { Switch } from '@/ui/switch'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
 interface BackgroundSelectorProps {
   backgroundType: BackgroundType
   value: string
+  videoLoop?: boolean
   onTypeChange: (type: BackgroundType) => void
   onValueChange: (value: string) => void
+  onVideoLoopChange?: (value: boolean) => void
   onMediaChange?: (mediaId: number | null, media: Media | null) => void
   selectedMedia?: Media | null
 }
@@ -39,8 +42,10 @@ const backgroundTypeIcons: Record<BackgroundType, React.ReactNode> = {
 export default function BackgroundSelector({
   backgroundType,
   value,
+  videoLoop = true,
   onTypeChange,
   onValueChange,
+  onVideoLoopChange,
   onMediaChange,
   selectedMedia
 }: BackgroundSelectorProps) {
@@ -169,6 +174,17 @@ export default function BackgroundSelector({
                   Limpiar
                 </Button>
               </>
+            )}
+
+            {value === 'media' && selectedMedia && (
+              <div className="flex items-center gap-2 border rounded-md px-2 h-8">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Repetir</span>
+                <Switch
+                  checked={videoLoop}
+                  onCheckedChange={(checked) => onVideoLoopChange?.(checked)}
+                  aria-label="Repetir video de fondo"
+                />
+              </div>
             )}
           </div>
         )}

@@ -210,7 +210,7 @@ El campo `theme.background` determina el tipo:
 - **`"media"`**: Usa `theme.backgroundMedia` para determinar si es imagen o video.
   - Imagen: `BackgroundImage` (fade in/out con `m.img`).
   - Video (preview): `BackgroundVideoThumbnail` (muestra thumbnail estatico).
-  - Video (live): `BackgroundVideoLive` (reproduce video + fallback image mientras carga).
+  - Video (live): `BackgroundVideoLive` (reproduce video + fallback image mientras carga) y respeta `theme.backgroundVideoLoop` para decidir si repite.
 
 ### AnimatedText (`components/AnimatedText.tsx`)
 

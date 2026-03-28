@@ -3,6 +3,7 @@ import { BiblePresentationSchema } from '../biblePresentationConfiguration/schem
 export const CreateThemeSchema = z.object({
   name: z.string().min(1, 'El nombre del tema es obligatorio'),
   background: z.string(),
+  backgroundVideoLoop: z.boolean(),
   backgroundMediaId: z.number().nullable(),
   textStyle: z.custom<React.CSSProperties>(),
   animationSettings: z.string(),

@@ -144,6 +144,7 @@ function PresentationBodyComponent({
           <BackgroundVideoLive
             videoUrl={backgroundUrl}
             fallbackUrl={fallbackUrl}
+            shouldLoop={theme.backgroundVideoLoop !== false}
             isVideoLoaded={videoLoaded}
             hasError={videoError}
             onVideoLoaded={() => setVideoLoaded(true)}

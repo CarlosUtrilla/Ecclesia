@@ -80,6 +80,7 @@ export default function ThemesEditor() {
     defaultValues: {
       name: '',
       background: '',
+      backgroundVideoLoop: true,
       backgroundMediaId: null,
       previewImage: '',
       textStyle: {
@@ -573,8 +574,14 @@ export default function ThemesEditor() {
           <BackgroundSelector
             backgroundType={backgroundType}
             value={previewData.background}
+            videoLoop={watchedData.backgroundVideoLoop}
             onTypeChange={setBackgroundType}
             onValueChange={(v) => setValue('background', v, { shouldDirty: true })}
+            onVideoLoopChange={(value) =>
+              setValue('backgroundVideoLoop', value, {
+                shouldDirty: true
+              })
+            }
             onMediaChange={handleMediaChange}
             selectedMedia={previewData.backgroundMedia}
           />

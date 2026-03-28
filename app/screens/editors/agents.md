@@ -118,6 +118,7 @@ app/screens/editors/
   - Color solido (ColorPicker)
   - Imagen (MediaPicker dialog)
   - Video (MediaPicker dialog)
+  - Cuando el fondo es video seleccionado, permite alternar `Repetir` para decidir si el video de fondo hace loop o termina al finalizar.
 - **Estilos de texto**: fontSize, fontFamily, fontWeight, color, textAlign, letterSpacing, lineHeight.
 - **Reutilización de efectos de texto**: ThemeToolbar y PresentationEditor comparten `app/screens/editors/components/textEffectsControls.tsx` para controles de sombra, contorno y fondo de bloque, reduciendo duplicación de UI/lógica.
 - **Sombra de texto**: toggle `textShadowEnabled` + `textShadowColor`, `textShadowBlur`, `textShadowOffsetX`, `textShadowOffsetY`. Se configuran en un Popover "Sombra" en `ThemeToolbar`. Los valores se almacenan como campos custom en `textStyle` y se convierten a `textShadow` CSS (escalado al tamaño de pantalla) en `usePresentationTextLayout`.

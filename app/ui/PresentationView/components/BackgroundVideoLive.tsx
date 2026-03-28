@@ -3,6 +3,7 @@ import { m } from 'framer-motion'
 interface BackgroundVideoLiveProps {
   videoUrl: string
   fallbackUrl: string | null
+  shouldLoop: boolean
   onVideoLoaded: () => void
   onVideoError: () => void
   isVideoLoaded: boolean
@@ -12,6 +13,7 @@ interface BackgroundVideoLiveProps {
 export function BackgroundVideoLive({
   videoUrl,
   fallbackUrl,
+  shouldLoop,
   onVideoLoaded,
   onVideoError,
   isVideoLoaded,
@@ -47,7 +49,7 @@ export function BackgroundVideoLive({
           key={`video-${videoUrl}`}
           src={videoUrl}
           autoPlay
-          loop
+          loop={shouldLoop}
           muted
           playsInline
           onLoadedData={onVideoLoaded}
