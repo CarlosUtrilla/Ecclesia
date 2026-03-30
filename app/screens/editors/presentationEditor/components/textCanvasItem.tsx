@@ -5,7 +5,7 @@ import { cn, sanitizeHTML } from '@/lib/utils'
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { AnimationType, getAnimationVariants } from '@/lib/animations'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
-import { CanvasItemStyle } from '../utils/slideUtils'
+import { CanvasItemStyle, BASE_CANVAS_HEIGHT } from '../utils/slideUtils'
 import { parseBibleAccessData } from '../utils/bibleAccessData'
 import { getBibleVerseText } from '@/lib/bibleVerseSteps'
 import { saveSelection, restoreSelection, registerActiveEditable } from '../utils/textSelection'
@@ -502,12 +502,12 @@ export default function TextCanvasItem({
                 textStyle={textStyle}
                 isPreview={false}
                 theme={theme}
-                smallFontSize={`${Math.max(10, Math.round(style.fontSize * 0.85))}px`}
+                smallFontSize={`${style.fontSize * 0.85}px`}
                 textContainerPadding={{ horizontal: 0, vertical: 0 }}
                 textContainerOffset={{ x: 0, y: 0 }}
                 verticalAlign={verticalAlign}
                 scaleFactor={1}
-                presentationHeight={style.height}
+                presentationHeight={BASE_CANVAS_HEIGHT}
                 showTextBounds={false}
                 blockBgStyle={blockBgStyle}
                 blockBgPadding={blockBgPadding}

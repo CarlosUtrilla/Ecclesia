@@ -307,11 +307,21 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
 class SyncService {
   /**
    * Aplica las filas de un snapshot remoto a la BD local usando lastWriteWins por updatedAt.
-   * Usa $executeRawUnsafe después de cada upsert para preservar el updatedAt original del
-   * dispositivo fuente, evitando que cada aplicación incremente el timestamp y cause re-syncs
-   * indefinidos entre dispositivos (ping-pong).
+   * 
+   * CAMBIO: Ya NO restaura updatedAt con SQL crudo. En su lugar:
+   * - Cuando se aplica un cambio remoto, se deja que Prisma genere el nuevo updatedAt (fecha actual)
+   * - Se actualiza SyncState.lastAppliedSnapshotAt para rastrear cuándo se aplicó el snapshot
+   * - Esto evita "ping-pong" porque ediciones locales posteriores siempre tienen updatedAt más reciente
+   * 
+   * @param tables Tablas del snapshot remoto
+   * @param workspaceId Workspace ID del snapshot
+   * @param remoteDeviceId ID del dispositivo que originó el snapshot
    */
-  async applySnapshotRows(tables: Record<string, unknown[]>) {
+  async applySnapshotRows(
+    tables: Record<string, unknown[]>,
+    workspaceId: string,
+    remoteDeviceId: string
+  ) {
     const prisma = getPrisma()
     let applied = 0
     let stale = 0
@@ -376,7 +386,6 @@ class SyncService {
             }
 
             const allFields = pickAllowedFields(row, definition.allowedFields)
-            const updatedAtIso = remoteUpdatedAt.toISOString()
 
             if (existing) {
               const updateData = { ...allFields }
@@ -389,19 +398,9 @@ class SyncService {
                 continue
               }
 
-              // Mini-transacción por fila: update + restaurar updatedAt original son atómicos.
-              // Usar una transacción por fila (no una gigante) para que un FK violation en una fila
-              // no afecte a las demás.
-              await prisma.$transaction(async (tx) => {
-                const txDelegate = (tx as Record<string, any>)[definition.delegateName]
-                await txDelegate.update({ where, data: updateData })
-                // Restaurar updatedAt original para evitar ping-pong de timestamps entre dispositivos
-                await tx.$executeRawUnsafe(
-                  `UPDATE "${tableName}" SET "updatedAt" = ? WHERE "id" = ?`,
-                  updatedAtIso,
-                  existing.id
-                )
-              })
+              // Aplicar cambio remoto. Dejar que Prisma genere el nuevo updatedAt (actual).
+              // Esto evita ping-pong porque ediciones locales posteriores serán más recientes.
+              await delegate.update({ where, data: updateData })
               applied += 1
             } else {
               const createData = { ...allFields }
@@ -412,17 +411,8 @@ class SyncService {
                 continue
               }
 
-              // Mini-transacción por fila: create + restaurar updatedAt original son atómicos.
-              await prisma.$transaction(async (tx) => {
-                const txDelegate = (tx as Record<string, any>)[definition.delegateName]
-                const created = await txDelegate.create({ data: createData, select: { id: true } })
-                // Restaurar updatedAt original tras la creación
-                await tx.$executeRawUnsafe(
-                  `UPDATE "${tableName}" SET "updatedAt" = ? WHERE "id" = ?`,
-                  updatedAtIso,
-                  created.id
-                )
-              })
+              // Crear el registro. Prisma genera automáticamente updatedAt (actual).
+              await delegate.create({ data: createData })
               applied += 1
             }
           } catch (err) {
@@ -468,19 +458,11 @@ class SyncService {
                       delete fallbackUpdateData.id
                       delete fallbackUpdateData.updatedAt
                       delete fallbackUpdateData.createdAt
-                      const updatedAtIso2 = remoteUpdatedAt.toISOString()
                       if (Object.keys(fallbackUpdateData).length > 0) {
-                        await prisma.$transaction(async (tx) => {
-                          const txDelegate = (tx as Record<string, any>)[definition.delegateName]
-                          await txDelegate.update({
-                            where: { id: numId },
-                            data: fallbackUpdateData
-                          })
-                          await tx.$executeRawUnsafe(
-                            `UPDATE "${tableName}" SET "updatedAt" = ? WHERE "id" = ?`,
-                            updatedAtIso2,
-                            numId
-                          )
+                        // Aplicar el fallback. Dejar que Prisma genere el nuevo updatedAt.
+                        await delegate.update({
+                          where: { id: numId },
+                          data: fallbackUpdateData
                         })
                         applied += 1
                         continue
@@ -501,6 +483,29 @@ class SyncService {
             )
             failed += 1
           }
+        }
+      }
+
+      // Actualizar SyncState para registrar cuándo se aplicó este snapshot
+      if (applied > 0) {
+        try {
+          await prisma.syncState.upsert({
+            where: { workspaceId_deviceId: { workspaceId, deviceId: remoteDeviceId } },
+            create: {
+              workspaceId,
+              deviceId: remoteDeviceId,
+              lastAppliedSnapshotAt: new Date()
+            },
+            update: {
+              lastAppliedSnapshotAt: new Date(),
+              snapshotApplySequence: { increment: 1 }
+            }
+          })
+        } catch (err) {
+          console.warn(
+            `[applySnapshot] No se pudo actualizar SyncState para ${workspaceId}/${remoteDeviceId}:`,
+            err
+          )
         }
       }
     })

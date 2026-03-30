@@ -343,3 +343,24 @@ Renderiza texto genérico del slide con animaciones:
 - Temas y animaciones -> `/app/screens/editors/agents.md`
 - Modelos Themes, Media -> `/prisma/agents.md`
 - Utilidades en lib/ son transversales a todo el proyecto
+
+## Cambios recientes
+
+- **Fix: Auto font size en capas bíblicas de PRESENTATION** (2026-03-29): el desajuste preview/live no venía de `TextCanvasItem`, sino del path de `PresentationRender` para layers `resourceType: 'BIBLE'`.
+  - **Problema**: `PresentationRender` pasaba `presentationHeight={BASE_PRESENTATION_HEIGHT}` y `scaleFactor={1}` a `BibleTextRender`, ignorando el tamaño real del viewport.
+  - **Síntoma**: mismo tamaño absoluto de verso en preview pequeño y live grande (en preview se veía enorme, en live pequeño).
+  - **Solución**: propagar `presentationHeight` y `scaleFactor` reales desde `ResourceContent` hacia `PresentationRender`, y de ahí a `BibleTextRender` por layer bíblico.
+  - **Archivos**:
+    - `app/ui/PresentationView/components/ResourceContent.tsx`
+    - `app/ui/PresentationView/components/PresentationRender.tsx`
+    - `app/ui/PresentationView/components/PresentationRender.test.tsx`
+
+- **Fix: Auto font size para versos bíblicos desincronizado** (2025-03-29): El cálculo de `smallFontSize` en BibleTextRender recibía parámetros incorrectos desde TextCanvasItem.
+  - **Problema**: El verso se veía enorme en el editor de presentaciones pero minúsculo en la pantalla live.
+  - **Root cause**: `TextCanvasItem` pasaba `presentationHeight={style.height}` (altura del elemento ~200px) cuando debería ser `BASE_CANVAS_HEIGHT` (720). Esto causaba que la escala en BibleTextRender fuese completamente diferente entre editor y live.
+  - **Fórmula afectada**: En BibleTextRender línea ~310: `verseFontSize = (safePresentationHeight * verseBaseFontSize) / BASE_PRESENTATION_HEIGHT`. Si `safePresentationHeight` = 200px, la proporción es incorrecta.
+  - **Solución**: Cambiar TextCanvasItem para pasar `presentationHeight={BASE_CANVAS_HEIGHT}` consistentemente. Ahora `smallFontSize = style.fontSize * 0.85` produce el mismo resultado proporcional que en PresentationView.
+  - **Archivos modificados**:
+    - `app/screens/editors/presentationEditor/components/textCanvasItem.tsx` (línea ~510)
+    - `app/screens/editors/presentationEditor/components/textCanvasItem.test.ts` (tests agregados)
+  - **Validación**: Tests unitarios confirman cálculo consistente entre editor (720px base) y live screen (1080px real / 720px base = 1.5x escala).

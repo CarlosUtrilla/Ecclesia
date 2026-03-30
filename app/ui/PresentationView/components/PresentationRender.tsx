@@ -16,6 +16,8 @@ type Props = React.ComponentProps<typeof AnimatedText> & {
   currentIndex?: number
   theme?: React.ComponentProps<typeof BibleTextRender>['theme']
   smallFontSize?: string
+  scaleFactor?: number
+  presentationHeight?: number
 }
 
 const PRESENTATION_LAYER_BASE_WIDTH = 1280
@@ -280,6 +282,8 @@ function PresentationLayer({
   activeVerse,
   theme,
   smallFontSize,
+  scaleFactor = 1,
+  presentationHeight = BASE_PRESENTATION_HEIGHT,
   baseTextStyle,
   baseVerticalAlign,
   textBoundsScale,
@@ -290,6 +294,8 @@ function PresentationLayer({
   activeVerse?: number
   theme?: React.ComponentProps<typeof BibleTextRender>['theme']
   smallFontSize?: string
+  scaleFactor?: number
+  presentationHeight?: number
   baseTextStyle: CSSProperties
   baseVerticalAlign?: 'top' | 'center' | 'bottom'
   textBoundsScale?: {
@@ -444,8 +450,8 @@ function PresentationLayer({
           textContainerPadding={{ horizontal: 0, vertical: 0 }}
           textContainerOffset={{ x: 0, y: 0 }}
           verticalAlign={layerVerticalAlign}
-          scaleFactor={1}
-          presentationHeight={BASE_PRESENTATION_HEIGHT}
+          scaleFactor={scaleFactor}
+          presentationHeight={presentationHeight}
           showTextBounds={false}
           hideTextInLive={hideTextInLive}
         />
@@ -500,7 +506,9 @@ export default function PresentationRender(props: Props) {
     presentationVerseBySlideKey,
     currentIndex = 0,
     theme,
-    smallFontSize
+    smallFontSize,
+    scaleFactor = 1,
+    presentationHeight = BASE_PRESENTATION_HEIGHT
   } = props
 
   if (!item.presentationItems || item.presentationItems.length === 0) {
@@ -522,6 +530,8 @@ export default function PresentationRender(props: Props) {
           }
           theme={theme}
           smallFontSize={smallFontSize}
+          scaleFactor={scaleFactor}
+          presentationHeight={presentationHeight}
           isPreview={isPreview}
           baseTextStyle={textStyle}
           baseVerticalAlign={verticalAlign}

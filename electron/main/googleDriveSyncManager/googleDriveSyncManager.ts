@@ -1229,7 +1229,11 @@ async function pullAllRemoteSnapshots(
       }
       if (parsed.deviceId === appInstanceId) continue
 
-      const result = await syncService.applySnapshotRows(parsed.tables)
+      const result = await syncService.applySnapshotRows(
+        parsed.tables,
+        config.workspaceId,
+        parsed.deviceId
+      )
       totalApplied += result.applied
       totalStale += result.stale
       totalSkipped += result.skipped

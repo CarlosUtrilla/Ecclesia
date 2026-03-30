@@ -272,3 +272,10 @@ app/screens/editors/
   - El fontSize se deja en auto-sizing (default 48) para que el texto sea legible en el canvas de edición (que es mucho más grande que la pantalla de presentación).
   - La posición se mantiene centrada (centerInCanvas: true) para consistencia visual.
   - Se aplican: fontFamily, color, textAlign, letterSpacing, lineHeight, verticalAlign, textShadowEnabled/Color/Blur/OffsetX/Y, textStrokeEnabled/Color/Width, blockBgEnabled/Color/Blur/Padding/Opacity/Radius.
+
+- **Fix: Auto font size para versos bíblicos** (2025-03-29): El cálculo de `smallFontSize` en TextCanvasItem estaba desincronizado con PresentationView.
+  - **Problema**: En editor se veía enorme, en live se veía minúsculo.
+  - **Causa**: TextCanvasItem pasaba `presentationHeight={style.height}` (altura del objeto ~200px) vs PresentationView que usa `screenSize.height` (altura de pantalla). BibleTextRender recibía una escala incorrecta.
+  - **Solución**: Cambiar a `presentationHeight={BASE_CANVAS_HEIGHT}` (720) en TextCanvasItem para mantener consistencia. Ahora `smallFontSize = style.fontSize * 0.85` produce el mismo resultado en editor y live.
+  - **Archivo**: `app/screens/editors/presentationEditor/components/textCanvasItem.tsx`
+  - **Tests**: Agregados 4 tests en `textCanvasItem.test.ts` para verificar cálculo consistente.

@@ -94,6 +94,8 @@ function ResourceContentComponent({
         presentationVerseBySlideKey={presentationVerseBySlideKey}
         theme={theme}
         smallFontSize={calculatedSmallFontSize}
+        scaleFactor={scaleFactor}
+        presentationHeight={presentationHeight}
         animationType={animationType}
         variants={variants}
         textStyle={textStyle}

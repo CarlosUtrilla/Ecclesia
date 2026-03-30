@@ -2,10 +2,12 @@ import { PrismaClient, SyncOperation } from '@prisma/client'
 import path from 'path'
 import fs from 'fs-extra'
 import { app } from 'electron'
+import os from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { AsyncLocalStorage } from 'async_hooks'
 import log from 'electron-log'
+import { serializeOutboxPayload } from './sync/outboxPayload'
 
 const execAsync = promisify(exec)
 let prisma: PrismaClient | null = null
@@ -83,12 +85,10 @@ async function getSyncIdentityCached(): Promise<SyncIdentity | null> {
     return null
   }
 
-  const workspaceId = config.workspaceId?.trim()
-  const deviceId = config.deviceName?.trim()
-  if (!workspaceId || !deviceId) {
-    cachedSyncIdentity = { loadedAt: now, value: null }
-    return null
-  }
+  // Mantener consistencia con googleDriveSyncManager: workspace por defecto y hostname
+  // cuando el usuario aún no definió valores explícitos en ajustes.
+  const workspaceId = config.workspaceId?.trim() || 'default'
+  const deviceId = config.deviceName?.trim() || os.hostname() || 'Este dispositivo'
 
   const value = { workspaceId, deviceId }
   cachedSyncIdentity = { loadedAt: now, value }
@@ -143,7 +143,7 @@ function toRecordId(model: string, args: Record<string, unknown>, result: unknow
 function toPayloadString(args: Record<string, unknown>, result: unknown) {
   const payloadBase =
     result && typeof result === 'object' ? result : (args.data ?? args.where ?? {})
-  return JSON.stringify(payloadBase)
+  return serializeOutboxPayload(payloadBase)
 }
 
 function toOperation(action: string): SyncOperation | null {
@@ -272,7 +272,7 @@ function registerOutboxMiddleware(client: PrismaClient) {
           tableName: model,
           recordId: target.id,
           operation,
-          payload: JSON.stringify({ id: target.id, deletedAt: deletedAt.toISOString() }),
+          payload: serializeOutboxPayload({ id: target.id, deletedAt: deletedAt.toISOString() }),
           entityUpdatedAt: deletedAt,
           deletedAt
         })
@@ -287,7 +287,7 @@ function registerOutboxMiddleware(client: PrismaClient) {
           tableName: model,
           recordId: target.id,
           operation,
-          payload: JSON.stringify({ id: target.id, ...dataPatch }),
+          payload: serializeOutboxPayload({ id: target.id, ...dataPatch }),
           entityUpdatedAt: new Date()
         })
       }
@@ -302,7 +302,7 @@ function registerOutboxMiddleware(client: PrismaClient) {
           tableName: model,
           recordId: String(row.id),
           operation,
-          payload: JSON.stringify(row),
+          payload: serializeOutboxPayload(row),
           entityUpdatedAt: new Date()
         })
       }

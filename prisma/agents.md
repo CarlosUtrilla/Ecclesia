@@ -277,14 +277,16 @@ enum SyncOperation {
 }
 
 model SyncState {
-  id                Int      @id @default(autoincrement())
-  workspaceId       String
-  deviceId          String
-  lastPulledAt      DateTime?
-  lastPushedAt      DateTime?
-  lastAckedChangeId Int?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                    Int      @id @default(autoincrement())
+  workspaceId           String
+  deviceId              String
+  lastPulledAt          DateTime?
+  lastPushedAt          DateTime?
+  lastAckedChangeId     Int?
+  lastAppliedSnapshotAt DateTime?
+  snapshotApplySequence Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@unique([workspaceId, deviceId])
 }
@@ -321,7 +323,7 @@ model SyncInboxChange {
 }
 ```
 
-- `SyncState` guarda checkpoint por `workspaceId + deviceId`.
+- `SyncState` guarda checkpoint por `workspaceId + deviceId`, incluyendo `lastAppliedSnapshotAt` y `snapshotApplySequence` para rastrear snapshots remotos aplicados sin depender de restaurar `updatedAt`.
 - `SyncOutboxChange` registra cambios locales pendientes por entidad para empuje incremental.
 - `SyncInboxChange` recibe cambios remotos deduplicados antes de aplicar merge.
 

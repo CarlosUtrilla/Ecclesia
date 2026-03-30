@@ -55,8 +55,13 @@ class SelectedScreensService {
 
   async createSelectedScreen(data: CreateSelectedScreenDTO) {
     const prisma = getPrisma()
-    const record = await prisma.selectedScreens.create({
-      data: { ...data, screenId: BigInt(data.screenId) }
+    const record = await prisma.selectedScreens.upsert({
+      where: { screenId: BigInt(data.screenId) },
+      create: { ...data, screenId: BigInt(data.screenId) },
+      update: {
+        screenName: data.screenName,
+        rol: data.rol
+      }
     })
     return mapScreenId(record)
   }

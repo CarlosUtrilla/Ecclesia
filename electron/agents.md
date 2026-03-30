@@ -102,7 +102,9 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 - **Flujo push**: `reconcileSyncData()` → `buildSnapshot()` (todos los modelos de BD) → `uploadSnapshot()` → **Promise.all**: `syncMediaManifest push` + `syncBibleFiles push` (paralelos) → `writeRemoteManifest`.
 - **Optimización idle**: en ciclos normales, el snapshot solo se construye/sube si existe outbox local pendiente (`SyncOutboxChange.ackedAt = null`). Tras upload exitoso, se confirma outbox (`ackedAt`) para evitar re-subidas de snapshot en ciclos sin cambios de BD.
 - **Flujo pull**: `pullAllRemoteSnapshots()` → descarga snapshots de otros dispositivos → `applySnapshotRows()` (lastWriteWins por `updatedAt`) → **Promise.all**: `syncMediaManifest pull` + `syncBibleFiles pull` (paralelos).
-- **Ping-pong fix**: Prisma `@updatedAt` auto-incrementa en cada write. Se usa `$executeRawUnsafe` dentro de `prisma.$transaction` para restaurar el `updatedAt` original del snapshot después de cada apply.
+- **Ping-pong fix (actual)**: `applySnapshotRows` ya no restaura `updatedAt` con SQL crudo. Se deja que Prisma avance `updatedAt` local y se registra trazabilidad por dispositivo en `SyncState.lastAppliedSnapshotAt` + `snapshotApplySequence` para evitar congelamiento de timestamps tras pulls remotos.
+- **Outbox identity fallback**: el middleware de Prisma que escribe `SyncOutboxChange` usa `workspaceId='default'` y `deviceId=os.hostname()` cuando `google-drive-config.json` tiene `workspaceId`/`deviceName` vacíos, para no perder micro-push al guardar presentaciones o cronogramas.
+- **Outbox payload BigInt-safe**: la serialización de payload del middleware de Prisma usa un serializer dedicado (`serializeOutboxPayload`) para convertir `bigint` sin lanzar `TypeError` (`number` si es seguro, `string` si no), evitando fallos al guardar `SelectedScreens.screenId`.
 - **Archivos en Drive**: `ecclesia-snapshot-{workspaceId}-{deviceId}.json` (un snapshot por dispositivo).
 - **deviceId / deviceName**: basado en `os.hostname()`; dos dispositivos con el mismo hostname no pueden sincronizarse correctamente.
 

@@ -264,14 +264,16 @@ enum SyncOperation {
 }
 
 model SyncState {
-  id                Int       @id @default(autoincrement())
-  workspaceId       String
-  deviceId          String
-  lastPulledAt      DateTime?
-  lastPushedAt      DateTime?
-  lastAckedChangeId Int?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                    Int       @id @default(autoincrement())
+  workspaceId           String
+  deviceId              String
+  lastPulledAt          DateTime?
+  lastPushedAt          DateTime?
+  lastAckedChangeId     Int?
+  lastAppliedSnapshotAt DateTime? // Rastreo de cuándo se aplicó el último snapshot remoto
+  snapshotApplySequence Int       @default(0) // Contador para evitar race conditions
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@unique([workspaceId, deviceId])
 }
