@@ -28,6 +28,7 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
     - Mantiene `presentationBibleOverrideByKey` para sincronizar overrides temporales `{ version, text }` de contenido bíblico por `slideKey/layerId` entre el panel `items-on-live` y las ventanas `live-screen`.
     - Mantiene `appliedTheme` como snapshot del tema realmente aplicado al último `showItemOnLiveScreen`; así el panel live puede seguir mostrando el tema proyectado aunque el operador cambie después el selector global.
     - Mantiene controles de emergencia de proyección (`hideTextOnLive`, `showLogoOnLive`, `blackScreenOnLive`) y los sincroniza por IPC en payload parcial de `liveScreen-update`.
+    - Al ejecutar `showItemOnLiveScreen(item)` sin índice explícito, reinicia `itemIndex` a `0` para que todo nuevo recurso arranque desde la primera diapositiva/fragmento y no herede el índice del recurso anterior.
     - Se separa el envío de `liveScreen-update` en dos efectos: uno para `itemIndex/contentScreen/presentationVerseBySlideKey` y otro para `liveControls`, evitando reenviar contenido completo cuando solo cambian controles.
     - Atajos globales del operador:
       - `F7`: abre/activa ventanas live.

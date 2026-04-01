@@ -390,28 +390,33 @@ class SyncService {
             if (existing) {
               const updateData = { ...allFields }
               delete updateData.id
-              delete updateData.updatedAt
               delete updateData.createdAt
+
+              // Preservar el timestamp remoto evita falsos "stale" cuando el reloj
+              // del dispositivo receptor está adelantado respecto al emisor.
+              updateData.updatedAt = remoteUpdatedAt
 
               if (Object.keys(updateData).length === 0) {
                 skipped += 1
                 continue
               }
 
-              // Aplicar cambio remoto. Dejar que Prisma genere el nuevo updatedAt (actual).
-              // Esto evita ping-pong porque ediciones locales posteriores serán más recientes.
+              // Aplicar cambio remoto preservando updatedAt del snapshot.
               await delegate.update({ where, data: updateData })
               applied += 1
             } else {
               const createData = { ...allFields }
-              delete createData.updatedAt
+
+              // Conservar updatedAt original del snapshot remoto para mantener
+              // orden temporal consistente entre dispositivos.
+              createData.updatedAt = remoteUpdatedAt
 
               if (Object.keys(createData).length === 0) {
                 skipped += 1
                 continue
               }
 
-              // Crear el registro. Prisma genera automáticamente updatedAt (actual).
+              // Crear el registro preservando updatedAt remoto.
               await delegate.create({ data: createData })
               applied += 1
             }

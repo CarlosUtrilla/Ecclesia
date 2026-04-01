@@ -277,9 +277,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     setAppliedTheme(resolveAppliedLiveTheme(item, selectedTheme))
     setPresentationVerseBySlideKeyState({})
     setPresentationBibleOverrideByKeyState({})
-    if (typeof index === 'number') {
-      setItemIndex(index)
-    }
+    setItemIndex(typeof index === 'number' ? index : 0)
     setShowedItemKey((prev) => prev + 1)
   }
 

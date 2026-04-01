@@ -101,7 +101,72 @@ describe('SyncService - Second Update After Remote Sync', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           title: 'Test',
-          slides: '[]'
+          slides: '[]',
+          updatedAt: new Date('2024-03-29T10:00:00Z')
+        })
+      })
+    )
+  })
+
+  it('debería aplicar una segunda edición remota aunque el reloj local esté adelantado', async () => {
+    const workspaceId = 'ws-123'
+    const remoteDeviceId = 'device-a'
+
+    prismaMock.presentation.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 1, updatedAt: new Date('2024-03-29T10:00:00Z') })
+
+    prismaMock.presentation.create.mockResolvedValueOnce({
+      id: 1,
+      title: 'Version 1',
+      slides: JSON.stringify(Array.from({ length: 12 }, (_, i) => ({ id: i + 1 }))),
+      updatedAt: new Date('2024-03-29T10:00:00Z')
+    })
+
+    prismaMock.presentation.update.mockResolvedValueOnce({
+      id: 1,
+      title: 'Version 2',
+      slides: JSON.stringify(Array.from({ length: 15 }, (_, i) => ({ id: i + 1 }))),
+      updatedAt: new Date('2024-03-29T10:05:00Z')
+    })
+
+    const snapshotV1 = {
+      Presentation: [
+        {
+          id: 1,
+          title: 'Version 1',
+          slides: JSON.stringify(Array.from({ length: 12 }, (_, i) => ({ id: i + 1 }))),
+          updatedAt: new Date('2024-03-29T10:00:00Z').toISOString()
+        }
+      ]
+    }
+
+    const snapshotV2 = {
+      Presentation: [
+        {
+          id: 1,
+          title: 'Version 2',
+          slides: JSON.stringify(Array.from({ length: 15 }, (_, i) => ({ id: i + 1 }))),
+          updatedAt: new Date('2024-03-29T10:05:00Z').toISOString()
+        }
+      ]
+    }
+
+    const firstApply = await syncService.applySnapshotRows(snapshotV1, workspaceId, remoteDeviceId)
+    expect(firstApply.applied).toBe(1)
+
+    // Al preservar updatedAt remoto en el primer apply (10:00), la segunda edición
+    // remota (10:05) no cae como stale y se aplica correctamente.
+    const secondApply = await syncService.applySnapshotRows(snapshotV2, workspaceId, remoteDeviceId)
+    expect(secondApply.applied).toBe(1)
+    expect(secondApply.stale).toBe(0)
+
+    expect(prismaMock.presentation.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          title: 'Version 2',
+          updatedAt: new Date('2024-03-29T10:05:00Z')
         })
       })
     )
