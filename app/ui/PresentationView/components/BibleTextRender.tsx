@@ -15,6 +15,7 @@ import { AnimatedText } from './AnimatedText'
 import { splitHtmlForWordAnimation } from '../utils/splitHtmlForWordAnimation'
 import { resolveBibleVerseTranslateX, resolveBibleVerseWidthPercent } from '../utils/verseWidth'
 import { useTextBoundsInteraction } from '../hooks/useTextBoundsInteraction'
+import { resolveBibleChunkMaxLength, splitLongBibleVerse } from '@/lib/splitLongBibleVerse'
 
 interface BibleTextRenderProps {
   item: PresentationViewItems
@@ -53,6 +54,9 @@ interface BibleTextRenderProps {
   blockBgStyle?: React.CSSProperties | null
   blockBgPadding?: number | null
   animationDuration?: number
+  constrainScreenVerseToSingleLine?: boolean | 'auto'
+  autoSplitVerseText?: boolean
+  forceHideVerseNumberPrefix?: boolean
 }
 
 const MAX_BIBLE_EDGE_OFFSET_BASE = 72
@@ -117,9 +121,29 @@ export function BibleTextRender({
   hideTextInLive = false,
   blockBgStyle,
   blockBgPadding,
-  animationDuration
+  animationDuration,
+  constrainScreenVerseToSingleLine = true,
+  autoSplitVerseText = false,
+  forceHideVerseNumberPrefix = false
 }: BibleTextRenderProps) {
-  const { text: rawText, verse } = item
+  const { text: originalRawText, verse } = item
+  const rawText = useMemo(() => {
+    const sourceText = originalRawText || ''
+    if (!autoSplitVerseText) return sourceText
+    if (!sourceText) return sourceText
+
+    // Si ya está dividido manualmente, respetar esa estructura.
+    if (/<br\s*\/?>|\n/i.test(sourceText)) return sourceText
+
+    // Evitar romper estilos inline/etiquetas HTML complejas.
+    if (/<[^>]+>/.test(sourceText)) return sourceText
+
+    const maxChunkLength = resolveBibleChunkMaxLength('auto', textStyle.fontSize ?? smallFontSize)
+    const chunks = splitLongBibleVerse(sourceText, maxChunkLength)
+
+    return chunks.length > 1 ? chunks.join('<br/>') : sourceText
+  }, [autoSplitVerseText, originalRawText, textStyle.fontSize, smallFontSize])
+
   const { biblePresentationSettings } = useBiblePresentationSetting()
   const { getCompleteNameById, getShortNameById } = useBibleSchema()
 
@@ -260,19 +284,18 @@ export function BibleTextRender({
     onBoundsPointerLeave,
     onBoundsPointerDown,
     startInteraction
-  } =
-    useTextBoundsInteraction({
-      canEditBounds: canEditVerseBounds,
-      textBoundsBaseValues: verseBoundsBaseValues,
-      textBoundsScale: verseBoundsScale,
-      onTextBoundsChange: handleVerseBoundsChange,
-      allowedModes: ['move', 'resize-left', 'resize-right'],
-      lockPaddingBlock: true,
-      snapAxes: {
-        x: true,
-        y: false
-      }
-    })
+  } = useTextBoundsInteraction({
+    canEditBounds: canEditVerseBounds,
+    textBoundsBaseValues: verseBoundsBaseValues,
+    textBoundsScale: verseBoundsScale,
+    onTextBoundsChange: handleVerseBoundsChange,
+    allowedModes: ['move', 'resize-left', 'resize-right'],
+    lockPaddingBlock: true,
+    snapAxes: {
+      x: true,
+      y: false
+    }
+  })
 
   const verseText = useMemo(() => {
     if (!verse || !selectedBiblePresentationSettings) return ''
@@ -372,12 +395,17 @@ export function BibleTextRender({
           }
         : {}),
       ...(verseStrokeEnabled
-        ? { WebkitTextStroke: `${(verseStrokeWidth * scaleFactor).toFixed(2)}px ${verseStrokeColor}` }
+        ? {
+            WebkitTextStroke: `${(verseStrokeWidth * scaleFactor).toFixed(2)}px ${verseStrokeColor}`
+          }
         : {})
     } as React.CSSProperties
   }, [safePresentationHeight, smallFontSize, theme.textStyle, textStyle, scaleFactor])
 
-  const verseInlineStyle = useMemo(() => buildVerseInlineStyle(verseOverrideStyle), [verseOverrideStyle])
+  const verseInlineStyle = useMemo(
+    () => buildVerseInlineStyle(verseOverrideStyle),
+    [verseOverrideStyle]
+  )
 
   const formattedVerseText = useMemo(() => {
     if (!verseText) return ''
@@ -387,15 +415,26 @@ export function BibleTextRender({
   const normalizedRawText = useMemo(() => {
     const baseText = rawText || ''
     if (!verse) return baseText
-    if (selectedBiblePresentationSettings?.showVerseNumber) return baseText
+    if (selectedBiblePresentationSettings?.showVerseNumber && !forceHideVerseNumberPrefix) {
+      return baseText
+    }
 
     const versePrefixRegex = new RegExp(`^\\s*${verse.verse}\\.?\\s+`)
     return baseText.replace(versePrefixRegex, '')
-  }, [rawText, verse, selectedBiblePresentationSettings?.showVerseNumber])
+  }, [
+    rawText,
+    verse,
+    selectedBiblePresentationSettings?.showVerseNumber,
+    forceHideVerseNumberPrefix
+  ])
 
   const text = useMemo(() => {
     let finalText = normalizedRawText
-    if (verse && selectedBiblePresentationSettings?.showVerseNumber) {
+    if (
+      verse &&
+      selectedBiblePresentationSettings?.showVerseNumber &&
+      !forceHideVerseNumberPrefix
+    ) {
       finalText = `${verse.verse} ${finalText}`
     }
 
@@ -417,7 +456,34 @@ export function BibleTextRender({
     }
 
     return finalText
-  }, [normalizedRawText, isScreenModeVerse, verse, formattedVerseText, selectedBiblePresentationSettings])
+  }, [
+    normalizedRawText,
+    isScreenModeVerse,
+    verse,
+    formattedVerseText,
+    selectedBiblePresentationSettings,
+    forceHideVerseNumberPrefix
+  ])
+
+  const shouldConstrainVerseToSingleLine = useMemo(() => {
+    if (constrainScreenVerseToSingleLine !== 'auto') return constrainScreenVerseToSingleLine
+
+    const sourceText = rawText || ''
+    if (/<br\s*\/?>|\n/i.test(sourceText)) return false
+
+    const plainText = sourceText
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!plainText) return false
+
+    const autoMaxLength = resolveBibleChunkMaxLength(
+      'auto',
+      verseOverrideStyle.fontSize ?? smallFontSize
+    )
+
+    return plainText.length > autoMaxLength
+  }, [constrainScreenVerseToSingleLine, rawText, verseOverrideStyle.fontSize, smallFontSize])
 
   const verseTextStyle = useMemo(
     () => ({
@@ -425,14 +491,13 @@ export function BibleTextRender({
       ...verseOverrideStyle,
       width: '100%',
       maxWidth: '100%',
-      whiteSpace: 'nowrap' as const,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
+      whiteSpace: shouldConstrainVerseToSingleLine ? ('nowrap' as const) : ('normal' as const),
+      overflow: shouldConstrainVerseToSingleLine ? 'hidden' : 'visible',
+      textOverflow: shouldConstrainVerseToSingleLine ? 'ellipsis' : 'clip',
       textAlign:
-        (verseOverrideStyle.textAlign as React.CSSProperties['textAlign']) ||
-        ('center' as const)
+        (verseOverrideStyle.textAlign as React.CSSProperties['textAlign']) || ('center' as const)
     }),
-    [textStyle, verseOverrideStyle]
+    [textStyle, verseOverrideStyle, shouldConstrainVerseToSingleLine]
   )
 
   const renderVerseContent = useCallback(
@@ -621,9 +686,7 @@ export function BibleTextRender({
                 onPointerDownCapture={(event) => {
                   event.stopPropagation()
                 }}
-                onPointerDown={(event) =>
-                  handleVerseResizeHandlePointerDown('resize-right', event)
-                }
+                onPointerDown={(event) => handleVerseResizeHandlePointerDown('resize-right', event)}
               />
             </>
           ) : null}

@@ -10,6 +10,8 @@ export type VerseController = {
   end: number
   current: number
   slideKey: string
+  mode: 'verse' | 'chunk'
+  layerId?: string
 }
 
 type AdjacentVerseDirection = 'previous' | 'next'
@@ -42,6 +44,24 @@ export default function VerseRangeController({
 
   const loadAdjacentVersePreview = useCallback(
     async (direction: AdjacentVerseDirection) => {
+      if (verseController.mode === 'chunk') {
+        const targetStep =
+          direction === 'next' ? verseController.current + 1 : verseController.current - 1
+        const isOutOfRange =
+          direction === 'next'
+            ? targetStep > verseController.end
+            : targetStep < verseController.start
+
+        if (direction === 'next') {
+          setNextVersePreviewText(isOutOfRange ? 'No hay siguiente parte' : `Ir a parte ${targetStep}`)
+        } else {
+          setPreviousVersePreviewText(
+            isOutOfRange ? 'No hay parte anterior' : `Ir a parte ${targetStep}`
+          )
+        }
+        return
+      }
+
       if (!previewSource) {
         if (direction === 'next') {
           setNextVersePreviewText('No hay siguiente verso')
@@ -118,11 +138,17 @@ export default function VerseRangeController({
 
   const nextVerseTooltipText = isLoadingNextVersePreview
     ? 'Cargando vista previa...'
-    : nextVersePreviewText || 'Pasa el mouse para ver el siguiente verso'
+    : nextVersePreviewText ||
+      (verseController.mode === 'chunk'
+        ? 'Pasa el mouse para ver la siguiente parte'
+        : 'Pasa el mouse para ver el siguiente verso')
 
   const previousVerseTooltipText = isLoadingPreviousVersePreview
     ? 'Cargando vista previa...'
-    : previousVersePreviewText || 'Pasa el mouse para ver el verso anterior'
+    : previousVersePreviewText ||
+      (verseController.mode === 'chunk'
+        ? 'Pasa el mouse para ver la parte anterior'
+        : 'Pasa el mouse para ver el verso anterior')
 
   return (
     <div className={cn('flex items-center gap-1', className)}>

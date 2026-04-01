@@ -508,6 +508,7 @@ export default function TextCanvasItem({
                 verticalAlign={verticalAlign}
                 scaleFactor={1}
                 presentationHeight={BASE_CANVAS_HEIGHT}
+                constrainScreenVerseToSingleLine="auto"
                 showTextBounds={false}
                 blockBgStyle={blockBgStyle}
                 blockBgPadding={blockBgPadding}

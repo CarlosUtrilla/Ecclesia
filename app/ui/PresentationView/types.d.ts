@@ -46,6 +46,7 @@ export type PresentationViewProps = {
 export type PresentationViewItems = {
   id?: string
   text: string
+  chunkParts?: string[]
   theme?: ThemeWithMedia
   videoLiveBehavior?: 'auto' | 'manual'
   videoLoop?: boolean
@@ -76,6 +77,7 @@ export type PresentationViewItems = {
 export type PresentationLayerItem = {
   id: string
   text: string
+  chunkParts?: string[]
   videoLoop?: boolean
   shapeType?: 'rectangle' | 'circle' | 'arrow' | 'line-arrow' | 'triangle' | 'line' | 'cross'
   customStyle?: string

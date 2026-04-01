@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from 'vitest'
 import { BlankTheme } from '@/hooks/useThemes'
-import { presentationSlideToViewItem, resolvePresentationSlideTheme } from './presentationSlides'
+import {
+  attachPresentationBibleChunkParts,
+  presentationSlideToViewItem,
+  resolvePresentationSlideTheme
+} from './presentationSlides'
 import type { ThemeWithMedia } from '@/ui/PresentationView/types'
 import type { PresentationSlide } from 'database/controllers/presentations/presentations.dto'
 
@@ -101,5 +105,86 @@ describe('presentationSlideToViewItem', () => {
 
     expect(item.videoLoop).toBe(true)
     expect(item.resourceType).toBe('MEDIA')
+  })
+})
+
+describe('attachPresentationBibleChunkParts', () => {
+  it('adjunta chunkParts para slides legacy de biblia en presentación', () => {
+    const slides = attachPresentationBibleChunkParts(
+      [
+        {
+          id: 'legacy-1',
+          resourceType: 'PRESENTATION',
+          text: 'Vosotros sois de vuestro padre el diablo, y los deseos de vuestro padre queréis hacer. El ha sido homicida desde el principio, y no ha permanecido en la verdad, porque no hay verdad en él. Cuando habla mentira, de suyo habla; porque es mentiroso, y padre de mentira.',
+          verse: {
+            bookId: 43,
+            chapter: 8,
+            verse: 44,
+            version: 'RVR1960'
+          }
+        }
+      ],
+      120
+    )
+
+    expect(slides[0].chunkParts).toBeDefined()
+    expect(slides[0].chunkParts!.length).toBeGreaterThan(1)
+  })
+
+  it('elimina numeración incrustada al inicio antes de chunkear', () => {
+    const slides = attachPresentationBibleChunkParts(
+      [
+        {
+          id: 'legacy-2',
+          resourceType: 'PRESENTATION',
+          text: '23... Y recorría Jesús toda Galilea enseñando en las sinagogas de ellos, y predicando el evangelio del reino, y sanando toda enfermedad y toda dolencia en el pueblo.',
+          verse: {
+            bookId: 40,
+            chapter: 4,
+            verse: 23,
+            version: 'RVR1960'
+          }
+        }
+      ],
+      80
+    )
+
+    const firstChunk = slides[0].chunkParts?.[0] || ''
+    expect(firstChunk.startsWith('23')).toBe(false)
+  })
+
+  it('adjunta chunkParts para layer bíblico dentro de presentationItems', () => {
+    const slides = attachPresentationBibleChunkParts(
+      [
+        {
+          id: 'layered-1',
+          resourceType: 'PRESENTATION',
+          text: '',
+          presentationItems: [
+            {
+              id: 'layer-text-1',
+              resourceType: 'TEXT',
+              text: 'Título'
+            },
+            {
+              id: 'layer-bible-1',
+              resourceType: 'BIBLE',
+              text: 'Vosotros sois de vuestro padre el diablo, y los deseos de vuestro padre queréis hacer. El ha sido homicida desde el principio, y no ha permanecido en la verdad, porque no hay verdad en él. Cuando habla mentira, de suyo habla; porque es mentiroso, y padre de mentira.',
+              verse: {
+                bookId: 43,
+                chapter: 8,
+                verse: 44,
+                version: 'RVR1960'
+              }
+            }
+          ]
+        }
+      ],
+      120
+    )
+
+    const bibleLayer = slides[0].presentationItems?.find((layer) => layer.id === 'layer-bible-1')
+    expect(bibleLayer?.chunkParts).toBeDefined()
+    expect(bibleLayer?.chunkParts?.length).toBeGreaterThan(1)
   })
 })

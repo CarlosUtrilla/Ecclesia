@@ -85,6 +85,7 @@ MediaServerProvider          (top-level, sin dependencias)
   La inferencia de peso/estilo se realiza desde `fileName` (no desde `name`) para mantener robustez aunque `name` se guarde como familia normalizada.
 - `utils/indexDataItems.tsx` - Queries de React Query para songs/media/presentations, funciones de display
 - `utils/LibraryItemPreview.tsx` - Componente de preview para drag overlay
+- En `utils/indexDataItems.tsx`, el contenido `PRESENTATION` mantiene cada diapositiva bíblica como unidad única en runtime (sin expandir en múltiples slides) y adjunta `chunkParts` cuando el texto bíblico largo llega en bloque; antes de chunkear, se limpia numeración incrustada al inicio del texto (`23`, `23.`, `23...`) para evitar duplicados con el prefijo visual del verso.
 
 - `utils/indexDataItems.tsx` incluye un cache reactivo local para recursos enviados directo a live (sin estar en schedule), evitando mutaciones in-place de arrays de React Query y garantizando que `items-on-live` hydrate título/icono/contenido correctamente.
 

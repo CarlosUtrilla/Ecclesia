@@ -154,8 +154,8 @@ function addContinuityEllipsis(chunks: string[]): string[] {
   if (chunks.length <= 1) return chunks
 
   return chunks.map((chunk, index) => {
-    const prefix = index > 0 ? '... ' : ''
-    const suffix = index < chunks.length - 1 ? ' ...' : ''
+    const prefix = index > 0 ? '...' : ''
+    const suffix = index < chunks.length - 1 ? '...' : ''
     return `${prefix}${chunk}${suffix}`
   })
 }

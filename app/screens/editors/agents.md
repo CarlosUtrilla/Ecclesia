@@ -279,3 +279,8 @@ app/screens/editors/
   - **Solución**: Cambiar a `presentationHeight={BASE_CANVAS_HEIGHT}` (720) en TextCanvasItem para mantener consistencia. Ahora `smallFontSize = style.fontSize * 0.85` produce el mismo resultado en editor y live.
   - **Archivo**: `app/screens/editors/presentationEditor/components/textCanvasItem.tsx`
   - **Tests**: Agregados 4 tests en `textCanvasItem.test.ts` para verificar cálculo consistente.
+
+- **Fix: Sin recorte del indicador bíblico en PresentationEditor** (2026-03-29): el canvas de presentación desactiva el truncado single-line de la referencia bíblica para que coincida con el render de slides PRESENTATION.
+  - **Cambio inicial**: desacople del truncado single-line para no heredar siempre el comportamiento de Bible Library.
+  - **Mejora posterior**: `TextCanvasItem` pasa `constrainScreenVerseToSingleLine="auto"` a `BibleTextRender`, activando recorte solo cuando la diapositiva lo necesita (texto largo no dividido), y desactivándolo cuando ya existe división manual.
+  - **Archivo**: `app/screens/editors/presentationEditor/components/textCanvasItem.tsx`

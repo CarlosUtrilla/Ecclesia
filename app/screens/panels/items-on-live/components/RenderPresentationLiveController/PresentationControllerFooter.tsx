@@ -100,7 +100,9 @@ export default function PresentationControllerFooter({
 
       <div className="text-xs text-muted-foreground ml-2">
         Diapositiva {totalSlides === 0 ? 0 : safeIndex + 1} / {totalSlides}
-        {verseController ? ` · Verso ${verseController.current}/${verseController.end}` : ''}
+        {verseController
+          ? ` · ${verseController.mode === 'chunk' ? 'Parte' : 'Verso'} ${verseController.current}/${verseController.end}`
+          : ''}
       </div>
 
       {verseController ? (

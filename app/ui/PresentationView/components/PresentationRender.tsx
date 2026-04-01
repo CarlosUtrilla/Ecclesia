@@ -8,7 +8,7 @@ import { useMediaServer } from '@/contexts/MediaServerContext'
 import { AnimatedText } from './AnimatedText'
 import { BibleTextRender } from './BibleTextRender'
 import { getBibleVerseText } from '@/lib/bibleVerseSteps'
-import { resolveSlideVerse } from '@/lib/presentationVerseController'
+import { getPresentationSlideKey, resolveSlideVerse } from '@/lib/presentationVerseController'
 import { sanitizeHTML } from '@/lib/utils'
 
 type Props = React.ComponentProps<typeof AnimatedText> & {
@@ -74,7 +74,9 @@ const parseInlineStyle = (styleText?: string): CSSProperties => {
 }
 
 const renderShapeLayer = (item: PresentationLayerItem, style: CSSProperties) => {
-  const fill = String((style as Record<string, unknown>)['--shape-fill'] || 'rgba(59, 130, 246, 0.18)')
+  const fill = String(
+    (style as Record<string, unknown>)['--shape-fill'] || 'rgba(59, 130, 246, 0.18)'
+  )
   const stroke = String((style as Record<string, unknown>)['--shape-stroke'] || '#2563eb')
   const strokeWidth = Number((style as Record<string, unknown>)['--shape-stroke-width'] || 4)
   const opacity = Number((style as Record<string, unknown>)['--shape-opacity'] || 1)
@@ -280,6 +282,7 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
 function PresentationLayer({
   item,
   activeVerse,
+  activeChunkStep,
   theme,
   smallFontSize,
   scaleFactor = 1,
@@ -292,6 +295,7 @@ function PresentationLayer({
 }: {
   item: PresentationLayerItem
   activeVerse?: number
+  activeChunkStep?: number
   theme?: React.ComponentProps<typeof BibleTextRender>['theme']
   smallFontSize?: string
   scaleFactor?: number
@@ -425,8 +429,10 @@ function PresentationLayer({
       return null
     }
 
+    const chunkIndex = activeChunkStep ? activeChunkStep - 1 : 0
+    const chunkText = Array.isArray(item.chunkParts) ? item.chunkParts[chunkIndex] : undefined
     const resolvedVerse = activeVerse ?? item.verse.verse
-    const resolvedText = getBibleVerseText(item.text, resolvedVerse) ?? item.text ?? ''
+    const resolvedText = chunkText ?? getBibleVerseText(item.text, resolvedVerse) ?? item.text ?? ''
 
     return (
       <div style={style} className="pointer-events-none">
@@ -452,6 +458,9 @@ function PresentationLayer({
           verticalAlign={layerVerticalAlign}
           scaleFactor={scaleFactor}
           presentationHeight={presentationHeight}
+          constrainScreenVerseToSingleLine="auto"
+          autoSplitVerseText
+          forceHideVerseNumberPrefix={(activeChunkStep ?? 1) > 1}
           showTextBounds={false}
           hideTextInLive={hideTextInLive}
         />
@@ -511,11 +520,71 @@ export default function PresentationRender(props: Props) {
     presentationHeight = BASE_PRESENTATION_HEIGHT
   } = props
 
-  if (!item.presentationItems || item.presentationItems.length === 0) {
-    return <AnimatedText {...props} />
+  const slideStepController = resolveSlideVerse(item, currentIndex, presentationVerseBySlideKey)
+
+  const getLegacyResolvedVerse = () => {
+    if (!item.verse) return undefined
+
+    const start = item.verse.verse
+    const end = item.verse.verseEnd
+
+    if (end === undefined || end <= start) {
+      return start
+    }
+
+    const slideKey = getPresentationSlideKey(item, currentIndex)
+    const active = presentationVerseBySlideKey?.[slideKey]
+
+    if (active === undefined) {
+      return start
+    }
+
+    return Math.max(start, Math.min(end, active))
   }
 
-  const slideVerseController = resolveSlideVerse(item, currentIndex, presentationVerseBySlideKey)
+  if (!item.presentationItems || item.presentationItems.length === 0) {
+    if (item.verse && theme) {
+      const resolvedVerse = getLegacyResolvedVerse() ?? item.verse.verse
+      const chunkIndex =
+        slideStepController?.mode === 'chunk' ? (slideStepController.current ?? 1) - 1 : 0
+      const chunkText = Array.isArray(item.chunkParts) ? item.chunkParts[chunkIndex] : undefined
+      const resolvedText =
+        chunkText ?? getBibleVerseText(item.text, resolvedVerse) ?? item.text ?? ''
+
+      return (
+        <BibleTextRender
+          item={{
+            ...item,
+            text: resolvedText,
+            verse: {
+              ...item.verse,
+              verse: resolvedVerse
+            }
+          }}
+          animationType={props.animationType}
+          variants={props.variants}
+          textStyle={textStyle}
+          isPreview={isPreview}
+          theme={theme}
+          smallFontSize={smallFontSize || '18px'}
+          textContainerPadding={props.textContainerPadding}
+          textContainerOffset={props.textContainerOffset}
+          verticalAlign={verticalAlign}
+          scaleFactor={scaleFactor}
+          presentationHeight={presentationHeight}
+          showTextBounds={false}
+          hideTextInLive={props.hideTextInLive}
+          constrainScreenVerseToSingleLine="auto"
+          autoSplitVerseText
+          forceHideVerseNumberPrefix={
+            slideStepController?.mode === 'chunk' && (slideStepController.current ?? 1) > 1
+          }
+        />
+      )
+    }
+
+    return <AnimatedText {...props} />
+  }
 
   return (
     <>
@@ -524,8 +593,17 @@ export default function PresentationRender(props: Props) {
           key={layerItem.id}
           item={layerItem}
           activeVerse={
-            layerItem.resourceType === 'BIBLE' && layerItem.verse?.verseEnd
-              ? slideVerseController?.current
+            layerItem.resourceType === 'BIBLE' &&
+            slideStepController?.mode === 'verse' &&
+            layerItem.verse?.verseEnd
+              ? slideStepController?.current
+              : undefined
+          }
+          activeChunkStep={
+            layerItem.resourceType === 'BIBLE' &&
+            slideStepController?.mode === 'chunk' &&
+            slideStepController?.layerId === layerItem.id
+              ? slideStepController.current
               : undefined
           }
           theme={theme}

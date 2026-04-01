@@ -7,6 +7,7 @@ import {
   PresentationSlideItem
 } from 'database/controllers/presentations/presentations.dto'
 import { getShapeTypeFromAccessData } from '@/screens/editors/presentationEditor/utils/slideUtils'
+import { splitLongBibleVerse } from '@/lib/splitLongBibleVerse'
 
 const BASE_CANVAS_WIDTH = 1280
 const BASE_CANVAS_HEIGHT = 720
@@ -312,4 +313,79 @@ export const getSlideLabel = (slide: PresentationSlide) => {
     return `Biblia ${bookId}:${chapter}:${verseStart}${verseEnd ? `-${verseEnd}` : ''}`
   }
   return 'Biblia'
+}
+
+const stripLeadingVerseNumber = (text: string, verse?: number) => {
+  if (!verse) return text
+
+  const escapedVerse = String(verse).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const leadingVersePattern = new RegExp(`^\\s*${escapedVerse}(?:\\s*[\\.:-]+\\s*|\\s+)`)
+
+  return text.replace(leadingVersePattern, '')
+}
+
+const resolveChunkParts = (
+  sourceText: string,
+  maxChunkLength: number,
+  verse?: number
+): string[] | undefined => {
+  if (!sourceText.trim()) return undefined
+
+  if (/<br\s*\/?>|\n/i.test(sourceText)) return undefined
+  if (/<[^>]+>/.test(sourceText)) return undefined
+
+  const sanitizedSource = stripLeadingVerseNumber(sourceText, verse)
+  const chunks = splitLongBibleVerse(sanitizedSource, maxChunkLength)
+  return chunks.length > 1 ? chunks : undefined
+}
+
+export const attachPresentationBibleChunkParts = (
+  slides: PresentationViewItems[],
+  maxChunkLength: number
+) => {
+  return slides.map((slide) => {
+    if (slide.resourceType !== 'PRESENTATION') return slide
+
+    if (Array.isArray(slide.presentationItems) && slide.presentationItems.length > 0) {
+      let hasChanges = false
+
+      const nextPresentationItems = slide.presentationItems.map((layer) => {
+        if (layer.resourceType !== 'BIBLE' || !layer.verse) return layer
+
+        const chunkParts = resolveChunkParts(String(layer.text || ''), maxChunkLength, layer.verse.verse)
+        if (!chunkParts) {
+          if (!layer.chunkParts) return layer
+          hasChanges = true
+          const { chunkParts: _chunkParts, ...rest } = layer
+          return rest
+        }
+
+        hasChanges = true
+        return {
+          ...layer,
+          chunkParts
+        }
+      })
+
+      if (!hasChanges) return slide
+      return {
+        ...slide,
+        presentationItems: nextPresentationItems
+      }
+    }
+
+    if (!slide.verse) return slide
+
+    const chunkParts = resolveChunkParts(String(slide.text || ''), maxChunkLength, slide.verse.verse)
+    if (!chunkParts) {
+      if (!slide.chunkParts) return slide
+      const { chunkParts: _chunkParts, ...rest } = slide
+      return rest
+    }
+
+    return {
+      ...slide,
+      chunkParts
+    }
+  })
 }

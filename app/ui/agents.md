@@ -140,6 +140,7 @@ PresentationView (index.tsx)
 - `PresentationRender` también soporta layers `SHAPE` (`rectangle`, `circle`, `arrow`, `line-arrow`, `triangle`, `line`, `cross`) usando `customStyle` del editor de presentaciones para posicionamiento, color de relleno, borde, opacidad y texto interior.
 - En `PresentationRender`, los layers de texto se renderizan mediante `AnimatedText` (preview y live), en lugar de HTML crudo, para mantener consistencia de sanitización, alineación y animación con el resto del sistema.
 - En `PresentationRender`, cuando un layer es bíblico (`resourceType: 'BIBLE'`) y contiene rango, el texto se resuelve con el verso activo provisto por `presentationVerseBySlideKey`, manteniendo un único slide lógico con contenido dinámico.
+- En `PresentationRender`, los slides/layers bíblicos pueden recibir `chunkParts` (texto largo fragmentado lógico) y renderizan la parte activa controlada por `presentationVerseBySlideKey`, manteniendo una sola diapositiva física.
 - Los layers bíblicos de `PRESENTATION` usan `BibleTextRender` para respetar la configuración de ubicación/formato del versículo: primero configuración global (`useDefaultBibleSettings`), y si el tema de la diapositiva define settings propios, se usan esos.
 - En `PresentationRender`, los layers de texto heredan `textStyle` desde `usePresentationTextLayout` y aplican overrides de `customStyle`; para tipografía por layer (`font-size`, `line-height`, `letter-spacing`), la escala se normaliza al baseline real `1280x720` del editor de presentaciones, evitando sobreescalado por diferencias de baseline histórico.
 - En `PresentationRender` (live), los layers `MEDIA` de tipo video usan sincronización por `live-media-state` (`window.liveMediaAPI.onMediaState`) para que controles externos (panel live) puedan reproducir/pausar/reiniciar también videos embebidos en diapositivas de presentación.
@@ -150,6 +151,7 @@ PresentationView (index.tsx)
 - `BibleTextRender` permite overrides tipográficos del indicador bíblico con claves `verse*` en `theme.textStyle` (por ejemplo `verseFontFamily`, `verseColor`, `verseFontSize`, `verseTextShadow*`), manteniendo fallback al estilo base cuando no existen.
 - `BibleTextRender` evita renderizar `null` como nombre de libro en la referencia bíblica: si el schema aún no resolvió el `bookId` (o hay mismatch de tipo), muestra fallback limpio con `capítulo:verso` hasta resolver el nombre.
 - En posiciones `upScreen`/`downScreen`, el indicador bíblico usa por defecto `width: 100%`, centrado y en una sola línea (`white-space: nowrap`) para evitar saltos de línea no deseados en referencias largas; si excede el ancho visible, se recorta con `ellipsis`.
+- `BibleTextRender` puede auto-dividir texto bíblico largo de slides de presentación cuando llega en un solo bloque (sin `<br/>` ni `\n`), usando `splitLongBibleVerse` + `resolveBibleChunkMaxLength`; si el contenido ya viene dividido o contiene HTML, se respeta el texto original.
 - En ThemeEditor, ese indicador también puede reducir su ancho horizontalmente y desplazarse en X con el mismo motor de bounds del texto; los valores se persisten en `theme.textStyle.verseWidthPercent` y `theme.textStyle.verseTranslateX`, y si no existen el render usa `100%` y `0`.
 - Cuando el runtime cambia temporalmente la versión bíblica de una diapositiva live, `PresentationView` debe recibir tanto el texto actualizado como `item.verse.version` actualizado; de lo contrario la referencia inferior mostraría una versión distinta al contenido proyectado.
 - El drag del indicador bíblico usa umbral de activación (micro-movimientos se ignoran) para evitar cambios accidentales de `positionStyle` al hacer clic o alternar selección en ThemeEditor.
@@ -346,6 +348,16 @@ Renderiza texto genérico del slide con animaciones:
 
 ## Cambios recientes
 
+- **Fix: Prefijo de verso duplicado en pasos internos (`chunk`)** (2026-03-30): al navegar textos bíblicos largos por partes dentro de una misma slide, `BibleTextRender` reinsertaba el número de verso en cada parte (ej. `23 ...`).
+  - **Problema**: el texto base podía traer numeración incrustada (`23`, `23.`, `23...`) y además duplicarse al mostrar número de verso.
+  - **Ajuste fino**: `PresentationRender` oculta prefijo solo desde la segunda parte (`chunk > 1`), conservando la opción de mostrar verso en la primera parte cuando está activa.
+  - **Resultado**: primera parte respeta la configuración de verso; partes siguientes no repiten el número dentro del cuerpo.
+
+- **Fix: Auto-split de texto bíblico no activado en PRESENTATION** (2026-03-30): aunque `BibleTextRender` ya soportaba `autoSplitVerseText`, `PresentationRender` no enviaba esa prop y la lógica quedaba desactivada (`false` por default).
+  - **Problema**: textos largos en layers bíblicos y slides legacy de `PRESENTATION` no se partían aunque existiera la lógica de división.
+  - **Solución**: `PresentationRender` ahora pasa `autoSplitVerseText` en ambas rutas bíblicas (layer y legacy).
+  - **Test**: `PresentationRender.test.tsx` valida explícitamente que `autoSplitVerseText === true`.
+
 - **Fix: Auto font size en capas bíblicas de PRESENTATION** (2026-03-29): el desajuste preview/live no venía de `TextCanvasItem`, sino del path de `PresentationRender` para layers `resourceType: 'BIBLE'`.
   - **Problema**: `PresentationRender` pasaba `presentationHeight={BASE_PRESENTATION_HEIGHT}` y `scaleFactor={1}` a `BibleTextRender`, ignorando el tamaño real del viewport.
   - **Síntoma**: mismo tamaño absoluto de verso en preview pequeño y live grande (en preview se veía enorme, en live pequeño).
@@ -354,6 +366,24 @@ Renderiza texto genérico del slide con animaciones:
     - `app/ui/PresentationView/components/ResourceContent.tsx`
     - `app/ui/PresentationView/components/PresentationRender.tsx`
     - `app/ui/PresentationView/components/PresentationRender.test.tsx`
+
+- **Fix: Recorte de referencia bíblica en PRESENTATION** (2026-03-29): las capas bíblicas de presentaciones estaban heredando el recorte single-line (`ellipsis`) pensado para el flujo directo de Bible Library.
+  - **Problema**: en slides de tipo PRESENTATION con layer bíblico, la referencia se truncaba igual que en Bible Library.
+  - **Solución inicial**: `BibleTextRender` soporta `constrainScreenVerseToSingleLine` (default `true`) para desacoplar Bible Library vs PRESENTATION.
+  - **Archivos**:
+    - `app/ui/PresentationView/components/BibleTextRender.tsx`
+    - `app/ui/PresentationView/components/PresentationRender.tsx`
+    - `app/ui/PresentationView/components/PresentationRender.test.tsx`
+
+- **Mejora: Recorte dinámico por diapositiva (`auto`)** (2026-03-29): para slides antiguas con texto largo no fragmentado y para cambios de versión bíblica, el recorte se decide en runtime por contenido de la slide.
+  - `constrainScreenVerseToSingleLine` ahora acepta `boolean | 'auto'`.
+  - En modo `auto`: si el verso no tiene saltos manuales y supera el umbral dinámico (`resolveBibleChunkMaxLength('auto', fontSize)`), activa single-line + ellipsis; si ya está dividido, no recorta.
+  - `PresentationRender` y el canvas del editor usan `constrainScreenVerseToSingleLine="auto"` para comportamiento consistente por diapositiva.
+
+- **Fix: Slides legacy de PRESENTATION con `verse`** (2026-03-29): las diapositivas antiguas sin `presentationItems` quedaban fuera de `BibleTextRender` y no aplicaban ni el modo `auto` ni la resolución de verso activo por slide.
+  - **Problema**: en slides antiguas, el render caía en `AnimatedText` directo y no respetaba la lógica bíblica dinámica.
+  - **Solución**: `PresentationRender` ahora detecta `item.verse` en slides legacy y renderiza con `BibleTextRender`, incluyendo `constrainScreenVerseToSingleLine="auto"` y `presentationVerseBySlideKey` por `slideKey`.
+  - **Test**: `PresentationRender.test.tsx` añade cobertura para la ruta legacy.
 
 - **Fix: Auto font size para versos bíblicos desincronizado** (2025-03-29): El cálculo de `smallFontSize` en BibleTextRender recibía parámetros incorrectos desde TextCanvasItem.
   - **Problema**: El verso se veía enorme en el editor de presentaciones pero minúsculo en la pantalla live.

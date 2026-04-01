@@ -8,7 +8,10 @@ import { useCallback, useEffect } from 'react'
 import { useMemo, useState } from 'react'
 import { SongResponseDTO } from 'database/controllers/songs/songs.dto'
 import { useMediaServer } from '../../MediaServerContext'
-import { presentationSlideToViewItem } from '@/lib/presentationSlides'
+import {
+  attachPresentationBibleChunkParts,
+  presentationSlideToViewItem
+} from '@/lib/presentationSlides'
 import {
   applyPresentationBibleOverrides,
   PresentationBibleOverrideMap
@@ -371,13 +374,26 @@ export const useIndexDataItems = (
         const mediaById = new Map(mediaItems.map((mediaItem) => [mediaItem.id, mediaItem]))
         const themeById = new Map(themes.map((theme) => [theme.id, theme]))
 
+        const splitSettings = await window.api.setttings.getSettings([
+          BIBLE_LIVE_CHUNK_MODE_KEY as never
+        ])
+        const splitModeValue = splitSettings.find(
+          (setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY
+        )?.value
+        const splitMode = isBibleLiveSplitMode(splitModeValue) ? splitModeValue : 'auto'
+        const maxChunkLength = resolveBibleChunkMaxLength(
+          splitMode,
+          getThemeFontSize(selectedTheme)
+        )
+
         const mappedSlides = presentation.slides.map((slide) =>
           presentationSlideToViewItem(slide, mediaById, themeById)
         )
-        const content = applyPresentationBibleOverrides(
+        const slidesWithOverrides = applyPresentationBibleOverrides(
           mappedSlides,
           options?.presentationBibleOverrideByKey
         )
+        const content = attachPresentationBibleChunkParts(slidesWithOverrides, maxChunkLength)
 
         return {
           title: presentation.title,
