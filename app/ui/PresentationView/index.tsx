@@ -14,6 +14,13 @@ import { parseAnimationSettings } from './utils/parseAnimationSettings'
 import { LIVE_MEDIA_NEUTRAL_THEME, shouldOmitThemeForLiveMediaItem } from './utils/mediaThemePolicy'
 import { LiveThemeTransitionShell } from './components/LiveThemeTransitionShell'
 import { PresentationBody } from './components/PresentationBody'
+import useBibleSchema from '@/hooks/useBibleSchema'
+import {
+  buildPresentationBibleBadgeLabel,
+  resolvePresentationBookShortName
+} from '@/lib/presentationBibleBadge'
+import { getPresentationBibleTargets } from '@/lib/presentationBibleVersionOverrides'
+import { getPresentationSlideKey } from '@/lib/presentationVerseController'
 
 const EMPTY_ANIMATION_VARIANTS: Variants = {
   initial: {},
@@ -52,6 +59,7 @@ function PresentationViewComponent({
   const containerRef = useRef<HTMLDivElement>(null)
   const { tagSongs } = useTagSongs()
   const { buildMediaUrl } = useMediaServer()
+  const { bibleSchema } = useBibleSchema()
   const { screenSize } = usePresentationSizing({
     containerRef: containerRef as React.RefObject<HTMLDivElement>,
     live,
@@ -65,32 +73,21 @@ function PresentationViewComponent({
   const previewVerseRangeBadge = useMemo(() => {
     if (live || !currentItem) return null
 
-    if (
-      currentItem.verse &&
-      currentItem.verse.verseEnd !== undefined &&
-      currentItem.verse.verseEnd > currentItem.verse.verse
-    ) {
-      return `v${currentItem.verse.verse}-${currentItem.verse.verseEnd}`
-    }
+    const primaryTarget = getPresentationBibleTargets(currentItem, currentIndex)[0]
+    if (!primaryTarget) return null
 
-    if (
-      currentItem.resourceType === 'PRESENTATION' &&
-      Array.isArray(currentItem.presentationItems)
-    ) {
-      const rangedLayer = currentItem.presentationItems.find(
-        (layer) =>
-          layer.verse &&
-          layer.verse.verseEnd !== undefined &&
-          layer.verse.verseEnd > layer.verse.verse
-      )
+    const slideKey = getPresentationSlideKey(currentItem, currentIndex)
+    const currentVerse = presentationVerseBySlideKey?.[slideKey]
+    const bookShortName = resolvePresentationBookShortName(primaryTarget.bookId, bibleSchema)
 
-      if (rangedLayer?.verse) {
-        return `v${rangedLayer.verse.verse}-${rangedLayer.verse.verseEnd}`
-      }
-    }
-
-    return null
-  }, [currentItem, live])
+    return buildPresentationBibleBadgeLabel({
+      bookShortName,
+      chapter: primaryTarget.chapter,
+      rangeStart: primaryTarget.verseStart,
+      rangeEnd: primaryTarget.verseEnd,
+      currentVerse
+    })
+  }, [currentItem, currentIndex, live, presentationVerseBySlideKey, bibleSchema])
   const isMediaItem = currentItem?.resourceType === 'MEDIA'
   const shouldOmitThemeForMedia = shouldOmitThemeForLiveMediaItem({
     live,

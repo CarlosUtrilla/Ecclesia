@@ -32,4 +32,18 @@ describe('usePresentationEditorActions bounds merge', () => {
 
     expect(merged).toEqual(textBounds)
   })
+
+  it('deberia preservar el ancho del texto cuando se solicita merge vertical (up/down screen)', () => {
+    const textBounds = { x: 200, y: 120, width: 520, height: 180 }
+    const verseBounds = { x: 40, y: 8, width: 1200, height: 28 }
+
+    const merged = mergeBoundsWithVerse(textBounds, verseBounds, {
+      preserveTextWidth: true
+    })
+
+    expect(merged.x).toBe(200)
+    expect(merged.width).toBe(520)
+    expect(merged.y).toBe(8)
+    expect(merged.height).toBe(292)
+  })
 })

@@ -4,10 +4,7 @@ import { Media as PickerMedia } from '@/screens/panels/library/media/exports'
 import { BibleTextSelection } from '../bibleTextPicker'
 import { PresentationFormValues } from '../schema'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
-import {
-  BASE_PRESENTATION_HEIGHT,
-  BASE_PRESENTATION_WIDTH
-} from '@/lib/themeConstants'
+import { BASE_PRESENTATION_HEIGHT, BASE_PRESENTATION_WIDTH } from '@/lib/themeConstants'
 import {
   BASE_CANVAS_HEIGHT,
   BASE_CANVAS_WIDTH,
@@ -20,6 +17,7 @@ import {
   createTextSlide,
   ensureSlideItems,
   getNextLayer,
+  withVideoLiveBehavior,
   parseCanvasItemStyle,
   PresentationShapeType,
   PresentationSlideItem
@@ -160,7 +158,10 @@ const resolveBibleVerseTranslateX = (value: unknown) => {
   return parsed === null ? 0 : Math.round(parsed)
 }
 
-const measureVerseLineHeightInCanvas = (themeTextStyle: Record<string, unknown>, scaleY: number) => {
+const measureVerseLineHeightInCanvas = (
+  themeTextStyle: Record<string, unknown>,
+  scaleY: number
+) => {
   const verseFontBase =
     toFiniteNumber(themeTextStyle.verseFontSize) ??
     (() => {
@@ -170,7 +171,9 @@ const measureVerseLineHeightInCanvas = (themeTextStyle: Record<string, unknown>,
 
   const verseFontSize = Math.max(8, Math.round(verseFontBase * scaleY))
   const verseLineHeight =
-    toFiniteNumber(themeTextStyle.verseLineHeight) ?? toFiniteNumber(themeTextStyle.lineHeight) ?? 1.2
+    toFiniteNumber(themeTextStyle.verseLineHeight) ??
+    toFiniteNumber(themeTextStyle.lineHeight) ??
+    1.2
 
   if (typeof document === 'undefined') {
     return Math.max(14, Math.round(verseFontSize * verseLineHeight))
@@ -200,7 +203,9 @@ const measureVerseLineHeightInCanvas = (themeTextStyle: Record<string, unknown>,
     (themeTextStyle.textDecoration as string | undefined) ||
     'none'
   probe.style.letterSpacing = `${
-    toFiniteNumber(themeTextStyle.verseLetterSpacing) ?? toFiniteNumber(themeTextStyle.letterSpacing) ?? 0
+    toFiniteNumber(themeTextStyle.verseLetterSpacing) ??
+    toFiniteNumber(themeTextStyle.letterSpacing) ??
+    0
   }px`
   probe.style.lineHeight = String(verseLineHeight)
   probe.style.whiteSpace = 'nowrap'
@@ -210,11 +215,30 @@ const measureVerseLineHeightInCanvas = (themeTextStyle: Record<string, unknown>,
   const measuredHeight = Math.ceil(probe.getBoundingClientRect().height)
   document.body.removeChild(probe)
 
-  return Math.max(14, Number.isFinite(measuredHeight) ? measuredHeight : Math.round(verseFontSize * verseLineHeight))
+  return Math.max(
+    14,
+    Number.isFinite(measuredHeight) ? measuredHeight : Math.round(verseFontSize * verseLineHeight)
+  )
 }
 
-export const mergeBoundsWithVerse = (textBounds: Bounds, verseBounds: Bounds | null): Bounds => {
+export const mergeBoundsWithVerse = (
+  textBounds: Bounds,
+  verseBounds: Bounds | null,
+  options?: { preserveTextWidth?: boolean }
+): Bounds => {
   if (!verseBounds) return textBounds
+
+  if (options?.preserveTextWidth) {
+    const minY = Math.min(textBounds.y, verseBounds.y)
+    const maxY = Math.max(textBounds.y + textBounds.height, verseBounds.y + verseBounds.height)
+
+    return {
+      x: Math.round(textBounds.x),
+      y: Math.round(minY),
+      width: Math.max(80, Math.round(textBounds.width)),
+      height: Math.max(60, Math.round(maxY - minY))
+    }
+  }
 
   const minX = Math.min(textBounds.x, verseBounds.x)
   const minY = Math.min(textBounds.y, verseBounds.y)
@@ -272,7 +296,10 @@ const getVerseBoundsInCanvas = (
     const widthPercent = resolveBibleVerseWidthPercent(themeTextStyle.verseWidthPercent)
     const paddingInlineBase = (BASE_PRESENTATION_WIDTH * (100 - widthPercent)) / 200
     const translateXBase = resolveBibleVerseTranslateX(themeTextStyle.verseTranslateX)
-    const clampedTranslateXBase = Math.max(-paddingInlineBase, Math.min(paddingInlineBase, translateXBase))
+    const clampedTranslateXBase = Math.max(
+      -paddingInlineBase,
+      Math.min(paddingInlineBase, translateXBase)
+    )
 
     const clampedPositionStyle = Math.min(
       Math.max(0, Math.round(toFiniteNumber(bibleSettings.positionStyle) ?? 0)),
@@ -306,7 +333,8 @@ const mapThemeTextStyleToCanvasStyle = (
   const scaleY = BASE_CANVAS_HEIGHT / BASE_PRESENTATION_HEIGHT
 
   const paddingInline =
-    typeof themeTextStyle.paddingInline === 'number' && Number.isFinite(themeTextStyle.paddingInline)
+    typeof themeTextStyle.paddingInline === 'number' &&
+    Number.isFinite(themeTextStyle.paddingInline)
       ? themeTextStyle.paddingInline
       : 16
   const paddingBlock =
@@ -323,7 +351,11 @@ const mapThemeTextStyleToCanvasStyle = (
   }
 
   const verseBounds = getVerseBoundsInCanvas(themeTextStyle, bibleSettings, textBounds)
-  const mergedBounds = mergeBoundsWithVerse(textBounds, verseBounds)
+  const preserveThemeWidth =
+    bibleSettings?.position === 'upScreen' || bibleSettings?.position === 'downScreen'
+  const mergedBounds = mergeBoundsWithVerse(textBounds, verseBounds, {
+    preserveTextWidth: preserveThemeWidth
+  })
 
   const fontSizeBase =
     typeof themeTextStyle.fontSize === 'number' && Number.isFinite(themeTextStyle.fontSize)
@@ -367,32 +399,46 @@ const mapThemeTextStyleToCanvasStyle = (
         ? themeTextStyle.lineHeight
         : undefined,
     letterSpacing:
-      typeof themeTextStyle.letterSpacing === 'number' && Number.isFinite(themeTextStyle.letterSpacing)
+      typeof themeTextStyle.letterSpacing === 'number' &&
+      Number.isFinite(themeTextStyle.letterSpacing)
         ? themeTextStyle.letterSpacing
         : undefined,
     verticalAlign,
     textShadowEnabled:
-      typeof themeTextStyle.textShadowEnabled === 'boolean' ? themeTextStyle.textShadowEnabled : undefined,
+      typeof themeTextStyle.textShadowEnabled === 'boolean'
+        ? themeTextStyle.textShadowEnabled
+        : undefined,
     textShadowColor:
-      typeof themeTextStyle.textShadowColor === 'string' ? themeTextStyle.textShadowColor : undefined,
+      typeof themeTextStyle.textShadowColor === 'string'
+        ? themeTextStyle.textShadowColor
+        : undefined,
     textShadowBlur: toScaledNumber(themeTextStyle.textShadowBlur, scaleY),
     textShadowOffsetX: toScaledNumber(themeTextStyle.textShadowOffsetX, scaleX),
     textShadowOffsetY: toScaledNumber(themeTextStyle.textShadowOffsetY, scaleY),
     textStrokeEnabled:
-      typeof themeTextStyle.textStrokeEnabled === 'boolean' ? themeTextStyle.textStrokeEnabled : undefined,
+      typeof themeTextStyle.textStrokeEnabled === 'boolean'
+        ? themeTextStyle.textStrokeEnabled
+        : undefined,
     textStrokeColor:
-      typeof themeTextStyle.textStrokeColor === 'string' ? themeTextStyle.textStrokeColor : undefined,
+      typeof themeTextStyle.textStrokeColor === 'string'
+        ? themeTextStyle.textStrokeColor
+        : undefined,
     textStrokeWidth: toScaledNumber(themeTextStyle.textStrokeWidth, scaleY),
     blockBgEnabled:
-      typeof themeTextStyle.blockBgEnabled === 'boolean' ? themeTextStyle.blockBgEnabled : undefined,
-    blockBgColor: typeof themeTextStyle.blockBgColor === 'string' ? themeTextStyle.blockBgColor : undefined,
+      typeof themeTextStyle.blockBgEnabled === 'boolean'
+        ? themeTextStyle.blockBgEnabled
+        : undefined,
+    blockBgColor:
+      typeof themeTextStyle.blockBgColor === 'string' ? themeTextStyle.blockBgColor : undefined,
     blockBgBlur: toScaledNumber(themeTextStyle.blockBgBlur, scaleY),
     blockBgPadding:
-      typeof themeTextStyle.blockBgPadding === 'number' && Number.isFinite(themeTextStyle.blockBgPadding)
+      typeof themeTextStyle.blockBgPadding === 'number' &&
+      Number.isFinite(themeTextStyle.blockBgPadding)
         ? themeTextStyle.blockBgPadding * scaleY
         : undefined,
     blockBgOpacity:
-      typeof themeTextStyle.blockBgOpacity === 'number' && Number.isFinite(themeTextStyle.blockBgOpacity)
+      typeof themeTextStyle.blockBgOpacity === 'number' &&
+      Number.isFinite(themeTextStyle.blockBgOpacity)
         ? themeTextStyle.blockBgOpacity
         : undefined,
     blockBgRadius: toScaledNumber(themeTextStyle.blockBgRadius, scaleY)
@@ -678,7 +724,7 @@ export default function usePresentationEditorActions({
   }
 
   const createCanvaFullSlide = (mediaId: number, themeId?: number | null) => {
-    const baseSlide = createMediaSlide(mediaId, themeId)
+    const baseSlide = withVideoLiveBehavior(createMediaSlide(mediaId, themeId), 'auto')
     const baseItem = baseSlide.items[0]
 
     if (!baseItem) {

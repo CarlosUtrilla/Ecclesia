@@ -30,6 +30,7 @@ El editor aplica `snap` a grilla de 2% durante move/resize para facilitar alinea
 
 - `timers`: color normal, color de umbral, color en negativo, umbral en segundos y fuente.
 - `timers`: color normal, color de umbral, color en negativo, umbral en segundos, fuente y tamaño independiente para `etiqueta`/`valor`.
+- El umbral de timer ahora admite unidad seleccionable (`segundos` o `minutos`) en el editor; internamente se persiste en `timerWarningThresholdSeconds` para compatibilidad.
 - `clock`: color de texto, fuente y tamaño de fuente.
 - `message`: color de texto, fuente y tamaño de fuente.
 - `liveTitle`: color de texto, fuente y tamaño de fuente.

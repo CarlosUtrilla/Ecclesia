@@ -88,5 +88,10 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 [X] cuando activo el f9, no se manda en automatico el hide de las letras que estan en la pantalla live, hasta que no cambio de letra o slide no se refleja el cambio
 
 [X] Permitir rangos multiples de biblia ejemplo levitico 13:1-3,8,12
-[ ] Poder poner un tamaño de letra diferente o mas grande pero solamente para el stage screen
 [X] el drop area de media no se adapta al tamaño del scroll
+[ ] Poder poner un tamaño de letra diferente o mas grande pero solamente para el stage screen
+[X] el scroll de items on live con canciones o textos biblicos no funciona, pero en presentaciones si
+[X] al importar videos desde la opcion de canva debemos poner el video como iniciar automaticamente como predeterminado
+[X] editar las etiquetas que ponen v22-25, en las presentaciones pero con el nombre del libro ej: mat 3:22-25, incluyendo textos de un solo versiculo (mat 3:22), se debe usar el shortname para esto
+[X] en el editor de presentaciones, al poner un texto biblico y si hay un tema seleccionado, si respeta el tamaño de altura conciderando el indicador de verso biblico, pero en ancho toma el 100% y no el tamaño que esta en el tema (porque algunos tienen separacion entre left y rigth y este toma el 100%)
+[X] en el selector del umbral de tiempo en el editor stage, poner opcion de minutos tambien

@@ -10,6 +10,10 @@ import {
   resolveSlideVerse
 } from '@/lib/presentationVerseController'
 import {
+  buildPresentationBibleBadgeLabel,
+  resolvePresentationBookShortName
+} from '@/lib/presentationBibleBadge'
+import {
   getPresentationBibleTargets,
   getPresentationBibleVersion
 } from '@/lib/presentationBibleVersionOverrides'
@@ -168,6 +172,31 @@ export default function RenderPresentationLiveController({ data }: Props) {
   }, [activeSlide, buildMediaUrl])
   const activeVideoDurationHint = useMemo(() => getActiveVideoDuration(activeSlide), [activeSlide])
   const activeSlideVideoLoop = useMemo(() => getActiveVideoLoop(activeSlide), [activeSlide])
+  const previewBadgeByIndex = useMemo(
+    () =>
+      data.map((slide, index) => {
+        const range = getSlideVerseRange(slide)
+        if (!range) return null
+
+        const primaryTarget = getPresentationBibleTargets(slide, index)[0]
+        if (!primaryTarget) {
+          return range.start === range.end ? `v${range.start}` : `v${range.start}-${range.end}`
+        }
+
+        const slideKey = getPresentationSlideKey(slide, index)
+        const current = presentationVerseBySlideKey[slideKey]
+        const bookShortName = resolvePresentationBookShortName(primaryTarget.bookId, bibleSchema)
+
+        return buildPresentationBibleBadgeLabel({
+          bookShortName,
+          chapter: primaryTarget.chapter,
+          rangeStart: range.start,
+          rangeEnd: range.end,
+          currentVerse: current
+        })
+      }),
+    [data, presentationVerseBySlideKey, bibleSchema]
+  )
 
   const {
     isPlaying,
@@ -275,18 +304,7 @@ export default function RenderPresentationLiveController({ data }: Props) {
       <div className="flex-1 min-h-0 overflow-auto">
         <RenderGridMode
           data={data}
-          previewBadgeByIndex={data.map((slide, index) => {
-            const range = getSlideVerseRange(slide)
-            if (!range) return null
-
-            const slideKey = getPresentationSlideKey(slide, index)
-            const current = presentationVerseBySlideKey[slideKey]
-            if (current === undefined || current === range.start) {
-              return `v${range.start}-${range.end}`
-            }
-
-            return `${current}/${range.end}`
-          })}
+          previewBadgeByIndex={previewBadgeByIndex}
           activeIndexOverride={safeIndex}
           onSelectIndexOverride={(nextIndex) => {
             setItemIndex(nextIndex)

@@ -111,7 +111,11 @@ export default function LivePanel() {
       itemOnLive!.type !== 'MEDIA' &&
       itemOnLive!.type !== 'PRESENTATION'
     ) {
-      return <RenderGridMode data={content} />
+      return (
+        <div className="h-full min-h-0 overflow-auto">
+          <RenderGridMode data={content} />
+        </div>
+      )
     }
     switch (itemOnLive!.type) {
       case 'SONG':

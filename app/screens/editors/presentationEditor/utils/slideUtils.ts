@@ -490,6 +490,14 @@ export const createMediaSlide = (mediaId?: number, themeId?: number | null) => (
   textStyle: { ...baseTextStyle }
 })
 
+export const withVideoLiveBehavior = <T extends { videoLiveBehavior?: 'auto' | 'manual' }>(
+  slide: T,
+  behavior: 'auto' | 'manual'
+) => ({
+  ...slide,
+  videoLiveBehavior: behavior
+})
+
 export const cloneSlideForDuplication = (slide: PresentationFormValues['slides'][number]) => ({
   ...slide,
   id: generateUniqueId(),

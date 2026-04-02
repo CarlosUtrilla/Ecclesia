@@ -24,6 +24,12 @@ import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 import { useCanvasWidgetTransform, WidgetResizeHandle } from '@/hooks/useCanvasWidgetTransform'
 import { fontSizes } from '@/lib/themeConstants'
 import { buildGlobalStageUpsertPayloads, getGlobalStageConfig } from '../stage/shared/globalStageConfig'
+import {
+  resolveTimerThresholdUnit,
+  TimerThresholdUnit,
+  toTimerThresholdDisplayValue,
+  toTimerThresholdSeconds
+} from './timerThreshold.utils'
 
 type StageScreenRecord = {
   id: number
@@ -140,6 +146,7 @@ export default function StageLayoutScreen() {
   >({})
   const [liveTheme, setLiveTheme] = useState<ThemeWithMedia>(BlankTheme)
   const [stageTheme, setStageTheme] = useState<ThemeWithMedia | null>(null)
+  const [timerThresholdUnit, setTimerThresholdUnit] = useState<TimerThresholdUnit>('seconds')
   const canvasRef = useRef<HTMLDivElement | null>(null)
 
   const { data: stageScreens = [] } = useQuery<StageScreenRecord[]>({
@@ -175,6 +182,13 @@ export default function StageLayoutScreen() {
     if (!selectedWidgetId) return null
     return layoutDraft.items.find((item) => item.id === selectedWidgetId) ?? null
   }, [layoutDraft.items, selectedWidgetId])
+
+  useEffect(() => {
+    if (selectedWidget?.type !== 'timers') return
+
+    const currentThresholdSeconds = selectedWidget.config?.timerWarningThresholdSeconds ?? 30
+    setTimerThresholdUnit(resolveTimerThresholdUnit(currentThresholdSeconds))
+  }, [selectedWidget?.id, selectedWidget?.type, selectedWidget?.config?.timerWarningThresholdSeconds])
 
   const { mutate: saveLayout, isPending } = useMutation({
     mutationFn: async (payload: { layout: string }) => {
@@ -561,23 +575,46 @@ export default function StageLayoutScreen() {
                           </div>
 
                           <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-                            <span className="text-xs">Umbral (segundos)</span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="3600"
-                              step="1"
-                              className="h-9 w-24"
-                              value={selectedWidget.config?.timerWarningThresholdSeconds ?? 30}
-                              onChange={(event) => {
-                                const next = Number(event.target.value)
-                                if (!Number.isFinite(next)) return
-                                updateWidgetConfig(selectedWidget.id, (config) => ({
-                                  ...config,
-                                  timerWarningThresholdSeconds: clamp(next, 0, 3600)
-                                }))
-                              }}
-                            />
+                            <span className="text-xs">Umbral</span>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max={timerThresholdUnit === 'minutes' ? '60' : '3600'}
+                                step="1"
+                                className="h-9 w-24"
+                                value={toTimerThresholdDisplayValue(
+                                  selectedWidget.config?.timerWarningThresholdSeconds ?? 30,
+                                  timerThresholdUnit
+                                )}
+                                onChange={(event) => {
+                                  const next = Number(event.target.value)
+                                  if (!Number.isFinite(next)) return
+                                  updateWidgetConfig(selectedWidget.id, (config) => ({
+                                    ...config,
+                                    timerWarningThresholdSeconds: toTimerThresholdSeconds(
+                                      next,
+                                      timerThresholdUnit
+                                    )
+                                  }))
+                                }}
+                              />
+
+                              <Select
+                                value={timerThresholdUnit}
+                                onValueChange={(value: TimerThresholdUnit) => {
+                                  setTimerThresholdUnit(value)
+                                }}
+                              >
+                                <SelectTrigger size="sm" className="h-9 w-28">
+                                  <SelectValue placeholder="Unidad" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="seconds">Segundos</SelectItem>
+                                  <SelectItem value="minutes">Minutos</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-[1fr_auto] items-center gap-2">

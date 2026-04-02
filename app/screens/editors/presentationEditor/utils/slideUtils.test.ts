@@ -5,7 +5,8 @@ import {
   createMediaSlide,
   getShapeTypeFromAccessData,
   parseCanvasItemStyle,
-  createTextSlide
+  createTextSlide,
+  withVideoLiveBehavior
 } from './slideUtils'
 
 describe('cloneSlideForDuplication', () => {
@@ -85,5 +86,13 @@ describe('slide factories', () => {
 
     expect(mediaSlide.videoLoop).toBe(false)
     expect(mediaSlide.videoLiveBehavior).toBe('manual')
+  })
+
+  it('deberia permitir configurar inicio automatico para flujos especificos como Canva', () => {
+    const manualSlide = createMediaSlide(15)
+    const autoSlide = withVideoLiveBehavior(manualSlide, 'auto')
+
+    expect(manualSlide.videoLiveBehavior).toBe('manual')
+    expect(autoSlide.videoLiveBehavior).toBe('auto')
   })
 })
