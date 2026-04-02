@@ -13,7 +13,6 @@ import {
   closeSplashWindow,
   updateSplashStatus,
   createStageControlWindow,
-  createStageLayoutWindow,
   createTagsSongWindow,
   createThemeWindow,
   getMainWindow
@@ -175,10 +174,6 @@ app.whenReady().then(async () => {
 
   ipcMain.on('open-stage-control-window', () => {
     createStageControlWindow()
-  })
-
-  ipcMain.on('open-stage-layout-window', () => {
-    createStageLayoutWindow()
   })
 
   // Cerrar ventana actual

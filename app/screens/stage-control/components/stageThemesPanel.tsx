@@ -19,7 +19,11 @@ type StageScreenConfigRecord = {
   themeId: number | null
 }
 
-export default function StageThemesPanel() {
+type Props = {
+  onOpenLayoutTab?: () => void
+}
+
+export default function StageThemesPanel({ onOpenLayoutTab }: Props) {
   const queryClient = useQueryClient()
   const { themes } = useThemes()
 
@@ -68,7 +72,9 @@ export default function StageThemesPanel() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => window.windowAPI.openStageLayoutWindow()}
+            onClick={() => {
+              onOpenLayoutTab?.()
+            }}
           >
             Abrir Editor Stage
           </Button>

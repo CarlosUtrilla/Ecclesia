@@ -2,11 +2,15 @@ import StageControlsPanel from './components/stageControlsPanel'
 import StageThemesPanel from './components/stageThemesPanel'
 import { Button } from '@/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/tabs'
+import StageLayoutScreen from '@/screens/stage-layout'
+import { useState } from 'react'
 
 export default function StageControlScreen() {
+  const [activeTab, setActiveTab] = useState('control')
+
   return (
     <div className="h-full w-full bg-background p-6">
-      <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-4">
+      <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-4">
         <div className="flex items-center justify-between border-b pb-3">
           <div>
             <h1 className="text-xl font-semibold">Control de Escenario</h1>
@@ -20,10 +24,11 @@ export default function StageControlScreen() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden">
-          <Tabs defaultValue="control" className="h-full gap-3">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full gap-3">
             <TabsList>
               <TabsTrigger value="control">Control Stage</TabsTrigger>
               <TabsTrigger value="themes">Temas Stage</TabsTrigger>
+              <TabsTrigger value="layout">Layout Stage</TabsTrigger>
             </TabsList>
 
             <TabsContent value="control" className="min-h-0 overflow-auto pr-1">
@@ -31,7 +36,11 @@ export default function StageControlScreen() {
             </TabsContent>
 
             <TabsContent value="themes" className="min-h-0 overflow-auto pr-1">
-              <StageThemesPanel />
+              <StageThemesPanel onOpenLayoutTab={() => setActiveTab('layout')} />
+            </TabsContent>
+
+            <TabsContent value="layout" className="h-full min-h-0 overflow-hidden pr-1">
+              <StageLayoutScreen embedded />
             </TabsContent>
           </Tabs>
         </div>

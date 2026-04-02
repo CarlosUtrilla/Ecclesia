@@ -134,7 +134,11 @@ const createWidget = (type: StageWidgetType, index: number): StageLayoutItem => 
   }
 }
 
-export default function StageLayoutScreen() {
+type StageLayoutScreenProps = {
+  embedded?: boolean
+}
+
+export default function StageLayoutScreen({ embedded = false }: StageLayoutScreenProps) {
   const queryClient = useQueryClient()
   const [layoutDraft, setLayoutDraft] = useState<StageLayout>(DEFAULT_STAGE_LAYOUT)
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null)
@@ -321,21 +325,23 @@ export default function StageLayoutScreen() {
   }
 
   return (
-    <div className="h-full w-full bg-background p-6">
-      <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-4">
-        <div className="flex items-center justify-between border-b pb-3">
-          <div>
-            <h1 className="text-xl font-semibold">Editor Stage</h1>
-            <p className="text-sm text-muted-foreground">
-              Acomoda recursos de stage (mensaje, timers, reloj, título en vivo).
-            </p>
+    <div className={cn('h-full w-full bg-background', embedded ? 'p-0' : 'p-6')}>
+      <div className={cn('mx-auto flex h-full w-full flex-col gap-4', embedded ? 'max-w-none' : 'max-w-6xl')}>
+        {embedded ? null : (
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h1 className="text-xl font-semibold">Editor Stage</h1>
+              <p className="text-sm text-muted-foreground">
+                Acomoda recursos de stage (mensaje, timers, reloj, título en vivo).
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => window.windowAPI.closeCurrentWindow()}>
+              Cerrar
+            </Button>
           </div>
-          <Button variant="outline" onClick={() => window.windowAPI.closeCurrentWindow()}>
-            Cerrar
-          </Button>
-        </div>
+        )}
 
-        <Card className="flex min-h-0 flex-1 flex-col">
+        <Card className={cn('flex min-h-0 flex-1 flex-col', embedded ? 'border-0 shadow-none' : undefined)}>
           <CardHeader>
             <CardTitle>Layout Visual</CardTitle>
             <CardDescription>

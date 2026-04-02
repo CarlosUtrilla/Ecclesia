@@ -9,7 +9,7 @@ Implementa editor visual de recursos stage con posicionamiento y tamano por porc
 
 ## Archivos
 
-- `index.tsx`: ruta `/stage-layout`, preview automático usando la primera pantalla stage detectada, canvas visual y panel de propiedades.
+- `index.tsx`: ruta `/stage-layout`, preview automático usando la primera pantalla stage detectada, canvas visual y panel de propiedades. También soporta modo embebido (`embedded`) para renderizar dentro de la pestaña `Layout Stage` en `Stage Control`.
 - `../stage/shared/layout.ts`: tipos y normalización de layout (`StageLayout`, `StageLayoutItem`, defaults).
 - `../stage/shared/globalStageConfig.ts`: resolución de configuración stage global y utilidades de replicación de payloads a todas las pantallas stage.
 
@@ -55,4 +55,4 @@ El editor aplica `snap` a grilla de 2% durante move/resize para facilitar alinea
 
 - Persistencia de layout: `window.api.stageScreenConfig.upsertStageScreenConfig` replicado a todas las pantallas stage.
 - Notificación en caliente: `window.displayAPI.updateStageScreenConfig`.
-- Se abre desde preload: `window.windowAPI.openStageLayoutWindow()`.
+- Se usa principalmente embebido en `Stage Control` (tab `Layout Stage`), manteniendo también la ruta `/stage-layout` para acceso directo.

@@ -7,7 +7,6 @@ import { getIsSyncing, executeSyncCycle } from './googleDriveSyncManager/googleD
 let splashWindowRef: BrowserWindow | null = null
 let settingsWindowRef: BrowserWindow | null = null
 let stageControlWindowRef: BrowserWindow | null = null
-let stageLayoutWindowRef: BrowserWindow | null = null
 let mainWindowRef: BrowserWindow | null = null
 
 export function getMainWindow(): BrowserWindow | null {
@@ -350,35 +349,4 @@ export function createStageControlWindow(): BrowserWindow {
   loadRoute(stageControlWindow, '/stage-control')
   stageControlWindowRef = stageControlWindow
   return stageControlWindow
-}
-
-export function createStageLayoutWindow(): BrowserWindow {
-  if (stageLayoutWindowRef && !stageLayoutWindowRef.isDestroyed()) {
-    return focusExistingWindow(stageLayoutWindowRef)
-  }
-
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  const stageLayoutWindow = new BrowserWindow({
-    title: 'Layout de Escenario',
-    width: Math.round(width * 0.75),
-    height: Math.round(height * 0.85),
-    minWidth: 1000,
-    minHeight: 700,
-    show: true,
-    backgroundColor: '#09090b',
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
-
-  stageLayoutWindow.on('closed', () => {
-    stageLayoutWindowRef = null
-  })
-
-  loadRoute(stageLayoutWindow, '/stage-layout')
-  stageLayoutWindowRef = stageLayoutWindow
-  return stageLayoutWindow
 }

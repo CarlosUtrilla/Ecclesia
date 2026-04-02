@@ -10,8 +10,8 @@ Centraliza toda la operación stage fuera de `Settings`.
 
 ## Archivos
 
-- `index.tsx`: shell de ventana (`/stage-control`) y cierre de ventana actual; organiza el contenido en tabs (`Control Stage` primero, `Temas Stage` segundo).
-- `components/stageThemesPanel.tsx`: asignación de tema **global** compartido para todas las pantallas stage y acceso a `Stage Layout`.
+- `index.tsx`: shell de ventana (`/stage-control`) y cierre de ventana actual; organiza el contenido en tabs (`Control Stage`, `Temas Stage` y `Layout Stage` embebido en la misma ventana).
+- `components/stageThemesPanel.tsx`: asignación de tema **global** compartido para todas las pantallas stage y acceso al editor de layout; en la ventana unificada cambia a la pestaña `Layout Stage`.
 - `components/stageControlsPanel.tsx`: layout en dos columnas en desktop: izquierda con controles globales (mensaje/timers/reloj/modo enfoque), derecha con preview embebido de salida stage usando automáticamente la primera pantalla stage detectada.
 - `components/stageControlsPanel.tsx`: incluye presets rápidos de duración para timers (1, 2, 5, 10, 15, 20, 30, 45 y 60 minutos) que rellenan automáticamente `horas/minutos/segundos`.
 
@@ -20,7 +20,7 @@ Centraliza toda la operación stage fuera de `Settings`.
 - Persistencia: `window.api.stageScreenConfig.upsertStageScreenConfig`.
 - Refresco en tiempo real: `window.displayAPI.updateStageScreenConfig`.
 - Se abre desde preload: `window.windowAPI.openStageControlWindow()`.
-- Desde esta ventana se abre `Stage Layout` con `window.windowAPI.openStageLayoutWindow()`.
+- El layout se edita dentro de la misma ventana (`Tab: Layout Stage`) usando `StageLayoutScreen` en modo embebido.
 - En modo global, cada guardado se replica a todas las filas `StageScreenConfig` de pantallas con rol `STAGE_SCREEN` para mantener consistencia total entre displays.
 
 ## Reglas operativas
