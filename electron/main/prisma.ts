@@ -12,6 +12,7 @@ import { serializeOutboxPayload } from './sync/outboxPayload'
 const execAsync = promisify(exec)
 let prisma: PrismaClient | null = null
 const outboxContext = new AsyncLocalStorage<{ skipOutbox: boolean }>()
+const PACKAGED_DB_TEMPLATE_NAME = 'empty-prod.db'
 
 const SYNC_CONFIG_DIR_NAME = 'sync'
 const SYNC_CONFIG_FILE_NAME = 'google-drive-config.json'
@@ -902,7 +903,7 @@ async function initPrisma() {
 
       const srcDbPath = isDev
         ? path.resolve(process.cwd(), 'prisma', 'dev.db')
-        : path.join(process.resourcesPath, 'prisma', 'dev.db')
+        : path.join(process.resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
 
       if (await fs.pathExists(srcDbPath)) {
         await fs.copy(srcDbPath, destDbPath)
@@ -941,7 +942,7 @@ async function initPrisma() {
       // Intentar copiar DB limpia del proyecto (si existe)
       const srcDbPath = isDev
         ? path.resolve(process.cwd(), 'prisma', 'dev.db')
-        : path.join(process.resourcesPath, 'prisma', 'dev.db')
+        : path.join(process.resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
 
       if (await fs.pathExists(srcDbPath)) {
         await fs.copy(srcDbPath, destDbPath)
@@ -982,7 +983,7 @@ async function initPrisma() {
 
         const srcDbPath = isDev
           ? path.resolve(process.cwd(), 'prisma', 'dev.db')
-          : path.join(process.resourcesPath, 'prisma', 'dev.db')
+          : path.join(process.resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
 
         if (await fs.pathExists(srcDbPath)) {
           await fs.copy(srcDbPath, destDbPath)

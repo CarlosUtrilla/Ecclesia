@@ -12,11 +12,15 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!prisma/dev.db'
+  - '!prisma/dev.db-*'
 extraResources:
   - from: prisma
     to: prisma
     filter:
-      - '**/*'
+      - '**/migrations/**'
+      - 'schema.prisma'
+      - 'empty-prod.db'
       - '!dev.db-journal'
   - from: resources/bibles
     to: bibles
@@ -38,6 +42,7 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 afterPack: ./scripts/after-pack.cjs
+beforePack: ./scripts/before-pack.cjs
 mac:
   identity: null
   notarize: false

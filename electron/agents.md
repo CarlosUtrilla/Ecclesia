@@ -286,6 +286,13 @@ Maneja la inicializacion robusta de la base de datos:
 5. Preservacion de datos ante corrupcion de schema.
 6. Middleware de sync outbox para registrar cambios de dominio y mutaciones bulk best-effort.
 7. Bypass controlado con `runWithoutSyncOutboxTracking()` para reconciliacion interna.
+8. En builds empaquetados, la DB inicial se toma de `resources/prisma/empty-prod.db` (plantilla vacía generada desde migraciones), nunca de `prisma/dev.db` local.
+
+#### Build-safe DB template
+
+- `electron-builder` ejecuta `beforePack` (`scripts/before-pack.cjs`) para regenerar `prisma/empty-prod.db` con `prisma migrate deploy` sobre un archivo nuevo.
+- El empaquetado excluye `prisma/dev.db` y `prisma/dev.db-*` para evitar incluir datos de pruebas locales en releases.
+- `extraResources` incluye `prisma/migrations/**`, `prisma/schema.prisma` y `prisma/empty-prod.db`.
 
 ## IPC Events (entre ventanas)
 
