@@ -60,28 +60,21 @@ export class ScheduleService {
 
   updateSchedule(id: number, data: UpdateScheduleDto) {
     const { items, ...rest } = data
-    return this.prisma.$transaction(async (prisma) => {
-      // Soft-delete todos los items actuales del schedule
-      await prisma.scheduleItem.updateMany({
-        where: { scheduleId: id, deletedAt: null },
-        data: { deletedAt: new Date() }
-      })
-      // Actualizar el schedule y crear los nuevos items
-      return prisma.schedule.update({
-        where: { id },
-        data: {
-          ...rest,
-          items:
-            items && items.length > 0
-              ? {
-                  create: items.map((item) => ({ ...item, id: crypto.randomUUID() }))
-                }
-              : undefined
-        },
-        include: {
-          items: { where: { deletedAt: null } }
+    return this.prisma.schedule.update({
+      where: { id },
+      data: {
+        ...rest,
+        items: {
+          updateMany: {
+            where: { deletedAt: null },
+            data: { deletedAt: new Date() }
+          },
+          create: (items ?? []).map((item) => ({ ...item, id: crypto.randomUUID() }))
         }
-      })
+      },
+      include: {
+        items: { where: { deletedAt: null } }
+      }
     })
   }
 

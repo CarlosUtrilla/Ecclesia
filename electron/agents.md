@@ -285,8 +285,9 @@ Maneja la inicializacion robusta de la base de datos:
 4. Migracion automatica con fallback a SQL.
 5. Preservacion de datos ante corrupcion de schema.
 6. Middleware de sync outbox para registrar cambios de dominio y mutaciones bulk best-effort.
-7. Bypass controlado con `runWithoutSyncOutboxTracking()` para reconciliacion interna.
-8. En builds empaquetados, la DB inicial se toma de `resources/prisma/empty-prod.db` (plantilla vacía generada desde migraciones), nunca de `prisma/dev.db` local.
+7. El middleware de outbox omite tracking cuando `params.runInTransaction === true` para evitar lock contention/timeouts de SQLite al intentar escribir outbox durante transacciones interactivas.
+8. Bypass controlado con `runWithoutSyncOutboxTracking()` para reconciliacion interna.
+9. En builds empaquetados, la DB inicial se toma de `resources/prisma/empty-prod.db` (plantilla vacía generada desde migraciones), nunca de `prisma/dev.db` local.
 
 #### Build-safe DB template
 

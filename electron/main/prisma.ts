@@ -217,8 +217,15 @@ function registerOutboxMiddleware(client: PrismaClient) {
   client.$use(async (params, next) => {
     const action = params.action
     const model = params.model
+    const isInsideTransaction = params.runInTransaction === true
 
     if (!model || !OUTBOX_TRACKED_ACTIONS.has(action) || OUTBOX_EXCLUDED_MODELS.has(model)) {
+      return await next(params)
+    }
+
+    // Evita intentar escribir outbox con otro connection/contexto cuando SQLite ya está
+    // bloqueada por una transacción interactiva en curso.
+    if (isInsideTransaction) {
       return await next(params)
     }
 
