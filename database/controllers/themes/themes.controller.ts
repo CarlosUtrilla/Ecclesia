@@ -31,4 +31,12 @@ export class ThemesController {
   async deleteTheme(id: number) {
     return await this.themesService.deleteTheme(id)
   }
+
+  async exportThemeToZip(id: number) {
+    return await this.themesService.exportThemeToZip(id)
+  }
+
+  async importThemeFromZip(zipPath: string) {
+    return await this.themesService.importThemeFromZip(zipPath)
+  }
 }

@@ -111,6 +111,7 @@ MediaServerProvider          (top-level, sin dependencias)
 | `showItemOnLiveScreen(item, index?)` | `async function` | Presenta item en pantallas |
 
 - Abre/cierra ventanas de Electron en displays con rol `LIVE_SCREEN` y `STAGE_SCREEN` cuando se activa/desactiva `showLiveScreen`.
+- **Reconciliación reactiva de pantallas**: Cuando cambia la cantidad o configuración de displays (por ejemplo, se agrega nueva pantalla stage durante live), el efecto principal detecta el cambio, cierra todas las ventanas actuales y reabre el nuevo conjunto. Esto permite que cambios en `SelectedScreens` se reflejen instantáneamente sin bajar de live.
 - Envia contenido y tema via IPC: `updateLiveScreenContent`, `updateLiveScreenTheme`.
 - `appliedTheme` se captura al ejecutar `showItemOnLiveScreen(item, index?)`, separando el tema actualmente aplicado en live del `selectedTheme` del selector de temas.
 - Escucha `live-screen-ready` para saber cuando la ventana esta lista.

@@ -1,6 +1,6 @@
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useQuery } from '@tanstack/react-query'
-import { LayoutGrid, List, Radio } from 'lucide-react'
+import { LayoutGrid, List } from 'lucide-react'
 import { RenderSongLyrics } from './components/RenderSongLyrics'
 import RenderBibleLiveControls from './components/RenderBibleLiveControls'
 import { RenderMedia } from './components/RenderMedia'
@@ -176,11 +176,6 @@ export default function LivePanel() {
             >
               <LayoutGrid className="h-5 w-5" />
             </Button>
-            {itemOnLive ? (
-              <div className="text-nowrap animate-pulse text-sm bg-green-600 text-white rounded-md px-2 py-1 flex items-center gap-1 ml-2">
-                <Radio className="size-6" /> En vivo
-              </div>
-            ) : null}
           </div>
         </div>
       </div>

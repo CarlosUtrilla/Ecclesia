@@ -81,32 +81,17 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   }, [itemOnLive?.accessData, itemOnLive?.type])
 
   useEffect(() => {
-    if ((liveScreens.length > 0 || stageScreens.length > 0) && showLiveScreen) {
-      if (windowsLiveScreenOpens.length > 0 || windowsStageScreenOpens.length > 0) {
-        return
-      }
+    // Construir estado deseado: lista de displays con su tipo esperado
+    const desiredScreens = [
+      ...liveScreens.map((d) => ({ displayId: d.id, type: 'live' as const })),
+      ...stageScreens.map((d) => ({ displayId: d.id, type: 'stage' as const }))
+    ]
 
-      // Mostrar contenido en pantallas live
-      const showScreens = async () => {
-        setLiveScreensReady(false)
-        // Abrir pantallas live y stage en paralelo
-        const windowsLiveIds = await Promise.all(
-          liveScreens.map(async (display) => await window.displayAPI.showLiveScreen(display.id))
-        )
-        const windowsStageIds = await Promise.all(
-          stageScreens.map(async (display) => await window.displayAPI.showStageScreen(display.id))
-        )
-        setLiveScreensReady(true)
-        setWindowsLiveScreenOpens(windowsLiveIds)
-        setWindowsStageScreenOpens(windowsStageIds)
-      }
-      showScreens()
-    } else if (!showLiveScreen) {
+    // Si showLiveScreen es false, cerrar todas las ventanas
+    if (!showLiveScreen) {
       if (windowsLiveScreenOpens.length === 0 && windowsStageScreenOpens.length === 0) {
         return
       }
-
-      // Cerrar ventanas live
       setLiveScreensReady(false)
       const closeScreens = async () => {
         await Promise.all(
@@ -123,8 +108,62 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
         setWindowsStageScreenOpens([])
       }
       closeScreens()
+      return
     }
-  }, [showLiveScreen, liveScreens, stageScreens, windowsLiveScreenOpens, windowsStageScreenOpens])
+
+    // Si showLiveScreen es true, reconciliar pantallas
+    if (desiredScreens.length === 0) {
+      return
+    }
+
+    const reconcileScreens = async () => {
+      // Pantallas que debería haber abierto
+      const desiredLiveScreenIds = new Set(liveScreens.map((d) => d.id))
+      const desiredStageScreenIds = new Set(stageScreens.map((d) => d.id))
+
+      // Pantallas que actualmente están abiertas
+      const currentLiveScreenIds = new Set<number>()
+      const currentStageScreenIds = new Set<number>()
+
+      // Nota: windowsLiveScreenOpens y windowsStageScreenOpens son IDs de ventana, no de display
+      // No podemos hacer matching directo. Necesitamos cerrar y reabrir si hay cambios.
+      const screenCountChanged =
+        windowsLiveScreenOpens.length !== liveScreens.length ||
+        windowsStageScreenOpens.length !== stageScreens.length
+
+      if (screenCountChanged || windowsLiveScreenOpens.length === 0 || windowsStageScreenOpens.length === 0) {
+        // Si cambió la cantidad de pantallas o no hay ventanas abiertas aún, reconciliar completamente
+        if (windowsLiveScreenOpens.length > 0 || windowsStageScreenOpens.length > 0) {
+          // Cerrar todas las existentes primero
+          setLiveScreensReady(false)
+          await Promise.all(
+            windowsLiveScreenOpens.map(
+              async (windowId) => await window.displayAPI.closeLiveScreen(windowId)
+            )
+          )
+          await Promise.all(
+            windowsStageScreenOpens.map(
+              async (windowId) => await window.displayAPI.closeStageScreen(windowId)
+            )
+          )
+        }
+
+        // Abrir el nuevo conjunto de pantallas
+        setLiveScreensReady(false)
+        const windowsLiveIds = await Promise.all(
+          liveScreens.map(async (display) => await window.displayAPI.showLiveScreen(display.id))
+        )
+        const windowsStageIds = await Promise.all(
+          stageScreens.map(async (display) => await window.displayAPI.showStageScreen(display.id))
+        )
+        setLiveScreensReady(true)
+        setWindowsLiveScreenOpens(windowsLiveIds)
+        setWindowsStageScreenOpens(windowsStageIds)
+      }
+    }
+
+    reconcileScreens()
+  }, [showLiveScreen, liveScreens, stageScreens])
 
   // Envia cambios de contenido/slide a live/stage.
   useEffect(() => {

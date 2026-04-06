@@ -90,8 +90,9 @@ export default function NewDisplayConected({
 
       await Promise.all(savePromises)
 
-      // Refrescar la lista después de guardar
+      // Refrescar la lista después de guardar y emitir evento para que LiveContext se actualice
       await fetchDisplays()
+      window.electron.ipcRenderer.send('display-update')
       onSaved?.()
       onOpenChange(false)
     } catch (error) {

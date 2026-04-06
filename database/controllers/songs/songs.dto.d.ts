@@ -1,7 +1,12 @@
-import { Lyrics, Song } from '@prisma/client'
+import { Song } from '@prisma/client'
+
+export type SongLyricDTO = {
+  content: string
+  tagSongsId: number | null
+}
 
 export type CreateSongDTO = Pick<Song, 'title' | 'author' | 'copyright'> & {
-  lyrics: Pick<Lyrics, 'content' | 'tagSongsId'>[]
+  lyrics: SongLyricDTO[]
 }
 
 export type UpdateSongDTO = {
@@ -10,7 +15,7 @@ export type UpdateSongDTO = {
   artist?: string
   author?: string
   copyright?: string
-  lyrics?: string
+  lyrics?: SongLyricDTO[]
 }
 
 export type GetSongsDTO = {
@@ -19,8 +24,8 @@ export type GetSongsDTO = {
   search?: string
 }
 
-export type SongResponseDTO = Song & {
-  lyrics: Lyrics[]
+export type SongResponseDTO = Omit<Song, 'lyrics'> & {
+  lyrics: SongLyricDTO[]
 }
 
 export type SongsListResponseDTO = {

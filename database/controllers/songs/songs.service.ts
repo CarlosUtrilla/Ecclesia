@@ -1,10 +1,74 @@
 import { getPrisma } from '../../../electron/main/prisma'
-import type { CreateSongDTO, GetSongsDTO, SongResponseDTO, SongsListResponseDTO } from './songs.dto'
+import type {
+  CreateSongDTO,
+  GetSongsDTO,
+  SongLyricDTO,
+  SongResponseDTO,
+  SongsListResponseDTO
+} from './songs.dto'
 
 class SongsService {
   prisma = getPrisma()
+
+  private isEmptyLyricContent(content: string) {
+    const plain = content
+      .replace(/<br\s*\/?>(\n)?/gi, '')
+      .replace(/&nbsp;/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .trim()
+
+    return plain.length === 0
+  }
+
+  private sanitizeLyrics(lyrics: CreateSongDTO['lyrics']) {
+    return lyrics.filter((lyric) => !this.isEmptyLyricContent(lyric.content))
+  }
+
+  private parseLyrics(rawLyrics: string): SongLyricDTO[] {
+    try {
+      const parsed = JSON.parse(rawLyrics)
+      if (!Array.isArray(parsed)) return []
+
+      return parsed
+        .map((entry) => {
+          if (!entry || typeof entry !== 'object') return null
+
+          const content = (entry as Record<string, unknown>).content
+          const tagSongsId = (entry as Record<string, unknown>).tagSongsId
+
+          if (typeof content !== 'string') return null
+          if (tagSongsId !== null && typeof tagSongsId !== 'number') return null
+
+          return {
+            content,
+            tagSongsId: (tagSongsId ?? null) as number | null
+          }
+        })
+        .filter((entry): entry is SongLyricDTO => entry !== null)
+    } catch {
+      return []
+    }
+  }
+
+  private mapSongResponse(song: {
+    id: number
+    title: string
+    author: string | null
+    copyright: string | null
+    createdAt: Date
+    updatedAt: Date
+    deletedAt: Date | null
+    lyrics: string
+    fullText: string
+  }): SongResponseDTO {
+    return {
+      ...song,
+      lyrics: this.parseLyrics(song.lyrics)
+    }
+  }
+
   normalizeFullText(songData: CreateSongDTO) {
-    const fullText = songData.lyrics.map((lyric) => lyric.content)
+    const fullText = this.sanitizeLyrics(songData.lyrics).map((lyric) => lyric.content)
 
     fullText.unshift(songData.title)
     songData.author && fullText.unshift(songData.author)
@@ -20,26 +84,17 @@ class SongsService {
   async createSong(data: CreateSongDTO) {
     const fullText = this.normalizeFullText(data)
     const { lyrics, ...songData } = data
+    const sanitizedLyrics = this.sanitizeLyrics(lyrics)
 
     const song = await this.prisma.song.create({
       data: {
         ...songData,
         fullText,
-        lyrics: {
-          createMany: {
-            data: lyrics.map((content) => ({
-              content: content.content,
-              tagSongsId: content.tagSongsId
-            }))
-          }
-        }
-      },
-      include: {
-        lyrics: true
+        lyrics: JSON.stringify(sanitizedLyrics)
       }
     })
 
-    return song
+    return this.mapSongResponse(song)
   }
 
   // Obtener canciones con paginación
@@ -63,9 +118,6 @@ class SongsService {
         where,
         skip,
         take: limit,
-        include: {
-          lyrics: true
-        },
         orderBy: {
           title: 'asc'
         }
@@ -74,10 +126,7 @@ class SongsService {
     ])
 
     return {
-      songs: (songs || []).map((song) => ({
-        ...song,
-        lyrics: song.lyrics
-      })),
+      songs: (songs || []).map((song) => this.mapSongResponse(song)),
       total,
       page,
       totalPages: Math.ceil(total / limit)
@@ -87,51 +136,30 @@ class SongsService {
   // Obtener una canción por ID
   async getSongById(id: number) {
     const song = await this.prisma.song.findFirst({
-      where: { id, deletedAt: null },
-      include: {
-        lyrics: true
-      }
+      where: { id, deletedAt: null }
     })
 
     if (!song) return null
 
-    return {
-      ...song,
-      lyrics: song.lyrics
-    }
+    return this.mapSongResponse(song)
   }
 
   // Actualizar canción
   async updateSong(id: number, data: CreateSongDTO) {
     const fullText = this.normalizeFullText(data)
     const { lyrics, ...songData } = data
+    const sanitizedLyrics = this.sanitizeLyrics(lyrics)
 
-    // Eliminar letras existentes
-    await this.prisma.lyrics.deleteMany({
-      where: { songId: id }
-    })
-
-    // Actualizar la canción y las letras si existen
     const song = await this.prisma.song.update({
       where: { id },
       data: {
         ...songData,
         fullText,
-        lyrics: {
-          createMany: {
-            data: lyrics.map((content) => ({
-              content: content.content,
-              tagSongsId: content.tagSongsId
-            }))
-          }
-        }
-      },
-      include: {
-        lyrics: true
+        lyrics: JSON.stringify(sanitizedLyrics)
       }
     })
 
-    return song
+    return this.mapSongResponse(song)
   }
 
   // Eliminar canción
@@ -155,32 +183,31 @@ class SongsService {
         ]
       },
       take: limit,
-      include: {
-        lyrics: true
-      },
       orderBy: {
         title: 'asc'
       }
     })
 
-    return songs.map((song) => ({
-      ...song,
-      lyrics: song.lyrics[0] || null
-    }))
+    return songs.map((song) => {
+      const parsedSong = this.mapSongResponse(song)
+      return {
+        ...parsedSong,
+        lyrics: parsedSong.lyrics[0] || null
+      }
+    })
   }
 
-  getSongsByIds(ids: number[]): Promise<SongResponseDTO[]> {
-    return this.prisma.song.findMany({
+  async getSongsByIds(ids: number[]): Promise<SongResponseDTO[]> {
+    const songs = await this.prisma.song.findMany({
       where: {
         deletedAt: null,
         id: {
           in: ids
         }
-      },
-      include: {
-        lyrics: true
       }
     })
+
+    return songs.map((song) => this.mapSongResponse(song))
   }
 }
 

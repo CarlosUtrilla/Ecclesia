@@ -1,4 +1,4 @@
-import type { Lyrics } from '@prisma/client'
+import type { SongLyricDTO } from 'database/controllers/songs/songs.dto'
 import { clsx, type ClassValue } from 'clsx'
 import DOMPurify from 'dompurify'
 import { twMerge } from 'tailwind-merge'
@@ -124,7 +124,7 @@ export type GroupsTags = {
   tagSongsId: number | null
   contents: string[]
 }
-export const getGrupedLyrics = (lyrics: Lyrics[]): GroupsTags[] => {
+export const getGrupedLyrics = (lyrics: SongLyricDTO[]): GroupsTags[] => {
   let currentGroup: number | null = -1
   return lyrics.reduce((prev, curr) => {
     if (curr.tagSongsId !== currentGroup) {

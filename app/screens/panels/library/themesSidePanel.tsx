@@ -8,7 +8,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/ui/context-menu'
-import { Edit, ExternalLink, Plus, Trash2 } from 'lucide-react'
+import { Download, Edit, ExternalLink, Plus, Trash2, Upload } from 'lucide-react'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/ui/popover'
 
 // Nuevo diseño: panel lateral compacto, no compite visualmente
@@ -33,6 +33,65 @@ export function ThemesSidePanel() {
     window.api.themes.deleteTheme(themeId).then(() => {
       refetchThemes()
     })
+  }
+
+  const handleExportarTema = async (themeId: number) => {
+    try {
+      const result = await window.api.themes.exportThemeToZip(themeId)
+      window.alert(`Tema exportado correctamente en:\n${result.outputPath}`)
+    } catch (error: any) {
+      window.alert(error?.message ?? 'No se pudo exportar el tema')
+    }
+  }
+
+  const handleImportarTemas = async () => {
+    try {
+      const selectedPaths = await window.mediaAPI.selectFiles('all')
+      const zipPaths = selectedPaths.filter((filePath) => filePath.toLowerCase().endsWith('.zip'))
+
+      if (zipPaths.length === 0) {
+        window.alert('Selecciona al menos un archivo .zip válido para importar.')
+        return
+      }
+
+      const results = await Promise.allSettled(
+        zipPaths.map((zipPath) => window.api.themes.importThemeFromZip(zipPath))
+      )
+
+      const successCount = results.filter((item) => item.status === 'fulfilled').length
+      const errorCount = results.length - successCount
+        const renamedMediaImports = results
+          .filter((item) => item.status === 'fulfilled')
+          .map((item) => item.value)
+          .filter((item) => item.backgroundMediaWasRenamed)
+
+      if (successCount > 0) {
+        window.electron.ipcRenderer.send('theme-saved')
+        refetchThemes()
+      }
+
+      if (errorCount === 0) {
+          const renamedSummary =
+            renamedMediaImports.length > 0
+              ? `\n\nSe renombró el archivo de fondo en ${renamedMediaImports.length} tema(s) por conflicto de nombre:\n${renamedMediaImports
+                  .map((item) => `- ${item.themeName}: ${item.backgroundMediaFilePath ?? 'ruta no disponible'}`)
+                  .join('\n')}`
+              : ''
+
+          window.alert(`Se importaron ${successCount} tema(s) correctamente.${renamedSummary}`)
+        return
+      }
+
+      const firstError = results.find((item) => item.status === 'rejected')
+      const message =
+        firstError && firstError.status === 'rejected'
+          ? (firstError.reason as Error)?.message
+          : 'Error desconocido'
+
+      window.alert(`Importación finalizada con errores.\nÉxitos: ${successCount}\nErrores: ${errorCount}\n\n${message}`)
+    } catch (error: any) {
+      window.alert(error?.message ?? 'No se pudieron importar los temas')
+    }
   }
 
   // Filtrar temas por nombre
@@ -93,6 +152,9 @@ export function ThemesSidePanel() {
                     <ContextMenuItem onClick={() => handleEditarTema(theme.id)}>
                       <Edit /> Editar tema
                     </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handleExportarTema(theme.id)}>
+                      <Download /> Exportar tema (.zip)
+                    </ContextMenuItem>
                     <ContextMenuItem onClick={() => handleEliminarTema(theme.id)}>
                       <Trash2 className="text-destructive" /> Borrar tema
                     </ContextMenuItem>
@@ -125,6 +187,15 @@ export function ThemesSidePanel() {
                 onClick={() => window.windowAPI.openThemeWindow()}
               >
                 <Plus className="w-4 h-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-muted-foreground hover:text-primary"
+                title="Importar tema (.zip)"
+                onClick={handleImportarTemas}
+              >
+                <Upload className="w-4 h-4" />
               </Button>
               <PopoverTrigger asChild>
                 <Button size="icon" variant="ghost" title="Ver temas expandido">

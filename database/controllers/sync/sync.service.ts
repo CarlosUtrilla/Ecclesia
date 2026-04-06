@@ -89,18 +89,10 @@ const SYNC_TABLE_DEFINITIONS: Record<string, SyncTableDefinition> = {
       'copyright',
       'createdAt',
       'updatedAt',
+      'lyrics',
       'fullText',
       'deletedAt'
     ],
-    resolveWhere: (recordId) => {
-      const id = parseNumericIdOrNull(recordId)
-      return id === null ? null : { id }
-    },
-    allowDelete: true
-  },
-  Lyrics: {
-    delegateName: 'lyrics',
-    allowedFields: ['id', 'content', 'tagSongsId', 'songId', 'createdAt', 'updatedAt'],
     resolveWhere: (recordId) => {
       const id = parseNumericIdOrNull(recordId)
       return id === null ? null : { id }

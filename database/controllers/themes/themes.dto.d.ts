@@ -17,3 +17,17 @@ export type ThemeWithMedia = Omit<Themes, 'textStyle'> & {
   biblePresentationSettings: BiblePresentationSettings | null
   textStyle: React.CSSProperties
 }
+
+export type ThemeArchiveExportResult = {
+  outputPath: string
+  themeName: string
+  hasBackgroundMedia: boolean
+}
+
+export type ThemeArchiveImportResult = {
+  themeId: number
+  themeName: string
+  hasBackgroundMedia: boolean
+  backgroundMediaFilePath?: string
+  backgroundMediaWasRenamed?: boolean
+}

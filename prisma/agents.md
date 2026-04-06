@@ -14,7 +14,7 @@ prisma/
 ├── dev.db           # Base de datos SQLite (desarrollo)
 ├── seed.ts          # Script de seed inicial
 └── migrations/
-    └── 20260309000000_beta_v1_baseline/   # Migración única (baseline consolidada para beta)
+  └── 20260406140000_squashed_initial/   # Migración única consolidada (incluye schema actual + lyrics JSON en Song)
         └── migration.sql
 ```
 
@@ -30,27 +30,13 @@ model Song {
   title     String
   author    String?
   copyright String?
+  lyrics    String   @default("[]") // JSON serializado: [{ content, tagSongsId }]
   updatedAt DateTime @updatedAt
 }
 ```
 
-- `fullText` se genera concatenando el contenido de todas las `Lyrics` asociadas. Se usa para busqueda rapida sin JOINs.
-- Una cancion tiene multiples estrofas (`Lyrics`), cada una opcionalmente asociada a un `TagSongs`.
-
-### Lyrics (Estrofas)
-
-```prisma
-model Lyrics {
-  id         Int       @id @default(autoincrement())
-  content    String                              // Contenido HTML de la estrofa
-  tagSongs   TagSongs? @relation(...)            // Tag opcional (Verso, Coro, etc.)
-  tagSongsId Int?
-  song       Song      @relation(...)
-  songId     Int
-}
-```
-
-- El `content` puede contener HTML basico (negrita, cursiva) del editor TipTap.
+- `fullText` se genera concatenando el contenido de `lyrics` (JSON) para busqueda rapida sin JOINs.
+- `lyrics` guarda un arreglo serializado con estrofas: `[{ content: string, tagSongsId: number | null }]`.
 
 ```prisma
 model TagSongs {
@@ -59,7 +45,6 @@ model TagSongs {
   shortName String @unique          // "V", "C", "P"
   shortCut  String @unique          // Atajo de teclado
   color     String                  // Color HEX
-  lyrics    Lyrics[]
 }
 ```
 

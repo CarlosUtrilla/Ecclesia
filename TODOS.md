@@ -95,3 +95,7 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 [X] editar las etiquetas que ponen v22-25, en las presentaciones pero con el nombre del libro ej: mat 3:22-25, incluyendo textos de un solo versiculo (mat 3:22), se debe usar el shortname para esto
 [X] en el editor de presentaciones, al poner un texto biblico y si hay un tema seleccionado, si respeta el tamaño de altura conciderando el indicador de verso biblico, pero en ancho toma el 100% y no el tamaño que esta en el tema (porque algunos tienen separacion entre left y rigth y este toma el 100%)
 [X] en el selector del umbral de tiempo en el editor stage, poner opcion de minutos tambien
+[ ] añadir un a opcion para poder añadir presentaciones o pdfs y poderlos presentar pagina por pagina o slide por slide
+
+# Control remoto
+Necesitamos una app 

@@ -45,11 +45,26 @@ export default function SongEditor() {
       const song = await window.api.songs.getSongById(Number(id))
       if (song) {
         const normalizedLyrics = [...song.lyrics]
-          .sort((a, b) => a.id - b.id)
-          .map((lyric) => ({
-            content: lyric.content,
-            tagSongsId: lyric.tagSongsId
-          }))
+          .map((lyric) => [
+            {
+              content: lyric.content,
+              tagSongsId: lyric.tagSongsId
+            },
+            {
+              content: '',
+              tagSongsId: lyric.tagSongsId
+            }
+          ])
+          .flat()
+          // Eliminar líneas que tienen tag pero es una linea vacia y ademas es la ultima de la misma tag eliminarla
+          .filter((lyric, index, self) => {
+            const isLastOfTag =
+              index === self.length - 1 || lyric.tagSongsId !== self[index + 1].tagSongsId
+            if (lyric.content === '' && lyric.tagSongsId && isLastOfTag) {
+              return false
+            }
+            return true
+          })
 
         reset({
           title: song.title,

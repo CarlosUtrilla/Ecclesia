@@ -21,22 +21,8 @@ model Song {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
-  lyrics    Lyrics[]
+  lyrics    String    @default("[]")
   fullText  String    @default("") // Campo para búsqueda de texto completo
-}
-
-model Lyrics {
-  id         Int       @id @default(autoincrement())
-  content    String
-  tagSongs   TagSongs? @relation(fields: [tagSongsId], references: [id])
-  tagSongsId Int?
-
-  // Relaciones
-  song   Song @relation(fields: [songId], references: [id])
-  songId Int // Solo si cada canción tiene UNA letra, si puede tener muchas letras, quitar @unique
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model TagSongs {
@@ -48,8 +34,6 @@ model TagSongs {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
-
-  lyrics Lyrics[]
 }
 
 model Font {

@@ -228,10 +228,11 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 ### Media Manager (`mediaManager/`)
 
 - `mediaServer.ts`: servidor HTTP local para servir archivos de medios.
+- `mediaThumbnails.ts`: **módulo compartido** con funciones de generación de thumbnails/fallbacks (`generateImageThumbnail`, `generateVideoThumbnail`, `generateVideoFallback`) y helpers de naming (`buildThumbnailFileName`, `buildFallbackFileName`, `getThumbnailsPath`). Importado tanto por `mediaHandlers.ts` como por `themes.service.ts` para evitar duplicación.
 - `mediaHandlers.ts`: importacion de medios.
   - Copia archivos al directorio de datos.
   - Soporta importación de imágenes pegadas desde portapapeles sin ruta de archivo (`media:import-clipboard-image`) escribiendo temporal local y reutilizando el flujo normal de importación.
-  - Genera thumbnails para imagenes/videos.
+  - Genera thumbnails para imagenes/videos (delegando a `mediaThumbnails.ts`).
   - Para imágenes, intenta `sharp` con carga diferida; si `sharp` no está disponible para el runtime actual, hace fallback a `ffmpeg` para evitar crash del proceso principal.
   - Extrae metadatos (dimensiones, duracion).
   - Registra en DB via `MediaService`.

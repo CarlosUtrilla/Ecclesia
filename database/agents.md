@@ -88,7 +88,7 @@ Definidos en `routes.ts`:
 | Namespace | Controller | Metodos principales |
 | --------- | ---------- | ------------------- |
 | `songs` | SongsController | `createSong`, `getSongs`, `getSongById`, `getSongsByIds`, `updateSong`, `deleteSong` |
-| `themes` | ThemesController | `createTheme`, `getAllThemes`, `getThemeById`, `updateTheme`, `deleteTheme` |
+| `themes` | ThemesController | `createTheme`, `getAllThemes`, `getThemeById`, `updateTheme`, `deleteTheme`, `exportThemeToZip`, `importThemeFromZip` |
 | `media` | MediaController | `importMedia`, `getAllMedia`, `getMediaByIds`, `deleteMedia`, `moveMedia`, `renameMedia`, `createFolder`, `renameFolder`, `deleteFolder` |
 | `tagSongs` | TagSongsController | `createTagSong`, `getAllTagSongs`, `updateTagSong`, `deleteTagSong` |
 | `bible` | BibleController | `getBibleSchema`, `getVerses`, `getCompleteChapter`, `getAvailableBibles`, `importBible`, `searchTextFragment`, `getDefaultBibleSettings`, `updateDefaultBibleSettings` |
@@ -129,7 +129,7 @@ export default class SongsService {
   async createSong(data: CreateSongDTO) {
     return await prisma.song.create({
       data: { ... },
-      include: { lyrics: { include: { tagSongs: true } } }
+      // lyrics se guarda serializado en Song.lyrics como JSON string
     })
   }
 }
@@ -175,6 +175,10 @@ export interface CreateSongDTO {
 - `AddScheduleItemDto` omite `id`, `scheduleId` y `updatedAt`; en `ScheduleService` los creates deben mapear items sin desestructurar esos campos y generar `id` nuevo con `crypto.randomUUID()`.
 - `songImporter.service.ts` debe retornar boolean en todos los caminos de `holyricsImporter` (`true` si hubo imports fulfilled, `false` en caso contrario) para cumplir tipado estricto.
 - `selectedScreens.createSelectedScreen` usa `upsert` por `screenId` (BigInt) para evitar `P2002` cuando el display ya existe y solo cambian `screenName` o `rol`.
+- `songs` persiste letras en `Song.lyrics` como JSON string (`[{ content, tagSongsId }]`) y el service entrega `lyrics` parseado al renderer (`SongResponseDTO`) para evitar parseos repetidos en frontend.
+- `songs.updateSong` sobrescribe `Song.lyrics` completo en una sola mutación de `Song`, evitando inconsistencias de sincronización por filas hijas.
+- `themes.exportThemeToZip(id)` genera `~/Downloads/<tema>.zip` con `theme.json` (datos de DB) y, cuando aplica, incluye el asset de fondo respetando el `filePath` original del media.
+- `themes.importThemeFromZip(zipPath)` crea tema nuevo desde `theme.json`, resuelve conflicto de nombres con sufijo (importado) considerando también registros soft-delete y reintenta creación ante `P2002` (colisión concurrente); si el ZIP trae fondo intenta conservar su ruta relativa bajo `files/`, persiste `Media.filePath` y `Media.folder` derivados de esa ruta (fallback seguro a `files/themes-imports/`) y, si hay colisión de archivo/ruta, renombra solo el archivo manteniendo carpeta devolviendo metadata de renombrado en el resultado.
 
 ## Serializacion IPC
 
