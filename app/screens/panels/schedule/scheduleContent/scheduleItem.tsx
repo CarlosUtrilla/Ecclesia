@@ -60,7 +60,7 @@ export function ScheduleItemComponent({
       setLabel(lbl as string)
     }
     fetchLabel()
-  }, [])
+  }, [getScheduleItemLabel, item])
 
   useEffect(() => {
     if (item.type === 'GROUP' && item.accessData) {

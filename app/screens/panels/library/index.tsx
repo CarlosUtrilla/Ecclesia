@@ -4,7 +4,7 @@ import SongsPanelLibrary from './songs'
 import MediaLibrary from './media'
 import BiblePanel from './bible'
 import PresentationsPanel from './presentations'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/ui/button'
 import { CheckCircle2, MonitorCog, Settings } from 'lucide-react'
 
@@ -14,7 +14,7 @@ export default function LibraryPanel() {
   const [syncProgress, setSyncProgress] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
 
-  useEffect(() => {
+  const refreshSyncConnection = useCallback(() => {
     window.googleDriveSyncAPI
       .getStatus()
       .then((s: { connected?: boolean } | null) => setIsConnected(!!s?.connected))
@@ -22,15 +22,36 @@ export default function LibraryPanel() {
   }, [])
 
   useEffect(() => {
+    refreshSyncConnection()
+  }, [refreshSyncConnection])
+
+  useEffect(() => {
+    // Al volver de Ajustes (focus en ventana principal), refrescar estado de conexión.
+    const handleWindowFocus = () => {
+      refreshSyncConnection()
+    }
+
+    window.addEventListener('focus', handleWindowFocus)
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus)
+    }
+  }, [refreshSyncConnection])
+
+  useEffect(() => {
     const unsubscribe = window.googleDriveSyncAPI.onSyncStateChange(({ syncing, progress }) => {
       setIsSyncing(syncing)
       setSyncProgress(progress)
+
+      // Cuando finaliza connect/push/pull/reconcile, actualizar visibilidad del botón Sync.
+      if (!syncing) {
+        refreshSyncConnection()
+      }
     })
 
     return () => {
       unsubscribe()
     }
-  }, [])
+  }, [refreshSyncConnection])
 
   return (
     <div className="flex flex-row h-full">

@@ -22,7 +22,7 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
     - Para `BIBLE` directo, divide automáticamente versículos demasiado largos en múltiples slides legibles, manteniendo la misma referencia bíblica (`bookId/chapter/verse`) pero con `id` único por fragmento para navegación/render estable en live.
     - Para `BIBLE` directo, el parser acepta rangos no contiguos serializados en `accessData` (ej: `1-3,8,12`) y pide exactamente esos versos al backend (sin expandir a `1-12`).
     - La longitud de fragmentación se controla con el setting `BIBLE_LIVE_CHUNK_MODE`: valores fijos (`100/150/200/250`) o `auto`, que estima el límite según el `fontSize` del tema activo.
-    - Escucha `presentation-saved` para refetch de queries de presentaciones/medios asociados al cronograma y evitar labels/previews desactualizados.
+    - Escucha `presentation-saved`, `song-saved` y `media-saved` para refetch de queries asociados al cronograma y evitar labels/previews desactualizados al editar recursos desde ventanas secundarias.
   - **liveContext.tsx**: Sub-contexto para gestión de pantallas en vivo y sincronización de contenido.
     - Mantiene `presentationVerseBySlideKey` para sincronizar el verso activo de cada slide de presentación entre el panel `items-on-live` y las ventanas `live-screen`.
     - Mantiene `presentationBibleOverrideByKey` para sincronizar overrides temporales `{ version, text }` de contenido bíblico por `slideKey/layerId` entre el panel `items-on-live` y las ventanas `live-screen`.

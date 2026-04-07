@@ -60,7 +60,7 @@ export const useIndexDataItems = (
   const [directLivePresentations, setDirectLivePresentations] = useState<any[]>([])
   const accessDataKey = currentSchedule?.items.map((item) => parseInt(item.accessData))
 
-  const { data: queriedSongs = [] } = useQuery({
+  const { data: queriedSongs = [], refetch: refetchSongs } = useQuery({
     queryKey: ['songsByIds', accessDataKey],
     queryFn: async () => {
       if (!currentSchedule) return []
@@ -103,13 +103,26 @@ export const useIndexDataItems = (
   })
 
   useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('presentation-saved', () => {
+    const unsubscribePresentationSaved = window.electron.ipcRenderer.on('presentation-saved', () => {
       refetchPresentationsByIds()
       refetchMedia()
     })
 
-    return unsubscribe
-  }, [refetchMedia, refetchPresentationsByIds])
+    const unsubscribeSongSaved = window.electron.ipcRenderer.on('song-saved', () => {
+      refetchSongs()
+    })
+
+    const unsubscribeMediaSaved = window.electron.ipcRenderer.on('media-saved', () => {
+      refetchMedia()
+      refetchPresentationsByIds()
+    })
+
+    return () => {
+      unsubscribePresentationSaved()
+      unsubscribeSongSaved()
+      unsubscribeMediaSaved()
+    }
+  }, [refetchMedia, refetchPresentationsByIds, refetchSongs])
 
   const songs = useMemo(() => {
     const byId = new Map<number, SongResponseDTO>()
