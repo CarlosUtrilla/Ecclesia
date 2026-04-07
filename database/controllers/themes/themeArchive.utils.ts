@@ -1,4 +1,6 @@
 const IMPORT_SUFFIX = ' (importado)'
+const FONT_VARIANT_SUFFIX_REGEX =
+  /[-_\s]?(thin|extralight|ultralight|light|regular|book|roman|medium|semibold|demibold|bold|extrabold|ultrabold|black|heavy|italic|oblique|condensed|narrow)+$/i
 
 export function ensureZipExtension(filePath: string) {
   return filePath.toLowerCase().endsWith('.zip') ? filePath : `${filePath}.zip`
@@ -77,4 +79,27 @@ export function getMediaFolderFromRelativePath(relativePath: string) {
 
   const segments = normalized.split('/').slice(1, -1)
   return segments.length > 0 ? segments.join('/') : undefined
+}
+
+export function extractPrimaryFontFamily(value: unknown) {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const firstFamily = value.split(',')[0]?.trim().replace(/^['"]+|['"]+$/g, '')
+  return firstFamily && firstFamily.length > 0 ? firstFamily : null
+}
+
+export function normalizeFontMatchValue(value: string) {
+  return value.trim().replace(/^['"]+|['"]+$/g, '').toLowerCase()
+}
+
+export function getCustomFontFamilyFromFileName(fileName: string) {
+  const withoutExtension = fileName.replace(/\.[^/.]+$/, '').trim()
+  if (!withoutExtension) {
+    return ''
+  }
+
+  const withoutVariant = withoutExtension.replace(FONT_VARIANT_SUFFIX_REGEX, '').trim()
+  return withoutVariant || withoutExtension
 }

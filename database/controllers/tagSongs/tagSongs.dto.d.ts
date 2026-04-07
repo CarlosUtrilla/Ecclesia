@@ -8,7 +8,7 @@ export type SaveManyTagSongsItemDto = {
   id: number // > 0 = existente (update), ≤ 0 = nuevo (create)
   name: string
   shortName: string
-  shortCut: string
+  shortCut?: string
   color: string
   deletedAt: Date | null
 }

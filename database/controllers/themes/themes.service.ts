@@ -7,7 +7,7 @@ import {
   UpdateThemeDto
 } from './themes.dto'
 import { Prisma, MediaType } from '@prisma/client'
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -16,7 +16,10 @@ import {
   buildMediaRelativePathFromArchive,
   buildUniqueThemeName,
   ensureZipExtension,
+  extractPrimaryFontFamily,
+  getCustomFontFamilyFromFileName,
   getMediaFolderFromRelativePath,
+  normalizeFontMatchValue,
   sanitizeThemeArchiveBaseName
 } from './themeArchive.utils'
 import {
@@ -47,6 +50,11 @@ type ThemeArchivePayload = {
     format: string
     backgroundAssetPath: string
   } | null
+  customFont?: {
+    name: string
+    fileName: string
+    fontAssetPath: string
+  } | null
 }
 
 export class ThemesService {
@@ -68,7 +76,7 @@ export class ThemesService {
     }
   }
 
-  private buildArchivePayload(theme: {
+  private async buildArchivePayload(theme: {
     name: string
     background: string
     backgroundVideoLoop: boolean
@@ -99,7 +107,8 @@ export class ThemesService {
         useDefaultBibleSettings: theme.useDefaultBibleSettings,
         biblePresentationSettings: theme.biblePresentationSettings ?? null
       },
-      backgroundMedia: null
+      backgroundMedia: null,
+      customFont: null
     }
 
     if (theme.backgroundMedia) {
@@ -110,6 +119,36 @@ export class ThemesService {
         type: theme.backgroundMedia.type,
         format: theme.backgroundMedia.format,
         backgroundAssetPath: originalRelativePath.length > 0 ? originalRelativePath : `assets/background${extension}`
+      }
+    }
+
+    const primaryFontFamily = extractPrimaryFontFamily(payload.theme.textStyle.fontFamily)
+    if (primaryFontFamily) {
+      const prisma = getPrisma()
+      const availableFonts = await prisma.font.findMany({
+        where: { deletedAt: null },
+        select: { name: true, fileName: true, filePath: true }
+      })
+
+      const normalizedRequestedFamily = normalizeFontMatchValue(primaryFontFamily)
+      const fontMatch = availableFonts.find((font) => {
+        const candidates = [
+          font.name,
+          path.parse(font.fileName).name,
+          getCustomFontFamilyFromFileName(font.fileName)
+        ]
+
+        return candidates
+          .map((candidate) => normalizeFontMatchValue(candidate))
+          .some((candidate) => candidate === normalizedRequestedFamily)
+      })
+
+      if (fontMatch) {
+        payload.customFont = {
+          name: fontMatch.name,
+          fileName: fontMatch.fileName,
+          fontAssetPath: fontMatch.filePath.replace(/\\/g, '/')
+        }
       }
     }
 
@@ -272,7 +311,7 @@ export class ThemesService {
     const safeBaseName = sanitizeThemeArchiveBaseName(theme.name)
     const archivePath = ensureZipExtension(path.join(downloadsPath, `${safeBaseName}.zip`))
 
-    const payload = this.buildArchivePayload({
+    const payload = await this.buildArchivePayload({
       name: theme.name,
       background: theme.background,
       backgroundVideoLoop: theme.backgroundVideoLoop,
@@ -299,6 +338,13 @@ export class ThemesService {
       const mediaPath = path.join(this.getUserMediaPath(), theme.backgroundMedia.filePath)
       if (fs.existsSync(mediaPath)) {
         zip.addFile(payload.backgroundMedia.backgroundAssetPath, fs.readFileSync(mediaPath))
+      }
+    }
+
+    if (payload.customFont?.fontAssetPath) {
+      const fontPath = path.join(this.getUserMediaPath(), payload.customFont.fontAssetPath)
+      if (fs.existsSync(fontPath)) {
+        zip.addFile(payload.customFont.fontAssetPath, fs.readFileSync(fontPath))
       }
     }
 
@@ -426,6 +472,52 @@ export class ThemesService {
 
         importedBackgroundMediaId = createdMedia.id
         importedBackgroundMediaPath = relativePath
+      }
+
+      if (payload.customFont?.fontAssetPath) {
+        const fontEntry = zip.getEntry(payload.customFont.fontAssetPath)
+        if (!fontEntry) {
+          throw new Error('El ZIP indica una fuente personalizada, pero no incluye el archivo')
+        }
+
+        const rawFileName = payload.customFont.fileName || path.posix.basename(payload.customFont.fontAssetPath)
+        const safeFileName = path.posix.basename(rawFileName).trim()
+        if (!safeFileName) {
+          throw new Error('El ZIP contiene una fuente personalizada inválida')
+        }
+
+        const fontRelativePath = `fonts/${safeFileName}`
+        const fontAbsolutePath = path.join(this.getUserMediaPath(), 'fonts', safeFileName)
+
+        const existingFont = await prisma.font.findFirst({
+          where: {
+            deletedAt: null,
+            OR: [{ fileName: safeFileName }, { filePath: fontRelativePath }]
+          },
+          select: { id: true }
+        })
+
+        const fontExistsInFileSystem = fs.existsSync(fontAbsolutePath)
+
+        if (!fontExistsInFileSystem) {
+          fs.mkdirSync(path.dirname(fontAbsolutePath), { recursive: true })
+          fs.writeFileSync(fontAbsolutePath, fontEntry.getData())
+        }
+
+        if (!existingFont) {
+          const fallbackName = getCustomFontFamilyFromFileName(safeFileName) || path.parse(safeFileName).name
+          await prisma.font.create({
+            data: {
+              name: payload.customFont.name || fallbackName,
+              fileName: safeFileName,
+              filePath: fontRelativePath
+            }
+          })
+
+          BrowserWindow.getAllWindows().forEach((window) => {
+            window.webContents.send('font-added')
+          })
+        }
       }
 
       let biblePresentationSettingsId: number | null = null

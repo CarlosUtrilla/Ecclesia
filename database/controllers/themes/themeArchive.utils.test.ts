@@ -4,7 +4,10 @@ import {
   buildMediaRelativePathFromArchive,
   buildUniqueThemeName,
   ensureZipExtension,
+  extractPrimaryFontFamily,
+  getCustomFontFamilyFromFileName,
   getMediaFolderFromRelativePath,
+  normalizeFontMatchValue,
   normalizeImportedMediaRelativePath,
   sanitizeThemeArchiveBaseName
 } from './themeArchive.utils'
@@ -79,6 +82,32 @@ describe('themeArchive.utils', () => {
 
     it('deberia retornar undefined cuando esta en raiz de files', () => {
       expect(getMediaFolderFromRelativePath('files/fondo.mp4')).toBeUndefined()
+    })
+  })
+
+  describe('extractPrimaryFontFamily', () => {
+    it('deberia extraer la primera familia quitando comillas', () => {
+      expect(extractPrimaryFontFamily("'Montserrat', sans-serif")).toBe('Montserrat')
+    })
+
+    it('deberia retornar null cuando no es string', () => {
+      expect(extractPrimaryFontFamily(undefined)).toBeNull()
+    })
+  })
+
+  describe('normalizeFontMatchValue', () => {
+    it('deberia normalizar mayusculas, espacios y comillas', () => {
+      expect(normalizeFontMatchValue("  'Montserrat'  ")).toBe('montserrat')
+    })
+  })
+
+  describe('getCustomFontFamilyFromFileName', () => {
+    it('deberia remover extension y sufijo de variante', () => {
+      expect(getCustomFontFamilyFromFileName('Montserrat-BoldItalic.ttf')).toBe('Montserrat')
+    })
+
+    it('deberia devolver vacio cuando el nombre no es usable', () => {
+      expect(getCustomFontFamilyFromFileName('.ttf')).toBe('')
     })
   })
 })

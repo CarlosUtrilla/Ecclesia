@@ -243,7 +243,7 @@ app/screens/editors/
 ### Funcionalidad Tag Songs Editor
 
 - CRUD de tags para categorizar estrofas de canciones.
-- Campos: nombre, nombre corto (shortName), atajo de teclado (shortCut), color.
+- Campos: nombre, nombre corto (shortName) y color. El campo técnico `shortCut` ya no se expone ni se usa funcionalmente en UI.
 - Al guardar emite IPC `tags-saved` para refetch en ventana principal.
 
 ## Convenciones

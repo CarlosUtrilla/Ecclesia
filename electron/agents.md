@@ -289,6 +289,10 @@ Maneja la inicializacion robusta de la base de datos:
 7. El middleware de outbox omite tracking cuando `params.runInTransaction === true` para evitar lock contention/timeouts de SQLite al intentar escribir outbox durante transacciones interactivas.
 8. Bypass controlado con `runWithoutSyncOutboxTracking()` para reconciliacion interna.
 9. En builds empaquetados, la DB inicial se toma de `resources/prisma/empty-prod.db` (plantilla vacía generada desde migraciones), nunca de `prisma/dev.db` local.
+10. `validateDatabaseSchema()` valida tablas críticas del esquema actual (`Song`, `Themes`, `Setting`) para evitar recreaciones falsas por tablas legacy removidas.
+11. `hasUserData()` usa delegates reales de Prisma (`song`, `themes`, `setting`) y acceso defensivo al delegate para evitar errores `undefined.count` durante validación previa a migraciones.
+12. `runMigrations()` omite `prisma migrate deploy` cuando no hay migraciones pendientes para evitar warnings recurrentes de engine en bases ya sincronizadas.
+13. En desarrollo, la inicialización de DB **no** usa `prisma/dev.db` como fuente de copia: solo usa la plantilla `empty-prod.db` (o migraciones desde cero), para evitar arrastrar datos locales a flujos de build/release.
 
 #### Build-safe DB template
 

@@ -14,6 +14,12 @@ let prisma: PrismaClient | null = null
 const outboxContext = new AsyncLocalStorage<{ skipOutbox: boolean }>()
 const PACKAGED_DB_TEMPLATE_NAME = 'empty-prod.db'
 
+function getTemplateDbPath(isDev: boolean): string {
+  return isDev
+    ? path.resolve(process.cwd(), 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+    : path.join(process.resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+}
+
 const SYNC_CONFIG_DIR_NAME = 'sync'
 const SYNC_CONFIG_FILE_NAME = 'google-drive-config.json'
 const OUTBOX_CACHE_TTL_MS = 5000
@@ -606,6 +612,9 @@ async function runMigrations(dbPath: string, isDev: boolean) {
           log.warn(`⚠️ No se pudo aplicar ${migration}, continuando...`)
         }
       }
+    } else {
+      log.info('✅ No hay migraciones pendientes; se omite prisma migrate deploy')
+      return true
     }
 
     // Intentar ejecutar migrate deploy para sincronizar
@@ -662,26 +671,14 @@ async function validateDatabaseSchema(dbPath: string): Promise<boolean> {
 
       log.info(`📊 Tablas existentes: ${tableNames.join(', ')}`)
 
-      // Si faltan tablas críticas, el esquema necesita actualizarse
-      const criticalTables = ['Song', 'Lyrics', 'Setting']
+      // Si faltan tablas críticas del esquema actual, el esquema necesita actualizarse
+      const criticalTables = ['Song', 'Themes', 'Setting']
       const missingCritical = criticalTables.filter((t) => !tableNames.includes(t))
 
       if (missingCritical.length > 0) {
         log.warn(`⚠️ Tablas críticas faltantes: ${missingCritical.join(', ')}`)
         db.close()
         return false
-      }
-
-      // Verificar columnas problemáticas conocidas en Lyrics
-      if (tableNames.includes('Lyrics')) {
-        const lyricsInfo = db.prepare('PRAGMA table_info(Lyrics)').all() as any[]
-        const hasOldColumn = lyricsInfo.some((col: any) => col.name === 'songsTagsId')
-
-        if (hasOldColumn) {
-          log.warn('⚠️ Columna antigua "songsTagsId" detectada - esquema desactualizado')
-          db.close()
-          return false
-        }
       }
 
       db.close()
@@ -878,9 +875,23 @@ async function hasUserData(dbPath: string): Promise<boolean> {
     })
     await tempPrisma.$connect()
 
-    const tablesToCheck = ['songs', 'themes', 'settings']
+    const modelsToCheck = ['song', 'themes', 'setting']
+    const prismaRecord = tempPrisma as unknown as Record<string, unknown>
+
     const counts = await Promise.all(
-      tablesToCheck.map((table) => (tempPrisma as any)[table].count().catch(() => 0))
+      modelsToCheck.map(async (model) => {
+        const delegate = prismaRecord[model] as { count?: () => Promise<number> } | undefined
+
+        if (!delegate || typeof delegate.count !== 'function') {
+          return 0
+        }
+
+        try {
+          return await delegate.count()
+        } catch {
+          return 0
+        }
+      })
     )
 
     await tempPrisma.$disconnect()
@@ -908,13 +919,11 @@ async function initPrisma() {
     if (!(await fs.pathExists(destDbPath))) {
       log.info('📦 Primera vez: creando base de datos inicial...')
 
-      const srcDbPath = isDev
-        ? path.resolve(process.cwd(), 'prisma', 'dev.db')
-        : path.join(process.resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+      const srcDbPath = getTemplateDbPath(isDev)
 
       if (await fs.pathExists(srcDbPath)) {
         await fs.copy(srcDbPath, destDbPath)
-        log.info('✅ Base de datos inicial copiada a userData:', destDbPath)
+        log.info('✅ Base de datos inicial copiada desde plantilla:', srcDbPath)
       } else {
         log.info('🆕 No hay DB inicial, se creará con las migraciones')
       }
@@ -947,9 +956,7 @@ async function initPrisma() {
       log.info('🗑️ Base de datos antigua eliminada')
 
       // Intentar copiar DB limpia del proyecto (si existe)
-      const srcDbPath = isDev
-        ? path.resolve(process.cwd(), 'prisma', 'dev.db')
-        : path.join(process.resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+      const srcDbPath = getTemplateDbPath(isDev)
 
       if (await fs.pathExists(srcDbPath)) {
         await fs.copy(srcDbPath, destDbPath)
@@ -988,9 +995,7 @@ async function initPrisma() {
         log.info('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
         await fs.remove(destDbPath)
 
-        const srcDbPath = isDev
-          ? path.resolve(process.cwd(), 'prisma', 'dev.db')
-          : path.join(process.resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+        const srcDbPath = getTemplateDbPath(isDev)
 
         if (await fs.pathExists(srcDbPath)) {
           await fs.copy(srcDbPath, destDbPath)
