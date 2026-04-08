@@ -49,6 +49,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - El controlador evita re-inicializaciones espurias por cambios de referencia de funciones (`sendLiveMediaState`) usando `ref` interna para emitir comandos.
 - Si la metadata tarda en resolverse, aplica un polling corto sobre `videoRef.duration` como fallback para poblar la duración y habilitar cálculo correcto del slider.
 - Al entrar o reingresar a una diapositiva con video en modo `auto`, el controlador envía una secuencia corta de reintentos `seek(0)+play` para evitar que se pierda el comando durante el remount del video en live.
+- El auto-inicio en `RenderPresentationLiveController` ahora aplica `seek(0)` una sola vez y usa reintentos posteriores solo con `play`, evitando el efecto de reinicio visual cuando el video ya empezó.
 - Al entrar o reingresar a cualquier diapositiva con video, el controlador reinicia explícitamente el video local y live a `0s` (inicio) antes de aplicar `play`/`pause` según la configuración (`auto`/`manual`).
 - Para mantener consistencia visual con proyección, `RenderGridMode` admite `themeOverride`; si no existe override usa `appliedTheme` desde `LiveContext` y no `selectedTheme`, de modo que la grilla siga reflejando el tema realmente enviado a live aunque el operador cambie el selector. En PRESENTATION usa `BlankTheme` por defecto cuando no hay tema por slide.
 - El selector de vista del panel (`list/grid`) se persiste en `localStorage` (`items-on-live-view-mode`) para restaurar la preferencia del operador al reiniciar la app.

@@ -58,9 +58,22 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
     if (!live || type !== 'video') return
     const video = document.getElementById(videoId) as HTMLVideoElement | null
     let lastPlayState: { time: number; action: string } | null = null
+
+    const shouldSyncTimeOnPlay = (requestedTime: number) => {
+      if (!video) return false
+
+      if (requestedTime === 0 && video.currentTime > 0.08) {
+        return false
+      }
+
+      return Math.abs(video.currentTime - requestedTime) > 0.25
+    }
+
     const tryPlay = (time: number) => {
       if (!video) return
-      video.currentTime = time
+      if (shouldSyncTimeOnPlay(time)) {
+        video.currentTime = time
+      }
       video.play().catch((err) => {
         if (err.name === 'AbortError') {
           // Reintentar cuando la ventana reciba el foco
@@ -114,7 +127,6 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
       )
     } else {
       if (type === 'video') {
-        // Inicia muted para permitir autoplay
         return (
           <video
             id={videoId}
@@ -122,14 +134,9 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
             src={originalUrl}
             className="object-contain"
             style={mediaElementStyle}
-            autoPlay
             loop={shouldLoop}
             muted
             playsInline
-            onLoadedMetadata={(e) => {
-              // Forzar play apenas el video esté listo
-              e.currentTarget.play()
-            }}
             preload="auto"
           />
         )

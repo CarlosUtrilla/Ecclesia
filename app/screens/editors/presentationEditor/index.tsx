@@ -605,7 +605,7 @@ export default function PresentationEditor() {
   })
 
   const handleSelectedItemAnimationChange = (settings: AnimationSettings) => {
-    if (!selectedItem || selectedItem.type === 'MEDIA') return
+    if (!selectedItem) return
     updateSelectedItem({ animationSettings: JSON.stringify(settings) })
     setAnimationPreviewKey((current) => current + 1)
   }

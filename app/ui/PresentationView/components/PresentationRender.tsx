@@ -226,8 +226,18 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
     const video = videoRef.current
     if (!video || !window.liveMediaAPI?.onMediaState) return
 
+    const shouldSyncTimeOnPlay = (requestedTime: number) => {
+      if (requestedTime === 0 && video.currentTime > 0.08) {
+        return false
+      }
+
+      return Math.abs(video.currentTime - requestedTime) > 0.25
+    }
+
     const tryPlay = (time: number) => {
-      video.currentTime = time
+      if (shouldSyncTimeOnPlay(time)) {
+        video.currentTime = time
+      }
       video.play().catch(() => {
         // noop: puede fallar temporalmente por foco/autoplay policy
       })
@@ -265,15 +275,9 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
       ref={videoRef}
       src={src}
       className="w-full h-full object-contain"
-      autoPlay
       loop={shouldLoop}
       muted
       playsInline
-      onLoadedMetadata={(event) => {
-        event.currentTarget.play().catch(() => {
-          // noop: puede fallar temporalmente por foco/autoplay policy
-        })
-      }}
       preload="metadata"
     />
   )

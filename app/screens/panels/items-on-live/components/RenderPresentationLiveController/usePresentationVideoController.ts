@@ -53,10 +53,13 @@ export default function usePresentationVideoController({
     let retryTimeouts: number[] = []
 
     const queueSyncPlay = () => {
-      const syncDelays = [120, 320, 700]
+      // Solo forzamos el seek inicial una vez para no reiniciar el video en cada reintento.
+      sendLiveMediaStateRef.current({ action: 'seek', time: 0 })
+      sendLiveMediaStateRef.current({ action: 'play', time: 0 })
+
+      const syncDelays = [180, 420]
       retryTimeouts = syncDelays.map((delayMs) =>
         window.setTimeout(() => {
-          sendLiveMediaStateRef.current({ action: 'seek', time: 0 })
           sendLiveMediaStateRef.current({ action: 'play', time: 0 })
         }, delayMs)
       )
@@ -86,7 +89,6 @@ export default function usePresentationVideoController({
   }, [
     activeSlideHasVideo,
     activeSlideVideoBehavior,
-    activeVideoDurationHint,
     controllerVideoRef,
     liveScreensReady,
     slideIndex

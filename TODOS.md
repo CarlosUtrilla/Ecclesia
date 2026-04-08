@@ -98,4 +98,5 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 [ ] añadir un a opcion para poder añadir presentaciones o pdfs y poderlos presentar pagina por pagina o slide por slide
 
 # Control remoto
-Necesitamos una app 
+
+Necesitamos una app
