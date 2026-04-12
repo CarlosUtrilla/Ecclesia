@@ -22,6 +22,8 @@ Ecclesia utiliza skills globales para mejorar la calidad, performance y diseño 
 
 Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para planificacion y presentacion de cultos religiosos. Gestiona canciones, versiculos biblicos, medios (imagenes/videos), temas de presentacion y cronogramas de servicio que se proyectan en pantallas en vivo.
 
+**📖 Sistema de Chunks para Textos Bíblicos:** Documentación completa en [`app/SISTEMA_CHUNKS_BIBLICOS.md`](app/SISTEMA_CHUNKS_BIBLICOS.md) - explica cómo funciona la división inteligente de textos bíblicos largos, arquitectura de metadata objects, hidratación desde BD, navegación por chunks y preview de presentaciones.
+
 ## Stack tecnologico
 
 *   **Frontend:** React 19, TypeScript, Tailwind CSS, Shadcn UI, React Router v7, React Hook Form + Zod, TanStack React Query, TipTap, Framer Motion (LazyMotion), dnd-kit
