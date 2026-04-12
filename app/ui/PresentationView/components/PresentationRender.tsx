@@ -464,7 +464,7 @@ function PresentationLayer({
           scaleFactor={scaleFactor}
           presentationHeight={presentationHeight}
           constrainScreenVerseToSingleLine="auto"
-          autoSplitVerseText
+          autoSplitVerseText={!item.chunks}
           forceHideVerseNumberPrefix={(slideStepController?.current ?? 1) > 1}
           showTextBounds={false}
           hideTextInLive={hideTextInLive}
@@ -588,7 +588,7 @@ export default function PresentationRender(props: Props) {
           showTextBounds={false}
           hideTextInLive={props.hideTextInLive}
           constrainScreenVerseToSingleLine="auto"
-          autoSplitVerseText
+          autoSplitVerseText={!item.chunks}
           forceHideVerseNumberPrefix={(slideStepController?.current ?? 1) > 1}
         />
       )
