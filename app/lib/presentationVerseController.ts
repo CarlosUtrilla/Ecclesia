@@ -29,41 +29,29 @@ export const getRangedBibleLayer = (
 }
 
 export const getSlideVerseRange = (slide?: PresentationViewItems) => {
-  const rangedLayer = getRangedBibleLayer(slide)
-  if (rangedLayer?.verse) {
-    return {
-      start: rangedLayer.verse.verse,
-      end: rangedLayer.verse.verseEnd as number,
-      layerId: rangedLayer.id,
-      mode: 'verse' as const
-    }
-  }
+  if (!slide) return null
 
-  if (!slide || slide.resourceType !== 'PRESENTATION') return null
-
-  if (Array.isArray(slide.presentationItems)) {
-    const chunkedLayer = slide.presentationItems.find(
-      (layer) =>
-        layer.resourceType === 'BIBLE' &&
-        layer.verse &&
-        Array.isArray(layer.chunkParts) &&
-        layer.chunkParts.length > 1
+  // Caso 1: Presentaciones con layers
+  if (slide.resourceType === 'PRESENTATION' && Array.isArray(slide.presentationItems)) {
+    const bibleLayer = slide.presentationItems.find(
+      (layer) => layer.resourceType === 'BIBLE' && layer.verse && Array.isArray(layer.chunks)
     )
 
-    if (chunkedLayer?.chunkParts) {
+    if (bibleLayer?.chunks) {
       return {
         start: 1,
-        end: chunkedLayer.chunkParts.length,
-        layerId: chunkedLayer.id,
+        end: bibleLayer.chunks.length,
+        layerId: bibleLayer.id,
         mode: 'chunk' as const
       }
     }
   }
 
-  if (slide.verse && Array.isArray(slide.chunkParts) && slide.chunkParts.length > 1) {
+  // Caso 2: Slides directos BIBLE con chunks
+  if (slide.verse && Array.isArray(slide.chunks)) {
     return {
       start: 1,
-      end: slide.chunkParts.length,
+      end: slide.chunks.length,
       mode: 'chunk' as const
     }
   }

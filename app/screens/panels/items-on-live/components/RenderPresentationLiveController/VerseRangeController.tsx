@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { PresentationBibleTarget } from '@/lib/presentationBibleVersionOverrides'
+import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { cn } from '@/lib/utils'
 import { trimPreviewText } from './nextSlidePreview.utils'
 import VerseTooltipButton from './VerseTooltipButton'
@@ -19,6 +20,7 @@ type AdjacentVerseDirection = 'previous' | 'next'
 type Props = {
   className?: string
   verseController: VerseController
+  activeSlide?: PresentationViewItems
   previewSource: PresentationBibleTarget | null
   bibleVersion: string
   bookShortName: string
@@ -29,6 +31,7 @@ type Props = {
 export default function VerseRangeController({
   className,
   verseController,
+  activeSlide,
   previewSource,
   bibleVersion,
   bookShortName,
@@ -52,12 +55,56 @@ export default function VerseRangeController({
             ? targetStep > verseController.end
             : targetStep < verseController.start
 
-        if (direction === 'next') {
-          setNextVersePreviewText(isOutOfRange ? 'No hay siguiente parte' : `Ir a parte ${targetStep}`)
-        } else {
-          setPreviousVersePreviewText(
-            isOutOfRange ? 'No hay parte anterior' : `Ir a parte ${targetStep}`
+        if (isOutOfRange) {
+          if (direction === 'next') {
+            setNextVersePreviewText('No hay siguiente parte')
+          } else {
+            setPreviousVersePreviewText('No hay parte anterior')
+          }
+          return
+        }
+
+        // Extraer información del chunk adyacente
+        let chunkVerse: number | undefined
+        let chunkContent: string | undefined
+
+        const targetChunkIndex = targetStep - 1 // chunks son 1-indexed
+
+        if (activeSlide?.resourceType === 'PRESENTATION' && Array.isArray(activeSlide.presentationItems)) {
+          const bibleLayer = activeSlide.presentationItems.find(
+            (layer) => layer.resourceType === 'BIBLE' && layer.chunks
           )
+          if (bibleLayer?.chunks && bibleLayer.chunks[targetChunkIndex]) {
+            const chunk = bibleLayer.chunks[targetChunkIndex]
+            chunkVerse = chunk.verse
+            chunkContent = chunk.content
+          }
+        } else if (activeSlide?.resourceType === 'BIBLE' && activeSlide.chunks) {
+          const chunk = activeSlide.chunks[targetChunkIndex]
+          if (chunk) {
+            chunkVerse = chunk.verse
+            chunkContent = chunk.content
+          }
+        }
+
+        // Construir el tooltip con referencia bíblica + contenido
+        if (chunkVerse !== undefined && chunkContent && previewSource) {
+          const verseReference = `${bookShortName} ${previewSource.chapter}:${chunkVerse}`
+          const truncatedContent = trimPreviewText(chunkContent)
+          const tooltipText = `${verseReference}\n${truncatedContent}`
+          
+          if (direction === 'next') {
+            setNextVersePreviewText(tooltipText)
+          } else {
+            setPreviousVersePreviewText(tooltipText)
+          }
+        } else {
+          // Fallback si no hay información del chunk
+          if (direction === 'next') {
+            setNextVersePreviewText(`Ir a parte ${targetStep}`)
+          } else {
+            setPreviousVersePreviewText(`Ir a parte ${targetStep}`)
+          }
         }
         return
       }
@@ -126,12 +173,14 @@ export default function VerseRangeController({
       }
     },
     [
+      activeSlide,
       bibleVersion,
       bookShortName,
       previewSource,
       slideIndex,
       verseController.current,
       verseController.end,
+      verseController.mode,
       verseController.start
     ]
   )

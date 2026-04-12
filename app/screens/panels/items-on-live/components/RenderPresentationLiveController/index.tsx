@@ -184,15 +184,32 @@ export default function RenderPresentationLiveController({ data }: Props) {
         }
 
         const slideKey = getPresentationSlideKey(slide, index)
-        const current = presentationVerseBySlideKey[slideKey]
+        const currentChunkIndex = presentationVerseBySlideKey[slideKey]
         const bookShortName = resolvePresentationBookShortName(primaryTarget.bookId, bibleSchema)
+
+        // Extraer verso real del chunk metadata
+        let actualVerse: number | undefined = undefined
+
+        if (slide.resourceType === 'PRESENTATION' && Array.isArray(slide.presentationItems)) {
+          const bibleLayer = slide.presentationItems.find(
+            (layer) => layer.resourceType === 'BIBLE' && layer.chunks
+          )
+
+          if (bibleLayer?.chunks && currentChunkIndex !== undefined) {
+            const chunk = bibleLayer.chunks[currentChunkIndex - 1] // 1-indexed
+            actualVerse = chunk?.verse
+          }
+        } else if (slide.resourceType === 'BIBLE' && slide.chunks && currentChunkIndex !== undefined) {
+          const chunk = slide.chunks[currentChunkIndex - 1]
+          actualVerse = chunk?.verse
+        }
 
         return buildPresentationBibleBadgeLabel({
           bookShortName,
           chapter: primaryTarget.chapter,
           rangeStart: range.start,
           rangeEnd: range.end,
-          currentVerse: current
+          currentVerse: actualVerse
         })
       }),
     [data, presentationVerseBySlideKey, bibleSchema]
@@ -320,6 +337,7 @@ export default function RenderPresentationLiveController({ data }: Props) {
         onPrevious={handlePrevious}
         onNext={handleNext}
         verseController={activeVerseController}
+        activeSlide={activeSlide}
         activePreviewSource={activePreviewSource}
         activeSlideBibleVersion={activeSlideBibleVersion}
         activeBookShortName={activeBookShortName}

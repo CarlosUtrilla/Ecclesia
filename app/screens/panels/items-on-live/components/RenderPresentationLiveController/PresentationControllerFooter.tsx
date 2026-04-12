@@ -1,6 +1,7 @@
 import { RefObject, SyntheticEvent } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { PresentationBibleTarget } from '@/lib/presentationBibleVersionOverrides'
+import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { Button } from '@/ui/button'
 import BibleVersionSelector from '../BibleVersionSelector'
 import VideoLiveControls from '../VideoLiveControls'
@@ -13,6 +14,7 @@ type Props = {
   onPrevious: () => void
   onNext: () => void
   verseController: VerseController | null
+  activeSlide?: PresentationViewItems
   activePreviewSource?: PresentationBibleTarget
   activeSlideBibleVersion: string
   activeBookShortName: string
@@ -47,6 +49,7 @@ export default function PresentationControllerFooter({
   onPrevious,
   onNext,
   verseController,
+  activeSlide,
   activePreviewSource,
   activeSlideBibleVersion,
   activeBookShortName,
@@ -109,6 +112,7 @@ export default function PresentationControllerFooter({
         <VerseRangeController
           className="ml-2"
           verseController={verseController}
+          activeSlide={activeSlide}
           previewSource={activePreviewSource || null}
           bibleVersion={activeSlideBibleVersion}
           bookShortName={activeBookShortName}

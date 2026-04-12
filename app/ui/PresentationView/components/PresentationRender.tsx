@@ -285,8 +285,6 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
 
 function PresentationLayer({
   item,
-  activeVerse,
-  activeChunkStep,
   theme,
   smallFontSize,
   scaleFactor = 1,
@@ -295,11 +293,10 @@ function PresentationLayer({
   baseVerticalAlign,
   textBoundsScale,
   isPreview = false,
-  hideTextInLive = false
+  hideTextInLive = false,
+  slideStepController
 }: {
   item: PresentationLayerItem
-  activeVerse?: number
-  activeChunkStep?: number
   theme?: React.ComponentProps<typeof BibleTextRender>['theme']
   smallFontSize?: string
   scaleFactor?: number
@@ -312,6 +309,7 @@ function PresentationLayer({
   }
   isPreview?: boolean
   hideTextInLive?: boolean
+  slideStepController?: ReturnType<typeof resolveSlideVerse>
 }) {
   const { buildMediaUrl } = useMediaServer()
 
@@ -433,9 +431,12 @@ function PresentationLayer({
       return null
     }
 
-    const chunkIndex = activeChunkStep ? activeChunkStep - 1 : 0
-    const chunkText = Array.isArray(item.chunkParts) ? item.chunkParts[chunkIndex] : undefined
-    const resolvedVerse = activeVerse ?? item.verse.verse
+    // Siempre hay chunks (incluso si es 1 solo) - leer del chunk actual
+    const chunkIndex = (slideStepController?.current ?? 1) - 1
+    const currentChunk = item.chunks?.[chunkIndex]
+    const chunkText = currentChunk?.content
+    const chunkVerse = currentChunk?.verse
+    const resolvedVerse = chunkVerse ?? item.verse.verse
     const resolvedText = chunkText ?? getBibleVerseText(item.text, resolvedVerse) ?? item.text ?? ''
 
     return (
@@ -464,7 +465,7 @@ function PresentationLayer({
           presentationHeight={presentationHeight}
           constrainScreenVerseToSingleLine="auto"
           autoSplitVerseText
-          forceHideVerseNumberPrefix={(activeChunkStep ?? 1) > 1}
+          forceHideVerseNumberPrefix={(slideStepController?.current ?? 1) > 1}
           showTextBounds={false}
           hideTextInLive={hideTextInLive}
         />
@@ -476,21 +477,27 @@ function PresentationLayer({
     return null
   }
 
+  // Calcular chunk verse para texto plano (no BIBLE con tema)
+  const chunkIndex = (slideStepController?.current ?? 1) - 1
+  const currentChunk = item.chunks?.[chunkIndex]
+  const chunkVerse = currentChunk?.verse
+  const resolvedLayerVerse = chunkVerse ?? item.verse?.verse ?? 1
+
   return (
     <div style={style} className="pointer-events-none">
       <AnimatedText
-        key={`${item.id}-${activeVerse ?? item.verse?.verse ?? 'base'}`}
+        key={`${item.id}-${resolvedLayerVerse}`}
         item={{
           id: item.id,
           text:
             item.resourceType === 'BIBLE' && item.verse
-              ? (getBibleVerseText(item.text, activeVerse ?? item.verse.verse) ?? item.text ?? '')
+              ? (getBibleVerseText(item.text, resolvedLayerVerse) ?? item.text ?? '')
               : item.text || '',
           verse:
             item.resourceType === 'BIBLE' && item.verse
               ? {
                   ...item.verse,
-                  verse: activeVerse ?? item.verse.verse
+                  verse: resolvedLayerVerse
                 }
               : item.verse,
           resourceType: item.resourceType
@@ -548,10 +555,12 @@ export default function PresentationRender(props: Props) {
 
   if (!item.presentationItems || item.presentationItems.length === 0) {
     if (item.verse && theme) {
-      const resolvedVerse = getLegacyResolvedVerse() ?? item.verse.verse
-      const chunkIndex =
-        slideStepController?.mode === 'chunk' ? (slideStepController.current ?? 1) - 1 : 0
-      const chunkText = Array.isArray(item.chunkParts) ? item.chunkParts[chunkIndex] : undefined
+      // Siempre hay chunks (incluso si es 1 solo) - leer del chunk actual
+      const chunkIndex = (slideStepController?.current ?? 1) - 1
+      const currentChunk = item.chunks?.[chunkIndex]
+      const chunkText = currentChunk?.content
+      const chunkVerse = currentChunk?.verse
+      const resolvedVerse = chunkVerse ?? getLegacyResolvedVerse() ?? item.verse.verse
       const resolvedText =
         chunkText ?? getBibleVerseText(item.text, resolvedVerse) ?? item.text ?? ''
 
@@ -580,9 +589,7 @@ export default function PresentationRender(props: Props) {
           hideTextInLive={props.hideTextInLive}
           constrainScreenVerseToSingleLine="auto"
           autoSplitVerseText
-          forceHideVerseNumberPrefix={
-            slideStepController?.mode === 'chunk' && (slideStepController.current ?? 1) > 1
-          }
+          forceHideVerseNumberPrefix={(slideStepController?.current ?? 1) > 1}
         />
       )
     }
@@ -596,20 +603,7 @@ export default function PresentationRender(props: Props) {
         <PresentationLayer
           key={layerItem.id}
           item={layerItem}
-          activeVerse={
-            layerItem.resourceType === 'BIBLE' &&
-            slideStepController?.mode === 'verse' &&
-            layerItem.verse?.verseEnd
-              ? slideStepController?.current
-              : undefined
-          }
-          activeChunkStep={
-            layerItem.resourceType === 'BIBLE' &&
-            slideStepController?.mode === 'chunk' &&
-            slideStepController?.layerId === layerItem.id
-              ? slideStepController.current
-              : undefined
-          }
+          slideStepController={slideStepController}
           theme={theme}
           smallFontSize={smallFontSize}
           scaleFactor={scaleFactor}

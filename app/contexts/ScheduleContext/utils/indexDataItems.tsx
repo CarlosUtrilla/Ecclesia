@@ -406,7 +406,73 @@ export const useIndexDataItems = (
           mappedSlides,
           options?.presentationBibleOverrideByKey
         )
-        const content = attachPresentationBibleChunkParts(slidesWithOverrides, maxChunkLength)
+
+        // Hydrate bible text from server if needed
+        const hydratedSlides = await Promise.all(
+          slidesWithOverrides.map(async (slide) => {
+            // Handle direct BIBLE slides
+            if (slide.resourceType === 'BIBLE' && slide.verse && !slide.text?.trim()) {
+              const verses = Array.from(
+                { length: (slide.verse.verseEnd ?? slide.verse.verse) - slide.verse.verse + 1 },
+                (_, i) => slide.verse!.verse + i
+              )
+
+              const result = await window.api.bible.getVerses({
+                book: slide.verse.bookId,
+                chapter: slide.verse.chapter,
+                verses,
+                version: slide.verse.version
+              })
+
+              // Usar el texto como viene de la BD (puede incluir números de verso o no)
+              const text = result.map((v) => v.text).join(' ')
+
+              return {
+                ...slide,
+                text
+              }
+            }
+
+            // Handle PRESENTATION slides with bible layers
+            if (slide.resourceType === 'PRESENTATION' && Array.isArray(slide.presentationItems)) {
+              const hydratedLayers = await Promise.all(
+                slide.presentationItems.map(async (layer) => {
+                  if (layer.resourceType === 'BIBLE' && layer.verse && !layer.text?.trim()) {
+                    const verses = Array.from(
+                      { length: (layer.verse.verseEnd ?? layer.verse.verse) - layer.verse.verse + 1 },
+                      (_, i) => layer.verse!.verse + i
+                    )
+
+                    const result = await window.api.bible.getVerses({
+                      book: layer.verse.bookId,
+                      chapter: layer.verse.chapter,
+                      verses,
+                      version: layer.verse.version
+                    })
+
+                    // Usar el texto como viene de la BD (puede incluir números de verso o no)
+                    const text = result.map((v) => v.text).join(' ')
+
+                    return {
+                      ...layer,
+                      text
+                    }
+                  }
+                  return layer
+                })
+              )
+
+              return {
+                ...slide,
+                presentationItems: hydratedLayers
+              }
+            }
+
+            return slide
+          })
+        )
+
+        const content = attachPresentationBibleChunkParts(hydratedSlides, maxChunkLength)
 
         return {
           title: presentation.title,

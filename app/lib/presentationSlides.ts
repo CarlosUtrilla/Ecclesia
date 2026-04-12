@@ -7,7 +7,12 @@ import {
   PresentationSlideItem
 } from 'database/controllers/presentations/presentations.dto'
 import { getShapeTypeFromAccessData } from '@/screens/editors/presentationEditor/utils/slideUtils'
-import { splitLongBibleVerse } from '@/lib/splitLongBibleVerse'
+import {
+  splitLongBibleVerse,
+  splitBibleRangeIntoVerses,
+  flattenVerseChunks,
+  BibleChunkWithMetadata
+} from '@/lib/splitLongBibleVerse'
 
 const BASE_CANVAS_WIDTH = 1280
 const BASE_CANVAS_HEIGHT = 720
@@ -327,16 +332,49 @@ const stripLeadingVerseNumber = (text: string, verse?: number) => {
 const resolveChunkParts = (
   sourceText: string,
   maxChunkLength: number,
-  verse?: number
-): string[] | undefined => {
+  bookId: number,
+  chapter: number,
+  verseStart: number,
+  verseEnd?: number
+): BibleChunkWithMetadata[] | undefined => {
   if (!sourceText.trim()) return undefined
 
-  if (/<br\s*\/?>|\n/i.test(sourceText)) return undefined
-  if (/<[^>]+>/.test(sourceText)) return undefined
+  // Solo rechazar si tiene tags HTML complejos (no <br> ni saltos de línea simples)
+  if (/<(?!br\s*\/?>)[^>]+>/i.test(sourceText)) return undefined
 
-  const sanitizedSource = stripLeadingVerseNumber(sourceText, verse)
-  const chunks = splitLongBibleVerse(sanitizedSource, maxChunkLength)
-  return chunks.length > 1 ? chunks : undefined
+  // Limpiar <br> y saltos de línea
+  const cleanedText = sourceText.replace(/<br\s*\/?>/gi, ' ').replace(/\n/g, ' ')
+
+  // Caso 1: Verso único (sin rango)
+  if (!verseEnd || verseEnd === verseStart) {
+    const sanitizedSource = stripLeadingVerseNumber(cleanedText, verseStart)
+    const chunkTexts = splitLongBibleVerse(sanitizedSource, maxChunkLength)
+
+    // SIEMPRE retornar chunks, incluso si es uno solo
+    return chunkTexts.map((content) => ({
+      book: bookId,
+      chapter,
+      verse: verseStart,
+      content
+    }))
+  }
+
+  // Caso 2: Rango de versículos
+  const verses = splitBibleRangeIntoVerses(
+    cleanedText,
+    bookId,
+    chapter,
+    verseStart,
+    verseEnd,
+    maxChunkLength
+  )
+
+  if (verses.length === 0) return undefined
+
+  const flattened = flattenVerseChunks(verses)
+
+  // SIEMPRE retornar chunks, incluso si es uno solo
+  return flattened.length > 0 ? flattened : undefined
 }
 
 export const attachPresentationBibleChunkParts = (
@@ -352,19 +390,25 @@ export const attachPresentationBibleChunkParts = (
       const nextPresentationItems = slide.presentationItems.map((layer) => {
         if (layer.resourceType !== 'BIBLE' || !layer.verse) return layer
 
-        const chunkParts = resolveChunkParts(String(layer.text || ''), maxChunkLength, layer.verse.verse)
-        if (!chunkParts) {
-          if (!layer.chunkParts) return layer
+        const chunks = resolveChunkParts(
+          String(layer.text || ''),
+          maxChunkLength,
+          layer.verse.bookId,
+          layer.verse.chapter,
+          layer.verse.verse,
+          layer.verse.verseEnd
+        )
+
+        // Siempre agregar chunks cuando existan (incluso si es 1 solo)
+        if (chunks) {
           hasChanges = true
-          const { chunkParts: _chunkParts, ...rest } = layer
-          return rest
+          return {
+            ...layer,
+            chunks
+          }
         }
 
-        hasChanges = true
-        return {
-          ...layer,
-          chunkParts
-        }
+        return layer
       })
 
       if (!hasChanges) return slide
@@ -376,16 +420,23 @@ export const attachPresentationBibleChunkParts = (
 
     if (!slide.verse) return slide
 
-    const chunkParts = resolveChunkParts(String(slide.text || ''), maxChunkLength, slide.verse.verse)
-    if (!chunkParts) {
-      if (!slide.chunkParts) return slide
-      const { chunkParts: _chunkParts, ...rest } = slide
-      return rest
+    const chunks = resolveChunkParts(
+      String(slide.text || ''),
+      maxChunkLength,
+      slide.verse.bookId,
+      slide.verse.chapter,
+      slide.verse.verse,
+      slide.verse.verseEnd
+    )
+
+    // Siempre agregar chunks cuando existan (incluso si es 1 solo)
+    if (chunks) {
+      return {
+        ...slide,
+        chunks
+      }
     }
 
-    return {
-      ...slide,
-      chunkParts
-    }
+    return slide
   })
 }

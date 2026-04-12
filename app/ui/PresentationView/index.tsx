@@ -77,15 +77,32 @@ function PresentationViewComponent({
     if (!primaryTarget) return null
 
     const slideKey = getPresentationSlideKey(currentItem, currentIndex)
-    const currentVerse = presentationVerseBySlideKey?.[slideKey]
+    const currentChunkIndex = presentationVerseBySlideKey?.[slideKey]
     const bookShortName = resolvePresentationBookShortName(primaryTarget.bookId, bibleSchema)
+
+    // Extraer el verso real desde el chunk metadata
+    let actualVerse: number | undefined = undefined
+
+    if (currentItem.resourceType === 'PRESENTATION' && Array.isArray(currentItem.presentationItems)) {
+      const bibleLayer = currentItem.presentationItems.find(
+        (layer) => layer.resourceType === 'BIBLE' && layer.chunks
+      )
+
+      if (bibleLayer?.chunks && currentChunkIndex !== undefined) {
+        const chunk = bibleLayer.chunks[currentChunkIndex - 1] // Chunks 1-indexed
+        actualVerse = chunk?.verse
+      }
+    } else if (currentItem.resourceType === 'BIBLE' && currentItem.chunks && currentChunkIndex !== undefined) {
+      const chunk = currentItem.chunks[currentChunkIndex - 1]
+      actualVerse = chunk?.verse
+    }
 
     return buildPresentationBibleBadgeLabel({
       bookShortName,
       chapter: primaryTarget.chapter,
       rangeStart: primaryTarget.verseStart,
       rangeEnd: primaryTarget.verseEnd,
-      currentVerse
+      currentVerse: actualVerse
     })
   }, [currentItem, currentIndex, live, presentationVerseBySlideKey, bibleSchema])
   const isMediaItem = currentItem?.resourceType === 'MEDIA'

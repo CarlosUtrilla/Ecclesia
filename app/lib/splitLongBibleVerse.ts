@@ -181,4 +181,117 @@ export function splitLongBibleVerse(text: string, maxLength = MAX_BIBLE_CHUNK_LE
   return addContinuityEllipsis(chunks)
 }
 
+/**
+ * Tipo para representar un versículo con sus chunks
+ */
+export type BibleVerseChunk = {
+  book: number
+  chapter: number
+  verse: number
+  content: string[] // Array de chunks del verso (splitteado si es largo)
+}
+
+/**
+ * Tipo para chunks individuales con toda su metadata
+ */
+export type BibleChunkWithMetadata = {
+  book: number
+  chapter: number
+  verse: number
+  content: string
+}
+
+/**
+ * Divide un rango de versículos en chunks individuales con metadata
+ * Formato del texto: "1 texto verso 1... 2 texto verso 2... 3 texto verso 3..."
+ */
+export function splitBibleRangeIntoVerses(
+  text: string,
+  bookId: number,
+  chapter: number,
+  verseStart: number,
+  verseEnd: number,
+  maxLength = MAX_BIBLE_CHUNK_LENGTH
+): BibleVerseChunk[] {
+  const normalized = normalizeBibleText(text)
+  if (!normalized) return []
+
+  const result: BibleVerseChunk[] = []
+
+  // Detectar cada versículo por su número al inicio
+  // Soporta formatos: "1 texto", "1. texto", "1.) texto"
+  const versePattern = /(\d+)\.?\)?\s+/g
+  const matches: Array<{ verse: number; start: number; matchLength: number }> = []
+
+  let match: RegExpExecArray | null
+  while ((match = versePattern.exec(normalized)) !== null) {
+    const verseNum = parseInt(match[1], 10)
+    if (verseNum >= verseStart && verseNum <= verseEnd) {
+      matches.push({
+        verse: verseNum,
+        start: match.index + match[0].length, // Posición después del número y espacio
+        matchLength: match[0].length
+      })
+    }
+  }
+
+  // Si no encontramos números de verso, tratar como un solo verso
+  if (matches.length === 0) {
+    const chunks = splitLongBibleVerse(normalized, maxLength)
+    return [
+      {
+        book: bookId,
+        chapter,
+        verse: verseStart,
+        content: chunks
+      }
+    ]
+  }
+
+  // Extraer texto de cada versículo y dividir en chunks
+  for (let i = 0; i < matches.length; i++) {
+    const current = matches[i]
+    const next = matches[i + 1]
+
+    // El texto del verso va desde después del número actual hasta el inicio del siguiente número (o final del texto)
+    const verseEndPosition = next ? next.start - next.matchLength : normalized.length
+    const verseText = normalized.slice(current.start, verseEndPosition).trim()
+
+    if (!verseText) continue
+
+    // Dividir este verso en chunks si es muy largo
+    const verseChunks = splitLongBibleVerse(verseText, maxLength)
+
+    result.push({
+      book: bookId,
+      chapter,
+      verse: current.verse,
+      content: verseChunks
+    })
+  }
+
+  return result
+}
+
+/**
+ * Aplana la estructura de versículos en un array de chunks con metadata completa.
+ * Cada chunk contiene su texto + información del verso al que pertenece.
+ */
+export function flattenVerseChunks(verses: BibleVerseChunk[]): BibleChunkWithMetadata[] {
+  const chunks: BibleChunkWithMetadata[] = []
+
+  for (const verse of verses) {
+    for (const chunkContent of verse.content) {
+      chunks.push({
+        book: verse.book,
+        chapter: verse.chapter,
+        verse: verse.verse,
+        content: chunkContent
+      })
+    }
+  }
+
+  return chunks
+}
+
 export { MAX_BIBLE_CHUNK_LENGTH }

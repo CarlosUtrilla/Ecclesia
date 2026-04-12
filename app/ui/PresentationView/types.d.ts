@@ -1,5 +1,6 @@
 import { ScheduleItemType } from '@prisma/client'
 import { ThemeWithMedia } from 'database/controllers/themes/themes.dto'
+import { BibleChunkWithMetadata } from '@/lib/splitLongBibleVerse'
 
 export { ThemeWithMedia }
 
@@ -46,7 +47,7 @@ export type PresentationViewProps = {
 export type PresentationViewItems = {
   id?: string
   text: string
-  chunkParts?: string[]
+  chunks?: BibleChunkWithMetadata[]
   theme?: ThemeWithMedia
   videoLiveBehavior?: 'auto' | 'manual'
   videoLoop?: boolean
@@ -77,7 +78,7 @@ export type PresentationViewItems = {
 export type PresentationLayerItem = {
   id: string
   text: string
-  chunkParts?: string[]
+  chunks?: BibleChunkWithMetadata[]
   videoLoop?: boolean
   shapeType?: 'rectangle' | 'circle' | 'arrow' | 'line-arrow' | 'triangle' | 'line' | 'cross'
   customStyle?: string
