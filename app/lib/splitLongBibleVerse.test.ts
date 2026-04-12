@@ -89,7 +89,8 @@ describe('splitBibleRangeIntoVerses', () => {
   })
 
   it('debería aplanar correctamente con metadata de verso', () => {
-    const text = '1 texto corto del verso uno 2 texto corto del verso dos 3 texto corto del verso tres'
+    const text =
+      '1 texto corto del verso uno 2 texto corto del verso dos 3 texto corto del verso tres'
 
     const verses = splitBibleRangeIntoVerses(text, 16, 8, 1, 3, 180)
     const chunks = flattenVerseChunks(verses)

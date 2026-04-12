@@ -23,7 +23,10 @@ import {
   splitLongBibleVerse
 } from '@/lib/splitLongBibleVerse'
 import type { ThemeWithMedia } from '@/ui/PresentationView/types'
-import { parseBibleAccessData, parseBibleVerseRange } from '@/screens/panels/library/bible/accessData'
+import {
+  parseBibleAccessData,
+  parseBibleVerseRange
+} from '@/screens/panels/library/bible/accessData'
 
 const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
 
@@ -103,10 +106,13 @@ export const useIndexDataItems = (
   })
 
   useEffect(() => {
-    const unsubscribePresentationSaved = window.electron.ipcRenderer.on('presentation-saved', () => {
-      refetchPresentationsByIds()
-      refetchMedia()
-    })
+    const unsubscribePresentationSaved = window.electron.ipcRenderer.on(
+      'presentation-saved',
+      () => {
+        refetchPresentationsByIds()
+        refetchMedia()
+      }
+    )
 
     const unsubscribeSongSaved = window.electron.ipcRenderer.on('song-saved', () => {
       refetchSongs()
@@ -205,13 +211,14 @@ export const useIndexDataItems = (
           return accessData
         }
 
-        const text =
-          `${getCompleteNameById(parsedBibleAccessData.bookId) || parsedBibleAccessData.bookId} ${parsedBibleAccessData.chapter}:${parsedBibleAccessData.verseRange}`
+        const text = `${getCompleteNameById(parsedBibleAccessData.bookId) || parsedBibleAccessData.bookId} ${parsedBibleAccessData.chapter}:${parsedBibleAccessData.verseRange}`
         return (
           <div>
             {text}{' '}
             {parsedBibleAccessData.version ? (
-              <span className="text-muted-foreground text-xs">({parsedBibleAccessData.version})</span>
+              <span className="text-muted-foreground text-xs">
+                ({parsedBibleAccessData.version})
+              </span>
             ) : null}
           </div>
         )
@@ -239,7 +246,9 @@ export const useIndexDataItems = (
         const splitSettings = await window.api.setttings.getSettings([
           BIBLE_LIVE_CHUNK_MODE_KEY as never
         ])
-        const splitModeValue = splitSettings.find((setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY)?.value
+        const splitModeValue = splitSettings.find(
+          (setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY
+        )?.value
         const splitMode = isBibleLiveSplitMode(splitModeValue) ? splitModeValue : 'auto'
         const maxChunkLength = resolveBibleChunkMaxLength(
           splitMode,
@@ -439,7 +448,9 @@ export const useIndexDataItems = (
                 slide.presentationItems.map(async (layer) => {
                   if (layer.resourceType === 'BIBLE' && layer.verse && !layer.text?.trim()) {
                     const verses = Array.from(
-                      { length: (layer.verse.verseEnd ?? layer.verse.verse) - layer.verse.verse + 1 },
+                      {
+                        length: (layer.verse.verseEnd ?? layer.verse.verse) - layer.verse.verse + 1
+                      },
                       (_, i) => layer.verse!.verse + i
                     )
 
