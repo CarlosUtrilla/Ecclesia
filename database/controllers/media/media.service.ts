@@ -1,5 +1,18 @@
 import { getPrisma } from '../../../electron/main/prisma'
 import { CreateMediaDto, UpdateMediaDto, MediaDto, MediaListDto, MediaFilterDto } from './media.dto'
+import {
+  cleanupTempPath,
+  copyMediaSource,
+  createMediaFolder,
+  deleteMediaFile,
+  deleteMediaFolder,
+  extractZipMp4,
+  importClipboardImage,
+  importMediaFromSourcePath,
+  listMediaFolders,
+  moveMediaPath,
+  renameMediaPath
+} from './media.storage'
 
 export class MediaService {
   async create(data: CreateMediaDto): Promise<MediaDto> {
@@ -81,5 +94,49 @@ export class MediaService {
         }
       }
     })
+  }
+
+  async importFile(sourcePath: string, folder?: string) {
+    return await importMediaFromSourcePath(sourcePath, folder)
+  }
+
+  async importClipboardImage(bytes: number[], mimeType: string, folder?: string) {
+    return await importClipboardImage(bytes, mimeType, folder)
+  }
+
+  async deleteFile(filePath: string, thumbnail?: string | null) {
+    return deleteMediaFile(filePath, thumbnail)
+  }
+
+  async createFolder(folderPath: string) {
+    return createMediaFolder(folderPath)
+  }
+
+  async deleteFolder(folderPath: string) {
+    return deleteMediaFolder(folderPath)
+  }
+
+  async renamePath(oldPath: string, newName: string) {
+    return renameMediaPath(oldPath, newName)
+  }
+
+  async listFolders(parentFolder?: string) {
+    return listMediaFolders(parentFolder)
+  }
+
+  async movePath(sourcePath: string, targetFolder: string | null) {
+    return moveMediaPath(sourcePath, targetFolder)
+  }
+
+  async copyFile(sourcePath: string, targetFolder: string | null, isFolder: boolean) {
+    return copyMediaSource(sourcePath, targetFolder, isFolder)
+  }
+
+  async extractZipMp4(zipPath: string) {
+    return extractZipMp4(zipPath)
+  }
+
+  async cleanupTempPath(targetPath: string) {
+    return cleanupTempPath(targetPath)
   }
 }

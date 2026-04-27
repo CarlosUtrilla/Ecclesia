@@ -1,100 +1,19 @@
 import { ipcMain, dialog, app } from 'electron'
 import path from 'path'
-import fs from 'fs'
-import crypto from 'crypto'
-import os from 'os'
 import { MediaType } from '@prisma/client'
-import AdmZip from 'adm-zip'
 import {
-  buildFallbackFileName,
-  buildThumbnailFileName,
-  generateImageThumbnail,
-  generateVideoFallback,
-  generateVideoThumbnail,
-  getThumbnailsPath
-} from './mediaThumbnails'
-
-// Formatos soportados
-export const SUPPORTED_IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
-export const SUPPORTED_VIDEO_FORMATS = ['.mp4', '.webm', '.mov', '.avi']
-
-function getImageExtensionFromMimeType(mimeType: string): string {
-  if (mimeType === 'image/png') return '.png'
-  if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') return '.jpg'
-  if (mimeType === 'image/webp') return '.webp'
-  if (mimeType === 'image/gif') return '.gif'
-  return '.png'
-}
-
-async function importMediaFromSourcePath(sourcePath: string, folder?: string) {
-  const userDataPath = app.getPath('userData')
-  const filesPath = folder
-    ? path.join(userDataPath, 'media', 'files', folder)
-    : path.join(userDataPath, 'media', 'files')
-  const thumbnailsPath = getThumbnailsPath(userDataPath)
-
-  if (!fs.existsSync(filesPath)) {
-    fs.mkdirSync(filesPath, { recursive: true })
-  }
-  if (!fs.existsSync(thumbnailsPath)) {
-    fs.mkdirSync(thumbnailsPath, { recursive: true })
-  }
-
-  const ext = path.extname(sourcePath).toLowerCase()
-  const stats = fs.statSync(sourcePath)
-  const originalName = path.basename(sourcePath, ext)
-  const hash = crypto.randomBytes(8).toString('hex')
-
-  let type: MediaType
-  if (SUPPORTED_IMAGE_FORMATS.includes(ext)) {
-    type = MediaType.IMAGE
-  } else if (SUPPORTED_VIDEO_FORMATS.includes(ext)) {
-    type = MediaType.VIDEO
-  } else {
-    throw new Error(`Formato no soportado: ${ext}`)
-  }
-
-  const newFileName = `${originalName}-${hash}${ext}`
-  const destPath = path.join(filesPath, newFileName)
-  fs.copyFileSync(sourcePath, destPath)
-
-  // En Windows, asegurar permisos de lectura después de copiar
-  if (process.platform === 'win32') {
-    try {
-      fs.chmodSync(destPath, 0o644) // rw-r--r--
-    } catch (err) {
-      console.warn(`No se pudieron establecer permisos para ${destPath}:`, err)
-    }
-  }
-
-  const thumbnailFileName = buildThumbnailFileName(originalName, hash)
-  const thumbnailPath = path.join(thumbnailsPath, thumbnailFileName)
-
-  let fallbackFileName: string | undefined
-
-  if (type === MediaType.IMAGE) {
-    await generateImageThumbnail(sourcePath, thumbnailPath)
-  } else {
-    await generateVideoThumbnail(destPath, thumbnailPath)
-
-    fallbackFileName = buildFallbackFileName(originalName, hash)
-    const fallbackPath = path.join(thumbnailsPath, fallbackFileName)
-    await generateVideoFallback(destPath, fallbackPath)
-  }
-
-  const filePath = folder ? `files/${folder}/${newFileName}` : `files/${newFileName}`
-
-  return {
-    name: originalName,
-    type,
-    format: ext.slice(1),
-    filePath,
-    fileSize: stats.size,
-    thumbnail: `thumbnails/${thumbnailFileName}`,
-    fallback: fallbackFileName ? `thumbnails/${fallbackFileName}` : undefined,
-    folder: folder ?? undefined
-  }
-}
+  cleanupTempPath,
+  copyMediaSource,
+  createMediaFolder,
+  deleteMediaFile,
+  deleteMediaFolder,
+  extractZipMp4,
+  importClipboardImage,
+  importMediaFromSourcePath,
+  listMediaFolders,
+  moveMediaPath,
+  renameMediaPath
+} from '../../../database/controllers/media/media.storage'
 
 export function registerMediaHandlers() {
   // Abrir diálogo para seleccionar archivos
@@ -144,34 +63,7 @@ export function registerMediaHandlers() {
     'media:import-clipboard-image',
     async (_event, bytes: number[], mimeType: string, folder?: string) => {
       try {
-        if (!Array.isArray(bytes) || bytes.length === 0) {
-          throw new Error('La imagen del portapapeles está vacía')
-        }
-
-        if (!mimeType.startsWith('image/')) {
-          throw new Error('El contenido del portapapeles no es una imagen válida')
-        }
-
-        const extension = getImageExtensionFromMimeType(mimeType)
-        const tempRoot = path.join(os.tmpdir(), 'ecclesia-clipboard-imports')
-        if (!fs.existsSync(tempRoot)) {
-          fs.mkdirSync(tempRoot, { recursive: true })
-        }
-
-        const tempFilePath = path.join(
-          tempRoot,
-          `clipboard-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${extension}`
-        )
-
-        fs.writeFileSync(tempFilePath, Buffer.from(bytes))
-
-        try {
-          return await importMediaFromSourcePath(tempFilePath, folder)
-        } finally {
-          if (fs.existsSync(tempFilePath)) {
-            fs.unlinkSync(tempFilePath)
-          }
-        }
+        return await importClipboardImage(bytes, mimeType, folder)
       } catch (error: any) {
         console.error('Error al importar imagen desde portapapeles:', error)
         throw error
@@ -194,23 +86,7 @@ export function registerMediaHandlers() {
     'media:delete-file',
     async (_event, filePath: string, thumbnail?: string | null) => {
       try {
-        const userDataPath = app.getPath('userData')
-
-        // Eliminar archivo original
-        const fileFullPath = path.join(userDataPath, 'media', filePath)
-        if (fs.existsSync(fileFullPath)) {
-          fs.unlinkSync(fileFullPath)
-        }
-
-        // Eliminar thumbnail si existe
-        if (thumbnail) {
-          const thumbnailFullPath = path.join(userDataPath, 'media', thumbnail)
-          if (fs.existsSync(thumbnailFullPath)) {
-            fs.unlinkSync(thumbnailFullPath)
-          }
-        }
-
-        return true
+        return deleteMediaFile(filePath, thumbnail)
       } catch (error: any) {
         console.error('Error al eliminar archivo:', error)
         throw error
@@ -221,14 +97,7 @@ export function registerMediaHandlers() {
   // Crear carpeta
   ipcMain.handle('media:create-folder', async (_event, folderPath: string) => {
     try {
-      const userDataPath = app.getPath('userData')
-      const fullPath = path.join(userDataPath, 'media', 'files', folderPath)
-
-      if (!fs.existsSync(fullPath)) {
-        fs.mkdirSync(fullPath, { recursive: true })
-      }
-
-      return { success: true, path: folderPath }
+      return createMediaFolder(folderPath)
     } catch (error: any) {
       console.error('Error al crear carpeta:', error)
       throw error
@@ -238,14 +107,7 @@ export function registerMediaHandlers() {
   // Eliminar carpeta
   ipcMain.handle('media:delete-folder', async (_event, folderPath: string) => {
     try {
-      const userDataPath = app.getPath('userData')
-      const fullPath = path.join(userDataPath, 'media', 'files', folderPath)
-
-      if (fs.existsSync(fullPath)) {
-        fs.rmSync(fullPath, { recursive: true, force: true })
-      }
-
-      return { success: true }
+      return deleteMediaFolder(folderPath)
     } catch (error: any) {
       console.error('Error al eliminar carpeta:', error)
       throw error
@@ -255,32 +117,7 @@ export function registerMediaHandlers() {
   // Renombrar archivo o carpeta
   ipcMain.handle('media:rename', async (_event, oldPath: string, newName: string) => {
     try {
-      const userDataPath = app.getPath('userData')
-      const basePath = path.join(userDataPath, 'media', 'files')
-      const oldFullPath = path.join(basePath, oldPath)
-      const directory = path.dirname(oldPath)
-
-      // Preservar la extensión del archivo original si no se proporcionó
-      const oldExt = path.extname(oldPath)
-      const newExt = path.extname(newName)
-      const finalNewName = newExt ? newName : newName + oldExt
-
-      const newPath = directory === '.' ? finalNewName : path.join(directory, finalNewName)
-      const newFullPath = path.join(basePath, newPath)
-
-      if (!fs.existsSync(oldFullPath)) {
-        throw new Error(
-          `El archivo "${oldPath}" no existe en la ubicación esperada: ${oldFullPath}`
-        )
-      }
-
-      if (fs.existsSync(newFullPath)) {
-        throw new Error('Ya existe un archivo o carpeta con ese nombre')
-      }
-
-      fs.renameSync(oldFullPath, newFullPath)
-
-      return { success: true, newPath }
+      return renameMediaPath(oldPath, newName)
     } catch (error: any) {
       console.error('Error al renombrar:', error)
       throw error
@@ -290,18 +127,7 @@ export function registerMediaHandlers() {
   // Listar carpetas
   ipcMain.handle('media:list-folders', async (_event, parentFolder?: string) => {
     try {
-      const userDataPath = app.getPath('userData')
-      const basePath = path.join(userDataPath, 'media', 'files')
-      const targetPath = parentFolder ? path.join(basePath, parentFolder) : basePath
-
-      if (!fs.existsSync(targetPath)) {
-        return []
-      }
-
-      const items = fs.readdirSync(targetPath, { withFileTypes: true })
-      const folders = items.filter((item) => item.isDirectory()).map((item) => item.name)
-
-      return folders
+      return listMediaFolders(parentFolder)
     } catch (error: any) {
       console.error('Error al listar carpetas:', error)
       throw error
@@ -311,32 +137,7 @@ export function registerMediaHandlers() {
   // Mover archivo o carpeta a otra ubicación
   ipcMain.handle('media:move', async (_event, sourcePath: string, targetFolder: string | null) => {
     try {
-      const userDataPath = app.getPath('userData')
-      const basePath = path.join(userDataPath, 'media', 'files')
-      const sourceFullPath = path.join(basePath, sourcePath)
-      const fileName = path.basename(sourcePath)
-      const targetPath = targetFolder ? path.join(targetFolder, fileName) : fileName
-      const targetFullPath = path.join(basePath, targetPath)
-
-      if (!fs.existsSync(sourceFullPath)) {
-        throw new Error(
-          `El archivo "${sourcePath}" no existe en la ubicación esperada: ${sourceFullPath}`
-        )
-      }
-
-      if (fs.existsSync(targetFullPath)) {
-        throw new Error('Ya existe un archivo o carpeta con ese nombre en el destino')
-      }
-
-      // Crear directorio destino si no existe
-      const targetDir = path.dirname(targetFullPath)
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true })
-      }
-
-      fs.renameSync(sourceFullPath, targetFullPath)
-
-      return { success: true, newPath: targetPath }
+      return moveMediaPath(sourcePath, targetFolder)
     } catch (error: any) {
       console.error('Error al mover:', error)
       throw error
@@ -348,63 +149,7 @@ export function registerMediaHandlers() {
     'media:copy-file',
     async (_event, sourcePath: string, targetFolder: string | null, isFolder: boolean) => {
       try {
-        const userDataPath = app.getPath('userData')
-        const basePath = path.join(userDataPath, 'media', 'files')
-        const sourceFullPath = path.join(basePath, sourcePath)
-
-        if (!fs.existsSync(sourceFullPath)) {
-          throw new Error(`El archivo o carpeta "${sourcePath}" no existe`)
-        }
-
-        // Obtener el nombre base y extensión
-        const fileName = path.basename(sourcePath)
-        const ext = path.extname(fileName)
-        const baseName = path.basename(fileName, ext)
-
-        // Generar nombre único para la copia
-        const hash = crypto.randomBytes(4).toString('hex')
-        const newFileName = ext ? `${baseName}-copia-${hash}${ext}` : `${baseName}-copia-${hash}`
-
-        const targetPath = targetFolder ? path.join(targetFolder, newFileName) : newFileName
-        const targetFullPath = path.join(basePath, targetPath)
-
-        // Crear directorio destino si no existe
-        const targetDir = path.dirname(targetFullPath)
-        if (!fs.existsSync(targetDir)) {
-          fs.mkdirSync(targetDir, { recursive: true })
-        }
-
-        if (isFolder) {
-          // Copiar carpeta recursivamente
-          copyFolderRecursive(sourceFullPath, targetFullPath)
-          return { success: true, newPath: targetPath, newFileName }
-        } else {
-          // Copiar archivo
-          fs.copyFileSync(sourceFullPath, targetFullPath)
-
-          // Copiar thumbnail si existe
-          const thumbnailsPath = path.join(userDataPath, 'media', 'thumbnails')
-          let newThumbnailPath: string | undefined
-
-          // Buscar thumbnail asociado (podría tener diferentes nombres)
-          if (fs.existsSync(thumbnailsPath)) {
-            const thumbnailFiles = fs.readdirSync(thumbnailsPath)
-            const sourceBaseName = path.basename(sourcePath, ext)
-
-            for (const thumbFile of thumbnailFiles) {
-              if (thumbFile.includes(sourceBaseName)) {
-                const sourceThumbPath = path.join(thumbnailsPath, thumbFile)
-                const newThumbName = `thumb-${baseName.replaceAll(' ', '_')}-copia-${hash}.jpg`
-                const targetThumbPath = path.join(thumbnailsPath, newThumbName)
-                fs.copyFileSync(sourceThumbPath, targetThumbPath)
-                newThumbnailPath = `thumbnails/${newThumbName}`
-                break
-              }
-            }
-          }
-
-          return { success: true, newPath: targetPath, newFileName, newThumbnail: newThumbnailPath }
-        }
+        return copyMediaSource(sourcePath, targetFolder, isFolder)
       } catch (error: any) {
         console.error('Error al copiar:', error)
         throw error
@@ -414,49 +159,7 @@ export function registerMediaHandlers() {
 
   ipcMain.handle('media:extract-zip-mp4', async (_event, zipPath: string) => {
     try {
-      if (!fs.existsSync(zipPath)) {
-        throw new Error('El archivo ZIP no existe')
-      }
-
-      if (!zipPath.toLowerCase().endsWith('.zip')) {
-        throw new Error('El archivo seleccionado no es ZIP')
-      }
-
-      const tempRoot = path.join(os.tmpdir(), 'ecclesia-canva-imports')
-      if (!fs.existsSync(tempRoot)) {
-        fs.mkdirSync(tempRoot, { recursive: true })
-      }
-
-      const tempDir = path.join(
-        tempRoot,
-        `zip-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`
-      )
-      fs.mkdirSync(tempDir, { recursive: true })
-
-      const zip = new AdmZip(zipPath)
-      const entries = zip.getEntries()
-      const mp4Paths: string[] = []
-
-      for (const entry of entries) {
-        if (entry.isDirectory) continue
-
-        const entryName = entry.entryName || ''
-        if (!entryName.toLowerCase().endsWith('.mp4')) continue
-
-        const safeName = path.basename(entryName)
-        if (!safeName) continue
-
-        const outputName = `${mp4Paths.length + 1}-${safeName.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-        const outputPath = path.join(tempDir, outputName)
-
-        fs.writeFileSync(outputPath, entry.getData())
-        mp4Paths.push(outputPath)
-      }
-
-      return {
-        tempDir,
-        mp4Paths
-      }
+      return extractZipMp4(zipPath)
     } catch (error: any) {
       console.error('Error al extraer ZIP de Canva:', error)
       throw error
@@ -465,42 +168,10 @@ export function registerMediaHandlers() {
 
   ipcMain.handle('media:cleanup-temp-path', async (_event, targetPath: string) => {
     try {
-      const tempRoot = path.join(os.tmpdir(), 'ecclesia-canva-imports')
-      const normalizedRoot = path.resolve(tempRoot)
-      const normalizedTarget = path.resolve(targetPath)
-
-      if (!normalizedTarget.startsWith(normalizedRoot)) {
-        throw new Error('Ruta temporal inválida para limpieza')
-      }
-
-      if (fs.existsSync(normalizedTarget)) {
-        fs.rmSync(normalizedTarget, { recursive: true, force: true })
-      }
-
-      return { success: true }
+      return cleanupTempPath(targetPath)
     } catch (error: any) {
       console.error('Error al limpiar temporales de Canva import:', error)
       throw error
     }
   })
-}
-
-// Función auxiliar para copiar carpetas recursivamente
-function copyFolderRecursive(source: string, target: string) {
-  if (!fs.existsSync(target)) {
-    fs.mkdirSync(target, { recursive: true })
-  }
-
-  const files = fs.readdirSync(source)
-
-  for (const file of files) {
-    const sourcePath = path.join(source, file)
-    const targetPath = path.join(target, file)
-
-    if (fs.statSync(sourcePath).isDirectory()) {
-      copyFolderRecursive(sourcePath, targetPath)
-    } else {
-      fs.copyFileSync(sourcePath, targetPath)
-    }
-  }
 }
