@@ -115,6 +115,8 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 - Cuando se reutiliza checksum local, también se preserva `driveFileId` del manifest local anterior para evitar depender de `files.list()` en cada ciclo.
 - **Optimización de búsqueda de blobs:** Cada entry de manifest ahora incluye campo opcional `driveFileId` (Google Drive fileId del blob). En push, al subir un blob, se guarda el `driveFileId` en el manifest remoto. En pull, se carga primero desde `driveFileId` (búsqueda directa vía API), y solo en manifests viejos sin `driveFileId` se hace fallback a búsqueda lenta por nombre (`files.list()` con `name contains`). Esto elimina latencia de indexación de Google Drive que causaba que blobs recién subidos no se encontraran en syncs subsecuentes.
 - **Descarga con verificación rápida**: Se introdujo `downloadAndVerifyBlobChecksum()` que descarga blob directo por fileId (sin esperar `files.list()` indexing) y verifica checksum antes de confirmar descarga. En **push**, cuando manifest remoto válido pero blob no está aún indexado: si tenemos `driveFileId` conocido, intenta descargar+verificar primero (evita grace window innecesario si el blob está disponible). En **pull**, todas las descargas usan verificación de checksum para detectar blobs corruptos/incompletos durante transfer.
+  - **Retry logic para Windows**: `downloadAndVerifyBlobChecksum()` incluye 3 intentos con espera progresiva (500ms, 1000ms, 1500ms) cuando detecta errores de archivos bloqueados en Windows (`EBUSY`, `EPERM`, `EACCES`). Esto resuelve problemas de sincronización cuando el navegador o antivirus tienen el archivo abierto.
+  - **Permisos en Windows**: Después de mover archivos descargados, establece `chmod 0o644` (rw-r--r--) en Windows para asegurar que el servidor HTTP pueda leerlos correctamente.
 - En push, cuando checksum coincide y hay blob remoto, se hace **backfill automático** de `driveFileId` en manifest local/remoto si faltaba (sin re-subir blob), facilitando migración de manifests viejos.
 - Para detectar `driveFileId` stale sin saturar cuota, se valida existencia remota de IDs en forma acotada (`MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE`), y solo si falla se fuerza re-upload/reparación.
 - En push de media, el manifest remoto/local solo se actualiza cuando el blob queda confirmado en Drive. Si `uploadMediaBlob` falla (sin fileId o error de red/archivo bloqueado), se registra el error (con contexto completo) y ese entry se salta; el ciclo continúa con los demás (no se publica checksum huérfano, se loguea para observabilidad). Igual para biblias en `syncBibleFiles push`.
@@ -228,9 +230,14 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 ### Media Manager (`mediaManager/`)
 
 - `mediaServer.ts`: servidor HTTP local para servir archivos de medios.
+  - **Logging detallado**: registra todas las peticiones de videos y errores específicos para facilitar debugging en Windows.
+  - **Normalización de rutas**: usa `path.normalize()` para manejar correctamente separadores de Windows.
+  - **Validación de permisos**: verifica `fs.constants.R_OK` antes de servir archivos (detecta archivos bloqueados).
+  - **Manejo de errores en streams**: captura y loguea errores de `fs.createReadStream()` para detectar problemas de lectura.
 - `mediaThumbnails.ts`: **módulo compartido** con funciones de generación de thumbnails/fallbacks (`generateImageThumbnail`, `generateVideoThumbnail`, `generateVideoFallback`) y helpers de naming (`buildThumbnailFileName`, `buildFallbackFileName`, `getThumbnailsPath`). Importado tanto por `mediaHandlers.ts` como por `themes.service.ts` para evitar duplicación.
 - `mediaHandlers.ts`: importacion de medios.
   - Copia archivos al directorio de datos.
+  - **Permisos en Windows**: establece `chmod 0o644` (rw-r--r--) después de copiar para asegurar lectura.
   - Soporta importación de imágenes pegadas desde portapapeles sin ruta de archivo (`media:import-clipboard-image`) escribiendo temporal local y reutilizando el flujo normal de importación.
   - Genera thumbnails para imagenes/videos (delegando a `mediaThumbnails.ts`).
   - Para imágenes, intenta `sharp` con carga diferida; si `sharp` no está disponible para el runtime actual, hace fallback a `ffmpeg` para evitar crash del proceso principal.

@@ -96,6 +96,9 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 [X] en el editor de presentaciones, al poner un texto biblico y si hay un tema seleccionado, si respeta el tamaño de altura conciderando el indicador de verso biblico, pero en ancho toma el 100% y no el tamaño que esta en el tema (porque algunos tienen separacion entre left y rigth y este toma el 100%)
 [X] en el selector del umbral de tiempo en el editor stage, poner opcion de minutos tambien
 [ ] añadir un a opcion para poder añadir presentaciones o pdfs y poderlos presentar pagina por pagina o slide por slide
+[X] los splits de biblia tambien deben verse en el media library bible ej 9:1 bla bla...
+9:1 ...bla bla
+[X] permitir mandar un texto seleccionado con enter, y que el indicador selected sea diferente si esta separado porque actualmente si esta separado y selecciono uno se seleccionan todos los splits
 
 # Control remoto
 

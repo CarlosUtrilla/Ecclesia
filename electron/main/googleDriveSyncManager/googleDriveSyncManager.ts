@@ -912,9 +912,55 @@ async function downloadAndVerifyBlobChecksum(
       )
     }
 
-    // Mover a destino final
+    // Mover a destino final con retry para Windows (archivos bloqueados)
     await fs.ensureDir(path.dirname(destination))
-    await fs.move(tempFile, destination, { overwrite: true })
+    
+    // Intentar mover el archivo con retry logic para manejar locks de Windows
+    let moveSuccess = false
+    let lastError: Error | null = null
+    
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await fs.move(tempFile, destination, { overwrite: true })
+        moveSuccess = true
+        break
+      } catch (err) {
+        lastError = err as Error
+        
+        // Si es un error de permisos o archivo en uso (común en Windows), esperar y reintentar
+        const isWindowsLock =
+          err instanceof Error &&
+          (err.message.includes('EBUSY') ||
+            err.message.includes('EPERM') ||
+            err.message.includes('EACCES'))
+        
+        if (isWindowsLock && attempt < 2) {
+          log.warn(
+            `[sync] Archivo bloqueado en Windows, reintentando mover ${relativePath} (intento ${attempt + 1}/3)`
+          )
+          await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
+        } else if (!isWindowsLock) {
+          // Si no es un lock de Windows, no reintentar
+          throw err
+        }
+      }
+    }
+    
+    if (!moveSuccess) {
+      throw new Error(
+        `No se pudo mover archivo descargado después de 3 intentos: ${lastError?.message || 'unknown error'}`
+      )
+    }
+    
+    // En Windows, asegurar permisos de lectura después de mover el archivo
+    if (process.platform === 'win32') {
+      try {
+        await fs.chmod(destination, 0o644) // rw-r--r--
+      } catch (err) {
+        log.warn(`[sync] No se pudieron establecer permisos para ${destination}:`, err)
+      }
+    }
+    
     return actualChecksum
   } catch (err) {
     // Limpiar temporal si aún existe

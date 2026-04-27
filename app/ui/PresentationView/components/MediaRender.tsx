@@ -2,7 +2,7 @@ import { PresentationViewItems } from '../types'
 import type { Media } from '@prisma/client'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { getMediaType } from '@/lib/utils'
-import { CSSProperties, memo, useId, useLayoutEffect, useMemo } from 'react'
+import { CSSProperties, memo, useId, useLayoutEffect, useMemo, useRef } from 'react'
 
 type MediaRenderProps = {
   currentItem: PresentationViewItems
@@ -19,6 +19,9 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
 
   const type = getMediaType(itemData.format)
   const shouldLoop = currentItem.videoLoop === true
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const lastPlayStateRef = useRef<{ time: number; action: string } | null>(null)
 
   const mediaElementStyle = useMemo<CSSProperties>(() => {
     if (!currentItem.customStyle) {
@@ -56,10 +59,9 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
   // Sincronización de media: escuchar eventos desde el controlador
   useLayoutEffect(() => {
     if (!live || type !== 'video') return
-    const video = document.getElementById(videoId) as HTMLVideoElement | null
-    let lastPlayState: { time: number; action: string } | null = null
 
     const shouldSyncTimeOnPlay = (requestedTime: number) => {
+      const video = videoRef.current
       if (!video) return false
 
       if (requestedTime === 0 && video.currentTime > 0.08) {
@@ -70,13 +72,13 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
     }
 
     const tryPlay = (time: number) => {
+      const video = videoRef.current
       if (!video) return
       if (shouldSyncTimeOnPlay(time)) {
         video.currentTime = time
       }
       video.play().catch((err) => {
         if (err.name === 'AbortError') {
-          // Reintentar cuando la ventana reciba el foco
           const onFocus = () => {
             video.play()
             window.removeEventListener('focus', onFocus)
@@ -85,11 +87,12 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
         }
       })
     }
+
     const unsuscribe = window.liveMediaAPI.onMediaState((state) => {
-      // Buscar el video en el DOM y sincronizar
-      console.log('Received live media state:', state)
+      const video = videoRef.current
+      lastPlayStateRef.current = state
       if (!video) return
-      lastPlayState = { time: state.time, action: state.action }
+
       if (state.action === 'play') {
         tryPlay(state.time)
       } else if (state.action === 'pause') {
@@ -102,18 +105,22 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
         tryPlay(0)
       }
     })
-    // Reintentar play si la ventana recibe el foco y hay un estado pendiente
+
     const onFocus = () => {
-      if (lastPlayState && lastPlayState.action === 'play') {
-        tryPlay(lastPlayState.time)
+      const video = videoRef.current
+      const pendingState = lastPlayStateRef.current
+      if (!video || !pendingState) return
+      if (pendingState.action === 'play') {
+        tryPlay(pendingState.time)
       }
     }
+
     window.addEventListener('focus', onFocus)
     return () => {
       if (unsuscribe) unsuscribe()
       window.removeEventListener('focus', onFocus)
     }
-  }, [])
+  }, [live, type, currentItem.id])
 
   const renderMedia = () => {
     if (!live) {
@@ -129,7 +136,8 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
       if (type === 'video') {
         return (
           <video
-            id={videoId}
+            ref={videoRef}
+            autoPlay={live}
             controls={false}
             src={originalUrl}
             className="object-contain"

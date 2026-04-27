@@ -2,6 +2,7 @@ import { createServer, IncomingMessage, ServerResponse } from 'http'
 import { app, ipcMain } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import log from 'electron-log'
 
 let server: ReturnType<typeof createServer> | null = null
 let serverPort = 0
@@ -24,12 +25,18 @@ function handleRequest(req: IncomingMessage, res: ServerResponse) {
   // Decode URL y eliminar query params
   const urlPath = decodeURIComponent(req.url?.split('?')[0] || '')
 
-  // Construir path completo
-  const filePath = path.join(userDataPath, 'media', urlPath.slice(1))
+  // Construir path completo y normalizar para Windows
+  const filePath = path.normalize(path.join(userDataPath, 'media', urlPath.slice(1)))
 
+  // Log de la petición para debugging (solo en development o cuando hay errores)
+  const isVideo = urlPath.match(/\.(mp4|webm|mov|avi)$/i)
+  if (isVideo) {
+    log.info(`[mediaServer] Request: ${req.method} ${urlPath} (${path.basename(filePath)})`)
+  }
 
   // Verificar que el archivo existe
   if (!fs.existsSync(filePath)) {
+    log.warn(`[mediaServer] File not found: ${filePath}`)
     res.writeHead(404, {
       'Access-Control-Allow-Origin': '*'
     })
@@ -37,7 +44,30 @@ function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return
   }
 
-  const stats = fs.statSync(filePath)
+  // Verificar permisos de lectura antes de intentar servir
+  try {
+    fs.accessSync(filePath, fs.constants.R_OK)
+  } catch (err) {
+    log.error(`[mediaServer] Permission denied for file: ${filePath}`, err)
+    res.writeHead(403, {
+      'Access-Control-Allow-Origin': '*'
+    })
+    res.end('Permission denied')
+    return
+  }
+
+  let stats: fs.Stats
+  try {
+    stats = fs.statSync(filePath)
+  } catch (err) {
+    log.error(`[mediaServer] Error getting file stats: ${filePath}`, err)
+    res.writeHead(500, {
+      'Access-Control-Allow-Origin': '*'
+    })
+    res.end('Internal server error')
+    return
+  }
+
   const ext = path.extname(filePath).toLowerCase()
   const mime = mimeTypes[ext] || 'application/octet-stream'
 
@@ -59,6 +89,15 @@ function handleRequest(req: IncomingMessage, res: ServerResponse) {
     })
 
     const stream = fs.createReadStream(filePath, { start, end })
+    
+    stream.on('error', (err) => {
+      log.error(`[mediaServer] Stream error for ${filePath}:`, err)
+      if (!res.headersSent) {
+        res.writeHead(500)
+      }
+      res.end()
+    })
+    
     stream.pipe(res)
   } else {
     // Servir archivo completo
@@ -70,6 +109,15 @@ function handleRequest(req: IncomingMessage, res: ServerResponse) {
     })
 
     const stream = fs.createReadStream(filePath)
+    
+    stream.on('error', (err) => {
+      log.error(`[mediaServer] Stream error for ${filePath}:`, err)
+      if (!res.headersSent) {
+        res.writeHead(500)
+      }
+      res.end()
+    })
+    
     stream.pipe(res)
   }
 }

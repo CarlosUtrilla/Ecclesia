@@ -63,6 +63,7 @@ export const RenderMedia = () => {
 
   useLayoutEffect(() => {
     if (!videoRef.current) return
+
     if (liveScreensReady) {
       handlePlay()
       setTimeout(() => {
@@ -72,7 +73,7 @@ export const RenderMedia = () => {
     } else {
       handlePause()
     }
-  }, [liveScreensReady])
+  }, [liveScreensReady, itemOnLive?.accessData])
 
   if (!itemOnLive || itemOnLive.type !== 'MEDIA') {
     return (
@@ -114,7 +115,10 @@ export const RenderMedia = () => {
       <div className="flex flex-col h-full w-full items-center justify-center gap-2 p-2">
         <div className="flex-1 flex items-center justify-center w-full min-h-0">
           <video
+            key={mediaItem.filePath}
             autoPlay={liveScreensReady}
+            playsInline
+            preload="metadata"
             ref={videoRef}
             src={buildMediaUrl(mediaItem.filePath)}
             className="max-h-full max-w-full rounded shadow"

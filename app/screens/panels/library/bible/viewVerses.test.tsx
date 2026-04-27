@@ -61,6 +61,7 @@ vi.mock('@tanstack/react-query', () => ({
 describe('ViewVerses', () => {
   it('reinicia el ancla al cambiar de capítulo y permite shift+click desde el verso seleccionado', async () => {
     const setSelectedVerse = vi.fn()
+    const setSelectedChunkKey = vi.fn()
 
     const { rerender } = render(
       <ViewVerses
@@ -70,6 +71,8 @@ describe('ViewVerses', () => {
         chapter={1}
         verse={[8]}
         setSelectedVerse={setSelectedVerse}
+        selectedChunkKey={null}
+        setSelectedChunkKey={setSelectedChunkKey}
       />
     )
 
@@ -83,6 +86,8 @@ describe('ViewVerses', () => {
         chapter={2}
         verse={[1]}
         setSelectedVerse={setSelectedVerse}
+        selectedChunkKey={null}
+        setSelectedChunkKey={setSelectedChunkKey}
       />
     )
 

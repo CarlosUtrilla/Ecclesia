@@ -129,6 +129,22 @@ app/screens/panels/library/
 ### ViewVerses (`bible/viewVerses.tsx`)
 
 - Lista de versiculos del capitulo seleccionado.
+- **Visualización de chunks:** Versículos largos se muestran divididos en múltiples líneas según la configuración de `BIBLE_LIVE_CHUNK_MODE` (igual que en el cronograma). Cada chunk muestra:
+  - Mismo número de versículo
+  - Texto con indicadores "..." al inicio/final según posición del chunk
+  - Indicador visual `(n/total)` al final de cada chunk
+  - Borde izquierdo azul en chunks continuos (excepto el primero)
+- **Selección individual de chunks:** Cuando un versículo está dividido en chunks, se puede seleccionar un chunk específico haciendo click en él:
+  - Click simple: selecciona el chunk específico (destacado más intenso con anillo visual)
+  - Al seleccionar un chunk individual, `selectedChunkKey` se establece en formato `"verse-chunkIndex"` (ej: `"1-0"`, `"1-1"`)
+  - Enviar con Enter o doble-click: envía solo el chunk seleccionado a live (no todo el verso)
+  - Shift+click o Ctrl+click: selecciona múltiples versos completos y limpia la selección de chunk específico
+  - Cambio de libro/capítulo/versión: limpia automáticamente la selección de chunk específico
+- **Indicador visual diferenciado:**
+  - Chunk específicamente seleccionado: fondo más intenso (`bg-secondary/30`) + anillo de borde (`ring-1 ring-secondary/50`)
+  - Verso seleccionado sin chunk específico: fondo suave (`bg-secondary/20`)
+  - Chunks no seleccionados: fondo normal con hover (`hover:bg-muted/40`)
+- Cada chunk es draggable independientemente, pero todos arrastran el verso completo (el chunking real ocurre al agregarlo al cronograma).
 - Seleccion multiple con Shift+click (rango) y Ctrl+click (toggle).
 - La selección múltiple preserva segmentos no contiguos (ej: `1-3,8,12`) al arrastrar o enviar a cronograma/live, evitando colapsar automáticamente a un único rango continuo.
 - Cuando la selección cambia externamente (ej: cambio de libro/capítulo o selección inicial desde panel superior), `ViewVerses` sincroniza el ancla interna de rango con el verso seleccionado actual para que `Shift+click` extienda desde ese verso (ej: 1 -> Shift+6 selecciona 1..6).

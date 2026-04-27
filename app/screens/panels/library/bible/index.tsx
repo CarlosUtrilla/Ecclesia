@@ -15,6 +15,8 @@ export default function BiblePanel() {
   const [selectedBook, setSelectedBook] = useState(1)
   const [selectedChapter, setSelectedChapter] = useState(1)
   const [selectedVerse, setSelectedVerse] = useState([1])
+  // Estado para rastrear chunk específico seleccionado (formato: "verse-chunkIndex")
+  const [selectedChunkKey, setSelectedChunkKey] = useState<string | null>(null)
 
   const bookRefs = useRef<{ [key: number]: HTMLDivElement | null }>({})
   const chapterRefs = useRef<{ [key: number]: HTMLDivElement | null }>({})
@@ -38,11 +40,13 @@ export default function BiblePanel() {
     setSelectedBook(bookId)
     setSelectedChapter(1)
     setSelectedVerse([1])
+    setSelectedChunkKey(null)
   }
 
   const handleChangeChapter = (chapter: number) => {
     setSelectedChapter(chapter)
     setSelectedVerse([1])
+    setSelectedChunkKey(null)
   }
 
   useEffect(() => {
@@ -86,6 +90,7 @@ export default function BiblePanel() {
                 setSelectedBook(book)
                 setSelectedChapter(parseInt(cap))
                 setSelectedVerse([parseInt(vers)])
+                setSelectedChunkKey(null)
               }}
             />
           </div>
@@ -179,6 +184,8 @@ export default function BiblePanel() {
         chapter={selectedChapter}
         verse={selectedVerse}
         setSelectedVerse={setSelectedVerse}
+        selectedChunkKey={selectedChunkKey}
+        setSelectedChunkKey={setSelectedChunkKey}
       />
     </div>
   )

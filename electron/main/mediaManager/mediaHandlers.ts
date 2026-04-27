@@ -57,6 +57,15 @@ async function importMediaFromSourcePath(sourcePath: string, folder?: string) {
   const newFileName = `${originalName}-${hash}${ext}`
   const destPath = path.join(filesPath, newFileName)
   fs.copyFileSync(sourcePath, destPath)
+  
+  // En Windows, asegurar permisos de lectura después de copiar
+  if (process.platform === 'win32') {
+    try {
+      fs.chmodSync(destPath, 0o644) // rw-r--r--
+    } catch (err) {
+      console.warn(`No se pudieron establecer permisos para ${destPath}:`, err)
+    }
+  }
 
   const thumbnailFileName = buildThumbnailFileName(originalName, hash)
   const thumbnailPath = path.join(thumbnailsPath, thumbnailFileName)
