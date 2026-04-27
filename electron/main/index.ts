@@ -2,8 +2,8 @@ import { initializeLiveMediaManager } from './liveMediaController/liveMediaContr
 import { app, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { registerRoutes } from '../../database'
-import { getPrisma, initPrisma } from './prisma'
+import { initializeHttpServer } from '../../database'
+import { getPrisma } from './prisma'
 import {
   createMainWindow,
   createPresentationWindow,
@@ -21,7 +21,6 @@ import 'reflect-metadata'
 import fontList from 'font-list'
 import { initializeBibleManager } from './bibleManager'
 import { initializeMediaManager } from './mediaManager'
-import { stopMediaServer } from './mediaManager/mediaServer'
 import { initializeDisplayManager } from './displayManager'
 import { initializeFontManager } from './fontManager'
 import {
@@ -100,8 +99,8 @@ app.whenReady().then(async () => {
   updateSplashStatus('Verificando sincronización...')
   await applyPendingDriveRestoreOnStartup()
 
-  updateSplashStatus('Inicializando base de datos...')
-  await initPrisma()
+  updateSplashStatus('Cargando servicios...')
+  await initializeHttpServer()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.ecclesia.app')
@@ -119,9 +118,6 @@ app.whenReady().then(async () => {
 
   updateSplashStatus('Cargando fuentes...')
   initializeFontManager()
-
-  // Registrar rutas de la base de datos
-  registerRoutes()
 
   updateSplashStatus('Cargando Biblia...')
   initializeBibleManager()
@@ -273,7 +269,6 @@ app.whenReady().then(async () => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  stopMediaServer()
   app.quit()
 })
 

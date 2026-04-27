@@ -35,22 +35,23 @@ export function MediaServerProvider({ children }: { children: ReactNode }) {
     initializeServer()
   }, [])
 
-  const buildMediaUrl = useCallback((filePath: string): string => {
-    if (!port || !filePath) return ''
-    const encodedPath = encodeURIComponent(filePath)
-    return `http://127.0.0.1:${port}/${encodedPath}`
-  }, [port])
+  const buildMediaUrl = useCallback(
+    (filePath: string): string => {
+      if (!port || !filePath) return ''
+
+      const normalizedPath = filePath.replace(/^\/+/, '')
+      const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/')
+      return `http://127.0.0.1:${port}/media/${encodedPath}`
+    },
+    [port]
+  )
 
   const contextValue = useMemo(
     () => ({ port, isReady, buildMediaUrl }),
     [port, isReady, buildMediaUrl]
   )
 
-  return (
-    <MediaServerContext.Provider value={contextValue}>
-      {children}
-    </MediaServerContext.Provider>
-  )
+  return <MediaServerContext.Provider value={contextValue}>{children}</MediaServerContext.Provider>
 }
 
 export function useMediaServer() {

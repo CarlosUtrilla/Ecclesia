@@ -57,7 +57,7 @@ async function importMediaFromSourcePath(sourcePath: string, folder?: string) {
   const newFileName = `${originalName}-${hash}${ext}`
   const destPath = path.join(filesPath, newFileName)
   fs.copyFileSync(sourcePath, destPath)
-  
+
   // En Windows, asegurar permisos de lectura después de copiar
   if (process.platform === 'win32') {
     try {
@@ -183,6 +183,10 @@ export function registerMediaHandlers() {
   ipcMain.handle('media:get-full-path', (_event, fileName: string) => {
     const userDataPath = app.getPath('userData')
     return path.join(userDataPath, 'media', fileName)
+  })
+
+  ipcMain.handle('get-media-server-port', () => {
+    return 7777
   })
 
   // Eliminar archivo físico

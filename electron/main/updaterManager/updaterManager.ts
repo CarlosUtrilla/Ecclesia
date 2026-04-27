@@ -2,7 +2,6 @@ import { autoUpdater } from 'electron-updater'
 import { ipcMain, BrowserWindow } from 'electron'
 import log from 'electron-log'
 import { getPrisma } from '../prisma'
-import { stopMediaServer } from '../mediaManager/mediaServer'
 
 autoUpdater.logger = log
 autoUpdater.channel = 'latest'
@@ -153,15 +152,7 @@ export function initializeUpdaterManager(): void {
       // Cleanup antes de actualizar: liberar todos los recursos para evitar archivos bloqueados en Windows
       log.info('[updater] Iniciando limpieza pre-actualización...')
 
-      // 1. Detener servidor de medios
-      try {
-        stopMediaServer()
-        log.info('[updater] Servidor de medios detenido')
-      } catch (err) {
-        log.warn('[updater] Error al detener media server:', err)
-      }
-
-      // 2. Desconectar Prisma (libera SQLite, archivos de biblias, etc)
+      // 1. Desconectar Prisma (libera SQLite, archivos de biblias, etc)
       try {
         const prisma = getPrisma()
         if (prisma) {

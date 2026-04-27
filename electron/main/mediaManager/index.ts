@@ -1,11 +1,8 @@
 import { ipcRenderer, webUtils } from 'electron'
 import { registerMediaHandlers } from './mediaHandlers'
-import { startMediaServer } from './mediaServer'
 import { MediaType } from '@prisma/client'
 
 export function initializeMediaManager() {
-  // Iniciar servidor de medios
-  startMediaServer()
   // Registrar handlers de medios
   registerMediaHandlers()
 }
