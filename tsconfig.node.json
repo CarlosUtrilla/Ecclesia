@@ -4,7 +4,8 @@
     "electron.vite.config.*",
     "electron/main/**/*",
     "electron/preload/**/*",
-    "database/**/*"
+    "database/**/*",
+    "index.d.ts"
   ],
   "exclude": [
     "node_modules",

@@ -32,6 +32,11 @@ import { initializeUpdaterManager } from './updaterManager/updaterManager'
 
 let isQuittingAfterStageTimersCleanup = false
 
+BigInt.prototype.toJSON = function () {
+  const int = Number.parseInt(this.toString())
+  return int ?? this.toString()
+}
+
 async function clearPersistedStageTimersOnShutdown() {
   try {
     const prisma = getPrisma()

@@ -7,6 +7,8 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { exposeRoutes } from '../../database'
+import { RoutesTypes } from '../../database/routeTypes'
 import { bibleAPI } from '../main/bibleManager'
 import { mediaAPI } from '../main/mediaManager'
 import { displayAPI } from '../main/displayManager/displaysMethods'
@@ -22,8 +24,7 @@ try {
     // Desactivar transporte de consola
     log.transports.console.level = false
   }
-} catch (e: any) {
-  console.error('Error al configurar electron-log en preload:', e)
+} catch (e) {
   // No bloquear si `electron-log` no está disponible en este contexto
 }
 
@@ -59,7 +60,8 @@ export const HandleManagers = {
   displayAPI,
   liveMediaAPI,
   googleDriveSyncAPI,
-  updaterAPI
+  updaterAPI,
+  api: exposeRoutes() as RoutesTypes
 }
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise

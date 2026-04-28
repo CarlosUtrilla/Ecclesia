@@ -9,6 +9,7 @@
     "queries/**/*",
     "queries/**/*.tsx",
     "locales",
+    "index.d.ts",
   ],
   "exclude": [
     "node_modules",
