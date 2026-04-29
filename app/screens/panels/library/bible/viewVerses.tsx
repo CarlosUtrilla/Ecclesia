@@ -13,7 +13,11 @@ import { CalendarPlus, Radio } from 'lucide-react'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { useDraggable } from '@dnd-kit/core'
-import { buildBibleAccessData, resolveBibleBookAccessId, serializeBibleVerseRange } from './accessData'
+import {
+  buildBibleAccessData,
+  resolveBibleBookAccessId,
+  serializeBibleVerseRange
+} from './accessData'
 import {
   splitLongBibleVerse,
   resolveBibleChunkMaxLength,
@@ -56,7 +60,7 @@ export default function ViewVerses({
 
   const { data: completeChapter = [] } = useQuery({
     queryKey: ['completeChapter', book, chapter, version],
-    queryFn: async () => await window.api.bible.getCompleteChapter(version, book, chapter),
+    queryFn: async () => await window.api.bible.getCompleteChapter({ version, book, chapter }),
     staleTime: Infinity
   })
 
@@ -119,23 +123,26 @@ export default function ViewVerses({
     onEnter: () => {
       // Enviar a live el verso seleccionado
       if (verse.length === 0) return
-      
+
       // Si hay un chunk específico seleccionado, enviar ese chunk
       if (selectedChunkKey) {
         const [verseStr, chunkIndexStr] = selectedChunkKey.split('-')
         const verseNumber = parseInt(verseStr)
         const chunkIndex = parseInt(chunkIndexStr)
-        
+
         if (!isNaN(verseNumber) && !isNaN(chunkIndex)) {
           handleShowOnLive(verseNumber, chunkIndex)
           return
         }
       }
-      
+
       // Si no hay chunk específico, enviar el primer verso seleccionado
       handleShowOnLive(verse[0])
     },
-    onItemClick: (item: { verseNumber: number; index: number; chunkIndex?: number; isChunk?: boolean }, event: React.MouseEvent) => {
+    onItemClick: (
+      item: { verseNumber: number; index: number; chunkIndex?: number; isChunk?: boolean },
+      event: React.MouseEvent
+    ) => {
       const { verseNumber, index, chunkIndex = 0, isChunk = false } = item
       const isMac = navigator.platform.toUpperCase().includes('MAC')
       const isMultiSelect = isMac ? event.metaKey : event.ctrlKey
@@ -378,8 +385,7 @@ function VerseItem({
   onShowOnLive,
   verseRefs,
   isChunk = false,
-  chunkIndex = 0,
-  totalChunks = 1
+  chunkIndex = 0
 }: {
   verse: any
   displayText?: string
@@ -389,7 +395,10 @@ function VerseItem({
   selectedVerses: number[]
   selectedChunkKey: string | null
   bookAccessId: number | null
-  onItemClick: (item: { verseNumber: number; index: number; chunkIndex?: number; isChunk?: boolean }, e: React.MouseEvent) => void
+  onItemClick: (
+    item: { verseNumber: number; index: number; chunkIndex?: number; isChunk?: boolean },
+    e: React.MouseEvent
+  ) => void
   onAddToSchedule: (verseNumber: number) => void
   onShowOnLive: (verseNumber: number, startChunkIndex?: number) => void
   verseRefs: React.MutableRefObject<Map<number, HTMLDivElement>>
@@ -407,7 +416,7 @@ function VerseItem({
           verseRange: verseRange || String(v.verse),
           version
         })
-  
+
   const { listeners, setNodeRef, isDragging } = useDraggable({
     id: `verse-${v.verse}-${chapter}-${bookAccessId ?? 'unknown'}-${chunkIndex}`,
     data: {
@@ -423,7 +432,7 @@ function VerseItem({
   const chunkKey = `${v.verse}-${chunkIndex}`
   const isVerseSelected = selectedVerses.includes(v.verse)
   const isChunkSelected = selectedChunkKey === chunkKey
-  
+
   // El chunk está destacado si:
   // - Es el chunk específicamente seleccionado, O
   // - El verso está seleccionado pero no hay chunk específico seleccionado

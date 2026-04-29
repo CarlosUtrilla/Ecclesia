@@ -28,3 +28,9 @@ export type TextFragmentSearchDTO = {
   version: string
   book?: string
 }
+
+export type GetCompleteChapterDTO = {
+  version: string
+  book: number
+  chapter: number
+}

@@ -1,5 +1,5 @@
 import { BiblePresentationSettings } from '@prisma/client'
-import { GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
+import { GetCompleteChapterDTO, GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
 import BibleService from './bible.service'
 import { BibleManagmentService } from './bibleManagment.service'
 class BibleController {
@@ -14,8 +14,8 @@ class BibleController {
     return this.BibleManagmentService.getBibleSchema()
   }
 
-  async getCompleteChapter(version: string, book: number, chapter: number) {
-    return this.BibleService.getCompleteChapter(version, book, chapter)
+  async getCompleteChapter(params: GetCompleteChapterDTO) {
+    return this.BibleService.getCompleteChapter(params)
   }
   async getAvailableBibles() {
     return this.BibleManagmentService.getAvalableBibles()

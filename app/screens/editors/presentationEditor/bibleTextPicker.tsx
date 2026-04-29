@@ -106,7 +106,11 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
   const { data: completeChapter = [] } = useQuery({
     queryKey: ['presentation-bible-picker', selectedVersion, selectedBook, selectedChapter],
     queryFn: async () =>
-      window.api.bible.getCompleteChapter(selectedVersion, selectedBook, selectedChapter),
+      window.api.bible.getCompleteChapter({
+        version: selectedVersion,
+        book: selectedBook,
+        chapter: selectedChapter
+      }),
     enabled: open
   })
 

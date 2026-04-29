@@ -1,4 +1,9 @@
-import type { BibleDTO, GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
+import type {
+  BibleDTO,
+  GetCompleteChapterDTO,
+  GetVersesDTO,
+  TextFragmentSearchDTO
+} from './bible.dto'
 import { getPrisma } from '../../../electron/main/prisma'
 import { openBible } from './utils'
 import { BiblePresentationSettings } from '@prisma/client'
@@ -55,7 +60,7 @@ class BibleService {
     }
   }
 
-  async getCompleteChapter(version: string, book: number, chapter: number) {
+  async getCompleteChapter({ version, book, chapter }: GetCompleteChapterDTO) {
     const db = await openBible(version)
 
     try {

@@ -255,7 +255,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - Usa `better-sqlite3` para consultas directas.
 - IPC handlers:
   - `bible.getVerses(version, book, chapter, verseStart, verseEnd)`
-  - `bible.getCompleteChapter(version, book, chapter)`
+  - `bible.getCompleteChapter({ version, book, chapter })`
   - `bible.getAvailableBibles()`
   - `bible.importBible(filePath)`
   - `bible.searchTextFragment(version, text)`
