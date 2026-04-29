@@ -17,7 +17,10 @@ export default function SongImporter() {
   const handleImport = async () => {
     if (selectedPaths.length > 0 && selectedApp) {
       try {
-        await window.api.songs.importSongsFromFile(selectedPaths, selectedApp)
+        await window.api.songs.importSongsFromFile({
+          filesPath: selectedPaths,
+          source: selectedApp
+        })
         setOpenDialog(false)
         queryClient.invalidateQueries({
           queryKey: ['songs', 'libraryPanel']

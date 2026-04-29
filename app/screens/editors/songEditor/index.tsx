@@ -84,7 +84,7 @@ export default function SongEditor() {
     try {
       data.lyrics = data.lyrics.filter((l) => l.content !== '')
       if (id !== undefined) {
-        await window.api.songs.updateSong(Number(id), data)
+        await window.api.songs.updateSong({ id: Number(id), data })
       } else {
         await window.api.songs.createSong(data)
       }

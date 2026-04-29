@@ -4,7 +4,8 @@ import type {
   GetSongsDTO,
   SongLyricDTO,
   SongResponseDTO,
-  SongsListResponseDTO
+  SongsListResponseDTO,
+  UpdateSongBody
 } from './songs.dto'
 
 class SongsService {
@@ -145,7 +146,7 @@ class SongsService {
   }
 
   // Actualizar canción
-  async updateSong(id: number, data: CreateSongDTO) {
+  async updateSong({ id, data }: UpdateSongBody) {
     const fullText = this.normalizeFullText(data)
     const { lyrics, ...songData } = data
     const sanitizedLyrics = this.sanitizeLyrics(lyrics)

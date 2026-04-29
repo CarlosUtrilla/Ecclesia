@@ -37,15 +37,18 @@ describe('SongsService', () => {
 
     const service = new SongsService()
 
-    const result = await service.updateSong(1, {
-      title: 'Titulo nuevo',
-      author: 'Autor',
-      copyright: 'Copy',
-      lyrics: [
-        { content: '<p>Nuevo 1</p>', tagSongsId: 1 },
-        { content: '<p></p>', tagSongsId: null },
-        { content: '<p>Nuevo 2</p>', tagSongsId: 2 }
-      ]
+    const result = await service.updateSong({
+      id: 1,
+      data: {
+        title: 'Titulo nuevo',
+        author: 'Autor',
+        copyright: 'Copy',
+        lyrics: [
+          { content: '<p>Nuevo 1</p>', tagSongsId: 1 },
+          { content: '<p></p>', tagSongsId: null },
+          { content: '<p>Nuevo 2</p>', tagSongsId: 2 }
+        ]
+      }
     })
 
     expect(songUpdateMock).toHaveBeenCalledWith({

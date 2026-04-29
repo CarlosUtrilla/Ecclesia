@@ -1,5 +1,11 @@
 import SongsService from './songs.service'
-import type { CreateSongDTO, GetSongsDTO, SongsListResponseDTO } from './songs.dto'
+import type {
+  CreateSongDTO,
+  GetSongsDTO,
+  ImportSongsFromFileDTO,
+  SongsListResponseDTO,
+  UpdateSongBody
+} from './songs.dto'
 import SongImporter from './songImporter.service'
 
 class SongsController {
@@ -21,8 +27,8 @@ class SongsController {
     return this.songsService.getSongById(id)
   }
 
-  async updateSong(id: number, data: CreateSongDTO) {
-    return this.songsService.updateSong(id, data)
+  async updateSong(body: UpdateSongBody) {
+    return this.songsService.updateSong(body)
   }
 
   async deleteSong(id: number): Promise<void> {
@@ -33,7 +39,7 @@ class SongsController {
     return this.songsService.searchSongs(query, limit)
   }
 
-  async importSongsFromFile(filesPath: string[], source: string) {
+  async importSongsFromFile({ filesPath, source }: ImportSongsFromFileDTO) {
     return this.songImporter.importSongsFromFile(filesPath, source)
   }
 }

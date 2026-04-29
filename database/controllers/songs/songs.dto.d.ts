@@ -18,6 +18,11 @@ export type UpdateSongDTO = {
   lyrics?: SongLyricDTO[]
 }
 
+export type UpdateSongBody = {
+  id: number
+  data: CreateSongDTO
+}
+
 export type GetSongsDTO = {
   page: number
   limit?: number
@@ -35,4 +40,7 @@ export type SongsListResponseDTO = {
   totalPages: number
 }
 
-
+export type ImportSongsFromFileDTO = {
+  filesPath: string[]
+  source: string
+}
