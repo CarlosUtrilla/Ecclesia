@@ -18,6 +18,10 @@ export function serializeDecimals(obj: any): any {
     return { __decimal__: obj.toString() }
   }
 
+  if (typeof obj === 'number') {
+    return { __number__: obj.toString() }
+  }
+
   if (obj instanceof Date) {
     return { __date__: obj.toISOString() }
   }
@@ -49,6 +53,10 @@ export function restoreDecimals(obj: any): any {
 
     if ('__date__' in obj) {
       return new Date(obj.__date__)
+    }
+
+    if ('__number__' in obj) {
+      return parseFloat(obj.__number__)
     }
 
     const result: Record<string, any> = {}

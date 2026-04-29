@@ -3,6 +3,7 @@ import express from 'express'
 import { MEDIA_SERVER_PORT } from '../controllers/media/mediaServer.controller'
 import { Fetcher } from './fetcher'
 import Logger from 'electron-log'
+import { restoreDecimals } from '../middleware/decimal'
 export function registerRoutes(app: ReturnType<typeof express>) {
   // REGISTRO DE RUTAS EXPRESS DESDE CONTROLLERS
   for (const [namespace, ControllerClass] of Object.entries(routes)) {
@@ -17,7 +18,14 @@ export function registerRoutes(app: ReturnType<typeof express>) {
       app.post(`/api/${channel}`, async (req, res) => {
         const handler = instance[method].bind(instance)
         try {
-          const result = await handler(req.body)
+          if (channel.includes('presentations/getPresentationById')) {
+            Logger.info(
+              `Received request on /api/${channel} with body:`,
+              req.body,
+              restoreDecimals(req.body)
+            )
+          }
+          const result = await handler(restoreDecimals(req.body))
           return res.json(result)
         } catch (err: any) {
           const rawMessage = err?.message || 'Unknown error'

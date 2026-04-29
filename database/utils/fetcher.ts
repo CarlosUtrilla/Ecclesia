@@ -1,13 +1,16 @@
 import Logger from 'electron-log'
+import { serializeDecimals } from '../middleware/decimal'
 
 export async function Fetcher(apiUrl: string, path: string, body: any, token?: string) {
   try {
     const url = `${apiUrl}${path}`
+    const isFormData = body instanceof FormData
+    const parsedBody = !isFormData ? serializeBody(body) : body
     const init: RequestInit = {
       headers: {
         ...(token && token !== '' ? { authorization: `Bearer ${token}` } : undefined),
-        ...(!(body instanceof FormData)
-          ? isObjectParsableToString(body)
+        ...(!isFormData
+          ? isStringJSON(parsedBody)
             ? { 'Content-Type': 'application/json' }
             : {
                 'Content-Type': 'text/plain'
@@ -16,12 +19,7 @@ export async function Fetcher(apiUrl: string, path: string, body: any, token?: s
       },
       method: 'POST',
       ...(body && {
-        body:
-          body instanceof FormData
-            ? body
-            : isObjectParsableToString(body)
-              ? JSON.stringify(body)
-              : body
+        body: parsedBody
       })
     }
 
@@ -55,13 +53,9 @@ function isStringJSON(str: string) {
   }
 }
 
-function isObjectParsableToString(str: any) {
-  try {
-    // Si no es un objeto o es null, no es parsable a string o no es un objeto válido
-    if (typeof str !== 'object' || str === null || !str) return false
-    JSON.stringify(str)
-    return true
-  } catch {
-    return false
-  }
+function serializeBody(body: any) {
+  if (!body || body === null) return body
+  const serializedDecimalsBody = serializeDecimals(body)
+  if (typeof serializedDecimalsBody === 'string') return serializedDecimalsBody
+  return JSON.stringify(serializedDecimalsBody)
 }

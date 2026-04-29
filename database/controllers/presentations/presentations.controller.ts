@@ -4,6 +4,7 @@ import type {
   GetPresentationsDTO,
   UpdatePresentationDTO
 } from './presentations.dto'
+import Logger from 'electron-log'
 
 export class PresentationsController {
   private presentationsService = new PresentationsService()
@@ -21,6 +22,7 @@ export class PresentationsController {
   }
 
   async getPresentationById(id: number) {
+    Logger.info(`Fetching presentation with ID: ${id}, type of ID: ${typeof id}`)
     return this.presentationsService.getPresentationById(id)
   }
 

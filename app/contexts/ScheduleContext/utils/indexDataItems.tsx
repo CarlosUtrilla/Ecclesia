@@ -359,6 +359,7 @@ export const useIndexDataItems = (
         let presentation = presentations.find((record) => record.id === presentationId)
 
         if (!presentation) {
+          console.log(`presentation id: ${presentationId}`)
           presentation = await window.api.presentations.getPresentationById(presentationId)
           if (!presentation) {
             return {
