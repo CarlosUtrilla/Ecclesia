@@ -1,13 +1,12 @@
 import type { Express } from 'express'
 import express from 'express'
-import path from 'path'
-import { app as electronApp } from 'electron'
+import { resolveMediaRoot } from './media.storage'
 
 export const MEDIA_SERVER_PORT = 7777
 const MEDIA_ROUTE_PREFIX = '/media'
 
 export function registerMediaServerRoutes(app: Express) {
-  const mediaRoot = path.join(electronApp.getPath('userData'), 'media')
+  const mediaRoot = resolveMediaRoot()
 
   app.use(
     MEDIA_ROUTE_PREFIX,

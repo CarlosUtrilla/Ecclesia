@@ -1,20 +1,21 @@
 import FontsService from './fonts.service'
 import type { AddFontDTO, DeleteFontDTO } from './fonts.dto'
 import { BrowserWindow } from 'electron'
+import { RequestHandler } from '../../utils/RequestHandler'
 
 export default class FontsController {
   private fontsService = new FontsService()
 
-  async addFont(data: AddFontDTO) {
-    return await this.fontsService.addFont(data)
+  async addFont({ body }: RequestHandler<AddFontDTO>) {
+    return await this.fontsService.addFont(body)
   }
 
   async getAllFonts() {
     return await this.fontsService.getAllFonts()
   }
 
-  async deleteFont(data: DeleteFontDTO) {
-    const result = await this.fontsService.deleteFont(data)
+  async deleteFont({ body }: RequestHandler<DeleteFontDTO>) {
+    const result = await this.fontsService.deleteFont(body)
     // Emitir evento a todas las ventanas
     try {
       BrowserWindow.getAllWindows().forEach((win: any) => {

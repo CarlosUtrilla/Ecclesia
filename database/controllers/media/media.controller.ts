@@ -1,78 +1,79 @@
 import { MediaService } from './media.service'
 import { CreateMediaDto, UpdateMediaDto, MediaFilterDto } from './media.dto'
+import { RequestHandler } from '../../utils/RequestHandler'
 
 export class MediaController {
   private mediaService = new MediaService()
 
-  async create(data: CreateMediaDto) {
-    return await this.mediaService.create(data)
+  async create({ body }: RequestHandler<CreateMediaDto>) {
+    return await this.mediaService.create(body)
   }
 
-  async findAll(filter: MediaFilterDto) {
-    return await this.mediaService.findAll(filter)
+  async findAll({ body }: RequestHandler<MediaFilterDto>) {
+    return await this.mediaService.findAll(body)
   }
 
-  async findOne(id: string) {
-    return await this.mediaService.findOne(parseInt(id))
+  async findOne({ body }: RequestHandler<{ id: string }>) {
+    return await this.mediaService.findOne(parseInt(body.id))
   }
 
-  async findByFilePath(data: { filePath: string }) {
-    return await this.mediaService.findByFilePath(data.filePath)
+  async findByFilePath({ body }: RequestHandler<{ filePath: string }>) {
+    return await this.mediaService.findByFilePath(body.filePath)
   }
 
-  async importFile(data: { sourcePath: string; folder?: string }) {
-    return await this.mediaService.importFile(data.sourcePath, data.folder)
+  async importFile({ body }: RequestHandler<{ sourcePath: string; folder?: string }>) {
+    return await this.mediaService.importFile(body.sourcePath, body.folder)
   }
 
-  async importClipboardImage(data: { bytes: number[]; mimeType: string; folder?: string }) {
-    return await this.mediaService.importClipboardImage(data.bytes, data.mimeType, data.folder)
+  async importClipboardImage({
+    body
+  }: RequestHandler<{ bytes: number[]; mimeType: string; folder?: string }>) {
+    return await this.mediaService.importClipboardImage(body.bytes, body.mimeType, body.folder)
   }
 
-  async deleteFile(data: { filePath: string; thumbnail?: string | null }) {
-    return await this.mediaService.deleteFile(data.filePath, data.thumbnail)
+  async createFolder({ body }: RequestHandler<{ folderPath: string }>) {
+    return await this.mediaService.createFolder(body.folderPath)
   }
 
-  async createFolder(data: { folderPath: string }) {
-    return await this.mediaService.createFolder(data.folderPath)
+  async deleteFolder({ body }: RequestHandler<{ folderPath: string }>) {
+    return await this.mediaService.deleteFolder(body.folderPath)
   }
 
-  async deleteFolder(data: { folderPath: string }) {
-    return await this.mediaService.deleteFolder(data.folderPath)
+  async renamePath({ body }: RequestHandler<{ oldPath: string; newName: string }>) {
+    return await this.mediaService.renamePath(body.oldPath, body.newName)
   }
 
-  async renamePath(data: { oldPath: string; newName: string }) {
-    return await this.mediaService.renamePath(data.oldPath, data.newName)
+  async listFolders({ body }: RequestHandler<{ parentFolder?: string }>) {
+    return await this.mediaService.listFolders(body.parentFolder)
   }
 
-  async listFolders(data: { parentFolder?: string }) {
-    return await this.mediaService.listFolders(data.parentFolder)
+  async movePath({ body }: RequestHandler<{ sourcePath: string; targetFolder: string | null }>) {
+    return await this.mediaService.movePath(body.sourcePath, body.targetFolder)
   }
 
-  async movePath(data: { sourcePath: string; targetFolder: string | null }) {
-    return await this.mediaService.movePath(data.sourcePath, data.targetFolder)
+  async copyFile({
+    body
+  }: RequestHandler<{ sourcePath: string; targetFolder: string | null; isFolder: boolean }>) {
+    return await this.mediaService.copyFile(body.sourcePath, body.targetFolder, body.isFolder)
   }
 
-  async copyFile(data: { sourcePath: string; targetFolder: string | null; isFolder: boolean }) {
-    return await this.mediaService.copyFile(data.sourcePath, data.targetFolder, data.isFolder)
+  async extractZipMp4({ body }: RequestHandler<{ zipPath: string }>) {
+    return await this.mediaService.extractZipMp4(body.zipPath)
   }
 
-  async extractZipMp4(data: { zipPath: string }) {
-    return await this.mediaService.extractZipMp4(data.zipPath)
+  async cleanupTempPath({ body }: RequestHandler<{ targetPath: string }>) {
+    return await this.mediaService.cleanupTempPath(body.targetPath)
   }
 
-  async cleanupTempPath(data: { targetPath: string }) {
-    return await this.mediaService.cleanupTempPath(data.targetPath)
+  async update({ body }: RequestHandler<{ id: string; data: UpdateMediaDto }>) {
+    return await this.mediaService.update(parseInt(body.id), body.data)
   }
 
-  async update(id: string, data: UpdateMediaDto) {
-    return await this.mediaService.update(parseInt(id), data)
+  async deleteFile({ body }: RequestHandler<{ id: number }>) {
+    return await this.mediaService.deleteFile(body.id)
   }
 
-  async delete(id: string) {
-    return await this.mediaService.delete(parseInt(id))
-  }
-
-  async getMediaByIds(data: number[]) {
-    return await this.mediaService.getMediaByIds(data)
+  async getMediaByIds({ body }: RequestHandler<{ ids: number[] }>) {
+    return await this.mediaService.getMediaByIds(body.ids)
   }
 }

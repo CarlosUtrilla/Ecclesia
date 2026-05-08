@@ -1,5 +1,6 @@
 import { ThemesService } from './themes.service'
 import { CreateThemeDto, UpdateThemeDto } from './themes.dto'
+import { RequestHandler } from '../../utils/RequestHandler'
 
 export class ThemesController {
   private themesService: ThemesService
@@ -8,35 +9,35 @@ export class ThemesController {
     this.themesService = new ThemesService()
   }
 
-  async createTheme(data: CreateThemeDto) {
-    return await this.themesService.createTheme(data)
+  async createTheme({ body }: RequestHandler<CreateThemeDto>) {
+    return await this.themesService.createTheme(body)
   }
 
   async getAllThemes() {
     return await this.themesService.getAllThemes()
   }
 
-  async getThemeById(id: number) {
-    return await this.themesService.getThemeById(id)
+  async getThemeById({ body }: RequestHandler<{ id: number }>) {
+    return await this.themesService.getThemeById(body.id)
   }
 
-  async getThemeByName(name: string) {
-    return await this.themesService.getThemeByName(name)
+  async getThemeByName({ body }: RequestHandler<{ name: string }>) {
+    return await this.themesService.getThemeByName(body.name)
   }
 
-  async updateTheme(id: number, data: UpdateThemeDto) {
-    return await this.themesService.updateTheme(id, data)
+  async updateTheme({ body }: RequestHandler<{ id: number } & UpdateThemeDto>) {
+    return await this.themesService.updateTheme(body.id, body)
   }
 
-  async deleteTheme(id: number) {
-    return await this.themesService.deleteTheme(id)
+  async deleteTheme({ body }: RequestHandler<{ id: number }>) {
+    return await this.themesService.deleteTheme(body.id)
   }
 
-  async exportThemeToZip(id: number) {
-    return await this.themesService.exportThemeToZip(id)
+  async exportThemeToZip({ body }: RequestHandler<{ id: number }>) {
+    return await this.themesService.exportThemeToZip(body.id)
   }
 
-  async importThemeFromZip(zipPath: string) {
-    return await this.themesService.importThemeFromZip(zipPath)
+  async importThemeFromZip({ body }: RequestHandler<{ zipPath: string }>) {
+    return await this.themesService.importThemeFromZip(body.zipPath)
   }
 }

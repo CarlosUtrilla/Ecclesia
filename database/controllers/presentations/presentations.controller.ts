@@ -5,32 +5,33 @@ import type {
   UpdatePresentationDTO
 } from './presentations.dto'
 import Logger from 'electron-log'
+import { RequestHandler } from '../../utils/RequestHandler'
 
 export class PresentationsController {
   private presentationsService = new PresentationsService()
 
-  async createPresentation(data: CreatePresentationDTO) {
-    return this.presentationsService.createPresentation(data)
+  async createPresentation({ body }: RequestHandler<CreatePresentationDTO>) {
+    return this.presentationsService.createPresentation(body)
   }
 
-  async getPresentations(params?: GetPresentationsDTO) {
-    return this.presentationsService.getPresentations(params)
+  async getPresentations({ body }: RequestHandler<GetPresentationsDTO>) {
+    return this.presentationsService.getPresentations(body)
   }
 
-  async getPresentationsByIds(ids: number[]) {
-    return this.presentationsService.getPresentationsByIds(ids)
+  async getPresentationsByIds({ body }: RequestHandler<{ ids: number[] }>) {
+    return this.presentationsService.getPresentationsByIds(body.ids)
   }
 
-  async getPresentationById(id: number) {
-    Logger.info(`Fetching presentation with ID: ${id}, type of ID: ${typeof id}`)
-    return this.presentationsService.getPresentationById(id)
+  async getPresentationById({ body }: RequestHandler<{ id: number }>) {
+    Logger.info(`Fetching presentation with ID: ${body.id}, type of ID: ${typeof body.id}`)
+    return this.presentationsService.getPresentationById(body.id)
   }
 
-  async updatePresentation(id: number, data: UpdatePresentationDTO) {
-    return this.presentationsService.updatePresentation(id, data)
+  async updatePresentation({ body }: RequestHandler<{ id: number; data: UpdatePresentationDTO }>) {
+    return this.presentationsService.updatePresentation(body.id, body.data)
   }
 
-  async deletePresentation(id: number) {
-    return this.presentationsService.deletePresentation(id)
+  async deletePresentation({ body }: RequestHandler<{ id: number }>) {
+    return this.presentationsService.deletePresentation(body.id)
   }
 }

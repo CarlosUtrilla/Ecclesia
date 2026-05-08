@@ -1,3 +1,4 @@
+import { RequestHandler } from '../../utils/RequestHandler'
 import {
   CreateSelectedScreenDTO,
   UpdateSelectedScreenDTO,
@@ -9,40 +10,40 @@ import { ScreenRol } from '@prisma/client'
 class SelectedScreensController {
   private selectedScreensService = new SelectedScreensService()
 
-  async getAllSelectedScreens(filter?: SelectedScreenFilter) {
-    return await this.selectedScreensService.getAllSelectedScreens(filter)
+  async getAllSelectedScreens({ body }: RequestHandler<SelectedScreenFilter | undefined>) {
+    return await this.selectedScreensService.getAllSelectedScreens(body)
   }
 
-  async getSelectedScreenById(id: number) {
-    return await this.selectedScreensService.getSelectedScreenById(id)
+  async getSelectedScreenById({ body }: RequestHandler<{ id: number }>) {
+    return await this.selectedScreensService.getSelectedScreenById(body.id)
   }
 
-  async getSelectedScreenByScreenId(screenId: number) {
-    return await this.selectedScreensService.getSelectedScreenByScreenId(screenId)
+  async getSelectedScreenByScreenId({ body }: RequestHandler<{ screenId: number }>) {
+    return await this.selectedScreensService.getSelectedScreenByScreenId(body.screenId)
   }
 
-  async getSelectedScreensByRole(rol: ScreenRol) {
-    return await this.selectedScreensService.getSelectedScreensByRole(rol)
+  async getSelectedScreensByRole({ body }: RequestHandler<{ rol: ScreenRol }>) {
+    return await this.selectedScreensService.getSelectedScreensByRole(body.rol)
   }
 
-  async createSelectedScreen(data: CreateSelectedScreenDTO) {
-    return await this.selectedScreensService.createSelectedScreen(data)
+  async createSelectedScreen({ body }: RequestHandler<CreateSelectedScreenDTO>) {
+    return await this.selectedScreensService.createSelectedScreen(body)
   }
 
-  async updateSelectedScreen(data: UpdateSelectedScreenDTO) {
-    return await this.selectedScreensService.updateSelectedScreen(data)
+  async updateSelectedScreen({ body }: RequestHandler<UpdateSelectedScreenDTO>) {
+    return await this.selectedScreensService.updateSelectedScreen(body)
   }
 
-  async deleteSelectedScreen(id: number) {
-    return await this.selectedScreensService.deleteSelectedScreen(id)
+  async deleteSelectedScreen({ body }: RequestHandler<{ id: number }>) {
+    return await this.selectedScreensService.deleteSelectedScreen(body.id)
   }
 
-  async deleteSelectedScreenByScreenId(screenId: number) {
-    return await this.selectedScreensService.deleteSelectedScreenByScreenId(screenId)
+  async deleteSelectedScreenByScreenId({ body }: RequestHandler<{ screenId: number }>) {
+    return await this.selectedScreensService.deleteSelectedScreenByScreenId(body.screenId)
   }
 
-  async clearScreensByRole(rol: ScreenRol) {
-    return await this.selectedScreensService.clearScreensByRole(rol)
+  async clearScreensByRole({ body }: RequestHandler<{ rol: ScreenRol }>) {
+    return await this.selectedScreensService.clearScreensByRole(body.rol)
   }
 
   async clearAllScreens() {

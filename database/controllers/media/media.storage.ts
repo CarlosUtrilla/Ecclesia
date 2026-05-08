@@ -17,23 +17,23 @@ import {
 export const SUPPORTED_IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 export const SUPPORTED_VIDEO_FORMATS = ['.mp4', '.webm', '.mov', '.avi']
 
-function normalizeMediaPath(mediaPath: string): string {
+export function normalizeMediaPath(mediaPath: string): string {
   return mediaPath.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '')
 }
 
-function resolveMediaRoot(): string {
+export function resolveMediaRoot(): string {
   return path.join(app.getPath('userData'), 'media')
 }
 
-function resolveFilesRoot(): string {
+export function resolveFilesRoot(): string {
   return path.join(resolveMediaRoot(), 'files')
 }
 
-function resolveThumbnailsRoot(): string {
+export function resolveThumbnailsRoot(): string {
   return getThumbnailsPath(app.getPath('userData'))
 }
 
-function resolveNormalizedPath(base: string, relativePath: string): string {
+export function resolveNormalizedPath(base: string, relativePath: string): string {
   const normalized = normalizeMediaPath(relativePath)
   return path.join(base, ...normalized.split('/'))
 }
@@ -187,10 +187,9 @@ export async function importClipboardImage(
   }
 }
 
-export function deleteMediaFile(filePath: string, thumbnail?: string | null): boolean {
+export function deleteFile(filePath: string, thumbnail?: string | null): boolean {
   const mediaRoot = resolveMediaRoot()
-  const normalizedFilePath = normalizeMediaPath(filePath)
-  const fileFullPath = resolveNormalizedPath(mediaRoot, normalizedFilePath)
+  const fileFullPath = resolveNormalizedPath(mediaRoot, normalizeMediaPath(filePath))
 
   if (fs.existsSync(fileFullPath)) {
     fs.unlinkSync(fileFullPath)

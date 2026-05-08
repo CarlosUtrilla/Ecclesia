@@ -5,7 +5,6 @@ import {
   cleanupTempPath,
   copyMediaSource,
   createMediaFolder,
-  deleteMediaFile,
   deleteMediaFolder,
   extractZipMp4,
   importClipboardImage,
@@ -86,7 +85,7 @@ export function registerMediaHandlers() {
     'media:delete-file',
     async (_event, filePath: string, thumbnail?: string | null) => {
       try {
-        return deleteMediaFile(filePath, thumbnail)
+        //return deleteMedia(filePath, thumbnail)
       } catch (error: any) {
         console.error('Error al eliminar archivo:', error)
         throw error

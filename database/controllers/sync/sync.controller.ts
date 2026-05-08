@@ -1,3 +1,4 @@
+import { RequestHandler } from '../../utils/RequestHandler'
 import {
   ApplyPendingInboxBatchDTO,
   AckOutboxChangesDTO,
@@ -14,40 +15,40 @@ import SyncService from './sync.service'
 class SyncController {
   private syncService = new SyncService()
 
-  async getSyncState(data: SyncStateDTO) {
-    return await this.syncService.getSyncState(data)
+  async getSyncState({ body }: RequestHandler<SyncStateDTO>) {
+    return await this.syncService.getSyncState(body)
   }
 
-  async upsertSyncState(data: UpsertSyncStateDTO) {
-    return await this.syncService.upsertSyncState(data)
+  async upsertSyncState({ body }: RequestHandler<UpsertSyncStateDTO>) {
+    return await this.syncService.upsertSyncState(body)
   }
 
-  async appendOutboxChange(data: AppendOutboxChangeDTO) {
-    return await this.syncService.appendOutboxChange(data)
+  async appendOutboxChange({ body }: RequestHandler<AppendOutboxChangeDTO>) {
+    return await this.syncService.appendOutboxChange(body)
   }
 
-  async getPendingOutboxChanges(data: PendingOutboxChangesDTO) {
-    return await this.syncService.getPendingOutboxChanges(data)
+  async getPendingOutboxChanges({ body }: RequestHandler<PendingOutboxChangesDTO>) {
+    return await this.syncService.getPendingOutboxChanges(body)
   }
 
-  async acknowledgeOutboxChanges(data: AckOutboxChangesDTO) {
-    return await this.syncService.acknowledgeOutboxChanges(data)
+  async acknowledgeOutboxChanges({ body }: RequestHandler<AckOutboxChangesDTO>) {
+    return await this.syncService.acknowledgeOutboxChanges(body)
   }
 
-  async ingestRemoteChanges(data: IngestRemoteChangesDTO) {
-    return await this.syncService.ingestRemoteChanges(data)
+  async ingestRemoteChanges({ body }: RequestHandler<IngestRemoteChangesDTO>) {
+    return await this.syncService.ingestRemoteChanges(body)
   }
 
-  async getPendingInboxChanges(data: PendingInboxChangesDTO) {
-    return await this.syncService.getPendingInboxChanges(data)
+  async getPendingInboxChanges({ body }: RequestHandler<PendingInboxChangesDTO>) {
+    return await this.syncService.getPendingInboxChanges(body)
   }
 
-  async markInboxChangesApplied(data: MarkInboxAppliedDTO) {
-    return await this.syncService.markInboxChangesApplied(data)
+  async markInboxChangesApplied({ body }: RequestHandler<MarkInboxAppliedDTO>) {
+    return await this.syncService.markInboxChangesApplied(body)
   }
 
-  async applyPendingInboxBatch(data: ApplyPendingInboxBatchDTO) {
-    return await this.syncService.applyPendingInboxBatch(data)
+  async applyPendingInboxBatch({ body }: RequestHandler<ApplyPendingInboxBatchDTO>) {
+    return await this.syncService.applyPendingInboxBatch(body)
   }
 }
 

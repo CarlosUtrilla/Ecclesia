@@ -86,7 +86,7 @@ export function useMediaOperations(currentFolder: string | null) {
       })
 
       for (const mediaItem of mediaInsideFolder) {
-        await window.api.media.delete(mediaItem.id.toString())
+        await window.api.media.deleteFile(mediaItem.id)
         await window.mediaAPI.deleteFile(mediaItem.filePath, mediaItem.thumbnail)
       }
 
@@ -146,8 +146,7 @@ export function useMediaOperations(currentFolder: string | null) {
   // Eliminar
   const deleteMutation = useMutation({
     mutationFn: async (media: Media) => {
-      await window.api.media.delete(media.id.toString())
-      await window.mediaAPI.deleteFile(media.filePath, media.thumbnail)
+      await window.api.media.deleteFile(media.id)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
   })

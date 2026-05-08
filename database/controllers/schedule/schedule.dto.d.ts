@@ -18,3 +18,10 @@ export type ScheduleWithItems = Omit<Schedule, 'id'> & {
 export type AddScheduleItemDto = Omit<ScheduleItem, 'id' | 'scheduleId' | 'updatedAt'>
 
 export type ScheduleGroupTemplateDTO = ScheduleGroupTemplate
+
+export type CreateScheduleBody = {
+  name: string
+  dateFrom?: Date
+  dateTo?: Date
+  items?: AddScheduleItemDto[]
+}

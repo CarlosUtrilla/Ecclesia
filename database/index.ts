@@ -17,13 +17,14 @@ export async function initializeHttpServer() {
   app.use(
     cors({
       origin: true, // refleja el origin automáticamente
-      credentials: true
+      credentials: false
     })
   )
-  app.options(/.*/, cors())
   await initPrisma()
   registerRoutes(app)
   registerMediaServerRoutes(app)
+
+  // Ruta para subir archivos
 
   app.listen(port, () => {
     log.info(`Eclessia server running on port ${port}`)

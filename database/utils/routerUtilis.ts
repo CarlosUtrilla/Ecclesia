@@ -4,10 +4,37 @@ import { MEDIA_SERVER_PORT } from '../controllers/media/mediaServer.controller'
 import { Fetcher } from './fetcher'
 import Logger from 'electron-log'
 import { restoreDecimals } from '../middleware/decimal'
+import { USING_MULTER_KEY, UsingMulterOptions } from './multerDecorator'
+import multer from 'multer'
+
+const routeHandler =
+  (handler: (params: any) => Promise<any>) => async (req: any, res: express.Response) => {
+    try {
+      const result = await handler({
+        body: restoreDecimals(req.body),
+        file: req.file,
+        files: req.files,
+        req,
+        res
+      })
+
+      return res.json(result)
+    } catch (err: any) {
+      const rawMessage = err?.message || 'Unknown error'
+
+      const cleanedMessage = rawMessage.replace(/^Error invoking remote method '.*?':\s*/, '')
+
+      return res.status(500).json({
+        error: cleanedMessage
+      })
+    }
+  }
+
 export function registerRoutes(app: ReturnType<typeof express>) {
   // REGISTRO DE RUTAS EXPRESS DESDE CONTROLLERS
   for (const [namespace, ControllerClass] of Object.entries(routes)) {
     const proto = ControllerClass.prototype
+    Logger.info('Proto of', namespace, proto)
     const methodNames = Object.getOwnPropertyNames(proto).filter(
       (prop) => prop !== 'constructor' && typeof proto[prop] === 'function'
     )
@@ -15,25 +42,43 @@ export function registerRoutes(app: ReturnType<typeof express>) {
     const instance = new ControllerClass()
     for (const method of methodNames) {
       const channel = `${namespace}/${method}`
-      app.post(`/api/${channel}`, async (req, res) => {
-        const handler = instance[method].bind(instance)
-        try {
-          if (channel.includes('presentations/getPresentationById')) {
-            Logger.info(
-              `Received request on /api/${channel} with body:`,
-              req.body,
-              restoreDecimals(req.body)
-            )
-          }
-          const result = await handler(restoreDecimals(req.body))
-          return res.json(result)
-        } catch (err: any) {
-          const rawMessage = err?.message || 'Unknown error'
-          const cleanedMessage = rawMessage.replace(/^Error invoking remote method '.*?':\s*/, '')
-          Logger.error(`Error en endpoint /api/${channel}:`, cleanedMessage, rawMessage, err)
-          return res.status(500).json({ error: cleanedMessage })
+
+      /**
+       * Detectar metadata
+       */
+      const multerOptions = Reflect.getMetadata(USING_MULTER_KEY, proto, method) as
+        | UsingMulterOptions
+        | undefined
+
+      /**
+       * Si usa multer
+       */
+      if (multerOptions) {
+        const { maxFiles = 1, mode = 'single', path, fieldName } = multerOptions
+
+        Logger.info(`[UsingMulter] Registrando multer en ${channel}`, multerOptions)
+
+        let multerMiddleware
+
+        const upload = multer({
+          dest: path
+        })
+
+        if (mode === 'single') {
+          multerMiddleware = upload.single(fieldName)
+        } else {
+          multerMiddleware = upload.array(fieldName, maxFiles)
         }
-      })
+
+        app.post(`/api/${channel}`, multerMiddleware, routeHandler(instance[method].bind(instance)))
+
+        continue
+      }
+
+      /**
+       * Ruta normal
+       */
+      app.post(`/api/${channel}`, routeHandler(instance[method].bind(instance)))
     }
   }
 }

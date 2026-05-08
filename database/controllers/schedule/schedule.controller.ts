@@ -1,5 +1,6 @@
+import { RequestHandler } from '../../utils/RequestHandler'
 import { ScheduleGroupTemplateService } from './schedule-group.service'
-import { AddScheduleItemDto, UpdateScheduleDto } from './schedule.dto'
+import { AddScheduleItemDto, CreateScheduleBody, UpdateScheduleDto } from './schedule.dto'
 import { ScheduleService } from './schedule.service'
 
 export class ScheduleController {
@@ -10,36 +11,38 @@ export class ScheduleController {
     return this.scheduleService.getActualSchedule()
   }
 
-  createSchedule(name: string, dateFrom?: Date, dateTo?: Date, items?: AddScheduleItemDto[]) {
-    return this.scheduleService.createNewSchedule(name, dateFrom, dateTo, items)
+  createSchedule({ body }: RequestHandler<CreateScheduleBody>) {
+    return this.scheduleService.createNewSchedule(body.name, body.dateFrom, body.dateTo, body.items)
   }
 
   getAllSchedules() {
     return this.scheduleService.getAllSchedules()
   }
 
-  getSchedule(id: number) {
-    return this.scheduleService.getSchedule(id)
+  getSchedule({ body }: RequestHandler<{ id: number }>) {
+    return this.scheduleService.getSchedule(body.id)
   }
 
-  updateSchedule(id: number, data: UpdateScheduleDto) {
-    return this.scheduleService.updateSchedule(id, data)
+  updateSchedule({ body }: RequestHandler<{ id: number; data: UpdateScheduleDto }>) {
+    return this.scheduleService.updateSchedule(body.id, body.data)
   }
 
-  deleteSchedule(id: number) {
-    return this.scheduleService.deleteSchedule(id)
+  deleteSchedule({ body }: RequestHandler<{ id: number }>) {
+    return this.scheduleService.deleteSchedule(body.id)
   }
 
-  addItemToSchedule(scheduleId: number, itemData: AddScheduleItemDto) {
-    return this.scheduleService.addItemToSchedule(scheduleId, itemData)
+  addItemToSchedule({
+    body
+  }: RequestHandler<{ scheduleId: number; itemData: AddScheduleItemDto }>) {
+    return this.scheduleService.addItemToSchedule(body.scheduleId, body.itemData)
   }
 
-  deleteItemFromSchedule(scheduleId: number, itemId: number[]) {
-    return this.scheduleService.deleteItemFromSchedule(scheduleId, itemId)
+  deleteItemFromSchedule({ body }: RequestHandler<{ scheduleId: number; itemId: number[] }>) {
+    return this.scheduleService.deleteItemFromSchedule(body.scheduleId, body.itemId)
   }
 
-  async createGroupTemplate(data: { name: string; color: string }) {
-    return await this.scheduleTemplateService.createGroupTemplate(data)
+  async createGroupTemplate({ body }: RequestHandler<{ name: string; color: string }>) {
+    return await this.scheduleTemplateService.createGroupTemplate(body)
   }
 
   // Obtener todos los templates de grupos
@@ -48,17 +51,19 @@ export class ScheduleController {
   }
 
   // Obtener un template por ID
-  async getGroupTemplateById(id: number) {
-    return await this.scheduleTemplateService.getGroupTemplateById(id)
+  async getGroupTemplateById({ body }: RequestHandler<{ id: number }>) {
+    return await this.scheduleTemplateService.getGroupTemplateById(body.id)
   }
 
   // Actualizar un template de grupo
-  async updateGroupTemplate(id: number, data: { name?: string; color?: string }) {
-    return await this.scheduleTemplateService.updateGroupTemplate(id, data)
+  async updateGroupTemplate({
+    body
+  }: RequestHandler<{ id: number; data: { name?: string; color?: string } }>) {
+    return await this.scheduleTemplateService.updateGroupTemplate(body.id, body.data)
   }
 
   // Eliminar un template de grupo
-  async deleteGroupTemplate(id: number) {
-    return await this.scheduleTemplateService.deleteGroupTemplate(id)
+  async deleteGroupTemplate({ body }: RequestHandler<{ id: number }>) {
+    return await this.scheduleTemplateService.deleteGroupTemplate(body.id)
   }
 }

@@ -7,39 +7,44 @@ import type {
   UpdateSongBody
 } from './songs.dto'
 import SongImporter from './songImporter.service'
+import { RequestHandler } from '../../utils/RequestHandler'
 
 class SongsController {
   private songsService = new SongsService()
   private songImporter = new SongImporter()
-  async createSong(data: CreateSongDTO) {
-    return this.songsService.createSong(data)
+  async createSong({ body }: RequestHandler<CreateSongDTO>) {
+    return this.songsService.createSong(body)
   }
 
-  async getSongsByIds(ids: number[]) {
-    return this.songsService.getSongsByIds(ids)
+  async getSongsByIds({ body }: RequestHandler<{ ids: number[] }>) {
+    return this.songsService.getSongsByIds(body.ids)
   }
 
-  async getSongsInfiniteScroll(params: GetSongsDTO): Promise<SongsListResponseDTO> {
-    return this.songsService.getSongsInfiniteScroll(params)
+  async getSongsInfiniteScroll({
+    body
+  }: RequestHandler<GetSongsDTO>): Promise<SongsListResponseDTO> {
+    return this.songsService.getSongsInfiniteScroll(body)
   }
 
-  async getSongById(id: number) {
-    return this.songsService.getSongById(id)
+  async getSongById({ body }: RequestHandler<{ id: number }>) {
+    return this.songsService.getSongById(body.id)
   }
 
-  async updateSong(body: UpdateSongBody) {
+  async updateSong({ body }: RequestHandler<UpdateSongBody>) {
     return this.songsService.updateSong(body)
   }
 
-  async deleteSong(id: number): Promise<void> {
-    return this.songsService.deleteSong(id)
+  async deleteSong({ body }: RequestHandler<{ id: number }>): Promise<void> {
+    return this.songsService.deleteSong(body.id)
   }
 
-  async searchSongs(query: string, limit?: number) {
-    return this.songsService.searchSongs(query, limit)
+  async searchSongs({ body }: RequestHandler<{ query: string; limit?: number }>) {
+    return this.songsService.searchSongs(body.query, body.limit)
   }
 
-  async importSongsFromFile({ filesPath, source }: ImportSongsFromFileDTO) {
+  async importSongsFromFile({
+    body: { filesPath, source }
+  }: RequestHandler<ImportSongsFromFileDTO>) {
     return this.songImporter.importSongsFromFile(filesPath, source)
   }
 }

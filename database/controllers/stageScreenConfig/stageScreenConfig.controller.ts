@@ -1,3 +1,4 @@
+import { RequestHandler } from '../../utils/RequestHandler'
 import {
   StageScreenConfigFilterDTO,
   UpsertStageScreenConfigDTO,
@@ -10,39 +11,43 @@ import StageScreenConfigService from './stageScreenConfig.service'
 class StageScreenConfigController {
   private stageScreenConfigService = new StageScreenConfigService()
 
-  async getAllStageScreenConfigs(filter?: StageScreenConfigFilterDTO) {
-    return await this.stageScreenConfigService.getAllStageScreenConfigs(filter)
+  async getAllStageScreenConfigs({ body }: RequestHandler<StageScreenConfigFilterDTO>) {
+    return await this.stageScreenConfigService.getAllStageScreenConfigs(body)
   }
 
-  async getStageScreenConfigById(id: number) {
-    return await this.stageScreenConfigService.getStageScreenConfigById(id)
+  async getStageScreenConfigById({ body }: RequestHandler<{ id: number }>) {
+    return await this.stageScreenConfigService.getStageScreenConfigById(body.id)
   }
 
-  async getStageScreenConfigBySelectedScreenId(selectedScreenId: number) {
+  async getStageScreenConfigBySelectedScreenId({
+    body
+  }: RequestHandler<{ selectedScreenId: number }>) {
     return await this.stageScreenConfigService.getStageScreenConfigBySelectedScreenId(
-      selectedScreenId
+      body.selectedScreenId
     )
   }
 
-  async upsertStageScreenConfig(data: UpsertStageScreenConfigDTO) {
-    return await this.stageScreenConfigService.upsertStageScreenConfig(data)
+  async upsertStageScreenConfig({ body }: RequestHandler<UpsertStageScreenConfigDTO>) {
+    return await this.stageScreenConfigService.upsertStageScreenConfig(body)
   }
 
-  async updateStageScreenTheme(data: UpdateStageScreenThemeDTO) {
-    return await this.stageScreenConfigService.updateStageScreenTheme(data)
+  async updateStageScreenTheme({ body }: RequestHandler<UpdateStageScreenThemeDTO>) {
+    return await this.stageScreenConfigService.updateStageScreenTheme(body)
   }
 
-  async updateStageScreenLayout(data: UpdateStageScreenLayoutDTO) {
-    return await this.stageScreenConfigService.updateStageScreenLayout(data)
+  async updateStageScreenLayout({ body }: RequestHandler<UpdateStageScreenLayoutDTO>) {
+    return await this.stageScreenConfigService.updateStageScreenLayout(body)
   }
 
-  async updateStageScreenState(data: UpdateStageScreenStateDTO) {
-    return await this.stageScreenConfigService.updateStageScreenState(data)
+  async updateStageScreenState({ body }: RequestHandler<UpdateStageScreenStateDTO>) {
+    return await this.stageScreenConfigService.updateStageScreenState(body)
   }
 
-  async deleteStageScreenConfigBySelectedScreenId(selectedScreenId: number) {
+  async deleteStageScreenConfigBySelectedScreenId({
+    body
+  }: RequestHandler<{ selectedScreenId: number }>) {
     return await this.stageScreenConfigService.deleteStageScreenConfigBySelectedScreenId(
-      selectedScreenId
+      body.selectedScreenId
     )
   }
 }
