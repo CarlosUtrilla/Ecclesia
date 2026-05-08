@@ -22,7 +22,7 @@ Ecclesia utiliza skills globales para mejorar la calidad, performance y diseño 
 
 Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para planificacion y presentacion de cultos religiosos. Gestiona canciones, versiculos biblicos, medios (imagenes/videos), temas de presentacion y cronogramas de servicio que se proyectan en pantallas en vivo.
 
-**📖 Sistema de Chunks para Textos Bíblicos:** Documentación completa en [`app/SISTEMA_CHUNKS_BIBLICOS.md`](app/SISTEMA_CHUNKS_BIBLICOS.md) - explica cómo funciona la división inteligente de textos bíblicos largos, arquitectura de metadata objects, hidratación desde BD, navegación por chunks y preview de presentaciones.
+**📖 Sistema de Chunks para Textos Bíblicos:** Documentación completa en [`packages/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md`](packages/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md) - explica cómo funciona la división inteligente de textos bíblicos largos, arquitectura de metadata objects, hidratación desde BD, navegación por chunks y preview de presentaciones.
 
 ## Stack tecnologico
 
@@ -42,7 +42,7 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
   - `npm run test`
   - `npm run test:watch`
   - `npm run test:coverage`
-- Configuracion central: `vitest.config.ts`.
+- Configuracion central: `packages/desktop/vitest.config.ts`.
 - Setup global de matchers: `tests/setup/vitest.setup.ts`.
 - Para pruebas de componentes/DOM usar `// @vitest-environment jsdom` en el archivo de test.
 - Priorizar cobertura de seguridad en utilidades críticas (ej. sanitización HTML) y regresiones de lógica en módulos compartidos.
@@ -51,8 +51,8 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 
 | Tipo de código | Tests requeridos |
 | --- | --- |
-| Utilidades (`app/lib/`, `database/`) | Unit tests de todos los casos relevantes (happy path + edge cases + errores) |
-| Hooks compartidos (`app/hooks/`) | Tests con `renderHook` de comportamiento público |
+| Utilidades (`packages/desktop/app/lib/`, `apps/api/src/`) | Unit tests de todos los casos relevantes (happy path + edge cases + errores) |
+| Hooks compartidos (`packages/desktop/app/hooks/`) | Tests con `renderHook` de comportamiento público |
 | Controllers/Services del backend | Unit tests de lógica de negocio (mocking de Prisma si aplica) |
 | Componentes con lógica propia | Tests de comportamiento (no de snapshot): interacciones, estados, renders condicionales |
 | Schemas Zod (`schema.ts`) | Tests de validación: inputs válidos, inválidos y casos borde |
@@ -73,33 +73,31 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | --- | --- |
 | Crear o modificar un modelo en schema.prisma | [`prisma`](prisma/agents.md) |
 | Crear una migracion de base de datos | [`prisma`](prisma/agents.md) |
-| Agregar un campo a un modelo existente | [`prisma`](prisma/agents.md) + [`database`](database/agents.md) |
-| Crear un nuevo controller o service | [`database`](database/agents.md) |
-| Agregar un nuevo metodo IPC | [`database`](database/agents.md) + [`electron`](electron/agents.md) |
-| Modificar DTOs de entrada/salida | [`database`](database/agents.md) |
-| Crear o modificar un context/provider | [`contexts`](app/contexts/agents.md) |
-| Crear un nuevo hook compartido | [`contexts`](app/contexts/agents.md) |
-| Consumir datos del backend desde React | [`contexts`](app/contexts/agents.md) + [`database`](database/agents.md) |
-| Agregar un componente a la biblioteca (songs/media/bible) | [`library`](app/screens/panels/library/agents.md) |
-| Implementar drag & drop de un recurso al cronograma | [`library`](app/screens/panels/library/agents.md) + [`schedule`](app/screens/panels/schedule/agents.md) |
-| Modificar el cronograma o sus items | [`schedule`](app/screens/panels/schedule/agents.md) |
-| Modificar la logica de pantallas en vivo | [`schedule`](app/screens/panels/schedule/agents.md) + [`contexts`](app/contexts/agents.md) |
-| Crear o modificar un editor (cancion/tema/tags) | [`editors`](app/screens/editors/agents.md) |
-| Abrir una nueva ventana de Electron | [`electron`](electron/agents.md) + [`editors`](app/screens/editors/agents.md) |
-| Modificar PresentationView o sus sub-componentes | [`ui`](app/ui/agents.md) |
-| Usar animaciones con Framer Motion | [`ui`](app/ui/agents.md) |
-| Agregar un componente Shadcn UI | [`ui`](app/ui/agents.md) |
-| Trabajar con el media server o archivos de medios | [`electron`](electron/agents.md) + [`library`](app/screens/panels/library/agents.md) |
-| Modificar gestion de displays/pantallas | [`electron`](electron/agents.md) + [`contexts`](app/contexts/agents.md) |
-| Importar o gestionar biblias | [`electron`](electron/agents.md) + [`library`](app/screens/panels/library/agents.md) |
-| Agregar una nueva ruta en React Router | Leer `app/App.tsx` + [`electron`](electron/agents.md) si requiere ventana nueva |
-| Crear o modificar ventana de ajustes | [`electron`](electron/agents.md) + [`ui`](app/ui/agents.md) |
-| Modificar estilos globales o temas CSS | Leer `app/assets/globals.css` + [`ui`](app/ui/agents.md) |
+| Agregar un campo a un modelo existente | [`prisma`](prisma/agents.md) + [`api`](apps/api/agents.md) |
+| Crear un nuevo controller o service | [`api`](apps/api/agents.md) |
+| Agregar un nuevo metodo IPC | [`api`](apps/api/agents.md) + [`electron`](packages/desktop/electron/agents.md) |
+| Modificar DTOs de entrada/salida | [`api`](apps/api/agents.md) |
+| Consumir datos del backend desde React | [`contexts`](packages/desktop/app/contexts/agents.md) + [`api`](apps/api/agents.md) |
+| Agregar un componente a la biblioteca (songs/media/bible) | [`library`](packages/desktop/app/screens/panels/library/agents.md) |
+| Implementar drag & drop de un recurso al cronograma | [`library`](packages/desktop/app/screens/panels/library/agents.md) + [`schedule`](packages/desktop/app/screens/panels/schedule/agents.md) |
+| Modificar el cronograma o sus items | [`schedule`](packages/desktop/app/screens/panels/schedule/agents.md) |
+| Modificar la logica de pantallas en vivo | [`schedule`](packages/desktop/app/screens/panels/schedule/agents.md) + [`contexts`](packages/desktop/app/contexts/agents.md) |
+| Crear o modificar un editor (cancion/tema/tags) | [`editors`](packages/desktop/app/screens/editors/agents.md) |
+| Abrir una nueva ventana de Electron | [`electron`](packages/desktop/electron/agents.md) + [`editors`](packages/desktop/app/screens/editors/agents.md) |
+| Modificar PresentationView o sus sub-componentes | [`ui`](packages/desktop/app/ui/agents.md) |
+| Usar animaciones con Framer Motion | [`ui`](packages/desktop/app/ui/agents.md) |
+| Agregar un componente Shadcn UI | [`ui`](packages/desktop/app/ui/agents.md) |
+| Trabajar con el media server o archivos de medios | [`electron`](packages/desktop/electron/agents.md) + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
+| Modificar gestion de displays/pantallas | [`electron`](packages/desktop/electron/agents.md) + [`contexts`](packages/desktop/app/contexts/agents.md) |
+| Importar o gestionar biblias | [`electron`](packages/desktop/electron/agents.md) + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
+| Agregar una nueva ruta en React Router | Leer `packages/desktop/app/App.tsx` + [`electron`](packages/desktop/electron/agents.md) si requiere ventana nueva |
+| Crear o modificar ventana de ajustes | [`electron`](packages/desktop/electron/agents.md) + [`ui`](packages/desktop/app/ui/agents.md) |
+| Modificar estilos globales o temas CSS | Leer `packages/desktop/app/assets/globals.css` + [`ui`](packages/desktop/app/ui/agents.md) |
 
 ## Arquitectura general
 
 ```
-app/main.tsx (entry point React)
+packages/desktop/app/main.tsx (entry point React)
   -> QueryClientProvider (React Query)
   -> HashRouter
     -> App.tsx
@@ -121,6 +119,33 @@ app/main.tsx (entry point React)
               "/stage-screen/:displayId" -> StageScreen (ventana de escenario)
               "/stage-control" -> StageControlScreen (ventana de control stage)
               "/stage-layout" -> StageLayoutScreen (ventana de layout stage)
+```
+
+## Monorepo (Yarn Workspaces)
+
+```
+/
+├── prisma/                    # Schema + migraciones (compartido)
+├── packages/
+│   ├── api/                   # @ecclesia/api — capa de datos
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── prisma.ts      # setPrismaClient, getPrisma, setGetBiblesResourcesPath
+│   │   │   ├── routes.ts
+│   │   │   └── controllers/   # Bible, Songs, Media, Themes, etc.
+│   │   └── package.json
+│   └── desktop/               # @ecclesia/desktop — app Electron + React
+│       ├── app/               # Frontend React (main, screens, UI)
+│       ├── electron/          # Electron main process + preload
+│       ├── tests/
+│       ├── scripts/
+│       ├── resources/
+│       ├── locales/
+│       ├── electron.vite.config.ts
+│       ├── vitest.config.ts
+│       └── package.json
+├── package.json               # Yarn workspaces root
+└── AGENTS.md                  # Este archivo (router principal)
 ```
 
 ## Flujo de datos (IPC)
@@ -205,7 +230,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 
 ### Backend (Controllers/Services)
 
-*   Un controller por recurso, registrado en `database/routes.ts`.
+*   Un controller por recurso, registrado en `apps/api/src/routes.ts`.
 *   Services acceden a Prisma via `getPrisma()`. No usar singleton del service.
 *   Metodos del controller son `async`, reciben argumentos directamente (no req/res).
 *   Canal IPC: `{namespace}.{method}`. Se genera automaticamente al registrar en routes.
@@ -227,7 +252,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 
 ### IPC / API desde el renderer
 
-*   En componentes React (renderer), SIEMPRE usar `window.api.namespace.method()` para llamar al backend. NUNCA importar `api from 'database/api'` directamente en el renderer — ese módulo asume `window.api` internamente pero su import directo no está disponible correctamente en todas las ventanas Electron.
+*   En componentes React (renderer), SIEMPRE usar `window.api.namespace.method()` para llamar al backend. NUNCA importar `api from '@ecclesia/api'` directamente en el renderer — ese módulo asume `window.api` internamente pero su import directo no está disponible correctamente en todas las ventanas Electron.
 *   Los imports de **tipos** (`.dto.d.ts`) sí están permitidos en el renderer.
 
 ### Antes de modificar codigo
@@ -270,35 +295,58 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 ├── prisma/
 │   ├── agents.md                 <- Agent de schema/modelos
 │   └── schema.prisma
-├── database/
-│   ├── agents.md                 <- Agent de backend
-│   ├── routes.ts
-│   ├── index.ts
-│   └── controllers/
-├── electron/
-│   ├── agents.md                 <- Agent de Electron
-│   └── main/
-├── app/
-│   ├── App.tsx
-│   ├── main.tsx
-│   ├── contexts/
-│   │   └── agents.md             <- Agent de contexts/hooks
-│   ├── hooks/
-│   ├── screens/
-│   │   ├── editors/
-│   │   │   └── agents.md         <- Agent de editores
-│   │   └── panels/
-│   │       ├── library/
-│   │       │   └── agents.md     <- Agent de biblioteca
-│   │       └── schedule/
-│   │           └── agents.md     <- Agent de cronograma
-│   └── ui/
-│       └── agents.md             <- Agent de componentes UI
+├── apps/
+│   ├── api/
+│   │   ├── agents.md             <- Agent de backend (controllers/services)
+│   │   ├── src/
+│   │   │   ├── index.ts
+│   │   │   ├── prisma.ts         <- setPrismaClient, getPrisma, injectables
+│   │   │   ├── prisma-init.ts    <- initializeDatabase(), migraciones, backup
+│   │   │   ├── routes.ts
+│   │   │   ├── outboxPayload.ts  <- serializeOutboxPayload() BigInt-safe
+│   │   │   └── controllers/      <- Bible, Songs, Media, Themes, etc.
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma
+│   │   │   └── migrations/
+│   │   └── package.json
+│   └── desktop/
+│       ├── agents.md             <- Agent de Electron (main process)
+│       ├── electron/
+│       │   ├── main/             <- Main process, window manager, IPC managers
+│       │   │   ├── prisma.ts     <- Thin wrapper llamando a @ecclesia/api
+│       │   │   ├── index.ts      <- Entry point, startup orchestration
+│       │   │   └── bibleManager/
+│       │   │       └── bibleManager.ts  <- setGetBiblesResourcesPath() inyectado
+│       │   └── preload/
+│       │       └── index.ts
+│       ├── app/
+│       │   ├── App.tsx
+│       │   ├── main.tsx
+│       │   ├── contexts/
+│       │   │   └── agents.md     <- Agent de contexts/hooks
+│       │   ├── hooks/
+│       │   ├── screens/
+│       │   │   ├── editors/
+│       │   │   │   └── agents.md  <- Agent de editores
+│       │   │   └── panels/
+│       │   │       ├── library/
+│       │   │       │   └── agents.md  <- Agent de biblioteca
+│       │   │       └── schedule/
+│       │   │           └── agents.md  <- Agent de cronograma
+│       │   └── ui/
+│       │       └── agents.md     <- Agent de componentes UI
+│       ├── tests/
+│       ├── scripts/
+│       ├── package.json
+│       ├── electron.vite.config.ts
+│       └── vitest.config.ts
+├── package.json                  <- Yarn workspaces root
+└── AGENTS.md                     <- ESTE ARCHIVO (router principal)
 ```
 
 ## Integración ScheduleContext, Schedule y Library
 
-* La carpeta `app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
+* La carpeta `packages/desktop/app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
 * Los items de biblioteca (songs, media, bible) se agregan al cronograma por drag & drop o acciones directas (click/context menu), usando los métodos del contexto (`addItemToSchedule`, etc.).
 * Ver detalles y flujos completos en los agents de cada módulo.
 * Controles de emergencia en live desde teclado del operador: `F7` (activar live), `F9` (ocultar texto solo en live), `F10` (mostrar logo/fallback sin quitar item), `F11` (pantalla negra), `Escape` (limpiar item live sin cerrar ventana).

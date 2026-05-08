@@ -2,13 +2,17 @@
   "files": [],
   "references": [
     {
-      "path": "./packages/desktop"
+      "path": "./tsconfig.node.json"
     },
     {
-      "path": "./packages/database"
+      "path": "./tsconfig.web.json"
     }
   ],
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./app/*"]
+    },
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   }

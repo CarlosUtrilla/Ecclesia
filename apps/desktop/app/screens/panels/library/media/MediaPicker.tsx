@@ -1,0 +1,333 @@
+import { useEffect, useState } from 'react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog'
+import { Button } from '@/ui/button'
+import { Input } from '@/ui/input'
+import { Search, Home, ChevronRight, LayoutGrid, List } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { MediaFilterDto, MediaDto } from '@ecclesia/api/src/controllers/media/media.dto'
+import { Media, MediaType } from './types'
+import { MediaGrid } from './MediaGrid'
+import { MediaList } from './MediaList'
+import { formatFileSize, normalizeFolder, buildFolderPath } from './utils'
+import { useMediaOperations } from './hooks/useMediaOperations'
+import { useDragAndDrop } from './hooks/useDragAndDrop'
+
+interface MediaPickerProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSelect: (media: Media) => void
+  filterType?: MediaType // 'IMAGE' o 'VIDEO'
+  title?: string
+  footerExtra?: React.ReactNode
+}
+
+export function MediaPicker({
+  open,
+  onOpenChange,
+  onSelect,
+  filterType,
+  title = 'Seleccionar archivo'
+}: MediaPickerProps) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
+  const [conversionProgress, setConversionProgress] = useState<{
+    fileName: string
+    progress: number
+  } | null>(null)
+
+  const operations = useMediaOperations(currentFolder)
+
+  // Drag and drop para importar archivos
+  const dragAndDrop = useDragAndDrop({
+    onFilesDropped: (filePaths) => {
+      operations.importMutation.mutate(filePaths)
+    }
+  })
+
+  const {
+    data: mediaData,
+    isLoading,
+    refetch
+  } = useQuery({
+    queryKey: ['media', searchTerm, currentFolder, filterType],
+    queryFn: async () => {
+      const params: MediaFilterDto = {
+        ...(searchTerm ? { search: searchTerm } : {}),
+        ...(filterType ? { type: filterType } : {})
+      }
+      const allMedia = await window.api.media.findAll(params)
+
+      const filteredItems = allMedia.items.filter(
+        (item: MediaDto) => normalizeFolder(item.folder) === currentFolder
+      )
+
+      return { ...allMedia, items: filteredItems as Media[] }
+    }
+  })
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders', currentFolder],
+    queryFn: () => window.mediaAPI.listFolders(currentFolder || undefined)
+  })
+
+  const mediaItems = mediaData?.items || []
+  const breadcrumbs = currentFolder?.split('/') || []
+
+  const handleSelect = () => {
+    if (selectedMedia) {
+      onSelect(selectedMedia)
+      onOpenChange(false)
+      setSelectedMedia(null)
+      setCurrentFolder(null)
+    }
+  }
+
+  const navigateToFolder = (folderName: string | null) => {
+    setCurrentFolder(folderName ? buildFolderPath(currentFolder, folderName) : null)
+    setSelectedMedia(null)
+  }
+
+  const handleItemClick = (item: Media) => {
+    setSelectedMedia(item)
+  }
+
+  const handleImport = async () => {
+    try {
+      const filePaths = await window.mediaAPI.selectFiles(filterType || 'all')
+      if (filePaths.length > 0) {
+        await operations.importMutation.mutateAsync(filePaths)
+      }
+    } catch (error) {
+      console.error('Error en importación:', error)
+    }
+  }
+  // Escuchar progreso de conversión de video
+  useEffect(() => {
+    const unsubscribe = window.mediaAPI.onImportProgress(({ progress, fileName }) => {
+      setConversionProgress({ fileName, progress })
+
+      if (progress >= 100) {
+        setTimeout(() => {
+          refetch()
+          setConversionProgress(null)
+        }, 500)
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+
+  const loading =
+    isLoading || operations.importMutation.isPending || operations.deleteMutation.isPending
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Selecciona un archivo de la biblioteca de medios
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header - Búsqueda y vista */}
+          <div className="px-6 py-3 border-b">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar medios..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              <div className="flex border rounded-md">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="rounded-r-none"
+                  onClick={() => setViewMode('grid')}
+                  title="Vista de cuadrícula"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="rounded-l-none"
+                  onClick={() => setViewMode('list')}
+                  title="Vista de lista"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Breadcrumbs */}
+          <div className="px-6 py-3 border-b">
+            <div className="flex items-center gap-1 text-sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => navigateToFolder(null)}
+              >
+                <Home className="h-3 w-3" />
+              </Button>
+              {breadcrumbs.map((crumb, index) => (
+                <div key={crumb} className="flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => {
+                      const path = breadcrumbs.slice(0, index + 1).join('/')
+                      setCurrentFolder(path)
+                    }}
+                  >
+                    {crumb}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Grid/List */}
+          <div
+            className="flex-1 overflow-auto px-6 py-3 relative"
+            onDragEnter={dragAndDrop.handleDragEnter}
+            onDragOver={dragAndDrop.handleDragOver}
+            onDragLeave={dragAndDrop.handleDragLeave}
+            onDrop={dragAndDrop.handleDrop}
+          >
+            {/* Overlay cuando se está arrastrando */}
+            {dragAndDrop.isDragging && (
+              <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50">
+                <div className="bg-background rounded-lg p-8 shadow-lg pointer-events-none">
+                  <p className="text-lg font-semibold">Suelta los archivos aquí</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Se importarán a {currentFolder || 'la raíz'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : viewMode === 'grid' ? (
+              <MediaGrid
+                items={mediaItems}
+                folders={folders}
+                currentFolder={currentFolder}
+                onDelete={() => {}}
+                onDeleteFolder={() => {}}
+                onNavigateToFolder={navigateToFolder}
+                onCopy={() => {}}
+                onCut={() => {}}
+                onRename={() => {}}
+                formatFileSize={formatFileSize}
+                onItemClick={(item, e) => {
+                  if (typeof item !== 'string') {
+                    e.preventDefault()
+                    handleItemClick(item)
+                  } else {
+                    navigateToFolder(item)
+                  }
+                }}
+                isSelected={(item) => {
+                  if (typeof item === 'string') return false
+                  return selectedMedia?.id === item.id
+                }}
+              />
+            ) : (
+              <MediaList
+                items={mediaItems}
+                folders={folders}
+                onDelete={() => {}}
+                onDeleteFolder={() => {}}
+                onNavigateToFolder={navigateToFolder}
+                onCopy={() => {}}
+                onCut={() => {}}
+                onRename={() => {}}
+                onItemClick={(item, e) => {
+                  if (typeof item !== 'string') {
+                    e.preventDefault()
+                    handleItemClick(item)
+                  } else {
+                    navigateToFolder(item)
+                  }
+                }}
+                isSelected={(item) => {
+                  if (typeof item === 'string') return false
+                  return selectedMedia?.id === item.id
+                }}
+              />
+            )}
+          </div>
+          {loading && (
+            <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+                {conversionProgress ? (
+                  <>
+                    <p className="mt-2 text-sm font-medium">
+                      Convirtiendo video &quot;{conversionProgress.fileName}&quot;
+                    </p>
+                    <div className="mt-2 w-48 mx-auto bg-secondary rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-primary h-full transition-all duration-300"
+                        style={{ width: `${conversionProgress.progress}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {conversionProgress.progress}% - Optimizando para máxima compatibilidad
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">Cargando...</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t flex justify-between items-center">
+          <div className="text-sm text-muted-foreground">
+            {selectedMedia ? (
+              <span>
+                Seleccionado: <strong>{selectedMedia.name}</strong> (
+                {formatFileSize(selectedMedia.fileSize)})
+              </span>
+            ) : (
+              <span>Selecciona un archivo</span>
+            )}
+          </div>
+          <div className="flex gap-2 items-center">
+            {filterType === 'VIDEO' && (
+              <Button size="sm" variant="secondary" onClick={handleImport} className="h-8">
+                Importar video
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSelect} disabled={!selectedMedia}>
+              Seleccionar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

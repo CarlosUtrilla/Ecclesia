@@ -1,0 +1,92 @@
+import { ScheduleItemType } from '@ecclesia/api'
+import { ThemeWithMedia } from '@ecclesia/api/src/controllers/themes/themes.dto'
+import { BibleChunkWithMetadata } from '@/lib/splitLongBibleVerse'
+
+export { ThemeWithMedia }
+
+export type PresentationRenderableResourceType = ScheduleItemType | 'TEXT' | 'SHAPE'
+
+export type TextBoundsValues = {
+  paddingInline: number
+  paddingBlock: number
+  translateX: number
+  translateY: number
+}
+
+export type EditableBoundsTarget = 'text' | 'verse'
+
+export type PresentationViewProps = {
+  maxHeight?: number
+  presentationHeight?: number
+  theme: ThemeWithMedia
+  live?: boolean
+  currentIndex?: number
+  presentationVerseBySlideKey?: Record<string, number>
+  themeTransitionKey?: number
+  hideTextInLive?: boolean
+  items: PresentationViewItems[]
+  onClick?: (e?: React.MouseEvent) => void
+  onDoubleClick?: (e?: React.MouseEvent) => void
+  selected?: boolean
+  tagSongId?: number | null
+  className?: string
+  displayId?: number
+  customAspectRatio?: string
+  style?: React.CSSProperties
+  showTextBounds?: boolean
+  textBoundsIsSelected?: boolean
+  bibleVerseIsSelected?: boolean
+  onTextBoundsChange?: (next: TextBoundsValues) => void
+  onBibleVersePositionChange?: (next: number) => void
+  onBibleVerseWidthChange?: (next: number) => void
+  onBibleVerseTranslateXChange?: (next: number) => void
+  onBibleVerseHorizontalBoundsChange?: (next: { widthPercent: number; translateX: number }) => void
+  onEditableTargetSelect?: (target: EditableBoundsTarget) => void
+}
+
+export type PresentationViewItems = {
+  id?: string
+  text: string
+  chunks?: BibleChunkWithMetadata[]
+  theme?: ThemeWithMedia
+  videoLiveBehavior?: 'auto' | 'manual'
+  videoLoop?: boolean
+  customStyle?: string
+  animationSettings?: string
+  transitionSettings?: string
+  layer?: number
+  media?: {
+    id: number
+    name: string
+    type: 'IMAGE' | 'VIDEO'
+    filePath: string
+    duration?: number | null
+    thumbnail?: string | null
+    format?: string
+  }
+  presentationItems?: PresentationLayerItem[]
+  verse?: {
+    bookId: number
+    chapter: number
+    verse: number
+    verseEnd?: number
+    version: string
+  }
+  resourceType: PresentationRenderableResourceType
+}
+
+export type PresentationLayerItem = {
+  id: string
+  text: string
+  chunks?: BibleChunkWithMetadata[]
+  videoLoop?: boolean
+  shapeType?: 'rectangle' | 'circle' | 'arrow' | 'line-arrow' | 'triangle' | 'line' | 'cross'
+  customStyle?: string
+  animationSettings?: string
+  layer?: number
+  media?: PresentationViewItems['media']
+  verse?: PresentationViewItems['verse']
+  resourceType: PresentationRenderableResourceType
+}
+
+export type ScreenSize = { width: number; height: number; aspectRatio: string }
