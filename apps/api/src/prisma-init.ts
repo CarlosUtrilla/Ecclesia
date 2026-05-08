@@ -252,7 +252,10 @@ function registerOutboxMiddleware(client: PrismaClient, userDataPath: string) {
           .filter(isRecordWithId)
           .map((row) => ({ id: String(row.id), updatedAt: row.updatedAt }))
       } catch (error) {
-        console.error(`[sync-outbox] No se pudo pre-capturar registros para ${model}.${action}:`, error)
+        console.error(
+          `[sync-outbox] No se pudo pre-capturar registros para ${model}.${action}:`,
+          error
+        )
       }
     }
 
@@ -400,9 +403,7 @@ async function getAppliedMigrations(dbPath: string): Promise<string[]> {
 async function getAvailableMigrations(migrationsPath: string): Promise<string[]> {
   try {
     const migrationDirs = await fs.readdir(migrationsPath)
-    return migrationDirs
-      .filter((dir) => dir.match(/^\d{14}_/))
-      .sort()
+    return migrationDirs.filter((dir) => dir.match(/^\d{14}_/)).sort()
   } catch (error) {
     console.error('Error al listar migraciones disponibles:', error)
     return []
@@ -506,7 +507,13 @@ async function applyMigrationManually(
   }
 }
 
-async function runMigrations(dbPath: string, isDev: boolean, cwd: string, resourcesPath: string, userDataPath: string) {
+async function runMigrations(
+  dbPath: string,
+  isDev: boolean,
+  cwd: string,
+  resourcesPath: string,
+  userDataPath: string
+) {
   try {
     console.log('🔄 Ejecutando migraciones en la base de datos local...')
     console.log('📁 DB Path:', dbPath)
@@ -536,12 +543,7 @@ async function runMigrations(dbPath: string, isDev: boolean, cwd: string, resour
         )
       }
       if (!fs.existsSync(migrationsPath)) {
-        migrationsPath = path.join(
-          resourcesPath,
-          'app.asar.unpacked',
-          'prisma',
-          'migrations'
-        )
+        migrationsPath = path.join(resourcesPath, 'app.asar.unpacked', 'prisma', 'migrations')
       }
     }
 
@@ -831,7 +833,7 @@ async function initializeDatabase(config: DatabaseConfig) {
     const isDev = config.isDev
 
     const destDbPath = isDev
-      ? path.resolve(config.cwd, 'prisma', 'dev.db')
+      ? path.resolve('..', 'api', 'prisma', 'dev.db')
       : path.join(config.userDataPath, 'dev.db')
 
     if (!(await fs.pathExists(destDbPath))) {
@@ -878,7 +880,13 @@ async function initializeDatabase(config: DatabaseConfig) {
         console.log('✅ Base de datos limpia copiada desde el proyecto')
       } else {
         console.log('🆕 Creando nueva base de datos desde cero...')
-        await runMigrations(destDbPath, isDev, config.cwd, config.resourcesPath, config.userDataPath)
+        await runMigrations(
+          destDbPath,
+          isDev,
+          config.cwd,
+          config.resourcesPath,
+          config.userDataPath
+        )
       }
 
       if (backupPathForMigration && hasData) {
@@ -896,12 +904,20 @@ async function initializeDatabase(config: DatabaseConfig) {
     }
 
     console.log('🔄 Aplicando migraciones pendientes...')
-    const migrationSuccess = await runMigrations(destDbPath, isDev, config.cwd, config.resourcesPath, config.userDataPath)
+    const migrationSuccess = await runMigrations(
+      destDbPath,
+      isDev,
+      config.cwd,
+      config.resourcesPath,
+      config.userDataPath
+    )
 
     if (!migrationSuccess) {
       const hasData = await hasUserData(destDbPath)
       if (hasData) {
-        console.error('❌ ERROR: La migración falló pero hay datos de usuario. Se usará la DB actual.')
+        console.error(
+          '❌ ERROR: La migración falló pero hay datos de usuario. Se usará la DB actual.'
+        )
         console.warn('⚠️ Revisa los logs y considera aplicar la migración manualmente.')
       } else {
         console.log('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
@@ -911,9 +927,21 @@ async function initializeDatabase(config: DatabaseConfig) {
 
         if (await fs.pathExists(srcDbPath)) {
           await fs.copy(srcDbPath, destDbPath)
-          await runMigrations(destDbPath, isDev, config.cwd, config.resourcesPath, config.userDataPath)
+          await runMigrations(
+            destDbPath,
+            isDev,
+            config.cwd,
+            config.resourcesPath,
+            config.userDataPath
+          )
         } else {
-          await runMigrations(destDbPath, isDev, config.cwd, config.resourcesPath, config.userDataPath)
+          await runMigrations(
+            destDbPath,
+            isDev,
+            config.cwd,
+            config.resourcesPath,
+            config.userDataPath
+          )
         }
       }
     }

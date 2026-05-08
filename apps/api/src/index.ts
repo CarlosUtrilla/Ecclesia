@@ -5,11 +5,13 @@ import {
   MEDIA_SERVER_PORT
 } from './controllers/media/mediaServer.controller'
 import { registerRoutes, exposeRoutes } from './utils/routerUtilis'
+import { DatabaseConfig, initializeDatabase } from './prisma-init'
 
-export async function initializeHttpServer() {
+export async function initializeHttpServer(config: DatabaseConfig) {
   const app = express()
   const port = MEDIA_SERVER_PORT
 
+  await initializeDatabase(config)
   app.use(express.json())
 
   app.use(
@@ -36,11 +38,6 @@ export {
   BibleDescriptionMode,
   BibleDescriptionPosition
 } from '@prisma/client'
-export type {
-  Media,
-  ScheduleItem,
-  ScreenRol,
-  TagSongs
-} from '@prisma/client'
+export type { Media, ScheduleItem, ScreenRol, TagSongs } from '@prisma/client'
 export type { PrismaClient } from '@prisma/client'
 export default api

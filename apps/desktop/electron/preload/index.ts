@@ -7,7 +7,6 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { exposeRoutes, type RoutesTypes } from '@ecclesia/api'
 import { bibleAPI } from '../main/bibleManager'
 import { mediaAPI } from '../main/mediaManager'
 import { displayAPI } from '../main/displayManager/displaysMethods'
@@ -59,8 +58,7 @@ export const HandleManagers = {
   displayAPI,
   liveMediaAPI,
   googleDriveSyncAPI,
-  updaterAPI,
-  api: exposeRoutes() as RoutesTypes
+  updaterAPI
 }
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -78,8 +76,6 @@ if (process.contextIsolated) {
   window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.liveMediaAPI = liveMediaAPI
-  // @ts-ignore (define in dts)
-  window.api = api
   // @ts-ignore (define in dts)
   window.windowAPI = windowAPI
   // @ts-ignore (define in dts)

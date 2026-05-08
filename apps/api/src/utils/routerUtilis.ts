@@ -6,6 +6,7 @@ import { Fetcher } from './fetcher'
 import { restoreDecimals } from '../middleware/decimal'
 import { USING_MULTER_KEY, UsingMulterOptions } from './multerDecorator'
 import multer from 'multer'
+import 'reflect-metadata'
 
 const routeHandler =
   (handler: (params: any) => Promise<any>) => async (req: any, res: express.Response) => {
@@ -36,10 +37,10 @@ export function registerRoutes(app: ReturnType<typeof express>) {
     const proto = ControllerClass.prototype
     console.info('Proto of', namespace, proto)
     const methodNames = Object.getOwnPropertyNames(proto).filter(
-      (prop) => prop !== 'constructor' && typeof proto[prop] === 'function'
+      (prop) => prop !== 'constructor' && typeof (proto as any)[prop] === 'function'
     )
 
-    const instance = new ControllerClass()
+    const instance = new ControllerClass() as any
     for (const method of methodNames) {
       const channel = `${namespace}/${method}`
 

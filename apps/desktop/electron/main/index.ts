@@ -1,9 +1,8 @@
 import { initializeLiveMediaManager } from './liveMediaController/liveMediaController'
 import { app, BrowserWindow, ipcMain, session } from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { initializeHttpServer } from '@ecclesia/api'
-import { initPrisma, getPrisma } from './prisma'
 import { getBiblesResourcesPath } from './bibleManager/bibleManager'
 import { setGetBiblesResourcesPath } from '@ecclesia/api/src/prisma'
 import {
@@ -40,7 +39,8 @@ BigInt.prototype.toJSON = function () {
 }
 
 async function clearPersistedStageTimersOnShutdown() {
-  try {
+  //REPARAR ESTO
+  /* try {
     const prisma = getPrisma()
     const configs = await prisma.stageScreenConfig.findMany({
       select: {
@@ -85,7 +85,7 @@ async function clearPersistedStageTimersOnShutdown() {
     }
   } catch (error) {
     console.error('Error al limpiar timers stage al cerrar la aplicación:', error)
-  }
+  }*/
 }
 
 // This method will be called when Electron has finished
@@ -107,11 +107,15 @@ app.whenReady().then(async () => {
   await applyPendingDriveRestoreOnStartup()
 
   updateSplashStatus('Inicializando base de datos...')
-  await initPrisma()
   setGetBiblesResourcesPath(getBiblesResourcesPath)
-
-  updateSplashStatus('Cargando servicios...')
-  await initializeHttpServer()
+  const isDev = !app.isPackaged
+  const config = {
+    isDev,
+    userDataPath: app.getPath('userData'),
+    resourcesPath: process.resourcesPath || path.join(app.getAppPath(), '..'),
+    cwd: process.cwd()
+  }
+  await initializeHttpServer(config)
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.ecclesia.app')

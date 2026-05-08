@@ -9,7 +9,11 @@ dotenv.config()
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: ['@ecclesia/api', '@ecclesia/queries']
+      })
+    ],
     define: {
       __GH_TOKEN__: JSON.stringify(process.env['GH_TOKEN'] ?? ''),
       __GOOGLE_CLIENT_ID__: JSON.stringify(process.env['GOOGLE_DRIVE_CLIENT_ID'] ?? ''),
@@ -41,7 +45,11 @@ export default defineConfig({
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: ['@ecclesia/api', '@ecclesia/queries']
+      })
+    ],
     build: {
       lib: {
         entry: 'electron/preload/index.ts',
