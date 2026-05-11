@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { AppsImportersIcons } from '@/icons/appsImporters'
 import { Download, FolderOpen, Upload } from 'lucide-react'
 import { queryClient } from '@/main'
+import { Api } from '@ecclesia/queries'
 
 export default function SongImporter() {
   const [openDialog, setOpenDialog] = useState(false)
@@ -17,9 +18,11 @@ export default function SongImporter() {
   const handleImport = async () => {
     if (selectedPaths.length > 0 && selectedApp) {
       try {
-        await window.api.songs.importSongsFromFile({
-          filesPath: selectedPaths,
-          source: selectedApp
+        await Api.fetch.songs.importSongsFromFile({
+          body: {
+            filesPath: selectedPaths,
+            source: selectedApp
+          }
         })
         setOpenDialog(false)
         queryClient.invalidateQueries({

@@ -9,6 +9,7 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import PresentationLibraryItem from './components/PresentationLibraryItem'
 import PresentationPreview from './components/PresentationPreview'
+import { Api } from '@ecclesia/queries'
 
 export default function PresentationsPanel() {
   const [search, setSearch] = useState('')
@@ -48,8 +49,7 @@ export default function PresentationsPanel() {
   }, [presentations])
 
   const { data: presentationMedia = [], refetch: refetchPresentationMedia } = useQuery({
-    queryKey: ['presentationLibraryMedia', presentationMediaIds],
-    queryFn: async () => window.api.media.getMediaByIds(presentationMediaIds),
+    ...Api.query.media.getMediaByIds({ body: { ids: presentationMediaIds } }),
     enabled: presentationMediaIds.length > 0
   })
 
@@ -112,7 +112,9 @@ export default function PresentationsPanel() {
                 onDelete={async () => {
                   const ok = window.confirm('¿Eliminar esta presentación?')
                   if (!ok) return
-                  await window.api.presentations.deletePresentation(presentation.id)
+                  await Api.fetch.presentations.deletePresentation({
+                    body: { id: presentation.id }
+                  })
                   await refetchPresentations()
                 }}
               />

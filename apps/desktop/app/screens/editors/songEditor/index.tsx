@@ -14,6 +14,7 @@ import { Tags } from 'lucide-react'
 import { BlockEditor } from './richEditor/utils'
 import { ThemeWithMedia } from '../../../ui/PresentationView/types'
 import { BlankTheme } from '@/hooks/useThemes'
+import { Api } from '@ecclesia/queries'
 
 export default function SongEditor() {
   const { id } = useParams()
@@ -42,7 +43,7 @@ export default function SongEditor() {
     }
 
     const fetchSong = async () => {
-      const song = await window.api.songs.getSongById(Number(id))
+      const song = await Api.fetch.songs.getSongById({ body: { id: Number(id) } })
       if (song) {
         const normalizedLyrics = [...song.lyrics]
           .map((lyric) => [
@@ -84,9 +85,9 @@ export default function SongEditor() {
     try {
       data.lyrics = data.lyrics.filter((l) => l.content !== '')
       if (id !== undefined) {
-        await window.api.songs.updateSong({ id: Number(id), data })
+        await Api.fetch.songs.updateSong({ body: { id: Number(id), data } })
       } else {
-        await window.api.songs.createSong(data)
+        await Api.fetch.songs.createSong({ body: data })
       }
       window.electron.ipcRenderer.send('song-saved')
       window.googleDriveSyncAPI.notifyAutoSaveEvent()

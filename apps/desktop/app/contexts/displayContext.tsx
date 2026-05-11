@@ -2,7 +2,7 @@ import NewDisplayConected from '@/screens/new-display-connected'
 import type { ScreenRol } from '@ecclesia/api'
 import { DisplayInfo } from 'electron/main/displayManager/displayType'
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react'
-
+import { Api } from '@ecclesia/queries'
 export interface DisplayWithUsage extends DisplayInfo {
   inUse: boolean
   type: ScreenRol | null
@@ -25,7 +25,7 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
   const fetchDisplays = async () => {
     try {
       const displayInfo = await window.displayAPI.getDisplays()
-      const savedDisplays = (await window.api.selectedScreens.getAllSelectedScreens()) || []
+      const savedDisplays = (await Api.fetch.selectedScreens.getAllSelectedScreens()) || []
 
       // Comprobar si alguna de las pantallas del sistema no esta guardada o configurada
       const screenInUse = displayInfo.filter((display) =>

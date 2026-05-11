@@ -3,6 +3,7 @@ import useBibleVersions from '@/hooks/useBibleVersions'
 import { AutoComplete, Option } from '@/ui/autocomplete'
 import { Tooltip } from '@/ui/tooltip'
 import { BookOpen, Check } from 'lucide-react'
+import { Api } from '@ecclesia/queries'
 
 type Props = {
   value: string
@@ -59,18 +60,21 @@ export default function BibleVersionSelector({
             ? previewSource.verses
             : Array.from(
                 {
-                  length: (previewSource.verseEnd ?? previewSource.verseStart) -
+                  length:
+                    (previewSource.verseEnd ?? previewSource.verseStart) -
                     previewSource.verseStart +
                     1
                 },
                 (_, index) => previewSource.verseStart + index
               )
 
-        const result = await window.api.bible.getVerses({
-          book: previewSource.bookId,
-          chapter: previewSource.chapter,
-          verses,
-          version
+        const result = await Api.fetch.bible.getVerses({
+          body: {
+            book: previewSource.bookId,
+            chapter: previewSource.chapter,
+            verses,
+            version
+          }
         })
 
         const previewText = trimPreviewText(

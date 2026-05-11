@@ -7,6 +7,7 @@ import { Plus, Save, X } from 'lucide-react'
 import ScheduleGruopItem from './scheduleGruopItem'
 import { ScheduleGroupTemplateDTO } from '@ecclesia/api/src/controllers/schedule/schedule.dto'
 import useScheduleGroupTemplates from '@/hooks/useScheduleGroupTemplates'
+import { Api } from '@ecclesia/queries'
 
 type GroupTemplateManagerProps = {
   children: React.ReactNode
@@ -28,9 +29,11 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
     if (!formData.name.trim()) return
 
     try {
-      await window.api.schedule.createGroupTemplate({
-        name: formData.name.trim(),
-        color: formData.color
+      await Api.fetch.schedule.createGroupTemplate({
+        body: {
+          name: formData.name.trim(),
+          color: formData.color
+        }
       })
       await refetch()
       resetForm()
@@ -45,9 +48,14 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
     if (!editingTemplate || !formData.name.trim()) return
 
     try {
-      await window.api.schedule.updateGroupTemplate(editingTemplate.id, {
-        name: formData.name.trim(),
-        color: formData.color
+      await Api.fetch.schedule.updateGroupTemplate({
+        body: {
+          id: editingTemplate.id,
+          data: {
+            name: formData.name.trim(),
+            color: formData.color
+          }
+        }
       })
 
       resetForm()
@@ -65,7 +73,7 @@ export default function GroupTemplateManager({ children }: GroupTemplateManagerP
     }
 
     try {
-      await window.api.schedule.deleteGroupTemplate(template.id)
+      await Api.fetch.schedule.deleteGroupTemplate({ body: { id: template.id } })
       await refetch()
     } catch (error) {
       console.error('Error deleting template:', error)

@@ -5,6 +5,7 @@ import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { cn } from '@/lib/utils'
 import { trimPreviewText } from './nextSlidePreview.utils'
 import VerseTooltipButton from './VerseTooltipButton'
+import { Api } from '@ecclesia/queries'
 
 export type VerseController = {
   start: number
@@ -70,7 +71,10 @@ export default function VerseRangeController({
 
         const targetChunkIndex = targetStep - 1 // chunks son 1-indexed
 
-        if (activeSlide?.resourceType === 'PRESENTATION' && Array.isArray(activeSlide.presentationItems)) {
+        if (
+          activeSlide?.resourceType === 'PRESENTATION' &&
+          Array.isArray(activeSlide.presentationItems)
+        ) {
           const bibleLayer = activeSlide.presentationItems.find(
             (layer) => layer.resourceType === 'BIBLE' && layer.chunks
           )
@@ -92,7 +96,7 @@ export default function VerseRangeController({
           const verseReference = `${bookShortName} ${previewSource.chapter}:${chunkVerse}`
           const truncatedContent = trimPreviewText(chunkContent)
           const tooltipText = `${verseReference}\n${truncatedContent}`
-          
+
           if (direction === 'next') {
             setNextVersePreviewText(tooltipText)
           } else {
@@ -152,11 +156,13 @@ export default function VerseRangeController({
 
       setLoadingState(true)
       try {
-        const result = await window.api.bible.getVerses({
-          book: previewSource.bookId,
-          chapter: previewSource.chapter,
-          verses: [targetVerse],
-          version
+        const result = await Api.fetch.bible.getVerses({
+          body: {
+            book: previewSource.bookId,
+            chapter: previewSource.chapter,
+            verses: [targetVerse],
+            version
+          }
         })
 
         const verseText = result[0]

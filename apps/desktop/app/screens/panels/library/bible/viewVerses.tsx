@@ -23,6 +23,7 @@ import {
   resolveBibleChunkMaxLength,
   isBibleLiveSplitMode
 } from '@/lib/splitLongBibleVerse'
+import { Api } from '@ecclesia/queries'
 
 const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
 
@@ -59,15 +60,15 @@ export default function ViewVerses({
   const bookAccessId = resolveBibleBookAccessId(bookData)
 
   const { data: completeChapter = [] } = useQuery({
-    queryKey: ['completeChapter', book, chapter, version],
-    queryFn: async () => await window.api.bible.getCompleteChapter({ version, book, chapter }),
+    ...Api.query.bible.getCompleteChapter({ body: { version, book, chapter } }),
     staleTime: Infinity
   })
 
   // Obtener configuración de chunk mode para calcular splits
   const { data: chunkSettings } = useQuery({
-    queryKey: ['settings', BIBLE_LIVE_CHUNK_MODE_KEY],
-    queryFn: () => window.api.setttings.getSettings([BIBLE_LIVE_CHUNK_MODE_KEY as never]),
+    ...Api.query.setttings.getSettings({
+      body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] }
+    }),
     staleTime: Infinity
   })
 

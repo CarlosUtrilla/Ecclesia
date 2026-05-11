@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../../ui/badge'
 import { CircleSlash, Monitor, Tv } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/dialog'
+import { Api } from '@ecclesia/queries'
 
 interface DisplayConfig {
   display: DisplayInfo
@@ -28,7 +29,7 @@ export default function NewDisplayConected({
 
   const fetchDisplays = async () => {
     try {
-      const savedScreens = await window.api.selectedScreens.getAllSelectedScreens()
+      const savedScreens = await Api.fetch.selectedScreens.getAllSelectedScreens()
       const displays = await window.displayAPI.getDisplays()
       // Para cada pantalla detectada, buscar si ya está configurada y mostrar su rol
       const configs = displays.map((display) => {
@@ -70,22 +71,30 @@ export default function NewDisplayConected({
 
         if (config.selectedRole === 'NO_USE') {
           if (config.configured && config.id) {
-            return window.api.selectedScreens.updateSelectedScreen({
-              id: config.id,
-              ...screenData
+            return Api.fetch.selectedScreens.updateSelectedScreen({
+              body: {
+                id: config.id,
+                ...screenData
+              }
             })
           }
-          return window.api.selectedScreens.createSelectedScreen(screenData)
-        }
-
-        if (config.configured && config.id) {
-          return window.api.selectedScreens.updateSelectedScreen({
-            id: config.id,
-            ...screenData
+          return Api.fetch.selectedScreens.createSelectedScreen({
+            body: screenData
           })
         }
 
-        return window.api.selectedScreens.createSelectedScreen(screenData)
+        if (config.configured && config.id) {
+          return Api.fetch.selectedScreens.updateSelectedScreen({
+            body: {
+              id: config.id,
+              ...screenData
+            }
+          })
+        }
+
+        return Api.fetch.selectedScreens.createSelectedScreen({
+          body: screenData
+        })
       })
 
       await Promise.all(savePromises)

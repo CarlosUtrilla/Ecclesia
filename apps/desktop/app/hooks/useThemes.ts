@@ -1,14 +1,10 @@
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
+import { Api } from '@ecclesia/queries'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
 export const useThemes = () => {
-  const { data = [], refetch } = useQuery({
-    queryKey: ['themes'],
-    queryFn: async () => {
-      return window.api.themes.getAllThemes()
-    }
-  })
+  const { data = [], refetch } = useQuery(Api.query.themes.getAllThemes())
 
   useEffect(() => {
     const unsubscribe = window.electron.ipcRenderer.on('theme-saved', () => {

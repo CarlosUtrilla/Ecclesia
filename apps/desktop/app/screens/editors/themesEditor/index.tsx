@@ -36,6 +36,7 @@ import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePres
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { clampBibleEdgeOffset, shouldDetachDefaultBibleSettings } from './utils/bibleSettings'
 import { clampBibleVerseWidthPercent } from '@/ui/PresentationView/utils/verseWidth'
+import { Api } from '@ecclesia/queries'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -111,7 +112,7 @@ export default function ThemesEditor() {
     if (id) {
       const loadTheme = async () => {
         try {
-          const theme = await window.api.themes.getThemeById(Number(id))
+          const theme = await Api.fetch.themes.getThemeById({ body: { id: Number(id) } })
           if (!theme) {
             console.error('Theme not found with id:', id)
             return
@@ -267,10 +268,10 @@ export default function ThemesEditor() {
 
       if (isEditing) {
         // Update existing theme
-        await window.api.themes.updateTheme(themeId, data as any)
+        await Api.fetch.themes.updateTheme({ body: { ...data, id: themeId } as any })
       } else {
         // Create new theme
-        await window.api.themes.createTheme(data as any)
+        await Api.fetch.themes.createTheme({ body: data as any })
       }
       // cerrar ventana
       window.electron.ipcRenderer.send('theme-saved')
@@ -726,7 +727,6 @@ export default function ThemesEditor() {
     </div>
   )
 }
-
 const PreviewsItems: PresentationViewItems[] = [
   {
     text: `Testing Theme Preview

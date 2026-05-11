@@ -9,7 +9,7 @@ export class MediaController {
     return await this.mediaService.create(body)
   }
 
-  async findAll({ body }: RequestHandler<MediaFilterDto>) {
+  async findAll({ body }: RequestHandler<MediaFilterDto | undefined>) {
     return await this.mediaService.findAll(body)
   }
 

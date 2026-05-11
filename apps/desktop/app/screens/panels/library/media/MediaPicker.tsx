@@ -11,6 +11,7 @@ import { MediaList } from './MediaList'
 import { formatFileSize, normalizeFolder, buildFolderPath } from './utils'
 import { useMediaOperations } from './hooks/useMediaOperations'
 import { useDragAndDrop } from './hooks/useDragAndDrop'
+import { Api } from '@ecclesia/queries'
 
 interface MediaPickerProps {
   open: boolean
@@ -57,7 +58,7 @@ export function MediaPicker({
         ...(searchTerm ? { search: searchTerm } : {}),
         ...(filterType ? { type: filterType } : {})
       }
-      const allMedia = await window.api.media.findAll(params)
+      const allMedia = await Api.fetch.media.findAll({ body: params })
 
       const filteredItems = allMedia.items.filter(
         (item: MediaDto) => normalizeFolder(item.folder) === currentFolder

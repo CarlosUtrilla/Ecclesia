@@ -6,6 +6,7 @@ import { ApiTypes } from './queriesTypes'
 const exposeRoutes = () => {
   const queryMap = {} as any
   const mutationMap = {} as any
+  const fetchMap = {} as any
 
   for (const [namespace, ControllerClass] of Object.entries(routes)) {
     const proto = ControllerClass.prototype as any
@@ -16,6 +17,7 @@ const exposeRoutes = () => {
 
     queryMap[namespace] = {}
     mutationMap[namespace] = {}
+    fetchMap[namespace] = {}
 
     for (const method of methods) {
       queryMap[namespace][method] = (params?: any) =>
@@ -25,16 +27,19 @@ const exposeRoutes = () => {
           queryFn: async () => Fetcher('/api', `/${namespace}/${method}`, params)
         })
 
-      mutationMap[namespace][method] = () =>
-        mutationOptions({
-          mutationFn: async (params: any) => Fetcher('/api', `/${namespace}/${method}`, params)
-        })
+      mutationMap[namespace][method] = mutationOptions({
+        mutationFn: async (params: any) => Fetcher('/api', `/${namespace}/${method}`, params)
+      })
+
+      fetchMap[namespace][method] = async (params?: any) =>
+        Fetcher('/api', `/${namespace}/${method}`, params)
     }
   }
 
   return {
     query: queryMap,
-    mutation: mutationMap
+    mutation: mutationMap,
+    fetch: fetchMap
   }
 }
 

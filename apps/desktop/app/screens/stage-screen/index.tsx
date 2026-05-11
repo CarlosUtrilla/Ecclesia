@@ -12,6 +12,7 @@ import { FocusModeOverlay } from './FocusModeOverlay'
 import { StageWidgets } from './StageWidgets'
 import { DEFAULT_STATE, StageState } from './types'
 import { MAX_STAGE_TIMERS, formatRemaining, resolveRemainingMs } from './utils'
+import { Api } from '@ecclesia/queries'
 
 type StageScreenProps = {
   isPreview?: boolean
@@ -112,8 +113,10 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
     if (!displayId) return
 
     const loadStageConfig = async () => {
-      const stageScreens = await window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
-      const allConfigs = await window.api.stageScreenConfig.getAllStageScreenConfigs()
+      const stageScreens = await Api.fetch.selectedScreens.getSelectedScreensByRole({
+        body: { rol: 'STAGE_SCREEN' }
+      })
+      const allConfigs = await Api.fetch.stageScreenConfig.getAllStageScreenConfigs()
       const globalConfig = getGlobalStageConfig(stageScreens, allConfigs)
 
       if (!globalConfig) {
@@ -147,7 +150,9 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
           return
         }
 
-        const configuredTheme = await window.api.themes.getThemeById(config.themeId)
+        const configuredTheme = await Api.fetch.themes.getThemeById({
+          body: { id: config.themeId }
+        })
         configuredThemeIdRef.current = config.themeId
         hasConfiguredThemeRef.current = true
         applyTheme(configuredTheme, `configured:${configuredTheme.id}`)
@@ -195,12 +200,17 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
     const unsubscribeStageConfig = window.electron.ipcRenderer.on(
       'stageScreen-config-updated',
       async (_, data: StageScreenConfigUpdate) => {
-        if (selectedScreenIdRef.current !== null && selectedScreenIdRef.current !== data.selectedScreenId) {
+        if (
+          selectedScreenIdRef.current !== null &&
+          selectedScreenIdRef.current !== data.selectedScreenId
+        ) {
           return
         }
 
-        const stageScreens = await window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
-        const allConfigs = await window.api.stageScreenConfig.getAllStageScreenConfigs()
+        const stageScreens = await Api.fetch.selectedScreens.getSelectedScreensByRole({
+          body: { rol: 'STAGE_SCREEN' }
+        })
+        const allConfigs = await Api.fetch.stageScreenConfig.getAllStageScreenConfigs()
         const globalConfig = getGlobalStageConfig(stageScreens, allConfigs)
 
         if (!globalConfig?.config) {
@@ -233,7 +243,9 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
             return
           }
 
-          const configuredTheme = await window.api.themes.getThemeById(config.themeId)
+          const configuredTheme = await Api.fetch.themes.getThemeById({
+            body: { id: config.themeId }
+          })
           configuredThemeIdRef.current = config.themeId
           hasConfiguredThemeRef.current = true
           applyTheme(configuredTheme, `configured:${configuredTheme.id}`)

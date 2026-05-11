@@ -11,7 +11,7 @@ import StageScreenConfigService from './stageScreenConfig.service'
 class StageScreenConfigController {
   private stageScreenConfigService = new StageScreenConfigService()
 
-  async getAllStageScreenConfigs({ body }: RequestHandler<StageScreenConfigFilterDTO>) {
+  async getAllStageScreenConfigs({ body }: RequestHandler<StageScreenConfigFilterDTO | undefined>) {
     return await this.stageScreenConfigService.getAllStageScreenConfigs(body)
   }
 

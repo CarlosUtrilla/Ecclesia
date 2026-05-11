@@ -4,6 +4,6 @@ export type RequestHandler<T, F = unknown> = {
   body: T
   file?: F
   files?: F[]
-  req: e.Request
-  res: e.Response
+  req?: e.Request
+  res?: e.Response
 }

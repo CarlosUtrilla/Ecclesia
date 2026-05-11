@@ -7,6 +7,7 @@ import {
   isBibleLiveSplitMode,
   resolveBibleChunkMaxLength
 } from '@/lib/splitLongBibleVerse'
+import { Api } from '@ecclesia/queries'
 
 const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
 const DEFAULT_MODE: BibleLiveSplitMode = 'auto'
@@ -23,8 +24,9 @@ export default function BibleLiveSection() {
   const queryClient = useQueryClient()
 
   const { data: settings } = useQuery({
-    queryKey: ['settings', 'bibleLive'],
-    queryFn: () => window.api.setttings.getSettings([BIBLE_LIVE_CHUNK_MODE_KEY as never]),
+    ...Api.query.setttings.getSettings({
+      body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] }
+    }),
     staleTime: Infinity
   })
 
@@ -33,7 +35,9 @@ export default function BibleLiveSection() {
 
   const { mutate: saveSettings } = useMutation({
     mutationFn: (value: BibleLiveSplitMode) =>
-      window.api.setttings.updateSettings([{ key: BIBLE_LIVE_CHUNK_MODE_KEY as never, value }]),
+      Api.fetch.setttings.updateSettings({
+        body: { settings: [{ key: BIBLE_LIVE_CHUNK_MODE_KEY as never, value }] }
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'bibleLive'] })
     }

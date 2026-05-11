@@ -1,3 +1,4 @@
+import { Api } from '@ecclesia/queries'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
@@ -6,10 +7,7 @@ export default function useScheduleGroupTemplates() {
     data: scheduleGroupTemplates = [],
     refetch,
     ...query
-  } = useQuery({
-    queryKey: ['scheduleGroupTemplates'],
-    queryFn: async () => await window.api.schedule.getAllGroupTemplates()
-  })
+  } = useQuery(Api.query.schedule.getAllGroupTemplates())
 
   useEffect(() => {
     const unsubscribe = window.electron.ipcRenderer.on('schedule-group-templates-saved', () => {

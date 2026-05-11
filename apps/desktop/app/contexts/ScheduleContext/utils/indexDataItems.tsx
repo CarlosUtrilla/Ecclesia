@@ -27,6 +27,7 @@ import {
   parseBibleAccessData,
   parseBibleVerseRange
 } from '@/screens/panels/library/bible/accessData'
+import { Api } from '@ecclesia/queries'
 
 const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
 
@@ -71,7 +72,7 @@ export const useIndexDataItems = (
         .filter((item) => item.type === 'SONG')
         .map((item) => parseInt(item.accessData))
       if (songIds.length === 0) return []
-      return await window.api.songs.getSongsByIds(songIds)
+      return await Api.fetch.songs.getSongsByIds({ body: { ids: songIds } })
     },
     enabled: !!currentSchedule
   })
@@ -84,7 +85,7 @@ export const useIndexDataItems = (
         .filter((item) => item.type === 'MEDIA')
         .map((item) => parseInt(item.accessData))
       if (mediaIds.length === 0) return []
-      return await window.api.media.getMediaByIds(mediaIds)
+      return await Api.fetch.media.getMediaByIds({ body: { ids: mediaIds } })
     },
     enabled: !!currentSchedule
   })
@@ -100,7 +101,7 @@ export const useIndexDataItems = (
 
       if (presentationIds.length === 0) return []
 
-      return window.api.presentations.getPresentationsByIds(presentationIds)
+      return await Api.fetch.presentations.getPresentationsByIds({ body: { ids: presentationIds } })
     },
     enabled: !!currentSchedule
   })
@@ -190,7 +191,7 @@ export const useIndexDataItems = (
         if (song) {
           return song.title
         }
-        const loadSong = await window.api.songs.getSongById(parseInt(accessData))
+        const loadSong = await Api.fetch.songs.getSongById({ body: { id: parseInt(accessData) } })
         return loadSong?.title || `Canción desconocida`
       }
       case 'MEDIA': {
@@ -198,7 +199,9 @@ export const useIndexDataItems = (
         if (med) {
           return med.name
         }
-        const loadMedia = await window.api.media.getMediaByIds([parseInt(accessData)])
+        const loadMedia = await Api.fetch.media.getMediaByIds({
+          body: { ids: [parseInt(accessData)] }
+        })
         if (loadMedia) {
           return loadMedia[0].name
         }
@@ -228,7 +231,9 @@ export const useIndexDataItems = (
 
         if (presentation) return presentation.title
 
-        const loaded = await window.api.presentations.getPresentationById(parseInt(accessData))
+        const loaded = await Api.fetch.presentations.getPresentationById({
+          body: { id: parseInt(accessData) }
+        })
         return loaded?.title || 'Presentación desconocida'
       }
       default:
@@ -243,9 +248,11 @@ export const useIndexDataItems = (
     ): Promise<ContentScreen> => {
       const { accessData, type } = item
       if (type === 'BIBLE') {
-        const splitSettings = await window.api.setttings.getSettings([
-          BIBLE_LIVE_CHUNK_MODE_KEY as never
-        ])
+        const splitSettings = await Api.fetch.setttings.getSettings({
+          body: {
+            settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never]
+          }
+        })
         const splitModeValue = splitSettings.find(
           (setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY
         )?.value
@@ -274,11 +281,13 @@ export const useIndexDataItems = (
         const book_id = parsedBibleAccessData.bookId
         const chapter = parsedBibleAccessData.chapter
         const version = parsedBibleAccessData.version
-        const texts = await window.api.bible.getVerses({
-          book: book_id,
-          chapter: chapter,
-          verses: versesRange,
-          version
+        const texts = await Api.fetch.bible.getVerses({
+          body: {
+            book: book_id,
+            chapter: chapter,
+            verses: versesRange,
+            version
+          }
         })
 
         const content = texts.flatMap((text) => {
@@ -307,7 +316,9 @@ export const useIndexDataItems = (
         let song = songs.find((s) => s.id === songId)
         if (!song) {
           // si no esta en cache puede ser un item mandado a live directamente
-          const loadedSong = await window.api.songs.getSongById(songId)
+          const loadedSong = await Api.fetch.songs.getSongById({
+            body: { id: songId }
+          })
           if (loadedSong) {
             song = loadedSong as SongResponseDTO
             setDirectLiveSongs((previous) =>
@@ -339,7 +350,9 @@ export const useIndexDataItems = (
         let mediaItem = media.find((m) => m.id === mediaId)
         if (!mediaItem) {
           // si no está en cache puede ser un item mandado a live directamente
-          const loaded = await window.api.media.getMediaByIds([mediaId])
+          const loaded = await Api.fetch.media.getMediaByIds({
+            body: { ids: [mediaId] }
+          })
           mediaItem = loaded?.[0]
           if (mediaItem) {
             setDirectLiveMedia((previous) =>
@@ -360,7 +373,9 @@ export const useIndexDataItems = (
 
         if (!presentation) {
           console.log(`presentation id: ${presentationId}`)
-          presentation = await window.api.presentations.getPresentationById(presentationId)
+          presentation = await Api.fetch.presentations.getPresentationById({
+            body: { id: presentationId }
+          })
           if (!presentation) {
             return {
               title: 'Presentación',
@@ -392,14 +407,18 @@ export const useIndexDataItems = (
 
         const mediaItems =
           mediaIds.length > 0
-            ? await window.api.media.getMediaByIds(Array.from(new Set(mediaIds)))
+            ? await Api.fetch.media.getMediaByIds({
+                body: { ids: Array.from(new Set(mediaIds)) }
+              })
             : []
         const mediaById = new Map(mediaItems.map((mediaItem) => [mediaItem.id, mediaItem]))
         const themeById = new Map(themes.map((theme) => [theme.id, theme]))
 
-        const splitSettings = await window.api.setttings.getSettings([
-          BIBLE_LIVE_CHUNK_MODE_KEY as never
-        ])
+        const splitSettings = await Api.fetch.setttings.getSettings({
+          body: {
+            settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never]
+          }
+        })
         const splitModeValue = splitSettings.find(
           (setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY
         )?.value
@@ -427,11 +446,13 @@ export const useIndexDataItems = (
                 (_, i) => slide.verse!.verse + i
               )
 
-              const result = await window.api.bible.getVerses({
-                book: slide.verse.bookId,
-                chapter: slide.verse.chapter,
-                verses,
-                version: slide.verse.version
+              const result = await Api.fetch.bible.getVerses({
+                body: {
+                  book: slide.verse.bookId,
+                  chapter: slide.verse.chapter,
+                  verses,
+                  version: slide.verse.version
+                }
               })
 
               // Usar el texto como viene de la BD (puede incluir números de verso o no)
@@ -455,11 +476,13 @@ export const useIndexDataItems = (
                       (_, i) => layer.verse!.verse + i
                     )
 
-                    const result = await window.api.bible.getVerses({
-                      book: layer.verse.bookId,
-                      chapter: layer.verse.chapter,
-                      verses,
-                      version: layer.verse.version
+                    const result = await Api.fetch.bible.getVerses({
+                      body: {
+                        book: layer.verse.bookId,
+                        chapter: layer.verse.chapter,
+                        verses,
+                        version: layer.verse.version
+                      }
                     })
 
                     // Usar el texto como viene de la BD (puede incluir números de verso o no)

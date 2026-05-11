@@ -8,6 +8,7 @@ import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { MediaDto } from '@ecclesia/api/src/controllers/media/media.dto'
 import { parseAnimationSettings } from '@/ui/PresentationView/utils/parseAnimationSettings'
+import { Api } from '@ecclesia/queries'
 
 const FALLBACK_MEDIA_KEY = 'LOGO_FALLBACK_MEDIA_ID'
 const FALLBACK_COLOR_KEY = 'LOGO_FALLBACK_COLOR'
@@ -68,10 +69,9 @@ export default function LiveScreen({
 
     const loadFallbackSettings = async () => {
       try {
-        const settings = await window.api.setttings.getSettings([
-          FALLBACK_MEDIA_KEY as never,
-          FALLBACK_COLOR_KEY as never
-        ])
+        const settings = await Api.fetch.setttings.getSettings({
+          body: { settings: [FALLBACK_MEDIA_KEY as never, FALLBACK_COLOR_KEY as never] }
+        })
         const mediaIdValue = settings.find((s) => s.key === FALLBACK_MEDIA_KEY)?.value
         const colorValue = settings.find((s) => s.key === FALLBACK_COLOR_KEY)?.value
 
@@ -80,7 +80,9 @@ export default function LiveScreen({
         if (mediaIdValue) {
           const parsed = parseInt(mediaIdValue)
           if (!isNaN(parsed)) {
-            const mediaList = await window.api.media.getMediaByIds([parsed])
+            const mediaList = await Api.fetch.media.getMediaByIds({
+              body: { ids: [parsed] }
+            })
             setFallbackMedia(mediaList[0] ?? null)
           }
         }

@@ -74,6 +74,7 @@ import {
   PresentationSlide,
   PresentationSlideItem
 } from './utils/slideUtils'
+import { Api } from '@ecclesia/queries'
 
 const getUniformThemeId = (slides: PresentationFormValues['slides']): number | null => {
   if (slides.length === 0) return null
@@ -189,7 +190,7 @@ export default function PresentationEditor() {
   const { data: media = [], refetch: refetchMedia } = useQuery({
     queryKey: ['media', 'presentation-editor'],
     queryFn: async () => {
-      const all = await window.api.media.findAll({})
+      const all = await Api.fetch.media.findAll()
       return all.items as Media[]
     }
   })
@@ -227,7 +228,9 @@ export default function PresentationEditor() {
     queryFn: async () => {
       if (isCreating || !id) return null
 
-      const presentation = await window.api.presentations.getPresentationById(Number(id))
+      const presentation = await Api.fetch.presentations.getPresentationById({
+        body: { id: Number(id) }
+      })
       if (!presentation) return null
 
       const normalizedSlides = (presentation.slides as PresentationFormValues['slides']).map(
@@ -400,7 +403,7 @@ export default function PresentationEditor() {
         const importedFile = sourcePath
           ? await window.mediaAPI.importFile(sourcePath)
           : await window.mediaAPI.importClipboardImage(imagePayload.bytes, imagePayload.mimeType)
-        const mediaRecord = await window.api.media.create(importedFile)
+        const mediaRecord = await Api.fetch.media.create({ body: importedFile })
         const mediaId = Number(mediaRecord.id)
 
         if (!Number.isFinite(mediaId) || mediaId <= 0) return
@@ -677,9 +680,11 @@ export default function PresentationEditor() {
     }
 
     if (isCreating) {
-      await window.api.presentations.createPresentation(normalizedValues)
+      await Api.fetch.presentations.createPresentation({ body: normalizedValues })
     } else {
-      await window.api.presentations.updatePresentation(Number(id), normalizedValues)
+      await Api.fetch.presentations.updatePresentation({
+        body: { id: Number(id), data: normalizedValues }
+      })
     }
 
     window.electron.ipcRenderer.send('presentation-saved')

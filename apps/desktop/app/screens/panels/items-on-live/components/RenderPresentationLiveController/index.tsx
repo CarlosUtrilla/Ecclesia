@@ -20,6 +20,7 @@ import {
 import useBibleSchema from '@/hooks/useBibleSchema'
 import PresentationControllerFooter from './PresentationControllerFooter'
 import usePresentationVideoController from './usePresentationVideoController'
+import { Api } from '@ecclesia/queries'
 
 type Props = {
   data: PresentationViewItems[]
@@ -199,7 +200,11 @@ export default function RenderPresentationLiveController({ data }: Props) {
             const chunk = bibleLayer.chunks[currentChunkIndex - 1] // 1-indexed
             actualVerse = chunk?.verse
           }
-        } else if (slide.resourceType === 'BIBLE' && slide.chunks && currentChunkIndex !== undefined) {
+        } else if (
+          slide.resourceType === 'BIBLE' &&
+          slide.chunks &&
+          currentChunkIndex !== undefined
+        ) {
           const chunk = slide.chunks[currentChunkIndex - 1]
           actualVerse = chunk?.verse
         }
@@ -290,11 +295,13 @@ export default function RenderPresentationLiveController({ data }: Props) {
             (_, index) => target.verseStart + index
           )
 
-          const result = await window.api.bible.getVerses({
-            book: target.bookId,
-            chapter: target.chapter,
-            verses,
-            version: nextVersion
+          const result = await Api.fetch.bible.getVerses({
+            body: {
+              book: target.bookId,
+              chapter: target.chapter,
+              verses,
+              version: nextVersion
+            }
           })
 
           return [

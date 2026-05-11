@@ -25,6 +25,7 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { Slider } from '@/ui/slider'
 import { ThemeWithMedia } from '../../../ui/PresentationView/types'
+import { Api } from '@ecclesia/queries'
 
 const DEFAULT_BIBLE_EDGE_OFFSET = 10
 
@@ -102,7 +103,7 @@ export default function BiblePresentationConfiguration({
     }
 
     // Guardar configuración global
-    window.api.bible
+    Api.fetch.bible
       .updateDefaultBibleSettings({
         ...data,
         id: defaultBiblePresentationSettings.id,

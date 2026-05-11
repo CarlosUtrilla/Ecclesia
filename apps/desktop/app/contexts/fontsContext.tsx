@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useMediaServer } from './MediaServerContext'
 import { parseCustomFontVariant } from '@/lib/customFontUtils'
+import { Api } from '@ecclesia/queries'
 
 export type CustomFont = {
   id: number
@@ -20,8 +21,7 @@ const FontsContext = createContext<FontsContextValue | null>(null)
 
 export function FontsProvider({ children }: { children: React.ReactNode }) {
   const { data: fonts = [], refetch } = useQuery({
-    queryKey: ['fonts'],
-    queryFn: async () => await window.api.fonts.getAllFonts(),
+    ...Api.query.fonts.getAllFonts(),
     staleTime: Infinity
   })
 

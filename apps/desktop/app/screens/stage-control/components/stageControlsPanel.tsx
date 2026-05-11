@@ -8,14 +8,11 @@ import { Textarea } from '@/ui/textarea'
 import { Button } from '@/ui/button'
 import { Switch } from '@/ui/switch'
 import StageScreen from '@/screens/stage-screen'
-import { buildGlobalStageUpsertPayloads, getGlobalStageConfig } from '@/screens/stage/shared/globalStageConfig'
-
-type StageScreenRecord = {
-  id: number
-  screenId: number
-  screenName: string
-  rol: 'LIVE_SCREEN' | 'STAGE_SCREEN' | null
-}
+import {
+  buildGlobalStageUpsertPayloads,
+  getGlobalStageConfig
+} from '@/screens/stage/shared/globalStageConfig'
+import { Api } from '@ecclesia/queries'
 
 type StageTimerState = {
   id: string
@@ -32,11 +29,6 @@ type StageState = {
     showMeridiem?: boolean
   }
   focusMode?: boolean
-}
-
-type StageConfigRecord = {
-  selectedScreenId: number
-  state: string
 }
 
 const EMPTY_STAGE_STATE: StageState = {
@@ -100,14 +92,12 @@ export default function StageControlsPanel() {
   const [timerSecondsInput, setTimerSecondsInput] = useState('0')
   const [nowMs, setNowMs] = useState(() => Date.now())
 
-  const { data: stageScreens = [] } = useQuery<StageScreenRecord[]>({
-    queryKey: ['selectedScreens', 'stage'],
-    queryFn: () => window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
-  })
+  const { data: stageScreens = [] } = useQuery(
+    Api.query.selectedScreens.getSelectedScreensByRole({ body: { rol: 'STAGE_SCREEN' } })
+  )
 
-  const { data: stageConfigs = [] } = useQuery<StageConfigRecord[]>({
-    queryKey: ['stageScreenConfig'],
-    queryFn: () => window.api.stageScreenConfig.getAllStageScreenConfigs(),
+  const { data: stageConfigs = [] } = useQuery({
+    ...Api.query.stageScreenConfig.getAllStageScreenConfigs(),
     staleTime: Infinity
   })
 
@@ -145,7 +135,9 @@ export default function StageControlsPanel() {
         state: JSON.stringify(payload.state)
       })
       await Promise.all(
-        updates.map((update) => window.api.stageScreenConfig.upsertStageScreenConfig(update))
+        updates.map((update) =>
+          Api.fetch.stageScreenConfig.upsertStageScreenConfig({ body: update })
+        )
       )
     },
     onSuccess: async () => {
@@ -446,7 +438,9 @@ export default function StageControlsPanel() {
                 <Button
                   size="sm"
                   onClick={handleAddTimer}
-                  disabled={isPending || stageScreens.length === 0 || timers.length >= MAX_STAGE_TIMERS}
+                  disabled={
+                    isPending || stageScreens.length === 0 || timers.length >= MAX_STAGE_TIMERS
+                  }
                   className="self-end"
                 >
                   <Plus className="size-4" />

@@ -5,19 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { Button } from '@/ui/button'
 import { useThemes } from '@/hooks/useThemes'
-import { buildGlobalStageUpsertPayloads, getGlobalStageConfig } from '@/screens/stage/shared/globalStageConfig'
-
-type StageScreenRecord = {
-  id: number
-  screenId: number
-  screenName: string
-  rol: 'LIVE_SCREEN' | 'STAGE_SCREEN' | null
-}
-
-type StageScreenConfigRecord = {
-  selectedScreenId: number
-  themeId: number | null
-}
+import {
+  buildGlobalStageUpsertPayloads,
+  getGlobalStageConfig
+} from '@/screens/stage/shared/globalStageConfig'
+import { Api } from '@ecclesia/queries'
 
 type Props = {
   onOpenLayoutTab?: () => void
@@ -27,14 +19,12 @@ export default function StageThemesPanel({ onOpenLayoutTab }: Props) {
   const queryClient = useQueryClient()
   const { themes } = useThemes()
 
-  const { data: stageScreens = [] } = useQuery<StageScreenRecord[]>({
-    queryKey: ['selectedScreens', 'stage'],
-    queryFn: () => window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
-  })
+  const { data: stageScreens = [] } = useQuery(
+    Api.query.selectedScreens.getSelectedScreensByRole({ body: { rol: 'STAGE_SCREEN' } })
+  )
 
-  const { data: stageConfigs = [] } = useQuery<StageScreenConfigRecord[]>({
-    queryKey: ['stageScreenConfig'],
-    queryFn: () => window.api.stageScreenConfig.getAllStageScreenConfigs(),
+  const { data: stageConfigs = [] } = useQuery({
+    ...Api.query.stageScreenConfig.getAllStageScreenConfigs(),
     staleTime: Infinity
   })
 
@@ -46,7 +36,9 @@ export default function StageThemesPanel({ onOpenLayoutTab }: Props) {
     mutationFn: async (payload: { themeId: number | null }) => {
       const updates = buildGlobalStageUpsertPayloads(stageScreens, payload)
       await Promise.all(
-        updates.map((update) => window.api.stageScreenConfig.upsertStageScreenConfig(update))
+        updates.map((update) =>
+          Api.fetch.stageScreenConfig.upsertStageScreenConfig({ body: update })
+        )
       )
     },
     onSuccess: async () => {
@@ -99,7 +91,8 @@ export default function StageThemesPanel({ onOpenLayoutTab }: Props) {
 
               <Select
                 value={
-                  globalConfig?.config?.themeId !== null && globalConfig?.config?.themeId !== undefined
+                  globalConfig?.config?.themeId !== null &&
+                  globalConfig?.config?.themeId !== undefined
                     ? String(globalConfig.config.themeId)
                     : 'none'
                 }

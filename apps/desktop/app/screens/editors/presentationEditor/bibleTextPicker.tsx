@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import BibleVersions from '@/screens/panels/library/bible/bibleVersions'
 import VerseSearch from '@/screens/panels/library/bible/verseSearch'
+import { Api } from '@ecclesia/queries'
 
 export type BibleTextSelection = {
   bookId: number
@@ -104,13 +105,13 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
   }, [selectedBookData])
 
   const { data: completeChapter = [] } = useQuery({
-    queryKey: ['presentation-bible-picker', selectedVersion, selectedBook, selectedChapter],
-    queryFn: async () =>
-      window.api.bible.getCompleteChapter({
+    ...Api.query.bible.getCompleteChapter({
+      body: {
         version: selectedVersion,
         book: selectedBook,
         chapter: selectedChapter
-      }),
+      }
+    }),
     enabled: open
   })
 

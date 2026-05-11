@@ -28,16 +28,8 @@ export async function initializeHttpServer(config: DatabaseConfig) {
   })
 }
 
-const api = exposeRoutes()
-
 export { exposeRoutes }
 export type { RoutesTypes } from './routeTypes'
-export {
-  MediaType,
-  ScheduleItemType,
-  BibleDescriptionMode,
-  BibleDescriptionPosition
-} from '@prisma/client'
+export * from '@prisma/client'
 export type { Media, ScheduleItem, ScreenRol, TagSongs } from '@prisma/client'
 export type { PrismaClient } from '@prisma/client'
-export default api

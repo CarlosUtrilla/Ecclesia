@@ -13,6 +13,7 @@ import { getPresentationSlideKey, getSlideVerseRange } from '@/lib/presentationV
 import { attachPresentationBibleChunkParts } from '@/lib/presentationSlides'
 import { resolveBibleChunkMaxLength, isBibleLiveSplitMode } from '@/lib/splitLongBibleVerse'
 import { useQuery } from '@tanstack/react-query'
+import { Api } from '@ecclesia/queries'
 
 const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
 
@@ -33,10 +34,9 @@ export default function PresentationPreview({ presentation, presentationMediaByI
   const [selectedSlide, setSelectedSlide] = useState<number | null>(null)
 
   // Obtener configuración de chunk size
-  const { data: splitSettings = [] } = useQuery({
-    queryKey: ['bible-chunk-mode-setting'],
-    queryFn: () => window.api.setttings.getSettings([BIBLE_LIVE_CHUNK_MODE_KEY as never])
-  })
+  const { data: splitSettings = [] } = useQuery(
+    Api.query.setttings.getSettings({ body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] } })
+  )
 
   const maxChunkLength = useMemo(() => {
     const splitModeValue = splitSettings.find(
@@ -45,7 +45,7 @@ export default function PresentationPreview({ presentation, presentationMediaByI
     const splitMode = isBibleLiveSplitMode(splitModeValue) ? splitModeValue : 'auto'
     // Usar tema por defecto del slide si existe, sino BlankTheme
     const defaultTheme = themes[0] || BlankTheme
-    return resolveBibleChunkMaxLength(splitMode, defaultTheme.fontSize)
+    return resolveBibleChunkMaxLength(splitMode, defaultTheme.textStyle.fontSize)
   }, [splitSettings, themes])
 
   // Recopilar todas las referencias bíblicas que necesitan hidratación
@@ -86,11 +86,13 @@ export default function PresentationPreview({ presentation, presentationMediaByI
           const verseEnd = verseEndRaw ? Number(verseEndRaw) : verseStart
           const verses = Array.from({ length: verseEnd - verseStart + 1 }, (_, i) => verseStart + i)
 
-          const result = await window.api.bible.getVerses({
-            book: ref.bible.bookId,
-            chapter: ref.bible.chapter,
-            verses,
-            version: ref.bible.version
+          const result = await Api.fetch.bible.getVerses({
+            body: {
+              book: ref.bible.bookId,
+              chapter: ref.bible.chapter,
+              verses,
+              version: ref.bible.version
+            }
           })
 
           return {

@@ -3,6 +3,7 @@ import { Button } from './button'
 import { useRef, useState } from 'react'
 import { getCustomFontFamily } from '@/lib/customFontUtils'
 import { planFontUploads } from './uploadFontDialog.utils'
+import { Api } from '@ecclesia/queries'
 
 type UploadFontDialogProps = {
   open: boolean
@@ -25,7 +26,7 @@ export default function UploadFontDialog({ open, onOpenChange }: UploadFontDialo
     let anySuccess = false
     const allSelectedFiles = Array.from(files)
 
-    const existingFonts = await window.api.fonts.getAllFonts()
+    const existingFonts = await Api.fetch.fonts.getAllFonts()
     const uploadPlan = planFontUploads(
       allSelectedFiles.map((f) => f.name),
       existingFonts.map((f) => f.fileName)

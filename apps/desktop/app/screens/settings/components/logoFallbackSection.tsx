@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/
 import { ColorPicker } from '@/ui/colorPicker'
 import { MediaPicker, type Media } from '@/screens/panels/library/media/exports'
 import { useMediaServer } from '@/contexts/MediaServerContext'
+import { Api } from '@ecclesia/queries'
 
 type LogoFallbackSettingKey = 'LOGO_FALLBACK_MEDIA_ID' | 'LOGO_FALLBACK_COLOR'
 
@@ -19,8 +20,9 @@ export default function LogoFallbackSection() {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
 
   const { data: settings } = useQuery({
-    queryKey: ['settings', 'logoFallback'],
-    queryFn: () => window.api.setttings.getSettings([FALLBACK_MEDIA_KEY, FALLBACK_COLOR_KEY]),
+    ...Api.query.setttings.getSettings({
+      body: { settings: [FALLBACK_MEDIA_KEY, FALLBACK_COLOR_KEY] }
+    }),
     staleTime: Infinity
   })
 
@@ -29,8 +31,7 @@ export default function LogoFallbackSection() {
     settings?.find((s) => s.key === FALLBACK_COLOR_KEY)?.value ?? DEFAULT_FALLBACK_COLOR
 
   const { data: mediaRecord } = useQuery({
-    queryKey: ['media', 'fallback', fallbackMediaId],
-    queryFn: () => window.api.media.getMediaByIds([parseInt(fallbackMediaId!)]),
+    ...Api.query.media.getMediaByIds({ body: { ids: [parseInt(fallbackMediaId!)] } }),
     enabled: fallbackMediaId !== null,
     staleTime: Infinity
   })
@@ -38,26 +39,25 @@ export default function LogoFallbackSection() {
   const media = mediaRecord?.[0] ?? null
 
   const { mutate: saveSettings } = useMutation({
-    mutationFn: (updates: { key: LogoFallbackSettingKey; value: string }[]) =>
-      window.api.setttings.updateSettings(updates),
+    ...Api.mutation.setttings.updateSettings,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'logoFallback'] })
     }
   })
 
   const handleSelectMedia = (selected: Media) => {
-    saveSettings([{ key: FALLBACK_MEDIA_KEY, value: String(selected.id) }])
+    saveSettings({ body: { settings: [{ key: FALLBACK_MEDIA_KEY, value: String(selected.id) }] } })
     queryClient.invalidateQueries({ queryKey: ['media', 'fallback'] })
     setIsPickerOpen(false)
   }
 
   const handleRemoveMedia = () => {
-    saveSettings([{ key: FALLBACK_MEDIA_KEY, value: '' }])
+    saveSettings({ body: { settings: [{ key: FALLBACK_MEDIA_KEY, value: '' }] } })
     queryClient.invalidateQueries({ queryKey: ['media', 'fallback'] })
   }
 
   const handleColorChange = (color: string) => {
-    saveSettings([{ key: FALLBACK_COLOR_KEY, value: color }])
+    saveSettings({ body: { settings: [{ key: FALLBACK_COLOR_KEY, value: color }] } })
   }
 
   const thumbnailSrc = media ? buildMediaUrl(media.thumbnail ?? media.filePath) : null

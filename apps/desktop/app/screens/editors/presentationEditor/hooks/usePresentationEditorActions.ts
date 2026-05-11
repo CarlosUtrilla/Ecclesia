@@ -35,6 +35,7 @@ import {
 import { buildBibleAccessData, parseBibleAccessData } from '../utils/bibleAccessData'
 import { generateUniqueId } from '@/lib/utils'
 import { useThemes } from '@/hooks/useThemes'
+import { Api } from '@ecclesia/queries'
 
 type UpdateTextStyleInput = Partial<{
   fontFamily?: string
@@ -577,11 +578,13 @@ export default function usePresentationEditorActions({
       (_, index) => bible.verseStart + index
     )
 
-    const result = await window.api.bible.getVerses({
-      book: bible.bookId,
-      chapter: bible.chapter,
-      verses,
-      version: bible.version
+    const result = await Api.fetch.bible.getVerses({
+      body: {
+        book: bible.bookId,
+        chapter: bible.chapter,
+        verses,
+        version: bible.version
+      }
     })
 
     const bibleText = result.map((verse) => `${verse.verse}. ${verse.text}`).join('<br/>')
@@ -850,7 +853,7 @@ export default function usePresentationEditorActions({
     for (const entry of sortedAssets) {
       try {
         const importedFile = await window.mediaAPI.importFile(entry.filePath, entry.folder)
-        const mediaRecord = await window.api.media.create(importedFile)
+        const mediaRecord = await Api.fetch.media.create({ body: importedFile })
         importedAssets.push({
           mediaId: mediaRecord.id,
           sourceKey: entry.sourceKey,

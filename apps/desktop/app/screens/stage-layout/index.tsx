@@ -23,26 +23,17 @@ import { PresentationView } from '@/ui/PresentationView'
 import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 import { useCanvasWidgetTransform, WidgetResizeHandle } from '@/hooks/useCanvasWidgetTransform'
 import { fontSizes } from '@/lib/themeConstants'
-import { buildGlobalStageUpsertPayloads, getGlobalStageConfig } from '../stage/shared/globalStageConfig'
+import {
+  buildGlobalStageUpsertPayloads,
+  getGlobalStageConfig
+} from '../stage/shared/globalStageConfig'
 import {
   resolveTimerThresholdUnit,
   TimerThresholdUnit,
   toTimerThresholdDisplayValue,
   toTimerThresholdSeconds
 } from './timerThreshold.utils'
-
-type StageScreenRecord = {
-  id: number
-  screenId: number
-  screenName: string
-  rol: 'LIVE_SCREEN' | 'STAGE_SCREEN' | null
-}
-
-type StageConfigRecord = {
-  selectedScreenId: number
-  layout: string
-  themeId?: number | null
-}
+import { Api } from '@ecclesia/queries'
 
 const WIDGET_LABELS: Record<StageWidgetType, string> = {
   liveScreen: 'Pantalla En Vivo',
@@ -153,21 +144,21 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
   const [timerThresholdUnit, setTimerThresholdUnit] = useState<TimerThresholdUnit>('seconds')
   const canvasRef = useRef<HTMLDivElement | null>(null)
 
-  const { data: stageScreens = [] } = useQuery<StageScreenRecord[]>({
-    queryKey: ['selectedScreens', 'stage'],
-    queryFn: () => window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
-  })
+  const { data: stageScreens = [] } = useQuery(
+    Api.query.selectedScreens.getSelectedScreensByRole({ body: { rol: 'STAGE_SCREEN' } })
+  )
 
-  const { data: stageConfigs = [] } = useQuery<StageConfigRecord[]>({
-    queryKey: ['stageScreenConfig'],
-    queryFn: () => window.api.stageScreenConfig.getAllStageScreenConfigs(),
+  const { data: stageConfigs = [] } = useQuery({
+    ...Api.query.stageScreenConfig.getAllStageScreenConfigs(),
     staleTime: Infinity
   })
 
   useEffect(() => {
     if (stageScreens.length === 0) return
 
-    const parsed = parseStageLayout(getGlobalStageConfig(stageScreens, stageConfigs)?.config?.layout)
+    const parsed = parseStageLayout(
+      getGlobalStageConfig(stageScreens, stageConfigs)?.config?.layout
+    )
     setLayoutDraft(parsed)
     setSelectedWidgetId(parsed.items[0]?.id ?? null)
   }, [stageConfigs, stageScreens])
@@ -192,13 +183,19 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
 
     const currentThresholdSeconds = selectedWidget.config?.timerWarningThresholdSeconds ?? 30
     setTimerThresholdUnit(resolveTimerThresholdUnit(currentThresholdSeconds))
-  }, [selectedWidget?.id, selectedWidget?.type, selectedWidget?.config?.timerWarningThresholdSeconds])
+  }, [
+    selectedWidget?.id,
+    selectedWidget?.type,
+    selectedWidget?.config?.timerWarningThresholdSeconds
+  ])
 
   const { mutate: saveLayout, isPending } = useMutation({
     mutationFn: async (payload: { layout: string }) => {
       const updates = buildGlobalStageUpsertPayloads(stageScreens, payload)
       await Promise.all(
-        updates.map((update) => window.api.stageScreenConfig.upsertStageScreenConfig(update))
+        updates.map((update) =>
+          Api.fetch.stageScreenConfig.upsertStageScreenConfig({ body: update })
+        )
       )
     },
     onSuccess: async () => {
@@ -304,7 +301,7 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
     }
 
     const loadTheme = async () => {
-      const theme = await window.api.themes.getThemeById(currentConfig.themeId!)
+      const theme = await Api.fetch.themes.getThemeById({ body: { id: currentConfig.themeId! } })
       setStageTheme(theme)
     }
 
@@ -326,7 +323,12 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
 
   return (
     <div className={cn('h-full w-full bg-background', embedded ? 'p-0' : 'p-6')}>
-      <div className={cn('mx-auto flex h-full w-full flex-col gap-4', embedded ? 'max-w-none' : 'max-w-6xl')}>
+      <div
+        className={cn(
+          'mx-auto flex h-full w-full flex-col gap-4',
+          embedded ? 'max-w-none' : 'max-w-6xl'
+        )}
+      >
         {embedded ? null : (
           <div className="flex items-center justify-between border-b pb-3">
             <div>
@@ -341,7 +343,12 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
           </div>
         )}
 
-        <Card className={cn('flex min-h-0 flex-1 flex-col', embedded ? 'border-0 shadow-none' : undefined)}>
+        <Card
+          className={cn(
+            'flex min-h-0 flex-1 flex-col',
+            embedded ? 'border-0 shadow-none' : undefined
+          )}
+        >
           <CardHeader>
             <CardTitle>Layout Visual</CardTitle>
             <CardDescription>
@@ -357,7 +364,8 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
               <>
                 <div className="flex min-h-0 flex-col gap-3">
                   <div className="text-xs text-muted-foreground">
-                    Editando layout global. Preview automático: {selectedScreen?.screenName ?? 'Ninguna'}
+                    Editando layout global. Preview automático:{' '}
+                    {selectedScreen?.screenName ?? 'Ninguna'}
                   </div>
 
                   <div className="flex gap-2">

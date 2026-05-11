@@ -11,6 +11,7 @@ import {
   buildGlobalStageUpsertPayloads,
   getGlobalStageConfig
 } from '@/screens/stage/shared/globalStageConfig'
+import { Api } from '@ecclesia/queries'
 
 type StageTimerState = {
   id?: string | number
@@ -23,15 +24,6 @@ type StageTimerState = {
 type StageState = {
   timers?: StageTimerState[]
   focusMode?: boolean
-}
-
-type StageConfigRecord = {
-  selectedScreenId: number
-  state: string
-}
-
-type StageScreenRecord = {
-  id: number
 }
 
 function resolveRemainingMs(timer: StageTimerState, now: number): number {
@@ -110,14 +102,12 @@ export default function LiveScreens() {
 
   const [nowMs, setNowMs] = useState(() => Date.now())
 
-  const { data: stageScreensForConfig = [] } = useQuery<StageScreenRecord[]>({
-    queryKey: ['selectedScreens', 'stage'],
-    queryFn: () => window.api.selectedScreens.getSelectedScreensByRole('STAGE_SCREEN')
-  })
+  const { data: stageScreensForConfig = [] } = useQuery(
+    Api.query.selectedScreens.getSelectedScreensByRole({ body: { rol: 'STAGE_SCREEN' } })
+  )
 
-  const { data: stageConfigs = [] } = useQuery<StageConfigRecord[]>({
-    queryKey: ['stageScreenConfig'],
-    queryFn: () => window.api.stageScreenConfig.getAllStageScreenConfigs(),
+  const { data: stageConfigs = [] } = useQuery({
+    ...Api.query.stageScreenConfig.getAllStageScreenConfigs(),
     staleTime: Infinity
   })
 
@@ -160,7 +150,9 @@ export default function LiveScreens() {
       })
 
       await Promise.all(
-        updates.map((update) => window.api.stageScreenConfig.upsertStageScreenConfig(update))
+        updates.map((update) =>
+          Api.fetch.stageScreenConfig.upsertStageScreenConfig({ body: update })
+        )
       )
     },
     onSuccess: async () => {

@@ -1,9 +1,9 @@
+import { Api } from '@ecclesia/queries'
 import { useQuery } from '@tanstack/react-query'
 
 export default function useBiblePresentationSetting() {
   const { data } = useQuery({
-    queryKey: ['bibleSettings'],
-    queryFn: async () => await window.api.bible.getDefaultBibleSettings(),
+    ...Api.query.bible.getDefaultBibleSettings(),
     staleTime: Infinity
   })
   return { biblePresentationSettings: data }

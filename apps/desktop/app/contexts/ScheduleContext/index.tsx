@@ -19,6 +19,7 @@ import { LiveProvider } from './utils/liveContext'
 import { AddItemToSchedule, IScheduleContext } from './types'
 import DragAndDropSchedule from './utils/dragAndDropSchedule'
 import { generateUniqueId } from '@/lib/utils'
+import { Api } from '@ecclesia/queries'
 
 const ScheduleContext = createContext({} as IScheduleContext)
 
@@ -72,7 +73,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
   useEffect(() => {
     const actualSchedule = async () => {
-      const schedule = await window.api.schedule.getActualSchedule()
+      const schedule = await Api.fetch.schedule.getActualSchedule()
       if (schedule) {
         form.reset(schedule)
       }
@@ -162,11 +163,16 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
           accessData,
           deletedAt: deletedAt ?? null
         }))
-        await window.api.schedule.updateSchedule(scheduleData.id, {
-          title: scheduleData.title,
-          dateFrom: scheduleData.dateFrom || undefined,
-          dateTo: scheduleData.dateTo || undefined,
-          items
+        await Api.fetch.schedule.updateSchedule({
+          body: {
+            id: scheduleData.id,
+            data: {
+              title: scheduleData.title,
+              dateFrom: scheduleData.dateFrom || undefined,
+              dateTo: scheduleData.dateTo || undefined,
+              items
+            }
+          }
         })
       } else {
         // Crear nuevo schedule con items
@@ -176,12 +182,14 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
           accessData,
           deletedAt: deletedAt ?? null
         }))
-        const created = await window.api.schedule.createSchedule(
-          scheduleData.title,
-          scheduleData.dateFrom || undefined,
-          scheduleData.dateTo || undefined,
-          items
-        )
+        const created = await Api.fetch.schedule.createSchedule({
+          body: {
+            name: scheduleData.title,
+            dateFrom: scheduleData.dateFrom || undefined,
+            dateTo: scheduleData.dateTo || undefined,
+            items
+          }
+        })
         // Asignar el id al form
         form.setValue('id', created.id)
       }
@@ -196,7 +204,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
   // Método para cargar un schedule desde la base de datos
   const loadSchedule = async (scheduleId: number) => {
-    const schedule = await window.api.schedule.getSchedule(scheduleId)
+    const schedule = await Api.fetch.schedule.getSchedule({ body: { id: scheduleId } })
     if (schedule) {
       form.reset(schedule)
       setItemOnLive(null)

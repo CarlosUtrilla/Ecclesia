@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { findBibleBookByBookId } from './useBibleSchema.utils'
+import { Api } from '@ecclesia/queries'
 
 export default function useBibleSchema() {
   const { data: bibleSchema = [] } = useQuery({
-    queryKey: ['bibleSchema'],
-    queryFn: async () => await window.api.bible.getBibleSchema(),
+    ...Api.query.bible.getBibleSchema(),
     staleTime: Infinity
   })
 

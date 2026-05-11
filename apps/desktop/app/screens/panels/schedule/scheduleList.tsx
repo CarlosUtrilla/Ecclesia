@@ -15,6 +15,7 @@ import { Badge } from '@/ui/badge'
 import { Separator } from '@/ui/separator'
 import { Input } from '@/ui/input'
 import { useState } from 'react'
+import { Api } from '@ecclesia/queries'
 
 type Schedule = {
   id: number
@@ -35,7 +36,7 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
   const { data: schedules = [], refetch } = useQuery({
     queryKey: ['schedules'],
     queryFn: async () => {
-      const data = await window.api.schedule.getAllSchedules()
+      const data = await Api.fetch.schedule.getAllSchedules()
       return data.map((s: any) => ({
         ...s,
         date: s.date ? new Date(s.date) : null
@@ -52,7 +53,7 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
   // Eliminar schedule
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await window.api.schedule.deleteSchedule(id)
+      return await Api.fetch.schedule.deleteSchedule({ body: { id } })
     },
     onSuccess: () => {
       refetch()

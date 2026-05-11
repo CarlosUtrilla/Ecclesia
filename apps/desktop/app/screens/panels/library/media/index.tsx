@@ -17,6 +17,7 @@ import { useKeyboardShortcuts } from '../../../../hooks/useKeyboardShortcuts'
 import { useDragAndDrop } from './hooks/useDragAndDrop'
 import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } from './utils'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
+import { Api } from '@ecclesia/queries'
 
 export default function MediaLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -56,7 +57,7 @@ export default function MediaLibrary() {
     queryKey: ['media', searchTerm, currentFolder],
     queryFn: async () => {
       const params: MediaFilterDto = searchTerm ? { search: searchTerm } : {}
-      const allMedia = await window.api.media.findAll(params)
+      const allMedia = await Api.fetch.media.findAll({ body: params })
 
       const filteredItems = allMedia.items.filter(
         (item: Media) => normalizeFolder(item.folder) === currentFolder
@@ -150,7 +151,9 @@ export default function MediaLibrary() {
           if (!canDeleteFolder) continue
           await operations.deleteFolderMutation.mutateAsync(item)
         } else {
-          await operations.deleteMutation.mutateAsync(item)
+          await operations.deleteMutation.mutateAsync({
+            body: { id: item.id }
+          })
         }
       }
       window.electron.ipcRenderer.send('media-saved')
@@ -191,7 +194,7 @@ export default function MediaLibrary() {
   const handleDelete = async (media: Media) => {
     if (!confirm(`¿Eliminar "${media.name}"?`)) return
     try {
-      await operations.deleteMutation.mutateAsync(media)
+      await operations.deleteMutation.mutateAsync({ body: { id: media.id } })
     } catch (error) {
       console.error('Error al eliminar medio:', error)
     }

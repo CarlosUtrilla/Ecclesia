@@ -8,6 +8,7 @@ import {
   buildGroupedCustomFontOptions,
   resolveSelectedCustomFontValue
 } from './fontFamilySelector.utils'
+import { Api } from '@ecclesia/queries'
 
 type FontFamilyProps = {
   onChange: (value: string) => void
@@ -83,7 +84,7 @@ export default function FontFamilySelector({ onChange, value }: FontFamilyProps)
       )
     ) {
       for (const [index, fontId] of grouped.fontIds.entries()) {
-        await window.api.fonts.deleteFont({ id: fontId })
+        await Api.fetch.fonts.deleteFont({ body: { id: fontId } })
         await window.electron.ipcRenderer.invoke('fonts.deleteFontFile', {
           fileName: grouped.fileNames[index]
         })

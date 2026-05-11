@@ -14,7 +14,7 @@ export class PresentationsController {
     return this.presentationsService.createPresentation(body)
   }
 
-  async getPresentations({ body }: RequestHandler<GetPresentationsDTO>) {
+  async getPresentations({ body }: RequestHandler<GetPresentationsDTO | undefined>) {
     return this.presentationsService.getPresentations(body)
   }
 

@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Media } from '../types'
 import type { MediaType } from '@ecclesia/api'
-import { ImportBibleResult } from '../../../../../../electron/main/bibleManager/bibleManager'
+import { Api } from '@ecclesia/queries'
+import { ImportBibleResult } from 'electron/main/bibleManager/bibleManager'
 
 // Tipo para el DTO de Media
 interface MediaDto {
@@ -44,7 +45,7 @@ export function useMediaOperations(currentFolder: string | null) {
       const results: MediaDto[] = []
       for (const filePath of filePaths) {
         const fileData = await window.mediaAPI.importFile(filePath, currentFolder ?? undefined)
-        const media = await window.api.media.create(fileData)
+        const media = await Api.fetch.media.create({ body: fileData })
         results.push(media)
       }
       return results
@@ -76,7 +77,7 @@ export function useMediaOperations(currentFolder: string | null) {
   const deleteFolderMutation = useMutation({
     mutationFn: async (folderName: string) => {
       const targetFolderPath = buildFolderPath(currentFolder, folderName)
-      const allMedia = await window.api.media.findAll({ limit: 10000 })
+      const allMedia = await Api.fetch.media.findAll({ body: { limit: 10000 } })
       const mediaInsideFolder = allMedia.items.filter((item: Media) => {
         const mediaFolder = normalizeFolder(item.folder)
         return (
@@ -86,7 +87,7 @@ export function useMediaOperations(currentFolder: string | null) {
       })
 
       for (const mediaItem of mediaInsideFolder) {
-        await window.api.media.deleteFile(mediaItem.id)
+        await Api.fetch.media.deleteFile({ body: { id: mediaItem.id } })
         await window.mediaAPI.deleteFile(mediaItem.filePath, mediaItem.thumbnail)
       }
 
@@ -112,7 +113,7 @@ export function useMediaOperations(currentFolder: string | null) {
 
       if (isFolder) {
         // Actualizar archivos dentro de la carpeta renombrada
-        const allMedia = await window.api.media.findAll({})
+        const allMedia = await Api.fetch.media.findAll()
         const affectedFiles = allMedia.items.filter(
           (item: Media) => item.folder === oldPath || item.folder?.startsWith(`${oldPath}/`)
         )
@@ -125,16 +126,26 @@ export function useMediaOperations(currentFolder: string | null) {
             ? file.filePath.replace(`files/${oldPath}/`, `files/${result.newPath}/`)
             : file.filePath
 
-          await window.api.media.update(file.id.toString(), {
-            folder: newFolder ?? undefined,
-            filePath: newFilePath
+          await Api.fetch.media.update({
+            body: {
+              id: file.id.toString(),
+              data: {
+                folder: newFolder ?? undefined,
+                filePath: newFilePath
+              }
+            }
           })
         }
       } else if (mediaId) {
         // Actualizar archivo individual
-        await window.api.media.update(mediaId.toString(), {
-          filePath: `files/${result.newPath}`,
-          name: newName
+        await Api.fetch.media.update({
+          body: {
+            id: mediaId.toString(),
+            data: {
+              filePath: `files/${result.newPath}`,
+              name: newName
+            }
+          }
         })
       }
 
@@ -145,9 +156,7 @@ export function useMediaOperations(currentFolder: string | null) {
 
   // Eliminar
   const deleteMutation = useMutation({
-    mutationFn: async (media: Media) => {
-      await window.api.media.deleteFile(media.id)
-    },
+    ...Api.mutation.media.deleteFile,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
   })
 
@@ -167,9 +176,14 @@ export function useMediaOperations(currentFolder: string | null) {
       const result = await window.mediaAPI.move(sourcePath, targetFolder, isFolder)
 
       if (!isFolder && mediaId) {
-        await window.api.media.update(mediaId.toString(), {
-          filePath: `files/${result.newPath}`,
-          folder: targetFolder
+        await Api.fetch.media.update({
+          body: {
+            id: mediaId.toString(),
+            data: {
+              filePath: `files/${result.newPath}`,
+              folder: targetFolder
+            }
+          }
         })
       }
 
@@ -194,17 +208,19 @@ export function useMediaOperations(currentFolder: string | null) {
       const result = await window.mediaAPI.copyFile(sourcePath, targetFolder, isFolder)
 
       if (!isFolder && originalMedia) {
-        await window.api.media.create({
-          name: result.newFileName.replace(/\.[^/.]+$/, ''),
-          type: originalMedia.type,
-          format: originalMedia.format,
-          filePath: `files/${result.newPath}`,
-          fileSize: originalMedia.fileSize,
-          width: originalMedia.width ?? undefined,
-          height: originalMedia.height ?? undefined,
-          duration: originalMedia.duration ?? undefined,
-          thumbnail: result.newThumbnail ?? originalMedia.thumbnail ?? undefined,
-          folder: targetFolder ?? undefined
+        await Api.fetch.media.create({
+          body: {
+            name: result.newFileName.replace(/\.[^/.]+$/, ''),
+            type: originalMedia.type,
+            format: originalMedia.format,
+            filePath: `files/${result.newPath}`,
+            fileSize: originalMedia.fileSize,
+            width: originalMedia.width ?? undefined,
+            height: originalMedia.height ?? undefined,
+            duration: originalMedia.duration ?? undefined,
+            thumbnail: result.newThumbnail ?? originalMedia.thumbnail ?? undefined,
+            folder: targetFolder ?? undefined
+          }
         })
       }
 

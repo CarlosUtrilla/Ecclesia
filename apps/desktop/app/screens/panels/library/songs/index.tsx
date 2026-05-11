@@ -3,7 +3,10 @@ import { Card } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
 import t from '@locales'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { SongResponseDTO, SongsListResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
+import {
+  SongResponseDTO,
+  SongsListResponseDTO
+} from '@ecclesia/api/src/controllers/songs/songs.dto'
 import { useEffect, useRef, useState } from 'react'
 import { Search, Music, Plus } from 'lucide-react'
 import { Button } from '@/ui/button'
@@ -14,6 +17,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
 import SongItem from './songItem'
 import SongImporter from './songImporter'
+import { Api } from '@ecclesia/queries'
 
 export default function SongsPanelLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -35,10 +39,12 @@ export default function SongsPanelLibrary() {
     useInfiniteQuery({
       queryKey: ['songs', 'libraryPanel', debouncedSearch],
       queryFn: async ({ pageParam = 1 }) => {
-        return window.api.songs.getSongsInfiniteScroll({
-          page: pageParam,
-          limit: 20,
-          search: debouncedSearch || undefined
+        return Api.fetch.songs.getSongsInfiniteScroll({
+          body: {
+            page: pageParam,
+            limit: 20,
+            search: debouncedSearch || undefined
+          }
         })
       },
       initialPageParam: 1,
@@ -88,7 +94,7 @@ export default function SongsPanelLibrary() {
     if (selectedSong?.id === songId) {
       setSelectedSong(null)
     }
-    await window.api.songs.deleteSong(songId)
+    await Api.fetch.songs.deleteSong({ body: { id: songId } })
     await refetch()
   }
 

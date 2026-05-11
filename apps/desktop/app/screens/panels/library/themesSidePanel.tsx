@@ -16,6 +16,7 @@ import { useState } from 'react'
 import { Input } from '@/ui/input'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/ui/scroll-area'
+import { Api } from '@ecclesia/queries'
 
 export function ThemesSidePanel() {
   const { themes, refetchThemes } = useThemes()
@@ -30,14 +31,14 @@ export function ThemesSidePanel() {
   const handleEliminarTema = (themeId: number) => {
     const confirmed = window.confirm('¿Estás seguro de que deseas eliminar este tema?')
     if (!confirmed) return
-    window.api.themes.deleteTheme(themeId).then(() => {
+    Api.fetch.themes.deleteTheme({ body: { id: themeId } }).then(() => {
       refetchThemes()
     })
   }
 
   const handleExportarTema = async (themeId: number) => {
     try {
-      const result = await window.api.themes.exportThemeToZip(themeId)
+      const result = await Api.fetch.themes.exportThemeToZip({ body: { id: themeId } })
       window.alert(`Tema exportado correctamente en:\n${result.outputPath}`)
     } catch (error: any) {
       window.alert(error?.message ?? 'No se pudo exportar el tema')
@@ -55,15 +56,15 @@ export function ThemesSidePanel() {
       }
 
       const results = await Promise.allSettled(
-        zipPaths.map((zipPath) => window.api.themes.importThemeFromZip(zipPath))
+        zipPaths.map((zipPath) => Api.fetch.themes.importThemeFromZip({ body: { zipPath } }))
       )
 
       const successCount = results.filter((item) => item.status === 'fulfilled').length
       const errorCount = results.length - successCount
-        const renamedMediaImports = results
-          .filter((item) => item.status === 'fulfilled')
-          .map((item) => item.value)
-          .filter((item) => item.backgroundMediaWasRenamed)
+      const renamedMediaImports = results
+        .filter((item) => item.status === 'fulfilled')
+        .map((item) => item.value)
+        .filter((item) => item.backgroundMediaWasRenamed)
 
       if (successCount > 0) {
         window.electron.ipcRenderer.send('theme-saved')
@@ -71,14 +72,17 @@ export function ThemesSidePanel() {
       }
 
       if (errorCount === 0) {
-          const renamedSummary =
-            renamedMediaImports.length > 0
-              ? `\n\nSe renombró el archivo de fondo en ${renamedMediaImports.length} tema(s) por conflicto de nombre:\n${renamedMediaImports
-                  .map((item) => `- ${item.themeName}: ${item.backgroundMediaFilePath ?? 'ruta no disponible'}`)
-                  .join('\n')}`
-              : ''
+        const renamedSummary =
+          renamedMediaImports.length > 0
+            ? `\n\nSe renombró el archivo de fondo en ${renamedMediaImports.length} tema(s) por conflicto de nombre:\n${renamedMediaImports
+                .map(
+                  (item) =>
+                    `- ${item.themeName}: ${item.backgroundMediaFilePath ?? 'ruta no disponible'}`
+                )
+                .join('\n')}`
+            : ''
 
-          window.alert(`Se importaron ${successCount} tema(s) correctamente.${renamedSummary}`)
+        window.alert(`Se importaron ${successCount} tema(s) correctamente.${renamedSummary}`)
         return
       }
 
@@ -88,7 +92,9 @@ export function ThemesSidePanel() {
           ? (firstError.reason as Error)?.message
           : 'Error desconocido'
 
-      window.alert(`Importación finalizada con errores.\nÉxitos: ${successCount}\nErrores: ${errorCount}\n\n${message}`)
+      window.alert(
+        `Importación finalizada con errores.\nÉxitos: ${successCount}\nErrores: ${errorCount}\n\n${message}`
+      )
     } catch (error: any) {
       window.alert(error?.message ?? 'No se pudieron importar los temas')
     }

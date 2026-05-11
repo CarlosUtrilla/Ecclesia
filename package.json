@@ -6,10 +6,15 @@
   "author": "Carlos Utrilla",
   "homepage": "https://github.com/CarlosUtrilla/Ecclesia",
   "license": "UNLICENSED",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
+  "workspaces": {
+    "packages": [
+      "packages/*",
+      "apps/*"
+    ],
+    "nohoist": [
+      "**/@hookform/resolvers"
+    ]
+  },
   "scripts": {
     "dev": "yarn workspace @ecclesia/desktop dev",
     "build": "yarn workspace @ecclesia/desktop build",

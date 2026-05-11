@@ -1,11 +1,7 @@
+import { Api } from '@ecclesia/queries'
 import { useQuery } from '@tanstack/react-query'
 
 export const useDefaultBiblePresentationSettings = () => {
-  const { data } = useQuery({
-    queryKey: ['default-bible-presentation-settings'],
-    queryFn: async () => {
-      return window.api.bible.getDefaultBibleSettings()
-    }
-  })
+  const { data } = useQuery(Api.query.bible.getDefaultBibleSettings())
   return { defaultBiblePresentationSettings: data }
 }

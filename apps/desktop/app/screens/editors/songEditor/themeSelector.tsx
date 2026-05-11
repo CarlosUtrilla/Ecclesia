@@ -4,6 +4,7 @@ import { PresentationView } from '../../../ui/PresentationView'
 import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/ui/input'
 import { ThemeWithMedia } from '../../../ui/PresentationView/types'
+import { Api } from '@ecclesia/queries'
 type Props = {
   selectedTheme: ThemeWithMedia
   setSelectedTheme: React.Dispatch<React.SetStateAction<ThemeWithMedia>>
@@ -14,7 +15,7 @@ export default function ThemeSelector({ selectedTheme, setSelectedTheme }: Props
   const { data: themes = [] } = useQuery({
     queryKey: ['themes'],
     queryFn: async () => {
-      const themes = await window.api.themes.getAllThemes()
+      const themes = await Api.fetch.themes.getAllThemes()
       if (themes.length > 0 && selectedTheme.name === 'Blank') {
         setSelectedTheme(themes[0])
       }

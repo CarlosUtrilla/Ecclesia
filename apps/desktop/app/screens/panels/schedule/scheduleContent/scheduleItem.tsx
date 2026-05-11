@@ -14,6 +14,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { ScheduleItem } from '@ecclesia/api'
 import { Radio, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Api } from '@ecclesia/queries'
 
 type Props = {
   setSelectedItem?: (item: ScheduleItem | null) => void
@@ -64,7 +65,9 @@ export function ScheduleItemComponent({
 
   useEffect(() => {
     if (item.type === 'GROUP' && item.accessData) {
-      window.api.schedule.getGroupTemplateById?.(parseInt(item.accessData)).then(setGroupTemplate)
+      Api.fetch.schedule
+        .getGroupTemplateById?.({ body: { id: parseInt(item.accessData) } })
+        .then(setGroupTemplate)
     }
     if (groupId) {
       const group = scheduleGroupTemplates.find((g) => g.id === parseInt(groupId))

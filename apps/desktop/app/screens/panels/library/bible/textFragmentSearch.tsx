@@ -13,10 +13,11 @@ import { Input } from '@/ui/input'
 import { VirtualizedScrollArea } from '@/ui/virtualized-scroll-area'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { BibleDTO, TextFragmentSearchDTO } from '@ecclesia/api/src/controllers/bible/bible.dto'
+import { BibleDTO } from '@ecclesia/api/src/controllers/bible/bible.dto'
 import { Clock, Copy, Play, Search } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import z from 'zod'
+import { Api } from '@ecclesia/queries'
 type Props = {
   defaultVersion: string
 }
@@ -37,24 +38,19 @@ export default function TextFragmentSearch({ defaultVersion }: Props) {
     },
     resolver: zodResolver(
       z.object({
-        text: z.string().min(1, 'Ingrese una palabra clave'),
-        book: z.string().optional(),
-        version: z.string().min(1, 'Seleccione una version de la Biblia')
+        text: z.string().min(1, 'El texto es requerido'),
+        book: z.string().min(1, 'El libro es requerido'),
+        version: z.string().min(1, 'La versión es requerida')
       })
     )
   })
 
   const values = watch()
 
-  const { data: searchData, mutate } = useMutation({
-    mutationKey: ['searchTextFragment'],
-    mutationFn: async (params: TextFragmentSearchDTO) => {
-      return await window.api.bible.searchTextFragment(params)
-    }
-  })
+  const { data: searchData, mutate } = useMutation(Api.mutation.bible.searchTextFragment)
 
   const onSubmit = handleSubmit(async (data) => {
-    mutate(data)
+    mutate({ body: data })
   })
 
   return (

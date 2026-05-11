@@ -9,6 +9,7 @@ import type { TagSongs } from '@ecclesia/api'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import useTagSongs from '@/hooks/useTagSongs'
+import { Api } from '@ecclesia/queries'
 
 type EditableTag = Omit<TagSongs, 'createdAt' | 'updatedAt'>
 
@@ -42,9 +43,7 @@ export default function TagSongsEditor() {
   }, [tagSongs])
 
   const updateMutation = useMutation({
-    mutationFn: async (tags: EditableTag[]) => {
-      await window.api.tagSongs.saveManyTagSongs(tags)
-    },
+    ...Api.mutation.tagSongs.saveManyTagSongs,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tagsSongs'] })
       toast.success('Tags guardadas correctamente')
@@ -59,9 +58,7 @@ export default function TagSongsEditor() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await window.api.tagSongs.deleteTagSongs(id)
-    },
+    ...Api.mutation.tagSongs.deleteTagSongs,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tagsSongs'] })
       toast.success('Tag eliminada correctamente')
@@ -109,7 +106,7 @@ export default function TagSongsEditor() {
   const handleDelete = (index: number) => {
     const tag = editedTags[index]
     if (tag.id > 0) {
-      deleteMutation.mutate(tag.id)
+      deleteMutation.mutate({ body: { id: tag.id } })
     }
     const newTags = editedTags.filter((_, i) => i !== index)
     setEditedTags(newTags)
@@ -117,7 +114,7 @@ export default function TagSongsEditor() {
   }
 
   const handleSave = () => {
-    updateMutation.mutate(editedTags)
+    updateMutation.mutate({ body: editedTags })
   }
 
   const handleCancel = () => {
