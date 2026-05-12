@@ -6,6 +6,7 @@ import App from './App'
 import { HashRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { initializeApi } from '@ecclesia/queries'
 
 const COLOR_THEME_KEY = 'ecclesia-color-theme'
 type ThemeMode = 'light' | 'dark' | 'system'
@@ -78,18 +79,22 @@ async function preloadCurrentRoute(): Promise<void> {
   }
 }
 
-// Disparar el preload y montar React en paralelo:
+// Inicializar SDK de la API antes de montar React para que
+// `Api.fetch.xxx()` y `Api.query.xxx()` estén disponibles desde el primer render.
+// Luego disparar el preload en paralelo con el montaje:
 // - preloadCurrentRoute() carga el chunk en la caché ESM mientras React ya monta
 // - Suspense muestra el Spinner inmediatamente en vez de ventana oscura vacía
 // - React.lazy() comparte la misma Promise del import() → resuelve en cuanto el chunk está listo
-preloadCurrentRoute()
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <HashRouter>
-        <App />
-      </HashRouter>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  </StrictMode>
-)
+initializeApi().then(() => {
+  preloadCurrentRoute()
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <HashRouter>
+          <App />
+        </HashRouter>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </StrictMode>
+  )
+})

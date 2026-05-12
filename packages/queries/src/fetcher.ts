@@ -1,19 +1,11 @@
-let cachedApiBase: string | null = null
-
-async function resolveApiBase(): Promise<string> {
-  if (cachedApiBase) return cachedApiBase
-
-  try {
-    const port = await window.mediaAPI.getServerPort()
-    cachedApiBase = `http://127.0.0.1:${port}/api`
-  } catch {
-    cachedApiBase = '/api'
-  }
-  return cachedApiBase
-}
-
-export async function Fetcher(apiUrl: string, path: string, body?: any, token?: string) {
-  const base = await resolveApiBase()
+export async function Fetcher(
+  apiUrl: string,
+  port: number,
+  path: string,
+  body?: any,
+  token?: string
+) {
+  const base = `${apiUrl}:${port}`
   const url = `${base}${path}`
 
   const headers: Record<string, string> = {}

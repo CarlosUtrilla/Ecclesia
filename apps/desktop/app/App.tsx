@@ -7,6 +7,7 @@ import { FontsProvider } from './contexts/fontsContext'
 import { Spinner } from './ui/spinner'
 import { ClosingDialog } from './ui/closingDialog'
 import { UpdateNotification } from './ui/UpdateNotification'
+import { ApiProvider } from '@ecclesia/queries'
 
 // Todas las rutas son lazy — cada ventana sólo parsea el código que su ruta necesita.
 // La ventana principal carga MainRoute (paneles, dnd-kit, zod, etc.).
@@ -59,17 +60,19 @@ function App() {
 
 function MainApp({ children }: PropsWithChildren) {
   return (
-    <MediaServerProvider>
-      <FontsProvider>
-        <DisplaysProvider>
-          <ScreenSizeProvider>
-            {children}
-            <ClosingDialog />
-            <UpdateNotification />
-          </ScreenSizeProvider>
-        </DisplaysProvider>
-      </FontsProvider>
-    </MediaServerProvider>
+    <ApiProvider>
+      <MediaServerProvider>
+        <FontsProvider>
+          <DisplaysProvider>
+            <ScreenSizeProvider>
+              {children}
+              <ClosingDialog />
+              <UpdateNotification />
+            </ScreenSizeProvider>
+          </DisplaysProvider>
+        </FontsProvider>
+      </MediaServerProvider>
+    </ApiProvider>
   )
 }
 

@@ -4,8 +4,9 @@ import {
   registerMediaServerRoutes,
   MEDIA_SERVER_PORT
 } from './controllers/media/mediaServer.controller'
-import { registerRoutes, exposeRoutes } from './utils/routerUtilis'
+import { registerRoutes } from './utils/routerUtilis'
 import { DatabaseConfig, initializeDatabase } from './prisma-init'
+import { routes } from './routes'
 
 export async function initializeHttpServer(config: DatabaseConfig) {
   const app = express()
@@ -23,13 +24,28 @@ export async function initializeHttpServer(config: DatabaseConfig) {
   registerRoutes(app)
   registerMediaServerRoutes(app)
 
+  app.post('/api/getRoutes', (req, res) => {
+    try {
+      const result = Object.entries(routes)
+      const routesMap = result.map(([namespace, ControllerClass]) => {
+        const proto = ControllerClass.prototype as any
+
+        const methods = Object.getOwnPropertyNames(proto).filter(
+          (x) => x !== 'constructor' && typeof proto[x] === 'function'
+        )
+
+        return [namespace, methods]
+      })
+      res.json(routesMap)
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve routes', errMsg: err })
+    }
+  })
+
   app.listen(port, () => {
     console.info(`Eclessia server running on port ${port}`)
   })
 }
 
-export { exposeRoutes }
 export type { RoutesTypes } from './routeTypes'
 export * from '@prisma/client'
-export type { Media, ScheduleItem, ScreenRol, TagSongs } from '@prisma/client'
-export type { PrismaClient } from '@prisma/client'
