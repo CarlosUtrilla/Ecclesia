@@ -44,7 +44,7 @@ ensure_sharp_ready() {
 
   echo -e "  ${YELLOW}⚠ sharp no pudo cargarse. Intentando reparación automática...${RESET}"
 
-  yarn install --frozen-lockfile
+  pnpm install --frozen-lockfile
   npm rebuild sharp
   npx electron-builder install-app-deps
 
@@ -54,7 +54,7 @@ ensure_sharp_ready() {
   fi
 
   echo -e "${RED}✗ No se pudo cargar sharp después de la reparación automática.${RESET}"
-  echo -e "${YELLOW}  Ejecuta manualmente:${RESET} yarn install --frozen-lockfile && npm rebuild sharp && npx electron-builder install-app-deps"
+  echo -e "${YELLOW}  Ejecuta manualmente:${RESET} pnpm install --frozen-lockfile && npm rebuild sharp && npx electron-builder install-app-deps"
   exit 1
 }
 
@@ -218,7 +218,7 @@ ensure_prisma_client_targets
 clean_dist_dir
 
 echo -e "  -> Build base (electron-vite) en host macOS"
-npm run build:ci
+pnpm build:ci
 
 prepare_windows_sharp
 
@@ -226,7 +226,7 @@ echo -e "  -> Empaquetando Windows x64"
 npx electron-builder --win --x64 --publish never
 
 echo -e "  -> Restaurando dependencias del host (macOS)"
-yarn install --frozen-lockfile
+pnpm install --frozen-lockfile
 
 echo ""
 read -p "  ¿Subir artefactos de dist/ a GitHub Release con gh? (s/N): " SHOULD_UPLOAD_RELEASE

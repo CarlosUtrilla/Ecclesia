@@ -5,16 +5,18 @@ import MediaRender from './MediaRender'
 
 const onMediaStateMock = vi.fn()
 let liveMediaCallback: ((state: { action: string; time: number }) => void) | null = null
+let buildMediaUrlMock = (path: string) => path
 
 vi.mock('@/contexts/MediaServerContext', () => ({
   useMediaServer: () => ({
-    buildMediaUrl: (path: string) => path
+    buildMediaUrl: (path: string) => buildMediaUrlMock(path)
   })
 }))
 
 describe('MediaRender', () => {
   beforeEach(() => {
     liveMediaCallback = null
+    buildMediaUrlMock = (path: string) => path
     onMediaStateMock.mockImplementation(
       (callback: (state: { action: string; time: number }) => void) => {
         liveMediaCallback = callback
@@ -54,6 +56,60 @@ describe('MediaRender', () => {
 
     expect(playSpy).toHaveBeenCalledTimes(1)
     playSpy.mockRestore()
+  })
+
+  it('deberia usar mediaUrl precargado en lugar de buildMediaUrl(filePath)', () => {
+    const filePathSpy = vi.fn(() => 'fallback-url')
+    buildMediaUrlMock = filePathSpy
+
+    const { container } = render(
+      <MediaRender
+        live
+        currentItem={
+          {
+            id: 'media-3',
+            resourceType: 'MEDIA',
+            text: '',
+            name: 'Video',
+            filePath: '/videos/demo.mp4',
+            format: 'mp4',
+            videoLoop: false,
+            mediaUrl: 'http://localhost:7777/media/videos/demo.mp4'
+          } as never
+        }
+      />
+    )
+
+    const video = container.querySelector('video') as HTMLVideoElement
+    expect(video).toBeTruthy()
+    expect(video?.src).toBe('http://localhost:7777/media/videos/demo.mp4')
+    // buildMediaUrl se llama para thumbnail (con ''), pero NO se usa su
+    // resultado para filePath porque mediaUrl tiene prioridad.
+    expect(filePathSpy).not.toHaveBeenCalledWith('/videos/demo.mp4')
+  })
+
+  it('deberia retornar null si buildMediaUrl devuelve vacio y no hay mediaUrl', () => {
+    buildMediaUrlMock = () => ''
+
+    const { container } = render(
+      <MediaRender
+        live
+        currentItem={
+          {
+            id: 'media-4',
+            resourceType: 'MEDIA',
+            text: '',
+            name: 'Video',
+            filePath: '/videos/demo.mp4',
+            format: 'mp4',
+            videoLoop: false
+          } as never
+        }
+      />
+    )
+
+    const video = container.querySelector('video')
+    expect(video).toBeFalsy()
   })
 
   it('no deberia volver a 0 cuando recibe play repetido y el video ya avanzo', () => {

@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js'
+import Logger from 'electron-log'
 
 // Este bloque evita que truene en el frontend puro
 let PrismaDecimal: any = null
@@ -11,35 +12,6 @@ try {
   // Si falla la importación, simplemente no usamos PrismaDecimal
 }
 
-export function serializeDecimals(obj: any): any {
-  const isPrismaDecimal = PrismaDecimal && obj instanceof PrismaDecimal
-
-  if (obj instanceof Decimal || isPrismaDecimal) {
-    return { __decimal__: obj.toString() }
-  }
-
-  if (typeof obj === 'number') {
-    return { __number__: obj.toString() }
-  }
-
-  if (obj instanceof Date) {
-    return { __date__: obj.toISOString() }
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(serializeDecimals)
-  }
-
-  if (obj && typeof obj === 'object') {
-    const result: Record<string, any> = {}
-    for (const key in obj) {
-      result[key] = serializeDecimals(obj[key])
-    }
-    return result
-  }
-
-  return obj
-}
 
 export function restoreDecimals(obj: any): any {
   if (Array.isArray(obj)) {

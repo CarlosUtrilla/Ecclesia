@@ -362,9 +362,14 @@ export const useIndexDataItems = (
             )
           }
         }
+        // Pre-construir la URL del medio para que la ventana live no dependa
+        // de su propio MediaServerContext (podría no tener el puerto aún).
+        const mediaUrl = mediaItem ? buildMediaUrl(mediaItem.filePath) : ''
         return {
           title: mediaItem?.name || 'Medio',
-          content: mediaItem ? [{ ...mediaItem, resourceType: item.type } as any] : [] // Cast para evitar error de tipo
+          content: mediaItem
+            ? [{ ...mediaItem, resourceType: item.type, mediaUrl } as any]
+            : []
         }
       }
       if (type === 'PRESENTATION') {

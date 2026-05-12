@@ -26,6 +26,12 @@ src/
 │                      # Re-exporta tipos/enums de Prisma (Media, ScheduleItem, etc.)
 ├── prisma.ts          # setPrismaClient, getPrisma, injectables (bibles path)
 ├── prisma-init.ts     # initializeDatabase(), migraciones, backup, middleware outbox
+│                      # initializeDatabase flow:
+│                      #   1. DB doesn't exist → copy template or runMigrations → wasJustCreated
+│                      #   2. DB exists + invalid schema → backup → delete → rebuild → migrate data → skip pending
+│                      #   3. DB exists + valid schema → run pending migrations
+│                      #   wasJustCreated/migrationsAlreadyApplied flags prevent double execution
+│                      # hasUserData() returns false if DB file doesn't exist (not true on error)
 ├── outboxPayload.ts   # serializeOutboxPayload() BigInt-safe
 ├── routes.ts          # Mapa de namespaces a controllers
 ├── routeTypes.d.ts    # Tipos de rutas

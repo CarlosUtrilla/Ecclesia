@@ -35,8 +35,20 @@ const PACKAGED_DB_TEMPLATE_NAME = 'empty-prod.db'
 
 function getTemplateDbPath(isDev: boolean, cwd: string, resourcesPath: string): string {
   return isDev
-    ? path.resolve(cwd, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+    ? path.resolve(cwd, '..', 'api', 'prisma', PACKAGED_DB_TEMPLATE_NAME)
     : path.join(resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+}
+
+async function withTempDb<T>(dbPath: string, fn: (prisma: PrismaClient) => Promise<T>): Promise<T> {
+  const prisma = new PrismaClient({
+    datasources: { db: { url: `file:${dbPath.replace(/\\/g, '/')}` } }
+  })
+  try {
+    await prisma.$connect()
+    return await fn(prisma)
+  } finally {
+    await prisma.$disconnect().catch(() => {})
+  }
 }
 
 const SYNC_CONFIG_DIR_NAME = 'sync'
@@ -234,129 +246,145 @@ async function appendOutboxEntry(
 
 export { runWithoutSyncOutboxTracking }
 
-function registerOutboxMiddleware(client: PrismaClient, userDataPath: string) {
-  client.$use(async (params, next) => {
-    const action = params.action
-    const model = params.model
-    const isInsideTransaction = params.runInTransaction === true
+function registerOutboxMiddleware(client: PrismaClient, userDataPath: string): PrismaClient {
+  return client.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ model, operation, args, query }) {
+          if (
+            !model ||
+            !OUTBOX_TRACKED_ACTIONS.has(operation) ||
+            OUTBOX_EXCLUDED_MODELS.has(model)
+          ) {
+            return await query(args)
+          }
 
-    if (!model || !OUTBOX_TRACKED_ACTIONS.has(action) || OUTBOX_EXCLUDED_MODELS.has(model)) {
-      return await next(params)
-    }
+          const delegateName = toDelegateName(model)
+          const delegate = (client as unknown as Record<string, unknown>)[delegateName] as
+            | {
+                findMany: (args: Record<string, unknown>) => Promise<unknown[]>
+              }
+            | undefined
 
-    if (isInsideTransaction) {
-      return await next(params)
-    }
+          let bulkTargetsBefore: Array<{ id: string; updatedAt?: Date | string | null }> = []
+          if ((operation === 'deleteMany' || operation === 'updateMany') && delegate?.findMany) {
+            try {
+              const matches = await delegate.findMany({
+                where: (args as Record<string, unknown>).where as Record<string, unknown>,
+                select: { id: true, updatedAt: true }
+              })
+              bulkTargetsBefore = matches
+                .filter(isRecordWithId)
+                .map((row) => ({ id: String(row.id), updatedAt: row.updatedAt }))
+            } catch (error) {
+              console.error(
+                `[sync-outbox] No se pudo pre-capturar registros para ${model}.${operation}:`,
+                error
+              )
+            }
+          }
 
-    const args = (params.args ?? {}) as Record<string, unknown>
-    const delegateName = toDelegateName(model)
-    const delegate = (client as unknown as Record<string, unknown>)[delegateName] as
-      | {
-          findMany: (args: Record<string, unknown>) => Promise<unknown[]>
+          const result = await query(args)
+
+          if (
+            (model === 'Media' || model === 'Font') &&
+            !outboxContext.getStore()?.skipOutbox
+          ) {
+            onMediaChangeCallback?.()
+          }
+
+          if (outboxContext.getStore()?.skipOutbox) {
+            return result
+          }
+
+          const identity = await getSyncIdentityCached(userDataPath)
+          if (!identity) {
+            return result
+          }
+
+          const outboxOperation = toOperation(operation)
+          if (!outboxOperation) {
+            return result
+          }
+
+          if (operation === 'deleteMany') {
+            const deletedAt = new Date()
+            for (const target of bulkTargetsBefore) {
+              await appendOutboxEntry(client, identity, {
+                tableName: model,
+                recordId: target.id,
+                operation: outboxOperation,
+                payload: serializeOutboxPayload({
+                  id: target.id,
+                  deletedAt: deletedAt.toISOString()
+                }),
+                entityUpdatedAt: deletedAt,
+                deletedAt
+              })
+            }
+            return result
+          }
+
+          if (operation === 'updateMany') {
+            const dataPatch =
+              args &&
+              typeof args === 'object' &&
+              'data' in args &&
+              args.data &&
+              typeof args.data === 'object'
+                ? args.data
+                : {}
+            for (const target of bulkTargetsBefore) {
+              await appendOutboxEntry(client, identity, {
+                tableName: model,
+                recordId: target.id,
+                operation: outboxOperation,
+                payload: serializeOutboxPayload({ id: target.id, ...dataPatch }),
+                entityUpdatedAt: new Date()
+              })
+            }
+            return result
+          }
+
+          if (operation === 'createMany' || operation === 'createManyAndReturn') {
+            const dataArray =
+              args && typeof args === 'object' && 'data' in args ? args.data : undefined
+            const rows = normalizeDataArray(dataArray)
+            for (const row of rows) {
+              if (!isRecordWithId(row)) continue
+              await appendOutboxEntry(client, identity, {
+                tableName: model,
+                recordId: String(row.id),
+                operation: outboxOperation,
+                payload: serializeOutboxPayload(row),
+                entityUpdatedAt: new Date()
+              })
+            }
+            return result
+          }
+
+          const recordId = toRecordId(model, args, result)
+          if (!recordId) {
+            return result
+          }
+
+          const entityUpdatedAt = getUpdatedAtFromRecord(result) ?? new Date()
+          const deletedAt = outboxOperation === SyncOperation.DELETE ? new Date() : null
+
+          await appendOutboxEntry(client, identity, {
+            tableName: model,
+            recordId,
+            operation: outboxOperation,
+            payload: toPayloadString(args, result),
+            entityUpdatedAt,
+            deletedAt
+          })
+
+          return result
         }
-      | undefined
-
-    let bulkTargetsBefore: Array<{ id: string; updatedAt?: Date | string | null }> = []
-    if ((action === 'deleteMany' || action === 'updateMany') && delegate?.findMany) {
-      try {
-        const matches = await delegate.findMany({
-          where: args.where,
-          select: { id: true, updatedAt: true }
-        })
-        bulkTargetsBefore = matches
-          .filter(isRecordWithId)
-          .map((row) => ({ id: String(row.id), updatedAt: row.updatedAt }))
-      } catch (error) {
-        console.error(
-          `[sync-outbox] No se pudo pre-capturar registros para ${model}.${action}:`,
-          error
-        )
       }
     }
-
-    const result = await next(params)
-
-    if ((model === 'Media' || model === 'Font') && !outboxContext.getStore()?.skipOutbox) {
-      onMediaChangeCallback?.()
-    }
-
-    if (outboxContext.getStore()?.skipOutbox) {
-      return result
-    }
-
-    const identity = await getSyncIdentityCached(userDataPath)
-    if (!identity) {
-      return result
-    }
-
-    const operation = toOperation(action)
-    if (!operation) {
-      return result
-    }
-
-    if (action === 'deleteMany') {
-      const deletedAt = new Date()
-      for (const target of bulkTargetsBefore) {
-        await appendOutboxEntry(client, identity, {
-          tableName: model,
-          recordId: target.id,
-          operation,
-          payload: serializeOutboxPayload({ id: target.id, deletedAt: deletedAt.toISOString() }),
-          entityUpdatedAt: deletedAt,
-          deletedAt
-        })
-      }
-      return result
-    }
-
-    if (action === 'updateMany') {
-      const dataPatch = args.data && typeof args.data === 'object' ? args.data : {}
-      for (const target of bulkTargetsBefore) {
-        await appendOutboxEntry(client, identity, {
-          tableName: model,
-          recordId: target.id,
-          operation,
-          payload: serializeOutboxPayload({ id: target.id, ...dataPatch }),
-          entityUpdatedAt: new Date()
-        })
-      }
-      return result
-    }
-
-    if (action === 'createMany' || action === 'createManyAndReturn') {
-      const rows = normalizeDataArray(args.data)
-      for (const row of rows) {
-        if (!isRecordWithId(row)) continue
-        await appendOutboxEntry(client, identity, {
-          tableName: model,
-          recordId: String(row.id),
-          operation,
-          payload: serializeOutboxPayload(row),
-          entityUpdatedAt: new Date()
-        })
-      }
-      return result
-    }
-
-    const recordId = toRecordId(model, args, result)
-    if (!recordId) {
-      return result
-    }
-
-    const entityUpdatedAt = getUpdatedAtFromRecord(result) ?? new Date()
-    const deletedAt = operation === SyncOperation.DELETE ? new Date() : null
-
-    await appendOutboxEntry(client, identity, {
-      tableName: model,
-      recordId,
-      operation,
-      payload: toPayloadString(args, result),
-      entityUpdatedAt,
-      deletedAt
-    })
-
-    return result
-  })
+  }) as unknown as PrismaClient
 }
 
 async function backupDatabase(dbPath: string, userDataPath: string): Promise<string | null> {
@@ -368,20 +396,28 @@ async function backupDatabase(dbPath: string, userDataPath: string): Promise<str
     const backupPath = path.join(backupDir, `dev-${timestamp}.db`)
 
     if (await fs.pathExists(dbPath)) {
-      const sqlite3 = await import('better-sqlite3')
-      const sourceDb = sqlite3.default(dbPath, { readonly: true })
-
+      let backupOk = false
       try {
-        sourceDb.prepare(`VACUUM INTO ?`).run(backupPath)
-        sourceDb.close()
+        await withTempDb(dbPath, async (prisma) => {
+          await prisma.$executeRawUnsafe(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`)
+        })
+        backupOk = true
+      } catch {
+        // VACUUM INTO fallback: simple file copy
+      }
 
+      if (backupOk) {
         console.log(`💾 Backup de base de datos creado en: ${backupPath}`)
         return backupPath
-      } catch (error) {
-        sourceDb.close()
+      }
+
+      try {
         await fs.copy(dbPath, backupPath)
         console.log(`💾 Backup de base de datos creado (fallback) en: ${backupPath}`)
         return backupPath
+      } catch {
+        console.warn('⚠️ Falló también el backup por copia directa')
+        return null
       }
     } else {
       console.warn('⚠️ No se encontró base de datos para hacer backup')
@@ -395,20 +431,13 @@ async function backupDatabase(dbPath: string, userDataPath: string): Promise<str
 
 async function getAppliedMigrations(dbPath: string): Promise<string[]> {
   try {
-    const sqlite3 = await import('better-sqlite3')
-    const db = sqlite3.default(dbPath)
-
-    try {
-      const migrations = db
-        .prepare('SELECT migration_name FROM _prisma_migrations ORDER BY finished_at')
-        .all() as any[]
-
-      db.close()
-      return migrations.map((m) => m.migration_name)
-    } catch (error) {
-      db.close()
-      return []
-    }
+    const migrations = await withTempDb(dbPath, async (prisma) => {
+      const rows = await prisma.$queryRawUnsafe<{ migration_name: string }[]>(
+        'SELECT migration_name FROM _prisma_migrations ORDER BY finished_at'
+      )
+      return rows.map((r) => r.migration_name)
+    })
+    return migrations
   } catch (error) {
     console.error('Error al obtener migraciones aplicadas:', error)
     return []
@@ -427,11 +456,8 @@ async function getAvailableMigrations(migrationsPath: string): Promise<string[]>
 
 async function markMigrationAsApplied(dbPath: string, migrationName: string): Promise<void> {
   try {
-    const sqlite3 = await import('better-sqlite3')
-    const db = sqlite3.default(dbPath)
-
-    try {
-      db.exec(`
+    await withTempDb(dbPath, async (prisma) => {
+      await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS _prisma_migrations (
           id TEXT PRIMARY KEY,
           checksum TEXT NOT NULL,
@@ -448,17 +474,14 @@ async function markMigrationAsApplied(dbPath: string, migrationName: string): Pr
       const checksum = 'manual-migration'
       const now = Date.now()
 
-      db.prepare(
-        `
-        INSERT INTO _prisma_migrations (id, checksum, finished_at, migration_name, started_at, applied_steps_count)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `
-      ).run(id, checksum, now, migrationName, now, 1)
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO _prisma_migrations (id, checksum, finished_at, migration_name, started_at, applied_steps_count)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        id, checksum, now, migrationName, now, 1
+      )
+    })
 
-      console.log(`✅ Migración ${migrationName} marcada como aplicada`)
-    } finally {
-      db.close()
-    }
+    console.log(`✅ Migración ${migrationName} marcada como aplicada`)
   } catch (error) {
     console.error(`Error al marcar migración ${migrationName}:`, error)
   }
@@ -477,11 +500,11 @@ async function applyMigrationManually(
     }
 
     const sql = await fs.readFile(sqlPath, 'utf-8')
-    const sqlite3 = await import('better-sqlite3')
-    const db = sqlite3.default(dbPath)
 
-    try {
-      const statements = sql
+    let failedCount = 0
+    let statements: string[] = []
+    await withTempDb(dbPath, async (prisma) => {
+      statements = sql
         .split(';')
         .map((s) => {
           const lines = s.split('\n').filter((line) => !line.trim().startsWith('--'))
@@ -489,33 +512,27 @@ async function applyMigrationManually(
         })
         .filter((s) => s.length > 0)
 
-      let failedCount = 0
       for (const statement of statements) {
         try {
-          db.exec(statement + ';')
+          await prisma.$executeRawUnsafe(statement + ';')
         } catch (stmtError: any) {
           console.warn(`⚠️ Statement skipped (${migrationName}): ${stmtError.message}`)
           failedCount++
         }
       }
+    })
 
-      if (failedCount === statements.length) {
-        console.error(`❌ Todos los statements de ${migrationName} fallaron`)
-        return false
-      }
-
-      console.log(
-        `✅ SQL de migración ${migrationName} ejecutado (${failedCount} statements omitidos)`
-      )
-
-      await markMigrationAsApplied(dbPath, migrationName)
-      return true
-    } catch (error: any) {
-      console.error(`❌ Error al ejecutar SQL de ${migrationName}:`, error.message)
+    if (failedCount === statements.length) {
+      console.error(`❌ Todos los statements de ${migrationName} fallaron`)
       return false
-    } finally {
-      db.close()
     }
+
+    console.log(
+      `✅ SQL de migración ${migrationName} ejecutado (${failedCount} statements omitidos)`
+    )
+
+    await markMigrationAsApplied(dbPath, migrationName)
+    return true
   } catch (error: any) {
     console.error(`Error al aplicar migración ${migrationName}:`, error)
     return false
@@ -542,8 +559,8 @@ async function runMigrations(
     let migrationsPath: string
 
     if (isDev) {
-      prismaPath = path.join(cwd, 'node_modules', '.bin', prismaBin)
-      migrationsPath = path.join(cwd, 'prisma', 'migrations')
+      prismaPath = path.resolve(cwd, '..', 'node_modules', '.bin', prismaBin)
+      migrationsPath = path.resolve(cwd, '..', 'api', 'prisma', 'migrations')
     } else {
       prismaPath = path.join(resourcesPath, 'node_modules', '.bin', prismaBin)
       migrationsPath = path.join(resourcesPath, 'prisma', 'migrations')
@@ -633,38 +650,27 @@ async function runMigrations(
 
 async function validateDatabaseSchema(dbPath: string): Promise<boolean> {
   try {
-    const sqlite3 = await import('better-sqlite3')
-    const db = sqlite3.default(dbPath)
+    const tableNames = await withTempDb(dbPath, async (prisma) => {
+      const rows = await prisma.$queryRawUnsafe<{ name: string }[]>(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%'"
+      )
+      return rows.map((r) => r.name)
+    })
 
-    try {
-      const existingTables = db
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%'"
-        )
-        .all() as { name: string }[]
+    console.log(`📊 Tablas existentes: ${tableNames.join(', ')}`)
 
-      const tableNames = existingTables.map((t) => t.name)
+    const criticalTables = ['Song', 'Themes', 'Setting']
+    const missingCritical = criticalTables.filter((t) => !tableNames.includes(t))
 
-      console.log(`📊 Tablas existentes: ${tableNames.join(', ')}`)
-
-      const criticalTables = ['Song', 'Themes', 'Setting']
-      const missingCritical = criticalTables.filter((t) => !tableNames.includes(t))
-
-      if (missingCritical.length > 0) {
-        console.warn(`⚠️ Tablas críticas faltantes: ${missingCritical.join(', ')}`)
-        db.close()
-        return false
-      }
-
-      db.close()
-      console.log('✅ Esquema de base de datos validado correctamente')
-      return true
-    } catch (error) {
-      db.close()
-      throw error
+    if (missingCritical.length > 0) {
+      console.warn(`⚠️ Tablas críticas faltantes: ${missingCritical.join(', ')}`)
+      return false
     }
+
+    console.log('✅ Esquema de base de datos validado correctamente')
+    return true
   } catch (error) {
-    console.error('Error validando esquema:', error)
+    log.error('❌ Error validando esquema de base de datos:', error instanceof Error ? error.message : error)
     return false
   }
 }
@@ -678,41 +684,43 @@ const COLUMN_MAPPINGS: Record<string, Record<string, string>> = {
   }
 }
 
-function getTableSchema(db: any, tableName: string): Map<string, any> {
+async function getTableSchema(prisma: PrismaClient, tableName: string): Promise<Map<string, any>> {
   const schema = new Map()
-  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as any[]
+  const columns = await prisma.$queryRawUnsafe<any[]>(`PRAGMA table_info("${tableName}")`)
   columns.forEach((col: any) => {
     schema.set(col.name, col)
   })
   return schema
 }
 
-function getAllTables(db: any): string[] {
-  const tables = db
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%'"
-    )
-    .all() as any[]
+async function getAllTables(prisma: PrismaClient): Promise<string[]> {
+  const tables = await prisma.$queryRawUnsafe<any[]>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma%'"
+  )
   return tables.map((t: any) => t.name)
 }
 
 async function migrateDataFromBackup(backupPath: string, newDbPath: string) {
   try {
     console.log('🔄 Migrando datos desde backup al nuevo esquema...')
-    const sqlite3 = await import('better-sqlite3')
-
-    const backupDb = sqlite3.default(backupPath, { readonly: true })
-    const newDb = sqlite3.default(newDbPath)
+    const backupPrisma = new PrismaClient({
+      datasources: { db: { url: `file:${backupPath.replace(/\\/g, '/')}` } }
+    })
+    const newPrisma = new PrismaClient({
+      datasources: { db: { url: `file:${newDbPath.replace(/\\/g, '/')}` } }
+    })
 
     try {
-      const destTables = getAllTables(newDb)
+      await Promise.all([backupPrisma.$connect(), newPrisma.$connect()])
+
+      const destTables = await getAllTables(newPrisma)
       console.log(`📊 Tablas a migrar: ${destTables.join(', ')}`)
 
       let totalMigrated = 0
 
       for (const tableName of destTables) {
         try {
-          const backupTables = getAllTables(backupDb)
+          const backupTables = await getAllTables(backupPrisma)
           if (!backupTables.includes(tableName)) {
             console.log(`ℹ️ Tabla ${tableName} no existe en backup, omitiendo...`)
             continue
@@ -720,10 +728,10 @@ async function migrateDataFromBackup(backupPath: string, newDbPath: string) {
 
           console.log(`📋 Migrando tabla: ${tableName}...`)
 
-          const backupSchema = getTableSchema(backupDb, tableName)
-          const destSchema = getTableSchema(newDb, tableName)
+          const backupSchema = await getTableSchema(backupPrisma, tableName)
+          const destSchema = await getTableSchema(newPrisma, tableName)
 
-          const rows = backupDb.prepare(`SELECT * FROM ${tableName}`).all()
+          const rows = await backupPrisma.$queryRawUnsafe<any[]>(`SELECT * FROM "${tableName}"`)
 
           if (rows.length === 0) {
             console.log(`ℹ️ Tabla ${tableName} vacía en backup`)
@@ -761,11 +769,7 @@ async function migrateDataFromBackup(backupPath: string, newDbPath: string) {
             }
           }
 
-          const placeholders = destColumns.map(() => '?').join(', ')
-          const insertSql = `INSERT INTO ${tableName} (${destColumns.join(', ')}) VALUES (${placeholders})`
-          const insertStmt = newDb.prepare(insertSql)
-
-          for (const row of rows as any[]) {
+          for (const row of rows) {
             const values: any[] = []
 
             for (const destCol of destColumns) {
@@ -788,7 +792,11 @@ async function migrateDataFromBackup(backupPath: string, newDbPath: string) {
               }
             }
 
-            insertStmt.run(...values)
+            const placeholders = destColumns.map(() => '?').join(', ')
+            await newPrisma.$executeRawUnsafe(
+              `INSERT INTO "${tableName}" (${destColumns.join(', ')}) VALUES (${placeholders})`,
+              ...values
+            )
           }
 
           console.log(`✅ ${rows.length} registros migrados en ${tableName}`)
@@ -800,8 +808,8 @@ async function migrateDataFromBackup(backupPath: string, newDbPath: string) {
 
       console.log(`✅ ¡Migración completada! ${totalMigrated} registros totales migrados`)
     } finally {
-      backupDb.close()
-      newDb.close()
+      await backupPrisma.$disconnect().catch(() => {})
+      await newPrisma.$disconnect().catch(() => {})
     }
   } catch (error) {
     console.error('❌ Error migrando datos desde backup:', error)
@@ -811,6 +819,10 @@ async function migrateDataFromBackup(backupPath: string, newDbPath: string) {
 
 async function hasUserData(dbPath: string): Promise<boolean> {
   try {
+    if (!(await fs.pathExists(dbPath))) {
+      return false
+    }
+
     const tempPrisma = new PrismaClient({
       datasources: { db: { url: `file:${dbPath.replace(/\\/g, '/')}` } }
     })
@@ -839,7 +851,7 @@ async function hasUserData(dbPath: string): Promise<boolean> {
     return counts.some((c) => c > 0)
   } catch (error) {
     console.error('Error verificando datos de usuario:', error)
-    return true
+    return false
   }
 }
 
@@ -850,8 +862,10 @@ async function initializeDatabase(config: DatabaseConfig) {
     const resolvedResourcesPath = config.resourcesPath ?? config.cwd
     log.info('Eviroment is dev:', isDev)
     const destDbPath = isDev
-      ? path.resolve('..', 'api', 'prisma', 'dev.db')
+      ? path.resolve(config.cwd, '..', 'api', 'prisma', 'dev.db')
       : path.join(resolvedUserDataPath, 'dev.db')
+
+    let wasJustCreated = false
 
     if (!(await fs.pathExists(destDbPath))) {
       log.info('📦 Primera vez: creando base de datos inicial...')
@@ -860,103 +874,129 @@ async function initializeDatabase(config: DatabaseConfig) {
 
       if (await fs.pathExists(srcDbPath)) {
         await fs.copy(srcDbPath, destDbPath)
+        wasJustCreated = true
         log.info('✅ Base de datos inicial copiada desde plantilla:', srcDbPath)
       } else {
         log.info('🆕 No hay DB inicial, se creará con las migraciones')
-      }
-    } else {
-      log.info('💾 Usando base de datos existente (preservando datos):', destDbPath)
-    }
-
-    log.info('🔍 Validando esquema de base de datos...')
-    const isSchemaValid = await validateDatabaseSchema(destDbPath)
-
-    if (!isSchemaValid) {
-      log.warn('⚠️ Esquema desactualizado detectado. Recreando base de datos...')
-      const hasData = await hasUserData(destDbPath)
-
-      let backupPathForMigration: string | null = null
-
-      if (hasData) {
-        log.info('💾 Creando backup antes de recrear...')
-        const backupDir = path.join(resolvedUserDataPath, 'backups')
-        await fs.ensureDir(backupDir)
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-        backupPathForMigration = path.join(backupDir, `migration-${timestamp}.db`)
-        await fs.copy(destDbPath, backupPathForMigration)
-        log.warn('⚠️ DATOS IMPORTANTES: Backup guardado en:', backupPathForMigration)
-      }
-
-      await fs.remove(destDbPath)
-      log.info('🗑️ Base de datos antigua eliminada')
-
-      const srcDbPath = getTemplateDbPath(isDev, config.cwd, resolvedResourcesPath)
-
-      if (await fs.pathExists(srcDbPath)) {
-        await fs.copy(srcDbPath, destDbPath)
-        log.info('✅ Base de datos limpia copiada desde el proyecto')
-      } else {
-        log.info('🆕 Creando nueva base de datos desde cero...')
-        await runMigrations(
+        const firstRunOk = await runMigrations(
           destDbPath,
           isDev,
           config.cwd,
           resolvedResourcesPath,
           resolvedUserDataPath
         )
-      }
-
-      if (backupPathForMigration && hasData) {
-        try {
-          await migrateDataFromBackup(backupPathForMigration, destDbPath)
-          log.info('🎉 ¡Tus datos han sido migrados exitosamente al nuevo esquema!')
-        } catch (error) {
-          log.error(
-            '❌ Error al migrar datos. El backup está disponible en:',
-            backupPathForMigration
-          )
-          log.error('Puedes restaurarlo manualmente si es necesario')
+        if (!firstRunOk) {
+          log.error('❌ No se pudo crear la base de datos inicial')
+          throw new Error('Failed to create initial database')
         }
+        wasJustCreated = true
+        log.info('✅ Base de datos creada desde migraciones')
       }
+    } else {
+      log.info('💾 Usando base de datos existente (preservando datos):', destDbPath)
     }
 
-    log.info('🔄 Aplicando migraciones pendientes...')
-    const migrationSuccess = await runMigrations(
-      destDbPath,
-      isDev,
-      config.cwd,
-      resolvedResourcesPath,
-      resolvedUserDataPath
-    )
+    let migrationsAlreadyApplied = wasJustCreated
 
-    if (!migrationSuccess) {
-      const hasData = await hasUserData(destDbPath)
-      if (hasData) {
-        log.error('❌ ERROR: La migración falló pero hay datos de usuario. Se usará la DB actual.')
-        log.warn('⚠️ Revisa los logs y considera aplicar la migración manualmente.')
-      } else {
-        log.info('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
+    if (!wasJustCreated) {
+      log.info('🔍 Validando esquema de base de datos...')
+      const isSchemaValid = await validateDatabaseSchema(destDbPath)
+
+      if (!isSchemaValid) {
+        log.warn('⚠️ Esquema desactualizado detectado. Recreando base de datos...')
+        const hasData = await hasUserData(destDbPath)
+
+        let backupPathForMigration: string | null = null
+
+        if (hasData) {
+          log.info('💾 Creando backup antes de recrear...')
+          const backupDir = path.join(resolvedUserDataPath, 'backups')
+          await fs.ensureDir(backupDir)
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+          backupPathForMigration = path.join(backupDir, `migration-${timestamp}.db`)
+          await fs.copy(destDbPath, backupPathForMigration)
+          log.warn('⚠️ DATOS IMPORTANTES: Backup guardado en:', backupPathForMigration)
+        }
+
         await fs.remove(destDbPath)
+        log.info('🗑️ Base de datos antigua eliminada')
 
         const srcDbPath = getTemplateDbPath(isDev, config.cwd, resolvedResourcesPath)
 
         if (await fs.pathExists(srcDbPath)) {
           await fs.copy(srcDbPath, destDbPath)
-          await runMigrations(
-            destDbPath,
-            isDev,
-            config.cwd,
-            resolvedResourcesPath,
-            resolvedUserDataPath
-          )
+          log.info('✅ Base de datos limpia copiada desde el proyecto')
         } else {
-          await runMigrations(
+          log.info('🆕 Creando nueva base de datos desde cero...')
+          const rebuildOk = await runMigrations(
             destDbPath,
             isDev,
             config.cwd,
             resolvedResourcesPath,
             resolvedUserDataPath
           )
+          if (!rebuildOk) {
+            log.error('❌ No se pudo reconstruir la base de datos')
+            throw new Error('Failed to rebuild database after schema validation failure')
+          }
+        }
+
+        if (backupPathForMigration && hasData) {
+          try {
+            await migrateDataFromBackup(backupPathForMigration, destDbPath)
+            log.info('🎉 ¡Tus datos han sido migrados exitosamente al nuevo esquema!')
+          } catch (error) {
+            log.error(
+              '❌ Error al migrar datos. El backup está disponible en:',
+              backupPathForMigration
+            )
+            log.error('Puedes restaurarlo manualmente si es necesario')
+          }
+        }
+
+        migrationsAlreadyApplied = true
+      }
+    }
+
+    if (!migrationsAlreadyApplied) {
+      log.info('🔄 Aplicando migraciones pendientes...')
+      const migrationSuccess = await runMigrations(
+        destDbPath,
+        isDev,
+        config.cwd,
+        resolvedResourcesPath,
+        resolvedUserDataPath
+      )
+
+      if (!migrationSuccess) {
+        const hasData = await hasUserData(destDbPath)
+        if (hasData) {
+          log.error('❌ ERROR: La migración falló pero hay datos de usuario. Se usará la DB actual.')
+          log.warn('⚠️ Revisa los logs y considera aplicar la migración manualmente.')
+        } else {
+          log.info('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
+          await fs.remove(destDbPath)
+
+          const srcDbPath = getTemplateDbPath(isDev, config.cwd, resolvedResourcesPath)
+
+          if (await fs.pathExists(srcDbPath)) {
+            await fs.copy(srcDbPath, destDbPath)
+            await runMigrations(
+              destDbPath,
+              isDev,
+              config.cwd,
+              resolvedResourcesPath,
+              resolvedUserDataPath
+            )
+          } else {
+            await runMigrations(
+              destDbPath,
+              isDev,
+              config.cwd,
+              resolvedResourcesPath,
+              resolvedUserDataPath
+            )
+          }
         }
       }
     }
@@ -977,7 +1017,7 @@ async function initializeDatabase(config: DatabaseConfig) {
       setGetBiblesResourcesPath(() => path.join(resolvedResourcesPath, 'resources', 'bibles'))
     }
 
-    registerOutboxMiddleware(prisma, resolvedUserDataPath)
+    prisma = registerOutboxMiddleware(prisma, resolvedUserDataPath)
     setPrismaClient(prisma)
     await prisma.$connect()
     log.info('✅ Prisma conectado a la base de datos')

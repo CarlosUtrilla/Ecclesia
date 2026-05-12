@@ -6,32 +6,41 @@
   "author": "Carlos Utrilla",
   "homepage": "https://github.com/CarlosUtrilla/Ecclesia",
   "license": "UNLICENSED",
+  "packageManager": "pnpm@11.1.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "sharp",
+      "@ffmpeg-installer/ffmpeg",
+      "@prisma/client",
+      "prisma",
+      "electron",
+      "electron-builder"
+    ]
+  },
   "workspaces": {
     "packages": [
       "packages/*",
       "apps/*"
-    ],
-    "nohoist": [
-      "**/@hookform/resolvers"
     ]
   },
   "scripts": {
-    "dev": "yarn workspace @ecclesia/desktop dev",
-    "build": "yarn workspace @ecclesia/desktop build",
-    "build:ci": "yarn workspace @ecclesia/desktop build:ci",
-    "test": "yarn workspace @ecclesia/desktop test",
-    "test:watch": "yarn workspace @ecclesia/desktop test:watch",
-    "test:coverage": "yarn workspace @ecclesia/desktop test:coverage",
-    "lint": "yarn workspace @ecclesia/desktop lint",
-    "typecheck": "yarn workspace @ecclesia/desktop typecheck",
+    "dev": "pnpm --filter @ecclesia/desktop dev",
+    "build": "pnpm --filter @ecclesia/desktop build",
+    "build:ci": "pnpm --filter @ecclesia/desktop build:ci",
+    "test": "pnpm --filter @ecclesia/desktop test",
+    "test:watch": "pnpm --filter @ecclesia/desktop test:watch",
+    "test:coverage": "pnpm --filter @ecclesia/desktop test:coverage",
+    "lint": "pnpm --filter @ecclesia/desktop lint",
+    "typecheck": "pnpm --filter @ecclesia/desktop typecheck",
     "format": "prettier --write .",
-    "start": "yarn workspace @ecclesia/desktop start",
-    "postinstall": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
-    "seed": "npx ts-node apps/api/prisma/seed.ts",
-    "db:reset": "yarn workspace @ecclesia/desktop db:reset",
-    "db:backup": "yarn workspace @ecclesia/desktop db:backup",
-    "db:inspect": "yarn workspace @ecclesia/desktop db:inspect",
-    "sync": "git pull && npx prisma migrate dev --schema=apps/api/prisma/schema.prisma"
+    "start": "pnpm --filter @ecclesia/desktop start",
+    "postinstall": "pnpm --filter @ecclesia/api db:generate",
+    "seed": "pnpm ts-node apps/api/prisma/seed.ts",
+    "db:reset": "pnpm --filter @ecclesia/desktop db:reset",
+    "db:backup": "pnpm --filter @ecclesia/desktop db:backup",
+    "db:inspect": "pnpm --filter @ecclesia/desktop db:inspect",
+    "sync": "git pull && pnpm --filter @ecclesia/api db:migrate"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

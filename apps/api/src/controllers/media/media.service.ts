@@ -15,6 +15,7 @@ import {
   resolveNormalizedPath
 } from './media.storage'
 import { resolveFilesRoot, resolveMediaRoot } from '../../config'
+import Logger from 'electron-log'
 
 
 export class MediaService {

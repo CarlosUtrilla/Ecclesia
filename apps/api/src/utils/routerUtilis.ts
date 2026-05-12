@@ -5,16 +5,19 @@ import { restoreDecimals } from '../middleware/decimal'
 import { USING_MULTER_KEY, UsingMulterOptions } from './multerDecorator'
 import multer from 'multer'
 import 'reflect-metadata'
+import Logger from 'electron-log'
 
 const routeHandler =
   (handler: (params: any) => Promise<any>) => async (req: any, res: express.Response) => {
     try {
+      const requestData = req?.body ?? {};
+      const body = restoreDecimals(requestData?.body)
       const result = await handler({
-        body: restoreDecimals(req.body),
-        file: req.file,
-        files: req.files,
-        req,
-        res
+        body,
+        file: requestData?.file,
+        files: requestData?.files,
+        req: requestData?.req,
+        res: requestData?.res
       })
 
       return res.json(result)

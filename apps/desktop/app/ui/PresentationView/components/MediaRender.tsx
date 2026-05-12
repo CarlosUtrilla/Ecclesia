@@ -15,7 +15,9 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
   const { buildMediaUrl } = useMediaServer()
   const itemData = currentItem as PresentationViewItems & Media
   const thumbnailUrl = buildMediaUrl(itemData.thumbnail || '')
-  const originalUrl = buildMediaUrl(itemData.filePath)
+  const originalUrl =
+    (itemData as PresentationViewItems & { mediaUrl?: string }).mediaUrl ||
+    buildMediaUrl(itemData.filePath)
 
   const type = getMediaType(itemData.format)
   const shouldLoop = currentItem.videoLoop === true
@@ -124,6 +126,7 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
 
   const renderMedia = () => {
     if (!live) {
+      if (!thumbnailUrl) return null
       return (
         <img
           src={thumbnailUrl}
@@ -134,6 +137,7 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
       )
     } else {
       if (type === 'video') {
+        if (!originalUrl) return null
         return (
           <video
             ref={videoRef}
@@ -149,6 +153,7 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
           />
         )
       } else {
+        if (!originalUrl) return null
         return (
           <img
             src={originalUrl}
@@ -168,8 +173,8 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
 }
 
 function areMediaRenderPropsEqual(prevProps: MediaRenderProps, nextProps: MediaRenderProps) {
-  const prevItem = prevProps.currentItem as PresentationViewItems & Partial<Media>
-  const nextItem = nextProps.currentItem as PresentationViewItems & Partial<Media>
+  const prevItem = prevProps.currentItem as PresentationViewItems & Partial<Media> & { mediaUrl?: string }
+  const nextItem = nextProps.currentItem as PresentationViewItems & Partial<Media> & { mediaUrl?: string }
 
   return (
     prevProps.live === nextProps.live &&
@@ -178,6 +183,7 @@ function areMediaRenderPropsEqual(prevProps: MediaRenderProps, nextProps: MediaR
     prevItem.thumbnail === nextItem.thumbnail &&
     prevItem.format === nextItem.format &&
     prevItem.customStyle === nextItem.customStyle &&
+    prevItem.mediaUrl === nextItem.mediaUrl &&
     prevProps.currentItem.videoLoop === nextProps.currentItem.videoLoop
   )
 }

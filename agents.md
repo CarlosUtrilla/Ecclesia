@@ -28,9 +28,10 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 
 *   **Frontend:** React 19, TypeScript, Tailwind CSS, Shadcn UI, React Router v7, React Hook Form + Zod, TanStack React Query, TipTap, Framer Motion (LazyMotion), dnd-kit
 *   **Backend:** Electron, Prisma ORM, SQLite (better-sqlite3)
+*   **Package Manager:** pnpm 11 (con `minimum-release-age=1440` y `onlyBuiltDependencies` para proteger contra ataques supply chain)
 *   **Build:** Vite + electron-vite
 *   **Empaquetado macOS:** `dmg.artifactName` incluye `${arch}` para evitar colisiones cuando se generan arm64 y x64 en la misma ejecución.
-*   **Release CI:** workflow de tags usa Yarn (`yarn.lock`) y build macOS arm64+x64 secuencial en un solo job (sin merge `universal` para evitar fallos de `_CodeSignature`). El workflow valida `GH_TOKEN` al inicio y define `timeout-minutes` por job para cortar fallos costosos. El script `scripts/release.sh` permite elegir modo `github` (push + CI) o `local` (compila mac/win sin push ni consumo de CI), e incluye preflight de `sharp` con autoreparación (`yarn install` + `npm rebuild sharp` + `electron-builder install-app-deps`) y preparación explícita de `sharp` para `win32-x64` antes del empaquetado de Windows local (`npm install --legacy-peer-deps --os=win32 --cpu=x64 sharp`). En modo local, el flujo limpia `dist/` antes de compilar para no mezclar artefactos viejos con los nuevos, compila primero con `electron-vite build` en macOS, ejecuta `prisma generate` con `binaryTargets` multi-plataforma (`native`, `windows`, `darwin-arm64`, `darwin`) y luego empaqueta con `electron-builder --win`, evitando errores de optional dependencies de Rollup y de Query Engine en Windows. Al finalizar, el script restaura dependencias del host con `yarn install --frozen-lockfile` para no dejar roto el entorno de desarrollo local y puede subir opcionalmente `dist/` a un GitHub Release vía `gh` (con advertencia porque crear el tag remoto `v*` puede disparar el workflow de tags). En esa subida local, el script ahora empuja automáticamente el tag si no existe en remoto y solo sube archivos regulares de `dist/` (evitando fallos por carpetas como `win-unpacked`).
+*   **Release CI:** workflow de tags usa pnpm (`pnpm-lock.yaml`) y build macOS arm64+x64 secuencial en un solo job (sin merge `universal` para evitar fallos de `_CodeSignature`). El workflow valida `GH_TOKEN` al inicio y define `timeout-minutes` por job para cortar fallos costosos. El script `scripts/release.sh` permite elegir modo `github` (push + CI) o `local` (compila mac/win sin push ni consumo de CI), e incluye preflight de `sharp` con autoreparación (`pnpm install --frozen-lockfile` + `npm rebuild sharp` + `electron-builder install-app-deps`) y preparación explícita de `sharp` para `win32-x64` antes del empaquetado de Windows local (`npm install --legacy-peer-deps --os=win32 --cpu=x64 sharp`). En modo local, el flujo limpia `dist/` antes de compilar para no mezclar artefactos viejos con los nuevos, compila primero con `electron-vite build` en macOS, ejecuta `prisma generate` con `binaryTargets` multi-plataforma (`native`, `windows`, `darwin-arm64`, `darwin`) y luego empaqueta con `electron-builder --win`, evitando errores de optional dependencies de Rollup y de Query Engine en Windows. Al finalizar, el script restaura dependencias del host con `pnpm install --frozen-lockfile` para no dejar roto el entorno de desarrollo local y puede subir opcionalmente `dist/` a un GitHub Release vía `gh` (con advertencia porque crear el tag remoto `v*` puede disparar el workflow de tags). En esa subida local, el script ahora empuja automáticamente el tag si no existe en remoto y solo sube archivos regulares de `dist/` (evitando fallos por carpetas como `win-unpacked`).
 *   **Idioma principal del codigo:** Espanol (comentarios, nombres de variables UI), Ingles (nombres de modelos, controladores, tipos)
 *   **Testing:** Vitest (`node` por defecto + `jsdom` por archivo), Testing Library para pruebas UI.
 
@@ -121,7 +122,7 @@ packages/desktop/app/main.tsx (entry point React)
               "/stage-layout" -> StageLayoutScreen (ventana de layout stage)
 ```
 
-## Monorepo (Yarn Workspaces)
+## Monorepo (pnpm Workspaces)
 
 ```
 /
@@ -144,7 +145,9 @@ packages/desktop/app/main.tsx (entry point React)
 │       ├── electron.vite.config.ts
 │       ├── vitest.config.ts
 │       └── package.json
-├── package.json               # Yarn workspaces root
+├── .npmrc                     # minimum-release-age=1440 (seguridad supply chain)
+├── pnpm-workspace.yaml        # Definicion de workspaces
+├── package.json               # pnpm workspace root
 └── AGENTS.md                  # Este archivo (router principal)
 ```
 
@@ -340,8 +343,10 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 │       ├── package.json
 │       ├── electron.vite.config.ts
 │       └── vitest.config.ts
-├── package.json                  <- Yarn workspaces root
-└── AGENTS.md                     <- ESTE ARCHIVO (router principal)
+├── .npmrc                     <- minimum-release-age=1440 (seguridad supply chain)
+├── pnpm-workspace.yaml        <- Definicion de workspaces
+├── package.json               <- pnpm workspace root
+└── AGENTS.md                  <- ESTE ARCHIVO (router principal)
 ```
 
 ## Integración ScheduleContext, Schedule y Library
