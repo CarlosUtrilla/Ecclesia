@@ -10,6 +10,7 @@ import FontsController from './controllers/fonts/fonts.controller'
 import { PresentationsController } from './controllers/presentations/presentations.controller'
 import StageScreenConfigController from './controllers/stageScreenConfig/stageScreenConfig.controller'
 import SyncController from './controllers/sync/sync.controller'
+import SyncDriveController from './controllers/sync-drive/sync-drive.controller'
 
 export const routes = {
   setttings: SettingsController,
@@ -23,5 +24,6 @@ export const routes = {
   selectedScreens: SelectedScreensController,
   fonts: FontsController,
   stageScreenConfig: StageScreenConfigController,
-  sync: SyncController
+  sync: SyncController,
+  syncDrive: SyncDriveController
 }

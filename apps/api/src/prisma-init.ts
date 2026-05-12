@@ -5,13 +5,28 @@ import os from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { serializeOutboxPayload } from './outboxPayload'
-import { setPrismaClient, outboxContext, runWithoutSyncOutboxTracking } from './prisma'
+import {
+  setPrismaClient,
+  outboxContext,
+  runWithoutSyncOutboxTracking,
+  setGetBiblesResourcesPath,
+  getBiblesResourcesPath
+} from './prisma'
+import log from 'electron-log'
 
 export type DatabaseConfig = {
   isDev: boolean
-  userDataPath: string
-  resourcesPath: string
+  userDataPath?: string
+  resourcesPath?: string
   cwd: string
+}
+
+function getDefaultDatabaseConfig(cwd?: string): DatabaseConfig {
+  return {
+    isDev: true,
+    userDataPath: path.join(os.homedir(), '.ecclesia'),
+    cwd: cwd ?? process.cwd()
+  }
 }
 
 const execAsync = promisify(exec)
@@ -831,99 +846,99 @@ async function hasUserData(dbPath: string): Promise<boolean> {
 async function initializeDatabase(config: DatabaseConfig) {
   try {
     const isDev = config.isDev
-
+    const resolvedUserDataPath = config.userDataPath ?? path.join(os.homedir(), '.ecclesia')
+    const resolvedResourcesPath = config.resourcesPath ?? config.cwd
+    log.info('Eviroment is dev:', isDev)
     const destDbPath = isDev
       ? path.resolve('..', 'api', 'prisma', 'dev.db')
-      : path.join(config.userDataPath, 'dev.db')
+      : path.join(resolvedUserDataPath, 'dev.db')
 
     if (!(await fs.pathExists(destDbPath))) {
-      console.log('📦 Primera vez: creando base de datos inicial...')
+      log.info('📦 Primera vez: creando base de datos inicial...')
 
-      const srcDbPath = getTemplateDbPath(isDev, config.cwd, config.resourcesPath)
+      const srcDbPath = getTemplateDbPath(isDev, config.cwd, resolvedResourcesPath)
 
       if (await fs.pathExists(srcDbPath)) {
         await fs.copy(srcDbPath, destDbPath)
-        console.log('✅ Base de datos inicial copiada desde plantilla:', srcDbPath)
+        log.info('✅ Base de datos inicial copiada desde plantilla:', srcDbPath)
       } else {
-        console.log('🆕 No hay DB inicial, se creará con las migraciones')
+        log.info('🆕 No hay DB inicial, se creará con las migraciones')
       }
     } else {
-      console.log('💾 Usando base de datos existente (preservando datos):', destDbPath)
+      log.info('💾 Usando base de datos existente (preservando datos):', destDbPath)
     }
 
-    console.log('🔍 Validando esquema de base de datos...')
+    log.info('🔍 Validando esquema de base de datos...')
     const isSchemaValid = await validateDatabaseSchema(destDbPath)
 
     if (!isSchemaValid) {
-      console.warn('⚠️ Esquema desactualizado detectado. Recreando base de datos...')
+      log.warn('⚠️ Esquema desactualizado detectado. Recreando base de datos...')
       const hasData = await hasUserData(destDbPath)
 
       let backupPathForMigration: string | null = null
 
       if (hasData) {
-        console.log('💾 Creando backup antes de recrear...')
-        const backupDir = path.join(config.userDataPath, 'backups')
+        log.info('💾 Creando backup antes de recrear...')
+        const backupDir = path.join(resolvedUserDataPath, 'backups')
         await fs.ensureDir(backupDir)
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
         backupPathForMigration = path.join(backupDir, `migration-${timestamp}.db`)
         await fs.copy(destDbPath, backupPathForMigration)
-        console.warn('⚠️ DATOS IMPORTANTES: Backup guardado en:', backupPathForMigration)
+        log.warn('⚠️ DATOS IMPORTANTES: Backup guardado en:', backupPathForMigration)
       }
 
       await fs.remove(destDbPath)
-      console.log('🗑️ Base de datos antigua eliminada')
+      log.info('🗑️ Base de datos antigua eliminada')
 
-      const srcDbPath = getTemplateDbPath(isDev, config.cwd, config.resourcesPath)
+      const srcDbPath = getTemplateDbPath(isDev, config.cwd, resolvedResourcesPath)
 
       if (await fs.pathExists(srcDbPath)) {
         await fs.copy(srcDbPath, destDbPath)
-        console.log('✅ Base de datos limpia copiada desde el proyecto')
+        log.info('✅ Base de datos limpia copiada desde el proyecto')
       } else {
-        console.log('🆕 Creando nueva base de datos desde cero...')
+        log.info('🆕 Creando nueva base de datos desde cero...')
         await runMigrations(
           destDbPath,
           isDev,
           config.cwd,
-          config.resourcesPath,
-          config.userDataPath
+          resolvedResourcesPath,
+          resolvedUserDataPath
         )
       }
 
       if (backupPathForMigration && hasData) {
         try {
           await migrateDataFromBackup(backupPathForMigration, destDbPath)
-          console.log('🎉 ¡Tus datos han sido migrados exitosamente al nuevo esquema!')
+          log.info('🎉 ¡Tus datos han sido migrados exitosamente al nuevo esquema!')
         } catch (error) {
-          console.error(
+          log.error(
             '❌ Error al migrar datos. El backup está disponible en:',
             backupPathForMigration
           )
-          console.error('Puedes restaurarlo manualmente si es necesario')
+          log.error('Puedes restaurarlo manualmente si es necesario')
         }
       }
     }
 
-    console.log('🔄 Aplicando migraciones pendientes...')
+    log.info('🔄 Aplicando migraciones pendientes...')
     const migrationSuccess = await runMigrations(
       destDbPath,
       isDev,
       config.cwd,
-      config.resourcesPath,
-      config.userDataPath
+      resolvedResourcesPath,
+      resolvedUserDataPath
     )
 
     if (!migrationSuccess) {
       const hasData = await hasUserData(destDbPath)
       if (hasData) {
-        console.error(
-          '❌ ERROR: La migración falló pero hay datos de usuario. Se usará la DB actual.'
-        )
-        console.warn('⚠️ Revisa los logs y considera aplicar la migración manualmente.')
+        log.error('❌ ERROR: La migración falló pero hay datos de usuario. Se usará la DB actual.')
+        log.warn('⚠️ Revisa los logs y considera aplicar la migración manualmente.')
       } else {
-        console.log('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
+        log.info('🔄 Recreando base de datos desde cero (sin datos de usuario)...')
         await fs.remove(destDbPath)
 
-        const srcDbPath = getTemplateDbPath(isDev, config.cwd, config.resourcesPath)
+        const srcDbPath = getTemplateDbPath(isDev, config.cwd, resolvedResourcesPath)
 
         if (await fs.pathExists(srcDbPath)) {
           await fs.copy(srcDbPath, destDbPath)
@@ -931,16 +946,16 @@ async function initializeDatabase(config: DatabaseConfig) {
             destDbPath,
             isDev,
             config.cwd,
-            config.resourcesPath,
-            config.userDataPath
+            resolvedResourcesPath,
+            resolvedUserDataPath
           )
         } else {
           await runMigrations(
             destDbPath,
             isDev,
             config.cwd,
-            config.resourcesPath,
-            config.userDataPath
+            resolvedResourcesPath,
+            resolvedUserDataPath
           )
         }
       }
@@ -954,13 +969,21 @@ async function initializeDatabase(config: DatabaseConfig) {
     prisma = new PrismaClient({
       datasources: { db: { url: `file:${destDbPath.replace(/\\/g, '/')}` } }
     })
-    registerOutboxMiddleware(prisma, config.userDataPath)
+
+    // Configurar ruta por defecto de biblias si no se ha establecido externamente
+    try {
+      getBiblesResourcesPath()
+    } catch {
+      setGetBiblesResourcesPath(() => path.join(resolvedResourcesPath, 'resources', 'bibles'))
+    }
+
+    registerOutboxMiddleware(prisma, resolvedUserDataPath)
     setPrismaClient(prisma)
     await prisma.$connect()
-    console.log('✅ Prisma conectado a la base de datos')
+    log.info('✅ Prisma conectado a la base de datos')
     return prisma
   } catch (error) {
-    console.error('❌ Error al inicializar Prisma:', error)
+    log.error('❌ Error al inicializar Prisma:', error)
     throw error
   }
 }
@@ -972,4 +995,4 @@ function getPrisma() {
   return prisma
 }
 
-export { initializeDatabase, getPrisma, registerOutboxMiddleware }
+export { initializeDatabase, getPrisma, registerOutboxMiddleware, getDefaultDatabaseConfig }

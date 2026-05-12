@@ -1,6 +1,6 @@
 import type { Express } from 'express'
 import express from 'express'
-import { resolveMediaRoot } from './media.storage'
+import { resolveMediaRoot } from '../../config'
 
 export const MEDIA_SERVER_PORT = 7777
 const MEDIA_ROUTE_PREFIX = '/media'

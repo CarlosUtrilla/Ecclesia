@@ -1,4 +1,3 @@
-import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -10,27 +9,15 @@ import {
   buildThumbnailFileName,
   generateImageThumbnail,
   generateVideoFallback,
-  generateVideoThumbnail,
-  getThumbnailsPath
-} from '../../../../desktop/electron/main/mediaManager/mediaThumbnails'
+  generateVideoThumbnail
+} from '../../mediaThumbnails'
+import { resolveFilesRoot, resolveMediaRoot, resolveThumbnailsRoot } from '../../config'
 
 export const SUPPORTED_IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 export const SUPPORTED_VIDEO_FORMATS = ['.mp4', '.webm', '.mov', '.avi']
 
 export function normalizeMediaPath(mediaPath: string): string {
   return mediaPath.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '')
-}
-
-export function resolveMediaRoot(): string {
-  return path.join(app.getPath('userData'), 'media')
-}
-
-export function resolveFilesRoot(): string {
-  return path.join(resolveMediaRoot(), 'files')
-}
-
-export function resolveThumbnailsRoot(): string {
-  return getThumbnailsPath(app.getPath('userData'))
 }
 
 export function resolveNormalizedPath(base: string, relativePath: string): string {

@@ -1,5 +1,5 @@
 import { BrowserWindow, shell, ipcMain, screen } from 'electron'
-import { join } from 'path'  
+import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getIsSyncing, executeSyncCycle } from './googleDriveSyncManager/googleDriveSyncManager'

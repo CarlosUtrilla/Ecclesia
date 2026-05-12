@@ -7,7 +7,6 @@ import {
   UpdateThemeDto
 } from './themes.dto'
 import { Prisma, MediaType } from '@prisma/client'
-import { app, BrowserWindow } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -28,7 +27,12 @@ import {
   generateImageThumbnail,
   generateVideoFallback,
   generateVideoThumbnail
-} from '../../../../desktop/electron/main/mediaManager/mediaThumbnails'
+} from '../../mediaThumbnails'
+import {
+  getDownloadsPath,
+  notifyFontAdded,
+  resolveMediaRoot
+} from '../../config'
 
 type ThemeArchivePayload = {
   version: number
@@ -58,14 +62,6 @@ type ThemeArchivePayload = {
 }
 
 export class ThemesService {
-  private getUserMediaPath() {
-    if (!app) {
-      throw new Error('No fue posible resolver la ruta de datos de la aplicación')
-    }
-
-    return path.join(app.getPath('userData'), 'media')
-  }
-
   private parseTextStyle(textStyle: string | null | undefined) {
     if (!textStyle) return {}
 
@@ -307,7 +303,7 @@ export class ThemesService {
       throw new Error('No se encontró el tema a exportar')
     }
 
-    const downloadsPath = app.getPath('downloads')
+    const downloadsPath = getDownloadsPath()
     const safeBaseName = sanitizeThemeArchiveBaseName(theme.name)
     const archivePath = ensureZipExtension(path.join(downloadsPath, `${safeBaseName}.zip`))
 
@@ -335,14 +331,14 @@ export class ThemesService {
     zip.addFile('theme.json', Buffer.from(JSON.stringify(payload, null, 2), 'utf8'))
 
     if (theme.backgroundMedia && payload.backgroundMedia?.backgroundAssetPath) {
-      const mediaPath = path.join(this.getUserMediaPath(), theme.backgroundMedia.filePath)
+      const mediaPath = path.join(resolveMediaRoot(), theme.backgroundMedia.filePath)
       if (fs.existsSync(mediaPath)) {
         zip.addFile(payload.backgroundMedia.backgroundAssetPath, fs.readFileSync(mediaPath))
       }
     }
 
     if (payload.customFont?.fontAssetPath) {
-      const fontPath = path.join(this.getUserMediaPath(), payload.customFont.fontAssetPath)
+      const fontPath = path.join(resolveMediaRoot(), payload.customFont.fontAssetPath)
       if (fs.existsSync(fontPath)) {
         zip.addFile(payload.customFont.fontAssetPath, fs.readFileSync(fontPath))
       }
@@ -412,7 +408,7 @@ export class ThemesService {
 
       const parsedBase = path.posix.parse(baseRelativePath)
       let relativePath = baseRelativePath
-      let absolutePath = path.join(this.getUserMediaPath(), ...baseRelativePath.split('/'))
+      let absolutePath = path.join(resolveMediaRoot(), ...baseRelativePath.split('/'))
 
       const baseFileName = parsedBase.name || sanitizeThemeArchiveBaseName(themeName)
       const baseExtension = parsedBase.ext || extension
@@ -429,7 +425,7 @@ export class ThemesService {
         const suffix = renameAttempt === 1 ? ' (importado)' : ` (importado ${renameAttempt})`
         const nextFileName = `${baseFileName}${suffix}${baseExtension}`
         relativePath = path.posix.join(parsedBase.dir, nextFileName)
-        absolutePath = path.join(this.getUserMediaPath(), ...relativePath.split('/'))
+        absolutePath = path.join(resolveMediaRoot(), ...relativePath.split('/'))
       }
 
       fs.mkdirSync(path.dirname(absolutePath), { recursive: true })
@@ -438,7 +434,7 @@ export class ThemesService {
 
         const thumbHash = crypto.randomBytes(8).toString('hex')
         const thumbBaseName = path.basename(absolutePath, path.extname(absolutePath))
-        const thumbnailsDir = path.join(this.getUserMediaPath(), 'thumbnails')
+        const thumbnailsDir = path.join(resolveMediaRoot(), 'thumbnails')
         fs.mkdirSync(thumbnailsDir, { recursive: true })
 
         const thumbnailFileName = buildThumbnailFileName(thumbBaseName, thumbHash)
@@ -487,7 +483,7 @@ export class ThemesService {
         }
 
         const fontRelativePath = `fonts/${safeFileName}`
-        const fontAbsolutePath = path.join(this.getUserMediaPath(), 'fonts', safeFileName)
+        const fontAbsolutePath = path.join(resolveMediaRoot(), 'fonts', safeFileName)
 
         const existingFont = await prisma.font.findFirst({
           where: {
@@ -514,9 +510,7 @@ export class ThemesService {
             }
           })
 
-          BrowserWindow.getAllWindows().forEach((window) => {
-            window.webContents.send('font-added')
-          })
+          notifyFontAdded()
         }
       }
 

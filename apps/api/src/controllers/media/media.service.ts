@@ -10,12 +10,11 @@ import {
   importMediaFromSourcePath,
   listMediaFolders,
   moveMediaPath,
-  normalizeMediaPath,
   renameMediaPath,
-  resolveFilesRoot,
-  resolveMediaRoot,
+  normalizeMediaPath,
   resolveNormalizedPath
 } from './media.storage'
+import { resolveFilesRoot, resolveMediaRoot } from '../../config'
 
 
 export class MediaService {

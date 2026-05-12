@@ -1,7 +1,7 @@
 import FontsService from './fonts.service'
 import type { AddFontDTO, DeleteFontDTO } from './fonts.dto'
-import { BrowserWindow } from 'electron'
 import { RequestHandler } from '../../utils/RequestHandler'
+import { notifyFontDeleted } from '../../config'
 
 export default class FontsController {
   private fontsService = new FontsService()
@@ -16,14 +16,7 @@ export default class FontsController {
 
   async deleteFont({ body }: RequestHandler<DeleteFontDTO>) {
     const result = await this.fontsService.deleteFont(body)
-    // Emitir evento a todas las ventanas
-    try {
-      BrowserWindow.getAllWindows().forEach((win: any) => {
-        win.webContents.send('font-deleted')
-      })
-    } catch (e) {
-      console.error('Error al emitir evento de font-deleted:', e)
-    }
+    notifyFontDeleted()
     return result
   }
 }

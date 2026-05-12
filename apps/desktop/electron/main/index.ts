@@ -24,10 +24,7 @@ import { initializeBibleManager } from './bibleManager'
 import { initializeMediaManager } from './mediaManager'
 import { initializeDisplayManager } from './displayManager'
 import { initializeFontManager } from './fontManager'
-import {
-  applyPendingDriveRestoreOnStartup,
-  initializeGoogleDriveSyncManager
-} from './googleDriveSyncManager/googleDriveSyncManager'
+import { initializeGoogleDriveSyncManager } from './googleDriveSyncManager/googleDriveSyncManager'
 import { loadAppEnv } from './loadEnv'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
 
@@ -102,9 +99,6 @@ app.whenReady().then(async () => {
 
   updateSplashStatus('Cargando entorno...')
   loadAppEnv()
-
-  updateSplashStatus('Verificando sincronización...')
-  await applyPendingDriveRestoreOnStartup()
 
   updateSplashStatus('Inicializando base de datos...')
   setGetBiblesResourcesPath(getBiblesResourcesPath)
