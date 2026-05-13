@@ -1,7 +1,12 @@
-
 import Decimal from 'decimal.js'
 
-export async function Fetcher(apiUrl: string,port: number, path: string, body?: any, token?: string) {
+export async function Fetcher(
+  apiUrl: string,
+  port: number,
+  path: string,
+  body?: any,
+  token?: string
+) {
   try {
     const url = `${apiUrl}:${port}${path}`
     const isFormData = body instanceof FormData
@@ -31,6 +36,7 @@ export async function Fetcher(apiUrl: string,port: number, path: string, body?: 
     }
 
     const contentType = response.headers.get('content-type')
+
     const data = contentType?.includes('application/json')
       ? await response.json()
       : await response.text()
@@ -59,8 +65,6 @@ function serializeBody(body: any) {
   if (typeof serializedDecimalsBody === 'string') return serializedDecimalsBody
   return JSON.stringify(serializedDecimalsBody)
 }
-
-
 
 export function serializeDecimals(obj: any): any {
   if (obj instanceof Decimal) {

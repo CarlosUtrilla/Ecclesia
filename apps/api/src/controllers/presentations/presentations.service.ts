@@ -205,7 +205,9 @@ export class PresentationsService {
   }
 
   async getPresentationById(id: number): Promise<PresentationResponseDTO | null> {
-    const presentation = await this.prisma.presentation.findFirst({ where: { id, deletedAt: null } })
+    const presentation = await this.prisma.presentation.findFirst({
+      where: { id, deletedAt: null }
+    })
 
     if (!presentation) return null
 
@@ -235,7 +237,11 @@ export class PresentationsService {
     return this.normalizePresentation(updated)
   }
 
-  async deletePresentation(id: number): Promise<void> {
-    await this.prisma.presentation.update({ where: { id }, data: { deletedAt: new Date() } })
+  async deletePresentation(id: number) {
+    const responde = await this.prisma.presentation.update({
+      where: { id },
+      data: { deletedAt: new Date() }
+    })
+    return responde
   }
 }
