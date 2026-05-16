@@ -1,0 +1,31 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  "include": [
+    "app/env.d.ts",
+    "app/**/*",
+    "app/**/*.tsx",
+    "electron/preload/*.d.ts",
+    "locales",
+    "index.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "out",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/.vite",
+    "**/generated"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./app/*"],
+      "@locales": ["./locales/index.ts"]
+    },
+    "skipLibCheck": true,
+    "incremental": true
+  }
+}

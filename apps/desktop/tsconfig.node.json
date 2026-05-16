@@ -1,0 +1,28 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
+  "include": [
+    "electron.vite.config.*",
+    "electron/main/**/*",
+    "electron/preload/**/*",
+    "tests/**/*",
+    "index.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "out",
+    "dist",
+    "**/.vite",
+    "**/generated"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "experimentalDecorators": true,
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "types": [
+      "electron-vite/node"
+    ],
+    "skipLibCheck": true,
+    "incremental": true
+  }
+}

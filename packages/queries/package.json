@@ -1,0 +1,16 @@
+{
+  "name": "@ecclesia/queries",
+  "version": "0.5.2",
+  "private": true,
+  "description": "Ecclesia - React Query hooks layer",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@ecclesia/api": "workspace:*",
+    "@tanstack/react-query": "^5.83.0",
+    "decimal.js": "^10.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

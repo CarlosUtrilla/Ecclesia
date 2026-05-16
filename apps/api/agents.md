@@ -1,0 +1,211 @@
+# Backend (Controllers / Services) Agent
+
+> **Agent router:** [`/agents.md`](../agents.md)
+
+## Descripcion
+
+Capa de backend que conecta el frontend React con la base de datos SQLite via IPC de Electron. Sigue un patron Controller/Service con DTOs para tipado seguro.
+
+## Arquitectura
+
+```text
+Frontend (React)
+  -> window.api.namespace.method(args)     // api.ts wraps ipcRenderer
+    -> ipcRenderer.invoke('namespace.method', args)
+      -> ipcMain.handle()                  // index.ts registerRoutes()
+        -> Controller.method(args)         // Instancia nueva por llamada
+          -> Service (Prisma ORM)
+            -> SQLite
+```
+
+## Archivos principales
+
+```text
+src/
+├── index.ts           # registerRoutes() y exposeRoutes() - setup IPC
+│                      # Re-exporta tipos/enums de Prisma (Media, ScheduleItem, etc.)
+├── prisma.ts          # setPrismaClient, getPrisma, injectables (bibles path)
+├── prisma-init.ts     # initializeDatabase(), migraciones, backup, middleware outbox
+│                      # initializeDatabase flow:
+│                      #   1. DB doesn't exist → copy template or runMigrations → wasJustCreated
+│                      #   2. DB exists + invalid schema → backup → delete → rebuild → migrate data → skip pending
+│                      #   3. DB exists + valid schema → run pending migrations
+│                      #   wasJustCreated/migrationsAlreadyApplied flags prevent double execution
+│                      # hasUserData() returns false if DB file doesn't exist (not true on error)
+├── outboxPayload.ts   # serializeOutboxPayload() BigInt-safe
+├── routes.ts          # Mapa de namespaces a controllers
+├── routeTypes.d.ts    # Tipos de rutas
+├── controllers/       # Un directorio por recurso
+│   ├── bible/
+│   │   ├── bible.controller.ts
+│   │   ├── bible.service.ts
+│   │   ├── bibleManagment.service.ts
+│   │   ├── bible.dto.d.ts
+│   │   └── utils.ts
+│   ├── media/
+│   │   ├── media.controller.ts
+│   │   ├── media.service.ts
+│   │   └── media.dto.d.ts
+│   ├── songs/
+│   │   ├── songs.controller.ts
+│   │   ├── songs.service.ts
+│   │   └── songs.dto.d.ts
+│   ├── presentations/
+│   │   ├── presentations.controller.ts
+│   │   ├── presentations.service.ts
+│   │   └── presentations.dto.d.ts
+│   ├── tagSongs/
+│   │   ├── tagSongs.controller.ts
+│   │   ├── tagSongs.service.ts
+│   │   └── tagSongs.dto.d.ts
+│   ├── themes/
+│   │   ├── themes.controller.ts
+│   │   ├── themes.service.ts
+│   │   └── themes.dto.d.ts
+│   ├── schedule/
+│   │   ├── schedule.controller.ts
+│   │   ├── schedule.service.ts
+│   │   ├── schedule-group.service.ts
+│   │   └── schedule.dto.d.ts
+│   ├── settings/
+│   │   ├── settings.controller.ts
+│   │   ├── settings.service.ts
+│   │   └── settings.dto.d.ts
+│   ├── sync/
+│   │   ├── sync.controller.ts
+│   │   ├── sync.service.ts
+│   │   └── sync.dto.d.ts
+│   └── selectedScreens/
+│       ├── index.ts
+│       ├── selectedScreens.controller.ts
+│       ├── selectedScreens.service.ts
+│       └── selectedScreens.dto.d.ts
+│   ├── stageScreenConfig/
+│   │   ├── index.ts
+│   │   ├── stageScreenConfig.controller.ts
+│   │   ├── stageScreenConfig.service.ts
+│   │   └── stageScreenConfig.dto.d.ts
+├── middleware/
+│   └── decimal.ts     # Serializacion Decimal/Date para IPC
+```
+
+## Namespaces IPC registrados
+
+Definidos en `routes.ts`:
+
+| Namespace | Controller | Metodos principales |
+| --------- | ---------- | ------------------- |
+| `songs` | SongsController | `createSong`, `getSongs`, `getSongById`, `getSongsByIds`, `updateSong`, `deleteSong` |
+| `themes` | ThemesController | `createTheme`, `getAllThemes`, `getThemeById`, `updateTheme`, `deleteTheme`, `exportThemeToZip`, `importThemeFromZip` |
+| `media` | MediaController | `importMedia`, `getAllMedia`, `getMediaByIds`, `deleteMedia`, `moveMedia`, `renameMedia`, `createFolder`, `renameFolder`, `deleteFolder` |
+| `tagSongs` | TagSongsController | `createTagSong`, `getAllTagSongs`, `updateTagSong`, `deleteTagSong` |
+| `bible` | BibleController | `getBibleSchema`, `getVerses`, `getCompleteChapter`, `getAvailableBibles`, `importBible`, `searchTextFragment`, `getDefaultBibleSettings`, `updateDefaultBibleSettings` |
+| `schedule` | ScheduleController | `createSchedule`, `getAllSchedules`, `getScheduleById`, `updateSchedule`, `deleteSchedule`, `getActualSchedule`, `addItemToSchedule`, `getAllGroupTemplates`, `createGroupTemplate`, `updateGroupTemplate`, `deleteGroupTemplate`, `getGroupTemplateById` |
+| `presentations` | PresentationsController | `createPresentation`, `getPresentations`, `getPresentationsByIds`, `getPresentationById`, `updatePresentation`, `deletePresentation` |
+| `setttings` | SettingsController | `getSettings`, `updateSettings` (usa `upsert` internamente) |
+| `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
+| `fonts` | FontsController | `addFont`, `getAllFonts`, `deleteFont` |
+| `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
+| `sync` | SyncController | `getSyncState`, `upsertSyncState`, `appendOutboxChange`, `getPendingOutboxChanges`, `acknowledgeOutboxChanges`, `ingestRemoteChanges`, `getPendingInboxChanges`, `markInboxChangesApplied`, `applyPendingInboxBatch`, `applySnapshotRows` |
+
+**Nota:** El namespace `setttings` tiene un typo historico (3 t's). No cambiar sin actualizar todos los puntos de referencia.
+
+## Patron de un Controller/Service
+
+### Controller (recibe la llamada IPC)
+
+```typescript
+// database/controllers/songs/songs.controller.ts
+export default class SongsController {
+  private songsService = new SongsService()
+
+  async createSong(data: CreateSongDTO) {
+    return await this.songsService.createSong(data)
+  }
+
+  async getSongs(params: GetSongsDTO) {
+    return await this.songsService.getSongs(params)
+  }
+}
+```
+
+### Service (logica de negocio con Prisma)
+
+```typescript
+// database/controllers/songs/songs.service.ts
+export default class SongsService {
+  async createSong(data: CreateSongDTO) {
+    return await prisma.song.create({
+      data: { ... },
+      // lyrics se guarda serializado en Song.lyrics como JSON string
+    })
+  }
+}
+```
+
+### DTO (tipos de datos)
+
+```typescript
+// database/controllers/songs/songs.dto.d.ts
+export interface CreateSongDTO {
+  title: string
+  author?: string
+  lyrics: { content: string; tagSongsId?: number }[]
+}
+```
+
+## Convenciones
+
+- **Un Controller por recurso**, instanciado en cada llamada IPC (no singleton).
+- **Services usan Prisma** directamente (import del cliente global).
+- **DTOs** se definen como archivos `.dto.d.ts` (solo tipos, no runtime).
+- **Metodos del controller** son `async` y reciben los argumentos directamente (no `req/res`).
+- El canal IPC es `{namespace}.{method}` (ej: `songs.createSong`).
+- **No usar middleware HTTP** - todo es IPC directo.
+- La configuración global de presentación bíblica se inicializa con `positionStyle = 10` (separación desde borde) y se normaliza si viene sin valor para mantener comportamiento visual consistente.
+- El módulo `presentations` serializa `slides` como JSON string en Prisma para MVP y lo normaliza a objeto en service antes de devolver al renderer.
+- `presentations.slides` ahora soporta estructura mixta por diapositiva con `items[]` (schedule-like): cada item define `type`, `accessData`, `layer`, `customStyle` y `animationSettings` para render por capas y animación por elemento.
+- Dentro de `presentations.slides.items[]`, el tipo `SHAPE` representa formas editoriales (`rectangle`, `circle`, `arrow`, `line-arrow`, `triangle`, `line`, `cross`) serializadas en `accessData` y estilizadas desde `customStyle`.
+- Cada slide de `presentations.slides` también soporta `videoLiveBehavior` (`auto` | `manual`) para controlar si videos de la diapositiva inician automáticamente al entrar en live o quedan en espera de play manual.
+- Cada slide de `presentations.slides` también puede incluir `themeId` opcional (`number | null`) para aplicar un tema global de presentación en runtime.
+- Cada slide de `presentations.slides` también puede incluir `backgroundColor` opcional (`string`) para sobrescribir su fondo individualmente sin cambiar el tema persistido de las demás diapositivas.
+- Cada slide de `presentations.slides` también puede incluir `videoLoop` opcional (`boolean`) para controlar si el video de esa diapositiva se repite al finalizar; la normalización backend lo fuerza a `false` cuando no viene definido.
+- Cada slide de `presentations.slides` puede incluir `slideName` opcional (`string`) para mostrar un nombre personalizado en el carrusel del editor.
+- Cada slide de `presentations.slides` puede incluir metadatos opcionales de importación Canva (`canvaSourceKey`, `canvaSlideNumber`) para que el renderer pueda reimportar ZIPs y actualizar diapositivas existentes por número de slide en lugar de duplicarlas.
+- `schedule.updateSchedule` usa `dateFrom` y `dateTo` (no `date`) para mantener consistencia con el modelo Prisma y el estado del formulario en frontend.
+- `schedule.updateSchedule` aplica soft-delete + recreación de items en una sola `schedule.update` con mutaciones anidadas (`items.updateMany` + `items.create`), evitando transacciones interactivas largas en SQLite que podían cerrar por timeout (`P2028`).
+- El módulo `sync` implementa sincronización basada en **instantáneas (snapshots)**: cada dispositivo exporta todos los registros de SNAPSHOT_MODELS a un JSON, lo sube a Drive, y al hacer pull descarga los snapshots de todos los demás dispositivos aplicando filas por `lastWriteWins` (updatedAt). Las tablas `SyncOutboxChange`/`SyncInboxChange` siguen en el schema pero ya no son el mecanismo principal de sync.
+- `applySnapshotRows(tables, workspaceId, remoteDeviceId)` en `SyncService` aplica las filas de un snapshot remoto a la BD local con `runWithoutSyncOutboxTracking` y `lastWriteWins` por `updatedAt`; preserva el `updatedAt` remoto en `create/update` via Prisma (sin SQL crudo) para evitar falsos `stale` por desfase de reloj entre PCs. Al finalizar, actualiza `SyncState.lastAppliedSnapshotAt` y `snapshotApplySequence` para rastrear aplicación de snapshots remotos.
+- El outbox middleware en `prisma.ts` sigue activo pero los datos que escribe en `SyncOutboxChange` no se usan en el flujo principal de sync (se conserva para posible tracking de deletes futuro).
+- La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones.
+- **`sync.service.ts` NO usa `electron-log`**: Este archivo se bundlea en el preload (renderer). Usar `console.warn`/`console.error` únicamente. `electron-log` solo puede importarse en archivos bajo `electron/main/`.
+- El módulo `settings` acepta claves string públicas (`LOGO_FALLBACK_*`, `BIBLE_LIVE_CHUNK_MODE`, etc.) y las mapea a valores persistidos en DB (`logo.fallback.*`, `bible.live.chunkMode`) con SQL directo, evitando errores cuando una instalación tiene el cliente Prisma con enums desactualizados.
+- `AddScheduleItemDto` omite `id`, `scheduleId` y `updatedAt`; en `ScheduleService` los creates deben mapear items sin desestructurar esos campos y generar `id` nuevo con `crypto.randomUUID()`.
+- `songImporter.service.ts` debe retornar boolean en todos los caminos de `holyricsImporter` (`true` si hubo imports fulfilled, `false` en caso contrario) para cumplir tipado estricto.
+- `selectedScreens.createSelectedScreen` usa `upsert` por `screenId` (BigInt) para evitar `P2002` cuando el display ya existe y solo cambian `screenName` o `rol`.
+- `songs` persiste letras en `Song.lyrics` como JSON string (`[{ content, tagSongsId }]`) y el service entrega `lyrics` parseado al renderer (`SongResponseDTO`) para evitar parseos repetidos en frontend.
+- `songs.updateSong` sobrescribe `Song.lyrics` completo en una sola mutación de `Song`, evitando inconsistencias de sincronización por filas hijas.
+- `themes.exportThemeToZip(id)` genera `~/Downloads/<tema>.zip` con `theme.json` (datos de DB) y, cuando aplica, incluye el asset de fondo respetando el `filePath` original del media. Si el `textStyle.fontFamily` del tema corresponde a una fuente personalizada instalada, también incluye su archivo (`fonts/*.ttf|otf`) en el ZIP.
+- `themes.importThemeFromZip(zipPath)` crea tema nuevo desde `theme.json`, resuelve conflicto de nombres con sufijo (importado) considerando también registros soft-delete y reintenta creación ante `P2002` (colisión concurrente); si el ZIP trae fondo intenta conservar su ruta relativa bajo `files/`, persiste `Media.filePath` y `Media.folder` derivados de esa ruta (fallback seguro a `files/themes-imports/`) y, si hay colisión de archivo/ruta, renombra solo el archivo manteniendo carpeta devolviendo metadata de renombrado en el resultado. Si el ZIP trae fuente personalizada, la instala en `userData/media/fonts/` y la registra en `Font` solo cuando no existe.
+
+## Serializacion IPC
+
+En `middleware/decimal.ts`:
+
+- `Decimal` de Prisma se serializa como `{ __decimal__: string }` y se restaura al deserializar.
+- `Date` se serializa como `{ __date__: ISO string }` y se restaura automaticamente.
+- Esto previene corrupcion de datos al cruzar la frontera entre procesos.
+
+## Como agregar un nuevo controller
+
+1. Crear directorio en `controllers/nuevoRecurso/`
+2. Crear `nuevoRecurso.controller.ts`, `nuevoRecurso.service.ts`, `nuevoRecurso.dto.d.ts`
+3. Registrar en `routes.ts`: `nuevoRecurso: NuevoRecursoController`
+4. El namespace queda disponible automaticamente como `window.api.nuevoRecurso.metodo()`
+5. Actualizar este agent y `/prisma/agents.md` si se creo un nuevo modelo
+
+## Agents relacionados
+
+- Schema de datos -> `/prisma/agents.md`
+- Setup de IPC en main process -> `/electron/agents.md`
+- Consumo desde frontend -> `/app/contexts/agents.md`
