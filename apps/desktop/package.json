@@ -1,7 +1,7 @@
 {
   "name": "@ecclesia/desktop",
   "productName": "Ecclesia",
-  "version": "0.5.2",
+  "version": "0.8.11",
   "description": "Eclesia - Desktop application",
   "main": "./out/main/index.js",
   "author": "Carlos Utrilla",
@@ -9,7 +9,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "release": "bash scripts/release.sh",
+    "release": "bash ../../packages/scripts/release.sh",
     "format": "prettier --write .",
     "lint": "eslint .",
     "test": "vitest run",
@@ -32,7 +32,7 @@
     "build:linux": "electron-vite build && electron-builder --linux",
     "sync": "git pull && npx prisma migrate dev --schema=../../apps/api/prisma/schema.prisma",
     "seed": "npx ts-node ../../apps/api/prisma/seed.ts",
-    "db:prepare-build-template": "node scripts/before-pack.cjs",
+    "db:prepare-build-template": "node ../../packages/scripts/before-pack.cjs",
     "bible:reset-schema": "sqlite3 ../../apps/api/prisma/dev.db \"DELETE FROM BibleVerses; DELETE FROM BibleSchema; DELETE FROM sqlite_sequence WHERE name='BibleVerses' OR name='BibleSchema';\" && rm -f ~/Library/Application\\ Support/ecclesia/bibles/.schema-initialized && echo '✅ Tablas de biblia vaciadas, IDs reiniciados y marcador eliminado'",
     "db:reset": "rm -f ~/Library/Application\\ Support/ecclesia/dev.db && echo '✅ Base de datos local borrada. Arranca la app para recrear.'",
     "db:backup": "cp ~/Library/Application\\ Support/ecclesia/dev.db ~/Library/Application\\ Support/ecclesia/backups/manual-$(date +%Y%m%d-%H%M%S).db && echo '✅ Backup manual creado'",
