@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { getSlideVerseRange, resolveSlideVerse } from './presentationVerseController'
 
 describe('presentationVerseController', () => {
-  it('resuelve modo verse para layer bíblico con rango', () => {
+  it('resuelve modo chunk para layer bíblico en presentacion', () => {
     const slide = {
       id: 'slide-1',
       resourceType: 'PRESENTATION' as const,
@@ -20,7 +20,11 @@ describe('presentationVerseController', () => {
             verse: 16,
             verseEnd: 17,
             version: 'RVR1960'
-          }
+          },
+          chunks: [
+            { book: 43, chapter: 3, verse: 16, content: 'Porque...' },
+            { book: 43, chapter: 3, verse: 17, content: 'Porque...' }
+          ]
         }
       ]
     }
@@ -28,19 +32,23 @@ describe('presentationVerseController', () => {
     const range = getSlideVerseRange(slide)
 
     expect(range).toMatchObject({
-      start: 16,
-      end: 17,
-      mode: 'verse',
+      start: 1,
+      end: 2,
+      mode: 'chunk',
       layerId: 'layer-bible-1'
     })
   })
 
-  it('resuelve modo chunk para slide legacy con chunkParts', () => {
+  it('resuelve modo chunk para slide legacy con chunks', () => {
     const slide = {
       id: 'slide-chunk-1',
       resourceType: 'PRESENTATION' as const,
       text: 'texto original',
-      chunkParts: ['parte 1', 'parte 2', 'parte 3'],
+      chunks: [
+        { book: 43, chapter: 8, verse: 44, content: 'parte 1' },
+        { book: 43, chapter: 8, verse: 44, content: 'parte 2' },
+        { book: 43, chapter: 8, verse: 44, content: 'parte 3' }
+      ],
       verse: {
         bookId: 43,
         chapter: 8,
@@ -63,7 +71,11 @@ describe('presentationVerseController', () => {
       id: 'slide-chunk-2',
       resourceType: 'PRESENTATION' as const,
       text: 'texto original',
-      chunkParts: ['parte 1', 'parte 2', 'parte 3'],
+      chunks: [
+        { book: 43, chapter: 8, verse: 44, content: 'parte 1' },
+        { book: 43, chapter: 8, verse: 44, content: 'parte 2' },
+        { book: 43, chapter: 8, verse: 44, content: 'parte 3' }
+      ],
       verse: {
         bookId: 43,
         chapter: 8,

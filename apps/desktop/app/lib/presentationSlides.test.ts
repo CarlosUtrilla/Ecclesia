@@ -127,8 +127,8 @@ describe('attachPresentationBibleChunkParts', () => {
       120
     )
 
-    expect(slides[0].chunkParts).toBeDefined()
-    expect(slides[0].chunkParts!.length).toBeGreaterThan(1)
+    expect(slides[0].chunks).toBeDefined()
+    expect(slides[0].chunks!.length).toBeGreaterThan(1)
   })
 
   it('elimina numeración incrustada al inicio antes de chunkear', () => {
@@ -149,7 +149,7 @@ describe('attachPresentationBibleChunkParts', () => {
       80
     )
 
-    const firstChunk = slides[0].chunkParts?.[0] || ''
+    const firstChunk = slides[0].chunks?.[0].content || ''
     expect(firstChunk.startsWith('23')).toBe(false)
   })
 
@@ -184,7 +184,7 @@ describe('attachPresentationBibleChunkParts', () => {
     )
 
     const bibleLayer = slides[0].presentationItems?.find((layer) => layer.id === 'layer-bible-1')
-    expect(bibleLayer?.chunkParts).toBeDefined()
-    expect(bibleLayer?.chunkParts?.length).toBeGreaterThan(1)
+    expect(bibleLayer?.chunks).toBeDefined()
+    expect(bibleLayer?.chunks?.length).toBeGreaterThan(1)
   })
 })

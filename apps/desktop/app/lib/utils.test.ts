@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /* eslint-env vitest */
 
 import { describe, expect, it } from 'vitest'

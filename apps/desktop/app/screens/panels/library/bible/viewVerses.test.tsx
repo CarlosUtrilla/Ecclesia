@@ -4,6 +4,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import ViewVerses from './viewVerses'
 
+Element.prototype.scrollIntoView = vi.fn()
+
 vi.mock('@/contexts/ScheduleContext', () => ({
   useSchedule: () => ({
     addItemToSchedule: vi.fn()
@@ -45,6 +47,30 @@ vi.mock('@/ui/context-menu', () => ({
   ContextMenuItem: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   )
+}))
+
+vi.mock('@ecclesia/queries', () => ({
+  Api: {
+    query: {
+      bible: {
+        getCompleteChapter: ({ body }: { body: { version: string; book: number; chapter: number } }) => ({
+          queryKey: ['bible', body.version, body.chapter],
+          queryFn: vi.fn()
+        })
+      },
+      setttings: {
+        getSettings: () => ({
+          queryKey: ['settings'],
+          queryFn: vi.fn()
+        })
+      }
+    },
+    fetch: {
+      bible: {
+        getVerses: vi.fn()
+      }
+    }
+  }
 }))
 
 vi.mock('@tanstack/react-query', () => ({

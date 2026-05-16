@@ -206,7 +206,10 @@ describe('PresentationRender', () => {
           id: 'legacy-chunk-2',
           text: '23 Y recorrio Jesus toda Galilea enseñando...',
           resourceType: 'PRESENTATION',
-          chunkParts: ['Y recorrio Jesus toda Galilea...', '... sanando toda enfermedad ...'],
+          chunks: [
+            { book: 40, chapter: 4, verse: 23, content: 'Y recorrio Jesus toda Galilea...' },
+            { book: 40, chapter: 4, verse: 23, content: '... sanando toda enfermedad ...' }
+          ],
           verse: {
             bookId: 40,
             chapter: 4,
