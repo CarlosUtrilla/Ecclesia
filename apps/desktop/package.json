@@ -1,7 +1,7 @@
 {
   "name": "@ecclesia/desktop",
   "productName": "Ecclesia",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Eclesia - Desktop application",
   "main": "./out/main/index.js",
   "author": "Carlos Utrilla",
@@ -42,8 +42,6 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@ecclesia/api": "workspace:*",
-    "@ecclesia/queries": "workspace:*",
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -121,6 +119,8 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@ecclesia/api": "workspace:*",
+    "@ecclesia/queries": "workspace:*",
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.0.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
