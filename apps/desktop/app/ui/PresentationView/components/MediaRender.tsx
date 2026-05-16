@@ -137,7 +137,19 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
       )
     } else {
       if (type === 'video') {
-        if (!originalUrl) return null
+        if (!originalUrl) {
+          if (thumbnailUrl) {
+            return (
+              <img
+                src={thumbnailUrl}
+                alt={itemData.name}
+                className="object-contain"
+                style={mediaElementStyle}
+              />
+            )
+          }
+          return null
+        }
         return (
           <video
             ref={videoRef}
@@ -153,7 +165,19 @@ function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
           />
         )
       } else {
-        if (!originalUrl) return null
+        if (!originalUrl) {
+          if (thumbnailUrl) {
+            return (
+              <img
+                src={thumbnailUrl}
+                alt={itemData.name}
+                className="object-contain"
+                style={mediaElementStyle}
+              />
+            )
+          }
+          return null
+        }
         return (
           <img
             src={originalUrl}

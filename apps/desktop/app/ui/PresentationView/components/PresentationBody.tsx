@@ -172,37 +172,39 @@ function PresentationBodyComponent({
     <>
       {isMediaItem ? <MediaRender currentItem={currentItem} live={live} /> : null}
 
-      <ResourceContent
-        currentItem={currentItem}
-        isLive={live}
-        currentIndex={currentIndex}
-        presentationVerseBySlideKey={presentationVerseBySlideKey}
-        animationType={animationType}
-        variants={variants}
-        textStyle={textStyle}
-        theme={theme}
-        calculatedSmallFontSize={calculatedSmallFontSize}
-        textContainerPadding={textContainerPadding}
-        textContainerOffset={textContainerOffset}
-        verticalAlign={verticalAlign}
-        scaleFactor={scaleFactor}
-        presentationHeight={presentationHeight}
-        showTextBounds={showTextBounds}
-        textBoundsIsSelected={textBoundsIsSelected}
-        bibleVerseIsSelected={bibleVerseIsSelected}
-        textBoundsBaseValues={textBoundsBaseValues}
-        textBoundsScale={textBoundsScale}
-        onTextBoundsChange={onTextBoundsChange}
-        onBibleVersePositionChange={onBibleVersePositionChange}
-        onBibleVerseWidthChange={onBibleVerseWidthChange}
-        onBibleVerseTranslateXChange={onBibleVerseTranslateXChange}
-        onBibleVerseHorizontalBoundsChange={onBibleVerseHorizontalBoundsChange}
-        onEditableTargetSelect={onEditableTargetSelect}
-        hideTextInLive={hideTextInLive}
-        blockBgStyle={blockBgStyle}
-        blockBgPadding={blockBgPadding}
-        animationDuration={animationDuration}
-      />
+      {!isMediaItem ? (
+        <ResourceContent
+          currentItem={currentItem}
+          isLive={live}
+          currentIndex={currentIndex}
+          presentationVerseBySlideKey={presentationVerseBySlideKey}
+          animationType={animationType}
+          variants={variants}
+          textStyle={textStyle}
+          theme={theme}
+          calculatedSmallFontSize={calculatedSmallFontSize}
+          textContainerPadding={textContainerPadding}
+          textContainerOffset={textContainerOffset}
+          verticalAlign={verticalAlign}
+          scaleFactor={scaleFactor}
+          presentationHeight={presentationHeight}
+          showTextBounds={showTextBounds}
+          textBoundsIsSelected={textBoundsIsSelected}
+          bibleVerseIsSelected={bibleVerseIsSelected}
+          textBoundsBaseValues={textBoundsBaseValues}
+          textBoundsScale={textBoundsScale}
+          onTextBoundsChange={onTextBoundsChange}
+          onBibleVersePositionChange={onBibleVersePositionChange}
+          onBibleVerseWidthChange={onBibleVerseWidthChange}
+          onBibleVerseTranslateXChange={onBibleVerseTranslateXChange}
+          onBibleVerseHorizontalBoundsChange={onBibleVerseHorizontalBoundsChange}
+          onEditableTargetSelect={onEditableTargetSelect}
+          hideTextInLive={hideTextInLive}
+          blockBgStyle={blockBgStyle}
+          blockBgPadding={blockBgPadding}
+          animationDuration={animationDuration}
+        />
+      ) : null}
     </>
   )
 
