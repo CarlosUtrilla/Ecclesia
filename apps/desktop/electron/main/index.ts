@@ -1,3 +1,5 @@
+import './crashHandler'
+import { setCrashLogPath } from './crashHandler'
 import { initializeLiveMediaManager } from './liveMediaController/liveMediaController'
 import { app, BrowserWindow, ipcMain, session } from 'electron'
 import path, { join } from 'path'
@@ -99,6 +101,7 @@ app.whenReady().then(async () => {
 
   updateSplashStatus('Cargando entorno...')
   loadAppEnv()
+  setCrashLogPath(path.join(app.getPath('userData'), 'ecclesia-crash.log'))
 
   updateSplashStatus('Inicializando base de datos...')
   setGetBiblesResourcesPath(getBiblesResourcesPath)

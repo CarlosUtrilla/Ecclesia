@@ -1,4 +1,3 @@
-import ffmpeg from '@ffmpeg-installer/ffmpeg'
 import { spawn } from 'child_process'
 import path from 'path'
 
@@ -15,6 +14,8 @@ type SharpFn = (input: string) => {
 }
 
 function resolveFfmpegPath(): string {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ffmpeg = require('@ffmpeg-installer/ffmpeg') as { path: string }
   if (typeof ffmpeg?.path === 'string') {
     return ffmpeg.path.replace('app.asar', 'app.asar.unpacked')
   }

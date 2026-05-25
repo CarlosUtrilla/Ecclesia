@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 import Logger from 'electron-log'
+import e from 'express'
 
 // Este bloque evita que truene en el frontend puro
 let PrismaDecimal: any = null
@@ -12,31 +13,34 @@ try {
   // Si falla la importación, simplemente no usamos PrismaDecimal
 }
 
-
 export function restoreDecimals(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(restoreDecimals)
+  try {
+    if (Array.isArray(obj)) {
+      return obj.map(restoreDecimals)
+    }
+
+    if (obj && typeof obj === 'object') {
+      if ('__decimal__' in obj) {
+        return new Decimal(obj.__decimal__)
+      }
+
+      if ('__date__' in obj) {
+        return new Date(obj.__date__)
+      }
+
+      if ('__number__' in obj) {
+        return parseFloat(obj.__number__)
+      }
+
+      const result: Record<string, any> = {}
+      for (const key in obj) {
+        result[key] = restoreDecimals(obj[key])
+      }
+      return result
+    }
+
+    return obj
+  } catch (e) {
+    Logger.error('Error restoring decimals', e)
   }
-
-  if (obj && typeof obj === 'object') {
-    if ('__decimal__' in obj) {
-      return new Decimal(obj.__decimal__)
-    }
-
-    if ('__date__' in obj) {
-      return new Date(obj.__date__)
-    }
-
-    if ('__number__' in obj) {
-      return parseFloat(obj.__number__)
-    }
-
-    const result: Record<string, any> = {}
-    for (const key in obj) {
-      result[key] = restoreDecimals(obj[key])
-    }
-    return result
-  }
-
-  return obj
 }

@@ -101,6 +101,7 @@ export default function BiblePresentationConfiguration({
       alert('No se pudo resolver la configuración global de Biblia para guardar.')
       return
     }
+    console.log(defaultBiblePresentationSettings)
 
     // Guardar configuración global
     Api.fetch.bible

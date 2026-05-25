@@ -1,20 +1,27 @@
 import { app } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
+import * as os from 'os'
 import { BibleManagmentService } from '@ecclesia/api/src/controllers/bible/bibleManagment.service'
+
+const DIAG_LOG = path.join(os.tmpdir(), 'ecclesia-bible-diag.log')
+
+const LOG = (msg: string) => {
+  try { fs.appendFileSync(DIAG_LOG, `[${new Date().toISOString()}] [BIBLE] ${msg}\n`) } catch {}
+  try { process.stderr.write(`[BIBLE] ${msg}\n`) } catch {}
+}
 
 /**
  * Obtiene la ruta a la carpeta de biblias en recursos
  * Funciona tanto en desarrollo como en producción
  */
 export function getBiblesResourcesPath(): string {
-  if (app.isPackaged) {
-    // En producción: los recursos están en resources/bibles dentro del bundle
-    return path.join(process.resourcesPath, 'bibles')
-  } else {
-    // En desarrollo: los recursos están en la carpeta del proyecto
-    return path.join(__dirname, '../../resources/bibles')
-  }
+  const pkg = app.isPackaged
+  const result = pkg
+    ? path.join(process.resourcesPath, 'bibles')
+    : path.join(__dirname, '../../resources/bibles')
+  LOG(`getBiblesResourcesPath() isPackaged=${pkg} result=${result} exists=${fs.existsSync(result)}`)
+  return result
 }
 
 /**
@@ -85,14 +92,17 @@ export function listAvailableBibles(): string[] {
   const biblesPath = getBiblesResourcesPath()
 
   if (!fs.existsSync(biblesPath)) {
+    LOG(`listAvailableBibles: path ${biblesPath} does not exist`)
     return []
   }
 
   try {
     const files = fs.readdirSync(biblesPath)
-    return files.filter((file) => file.endsWith('.ebbl'))
+    const ebblFiles = files.filter((file) => file.endsWith('.ebbl'))
+    LOG(`listAvailableBibles: found ${ebblFiles.length} .ebbl files in ${biblesPath}: ${JSON.stringify(ebblFiles)}`)
+    return ebblFiles
   } catch (error) {
-    console.error('Error al listar biblias:', error)
+    LOG(`listAvailableBibles: error reading ${biblesPath}: ${error instanceof Error ? error.message : String(error)}`)
     return []
   }
 }

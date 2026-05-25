@@ -14,6 +14,12 @@ export default defineConfig({
         exclude: ['@ecclesia/api', '@ecclesia/queries']
       })
     ],
+    resolve: {
+      alias: {
+        '@ecclesia/api': resolve(__dirname, '../../apps/api'),
+        '@ecclesia/queries': resolve(__dirname, '../../packages/queries')
+      }
+    },
     define: {
       __GH_TOKEN__: JSON.stringify(process.env['GH_TOKEN'] ?? ''),
       __GOOGLE_CLIENT_ID__: JSON.stringify(process.env['GOOGLE_DRIVE_CLIENT_ID'] ?? ''),
@@ -39,7 +45,16 @@ export default defineConfig({
       },
       rollupOptions: {
         output: {
-          sourcemap: false
+          sourcemap: false,
+          banner: `
+process.on('uncaughtException',function(e){
+  try{var _fs=require('fs'),_p=require('path');_fs.appendFileSync(_p.join(require('os').tmpdir(),'ecclesia-pre-crash.log'),'['+new Date().toISOString()+'] '+(e&&e.stack||e)+'\\n')}catch(_e){}
+  try{process.stderr.write('FATAL: '+(e&&e.stack||e)+'\\n')}catch(_e){}
+});
+process.on('unhandledRejection',function(e){
+  try{require('fs').appendFileSync(require('path').join(require('os').tmpdir(),'ecclesia-pre-crash.log'),'['+new Date().toISOString()+'] UNHANDLED: '+(e&&e.stack||e)+'\\n')}catch(_e){}
+});
+`
         }
       }
     }
@@ -50,6 +65,12 @@ export default defineConfig({
         exclude: ['@ecclesia/api', '@ecclesia/queries']
       })
     ],
+    resolve: {
+      alias: {
+        '@ecclesia/api': resolve(__dirname, '../../apps/api'),
+        '@ecclesia/queries': resolve(__dirname, '../../packages/queries')
+      }
+    },
     build: {
       lib: {
         entry: 'electron/preload/index.ts',
@@ -85,7 +106,9 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve('app'),
-        '@locales': resolve('./locales/index.ts')
+        '@locales': resolve('./locales/index.ts'),
+        '@ecclesia/api': resolve(__dirname, '../../apps/api'),
+        '@ecclesia/queries': resolve(__dirname, '../../packages/queries')
       }
     },
     plugins: [

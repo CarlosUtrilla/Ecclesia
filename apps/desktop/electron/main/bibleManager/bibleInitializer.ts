@@ -1,13 +1,22 @@
 import { getUserBiblesPath, listAvailableBibles } from './bibleManager'
 import * as fs from 'fs'
 import * as path from 'path'
+import * as os from 'os'
 import { BibleManagmentService } from '@ecclesia/api/src/controllers/bible/bibleManagment.service'
+
+const DIAG_LOG = path.join(os.tmpdir(), 'ecclesia-bible-diag.log')
+
+const LOG = (msg: string) => {
+  try { fs.appendFileSync(DIAG_LOG, `[${new Date().toISOString()}] [BIBLE] ${msg}\n`) } catch {}
+  try { process.stderr.write(`[BIBLE] ${msg}\n`) } catch {}
+}
 
 /**
  * Verifica si ya se ha inicializado el esquema de biblias
  */
 function isBibleSchemaInitialized(): boolean {
   const markerPath = path.join(getUserBiblesPath(), '.schema-initialized')
+  LOG(`markerPath=${markerPath} exists=${fs.existsSync(markerPath)}`)
   return fs.existsSync(markerPath)
 }
 
@@ -17,6 +26,7 @@ function isBibleSchemaInitialized(): boolean {
 function markBibleSchemaAsInitialized(): void {
   const markerPath = path.join(getUserBiblesPath(), '.schema-initialized')
   fs.writeFileSync(markerPath, new Date().toISOString())
+  LOG(`marker written: ${markerPath}`)
 }
 
 /**
@@ -25,32 +35,30 @@ function markBibleSchemaAsInitialized(): void {
  */
 export async function initializeBibleSchema(): Promise<void> {
   try {
-    // Verificar si ya se inicializó
+    LOG('initializeBibleSchema started')
     if (isBibleSchemaInitialized()) {
-      console.log('ℹ️ Esquema de biblias ya inicializado, omitiendo...')
+      LOG('already initialized, skipping')
       return
     }
 
-    // Verificar si hay biblias disponibles
     const bibles = listAvailableBibles()
+    LOG(`listAvailableBibles returned ${bibles.length} bibles: ${JSON.stringify(bibles)}`)
+
     if (bibles.length === 0) {
-      console.warn('⚠️ No hay biblias disponibles para generar esquema')
+      LOG('no bibles available, skipping')
       return
     }
 
-    console.log('📖 Inicializando esquema de biblias...')
-
+    LOG('creating BibleManagmentService...')
     const bibleService = new BibleManagmentService()
+    LOG('calling generateBibleSchema...')
     await bibleService.generateBibleSchema()
+    LOG('calling checkInitialBibleSettings...')
     await bibleService.checkInitialBibleSettings()
-
-    // Marcar como inicializado
     markBibleSchemaAsInitialized()
-
-    console.log('✅ Esquema de biblias inicializado correctamente')
+    LOG('schema initialized successfully')
   } catch (error) {
-    console.error('❌ Error al inicializar esquema de biblias:', error)
-    // No lanzamos el error para que no interrumpa el arranque de la app
+    LOG(`ERROR: ${error instanceof Error ? error.stack : String(error)}`)
   }
 }
 

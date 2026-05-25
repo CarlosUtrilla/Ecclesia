@@ -10,8 +10,8 @@ import Logger from 'electron-log'
 const routeHandler =
   (handler: (params: any) => Promise<any>) => async (req: any, res: express.Response) => {
     try {
-      const requestData = req?.body ?? {};
-      const body = restoreDecimals(requestData?.body)
+      const requestData = req?.body ?? {}
+      const body = restoreDecimals(requestData?.body ?? requestData)
       const result = await handler({
         body,
         file: requestData?.file,

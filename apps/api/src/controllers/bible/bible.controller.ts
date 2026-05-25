@@ -3,6 +3,7 @@ import { GetCompleteChapterDTO, GetVersesDTO, TextFragmentSearchDTO } from './bi
 import BibleService from './bible.service'
 import { BibleManagmentService } from './bibleManagment.service'
 import { RequestHandler } from '../../utils/RequestHandler'
+import Logger from 'electron-log'
 class BibleController {
   private BibleService = new BibleService()
   private BibleManagmentService = new BibleManagmentService()
@@ -16,6 +17,7 @@ class BibleController {
   }
 
   async getCompleteChapter({ body }: RequestHandler<GetCompleteChapterDTO>) {
+    Logger.info('complete champer', body)
     return this.BibleService.getCompleteChapter(body)
   }
   async getAvailableBibles() {

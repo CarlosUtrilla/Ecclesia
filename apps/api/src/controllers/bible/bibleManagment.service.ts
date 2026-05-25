@@ -1,15 +1,24 @@
 import { getPrisma } from '../../prisma'
 import { BibleSchemaDTO } from './bible.dto'
 import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 import { openBible } from './utils'
 import { TestamentEnum } from '@prisma/client'
 import { getBiblesResourcesPath } from '../../prisma'
 
+const DIAG_LOG = path.join(os.tmpdir(), 'ecclesia-bible-diag.log')
+
+const LOG = (msg: string) => {
+  try { fs.appendFileSync(DIAG_LOG, `[${new Date().toISOString()}] [service] ${msg}\n`) } catch {}
+  try { process.stderr.write(`[BIBLE-SERVICE] ${msg}\n`) } catch {}
+}
+
 const DEFAULT_BIBLE_EDGE_OFFSET = 10
 
 export class BibleManagmentService {
-  prisma = getPrisma()
-  biblesFolder = getBiblesResourcesPath()
+  prisma = (() => { try { return getPrisma() } catch (e: any) { LOG(`getPrisma() THREW: ${e?.message || e}`); throw e } })()
+  biblesFolder = (() => { try { return getBiblesResourcesPath() } catch (e: any) { LOG(`getBiblesResourcesPath() THREW: ${e?.message || e}`); throw e } })()
   async checkInitialBibleSettings() {
     const existsDefault = await this.prisma.biblePresentationSettings.findFirst({
       where: { isGlobal: true }
@@ -39,17 +48,39 @@ export class BibleManagmentService {
   }
 
   async generateBibleSchema() {
-    // Comprobar si el schema ya existe
-    await this.prisma.bibleSchema.deleteMany({})
-    await this.prisma.bibleVerses.deleteMany({})
+    LOG(`generateBibleSchema started, prisma=${typeof this.prisma}, biblesFolder=${this.biblesFolder}`)
+
+    try {
+      await this.prisma.bibleSchema.deleteMany({})
+      LOG('deleteMany(bibleSchema) OK')
+    } catch (e: any) {
+      LOG(`deleteMany(bibleSchema) FAILED: ${e?.message || e}`)
+      throw e
+    }
+
+    try {
+      await this.prisma.bibleVerses.deleteMany({})
+      LOG('deleteMany(bibleVerses) OK')
+    } catch (e: any) {
+      LOG(`deleteMany(bibleVerses) FAILED: ${e?.message || e}`)
+      throw e
+    }
+
     const existing = await this.prisma.bibleSchema.findFirst()
     if (existing) {
-      console.log('ℹ️ Esquema de biblia ya existe, omitiendo generación')
+      LOG('bibleSchema already exists, skipping generation')
       return
     }
 
-    // Usar una biblia por defecto para generar el esquema
-    const db = await openBible('RVR1960')
+    LOG('opening RVR1960...')
+    let db: any
+    try {
+      db = await openBible('RVR1960')
+      LOG('openBible(RVR1960) OK')
+    } catch (e: any) {
+      LOG(`openBible(RVR1960) FAILED: ${e?.message || e}`)
+      throw e
+    }
 
     const rows = db
       .prepare(
@@ -129,14 +160,36 @@ export class BibleManagmentService {
 
   async getAvalableBibles() {
     const path = this.biblesFolder
+    LOG(`getAvalableBibles: reading ${path}`)
 
-    const files = fs.readdirSync(path)
+    let files: string[]
+    try {
+      files = fs.readdirSync(path)
+      LOG(`getAvalableBibles: readdir returned ${files.length} files: ${JSON.stringify(files)}`)
+    } catch (e: any) {
+      LOG(`getAvalableBibles: readdir FAILED: ${e?.message || e}`)
+      return []
+    }
+
     const availableBibles = files.filter((file: string) => file.endsWith('.ebbl'))
-    // conectarse a la bd de cada biblia y obtener su nombre
+    LOG(`getAvalableBibles: found ${availableBibles.length} .ebbl files: ${JSON.stringify(availableBibles)}`)
+
     const bibles = await Promise.all(
-      availableBibles.map(async (file) => await this.getBibleMetadata(file, false))
+      availableBibles.map(async (file) => {
+        LOG(`getAvalableBibles: getting metadata for ${file}`)
+        try {
+          const meta = await this.getBibleMetadata(file, false)
+          LOG(`getAvalableBibles: metadata for ${file}: ${JSON.stringify(meta)}`)
+          return meta
+        } catch (e: any) {
+          LOG(`getAvalableBibles: metadata FAILED for ${file}: ${e?.message || e}`)
+          return null
+        }
+      })
     )
-    return bibles
+    const filtered = bibles.filter(Boolean) as { name: string; language: string; version: string }[]
+    LOG(`getAvalableBibles: returning ${filtered.length} bibles`)
+    return filtered
   }
 
   getBibleSchema(): Promise<BibleSchemaDTO[]> {

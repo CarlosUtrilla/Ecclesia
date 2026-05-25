@@ -14,6 +14,9 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!../../prisma/dev.db'
   - '!../../prisma/dev.db-*'
+  - '!node_modules/@ecclesia/**/*'
+  - '!../../apps/api/**'
+  - '!../../packages/queries/**'
 extraResources:
   - from: ../../apps/api/prisma
     to: prisma
@@ -31,18 +34,19 @@ asarUnpack:
   - node_modules/.prisma/**
   - node_modules/@prisma/**
   - node_modules/prisma/**
-  - ../../apps/api/prisma/**/*
   - node_modules/@ffmpeg-installer/**
+  - node_modules/@img/**
   - node_modules/sharp/**
+  - node_modules/better-sqlite3/**
 win:
   executableName: Ecclesia
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${productName}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
-afterPack: ./scripts/after-pack.cjs
-beforePack: ./scripts/before-pack.cjs
+afterPack: ../../packages/scripts/after-pack.cjs
+beforePack: ../../packages/scripts/before-pack.cjs
 mac:
   identity: null
   notarize: false
