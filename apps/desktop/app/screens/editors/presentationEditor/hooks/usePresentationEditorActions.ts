@@ -774,46 +774,53 @@ export default function usePresentationEditorActions({
   }
 
   const importCanvaAssetsAsSlides = async () => {
-    const selectedPaths = await window.mediaAPI.selectFiles('all')
-    if (selectedPaths.length === 0) return
+    const selectedFiles = await window.mediaAPI.selectFiles('all')
+    if (selectedFiles.length === 0) return
 
-    const { mp4Paths, zipPaths, rejectedPaths } = splitCanvaImportSourcePaths(selectedPaths)
+    const mp4Files = selectedFiles.filter((f) => f.fileName.toLowerCase().endsWith('.mp4'))
+    const zipFiles = selectedFiles.filter((f) => f.fileName.toLowerCase().endsWith('.zip'))
+    const rejectedFiles = selectedFiles.filter(
+      (f) => !f.fileName.toLowerCase().endsWith('.mp4') && !f.fileName.toLowerCase().endsWith('.zip')
+    )
 
-    const rootFolders = await window.mediaAPI.listFolders(undefined)
+    const rootFolders = await Api.fetch.media.listFolders({ body: { parentFolder: undefined } })
     const occupiedFolderNames = new Set(rootFolders)
 
-    const resolvedMp4Paths: CanvaResolvedAsset[] = mp4Paths.map((filePath) => ({
-      filePath,
-      sourceKey: getCanvaSourceKeyFromMp4Path(filePath),
-      slideNumber: extractCanvaSlideNumber(filePath)
-    }))
-    const tempDirsToCleanup: string[] = []
+    const resolvedMp4Paths: CanvaResolvedAsset[] = []
     let zipWithoutMp4Count = 0
     let zipExtractionFailureCount = 0
 
-    for (const zipPath of zipPaths) {
+    for (const mp4File of mp4Files) {
+      resolvedMp4Paths.push({
+        fileName: mp4File.fileName,
+        bytes: mp4File.bytes,
+        sourceKey: getCanvaSourceKeyFromMp4Path(mp4File.fileName),
+        slideNumber: extractCanvaSlideNumber(mp4File.fileName)
+      })
+    }
+
+    for (const zipFile of zipFiles) {
       try {
-        const folderBaseName = getCanvaZipFolderBaseName(zipPath)
+        const extracted = await window.mediaAPI.extractZipMp4(zipFile.bytes)
+        const folderBaseName = getCanvaZipFolderBaseName(zipFile.fileName)
         const folderName = getNextAvailableFolderName(folderBaseName, occupiedFolderNames)
         occupiedFolderNames.add(folderName)
-        await window.mediaAPI.createFolder(folderName)
+        await Api.fetch.media.createFolder({ body: { folderPath: folderName } })
 
-        const extracted = await window.mediaAPI.extractZipMp4(zipPath)
-        tempDirsToCleanup.push(extracted.tempDir)
-
-        if (extracted.mp4Paths.length === 0) {
+        if (extracted.length === 0) {
           zipWithoutMp4Count += 1
           continue
         }
 
-        resolvedMp4Paths.push(
-          ...extracted.mp4Paths.map((filePath) => ({
-            filePath,
+        for (const mp4 of extracted) {
+          resolvedMp4Paths.push({
+            fileName: mp4.fileName,
+            bytes: mp4.bytes,
             folder: folderName,
-            sourceKey: getCanvaSourceKeyFromZipPath(zipPath),
-            slideNumber: extractCanvaSlideNumber(filePath)
-          }))
-        )
+            sourceKey: getCanvaSourceKeyFromZipPath(zipFile.fileName),
+            slideNumber: extractCanvaSlideNumber(mp4.fileName)
+          })
+        }
       } catch {
         zipExtractionFailureCount += 1
       }
@@ -830,14 +837,6 @@ export default function usePresentationEditorActions({
         details.push(`${zipExtractionFailureCount} ZIP con error de extracción`)
       }
 
-      for (const tempDir of tempDirsToCleanup) {
-        try {
-          await window.mediaAPI.cleanupTempPath(tempDir)
-        } catch {
-          // Ignorar errores de limpieza temporal para no bloquear la UX.
-        }
-      }
-
       alert(details.length > 0 ? `${baseMessage} (${details.join(', ')}).` : baseMessage)
       return
     }
@@ -852,10 +851,18 @@ export default function usePresentationEditorActions({
 
     for (const entry of sortedAssets) {
       try {
-        const importedFile = await window.mediaAPI.importFile(entry.filePath, entry.folder)
-        const mediaRecord = await Api.fetch.media.create({ body: importedFile })
+        const fd = new FormData()
+        const blob = new Blob([new Uint8Array(entry.bytes)])
+        fd.append('file', blob, entry.fileName)
+        if (entry.folder) fd.append('folder', entry.folder)
+        const res = await fetch('http://localhost:7777/api/media/importFile', {
+          method: 'POST',
+          body: fd
+        })
+        if (!res.ok) { failedImports += 1; continue }
+        const [mediaRecord] = await res.json()
         importedAssets.push({
-          mediaId: mediaRecord.id,
+          mediaId: Number(mediaRecord.id),
           sourceKey: entry.sourceKey,
           slideNumber: entry.slideNumber
         })
@@ -866,15 +873,6 @@ export default function usePresentationEditorActions({
 
     if (importedAssets.length === 0) {
       alert('No se pudo importar ningún video MP4 de Canva.')
-
-      for (const tempDir of tempDirsToCleanup) {
-        try {
-          await window.mediaAPI.cleanupTempPath(tempDir)
-        } catch {
-          // Ignorar errores de limpieza temporal para no bloquear la UX.
-        }
-      }
-
       return
     }
 
@@ -939,16 +937,8 @@ export default function usePresentationEditorActions({
     setSelectedSlideIndex(nextSlides.length - 1)
     setSelectedItemId(lastSlide?.items?.[0]?.id)
 
-    const skippedByFormat = rejectedPaths.length
+    const skippedByFormat = rejectedFiles.length
     const importedCount = importedAssets.length
-
-    for (const tempDir of tempDirsToCleanup) {
-      try {
-        await window.mediaAPI.cleanupTempPath(tempDir)
-      } catch {
-        // Ignorar errores de limpieza temporal para no bloquear la UX.
-      }
-    }
 
     if (
       failedImports === 0 &&

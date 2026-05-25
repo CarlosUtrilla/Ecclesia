@@ -5,7 +5,7 @@ import {
   MEDIA_SERVER_PORT
 } from './controllers/media/mediaServer.controller'
 import { registerRoutes } from './utils/routerUtilis'
-import { DatabaseConfig, initializeDatabase, getDefaultDatabaseConfig } from './prisma-init'
+import { DatabaseConfig, initializeDatabase, getDefaultDatabaseConfig, initializeBibleData } from './prisma-init'
 import { setUserDataPath } from './config'
 import { routes } from './routes'
 
@@ -20,6 +20,7 @@ export async function initializeHttpServer(config?: DatabaseConfig, serverPort?:
   }
 
   await initializeDatabase(resolvedConfig)
+  await initializeBibleData()
   app.use(express.json())
 
   app.use(

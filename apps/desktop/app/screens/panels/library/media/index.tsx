@@ -69,29 +69,12 @@ export default function MediaLibrary() {
 
   const { data: folders = [], refetch: refetchFolders } = useQuery({
     queryKey: ['folders', currentFolder],
-    queryFn: () => window.mediaAPI.listFolders(currentFolder || undefined)
+    queryFn: () =>
+      Api.fetch.media.listFolders({ body: { parentFolder: currentFolder || undefined } })
   })
 
   const mediaItems = mediaData?.items || []
   const allSelectableItems: SelectableItem[] = [...folders, ...mediaItems]
-
-  // Escuchar progreso de conversión de video
-  useEffect(() => {
-    const unsubscribe = window.mediaAPI.onImportProgress(({ progress, fileName }) => {
-      setConversionProgress({ fileName, progress })
-
-      if (progress >= 100) {
-        setTimeout(() => {
-          void Promise.all([refetch(), refetchFolders()])
-          setConversionProgress(null)
-        }, 500)
-      }
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [refetch, refetchFolders])
 
   // Refetch si otra ventana importa/crea medios
   useEffect(() => {
@@ -166,7 +149,7 @@ export default function MediaLibrary() {
 
   const confirmFolderDeletion = async (folderName: string) => {
     const folderPath = buildFolderPath(currentFolder, folderName)
-    const nestedFolders = await window.mediaAPI.listFolders(folderPath)
+    const nestedFolders = await Api.fetch.media.listFolders({ body: { parentFolder: folderPath } })
 
     if (nestedFolders.length === 0) {
       return confirm(`¿Eliminar la carpeta "${folderName}" y todo su contenido?`)
@@ -182,9 +165,9 @@ export default function MediaLibrary() {
   // Handlers
   const handleImport = async () => {
     try {
-      const filePaths = await window.mediaAPI.selectFiles('all')
-      if (filePaths.length > 0) {
-        await operations.importMutation.mutateAsync(filePaths)
+      const files = await window.mediaAPI.selectFiles('all')
+      if (files.length > 0) {
+        await operations.importMutation.mutateAsync(files)
       }
     } catch (error) {
       console.error('Error en importación:', error)

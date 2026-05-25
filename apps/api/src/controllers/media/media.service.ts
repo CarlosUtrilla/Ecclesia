@@ -6,8 +6,8 @@ import {
   copyMediaSource,
   createMediaFolder,
   extractZipMp4,
-  importClipboardImage,
   importMediaFromSourcePath,
+  importClipboardImage,
   listMediaFolders,
   moveMediaPath,
   renameMediaPath,
@@ -15,7 +15,6 @@ import {
   resolveNormalizedPath
 } from './media.storage'
 import { resolveFilesRoot, resolveMediaRoot } from '../../config'
-import Logger from 'electron-log'
 
 
 export class MediaService {
@@ -124,12 +123,16 @@ export class MediaService {
     })
   }
 
-  async importFile(sourcePath: string, folder?: string) {
-    return await importMediaFromSourcePath(sourcePath, folder)
+  async importFileFromMulter(file: Express.Multer.File, folder?: string): Promise<MediaDto> {
+    const fileData = await importMediaFromSourcePath(file.path, folder, file.originalname)
+    const media = await getPrisma().media.create({ data: fileData })
+    return media
   }
 
-  async importClipboardImage(bytes: number[], mimeType: string, folder?: string) {
-    return await importClipboardImage(bytes, mimeType, folder)
+  async importClipboardFromBytes(bytes: number[], mimeType: string, folder?: string): Promise<MediaDto> {
+    const fileData = await importClipboardImage(bytes, mimeType, folder)
+    const media = await getPrisma().media.create({ data: fileData })
+    return media
   }
 
   async createFolder(folderPath: string) {

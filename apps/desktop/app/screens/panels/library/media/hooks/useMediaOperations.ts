@@ -2,9 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Media } from '../types'
 import type { MediaType } from '@ecclesia/api'
 import { Api } from '@ecclesia/queries'
-import { ImportBibleResult } from 'electron/main/bibleManager/bibleManager'
 
-// Tipo para el DTO de Media
 interface MediaDto {
   id: number
   name: string
@@ -21,7 +19,6 @@ interface MediaDto {
   updatedAt: Date
 }
 
-// Funciones auxiliares
 const stripFilesPrefix = (filePath: string) =>
   filePath.startsWith('files/') ? filePath.substring(6) : filePath
 
@@ -30,7 +27,6 @@ const buildFolderPath = (currentFolder: string | null, folderName: string) =>
 
 const normalizeFolder = (folder: string | null | undefined): string | null => folder ?? null
 
-// Hook para operaciones de medios
 export function useMediaOperations(currentFolder: string | null) {
   const queryClient = useQueryClient()
 
@@ -39,64 +35,45 @@ export function useMediaOperations(currentFolder: string | null) {
     queryClient.invalidateQueries({ queryKey: ['folders'] })
   }
 
-  // Importar archivos
   const importMutation = useMutation({
-    mutationFn: async (filePaths: string[]) => {
+    mutationFn: async (files: { fileName: string; bytes: number[]; fileSize: number }[]) => {
       const results: MediaDto[] = []
-      for (const filePath of filePaths) {
-        const fileData = await window.mediaAPI.importFile(filePath, currentFolder ?? undefined)
-        const media = await Api.fetch.media.create({ body: fileData })
-        results.push(media)
+      for (const file of files) {
+        const formData = new FormData()
+        const blob = new Blob([new Uint8Array(file.bytes)])
+        formData.append('file', blob, file.fileName)
+        if (currentFolder) {
+          formData.append('folder', currentFolder)
+        }
+        const response = await fetch('http://localhost:7777/api/media/importFile', {
+          method: 'POST',
+          body: formData
+        })
+        if (!response.ok) throw new Error(await response.text())
+        const mediaRecords = await response.json()
+        results.push(mediaRecords[0])
       }
       return results
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
   })
 
-  // Importar biblias
-  const importBibleMutation = useMutation({
-    mutationFn: async (filePaths: string[]) => {
-      const results: ImportBibleResult[] = []
-      for (const filePath of filePaths) {
-        const fileData = await window.bibleAPI.importFiles(filePath)
-        results.push(fileData[0])
-      }
-      return results
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
-  })
-
-  // Crear carpeta
   const createFolderMutation = useMutation({
     mutationFn: (folderName: string) =>
-      window.mediaAPI.createFolder(buildFolderPath(currentFolder, folderName)),
+      Api.fetch.media.createFolder({
+        body: { folderPath: buildFolderPath(currentFolder, folderName) }
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['folders'] })
   })
 
-  // Eliminar carpeta
   const deleteFolderMutation = useMutation({
-    mutationFn: async (folderName: string) => {
-      const targetFolderPath = buildFolderPath(currentFolder, folderName)
-      const allMedia = await Api.fetch.media.findAll({ body: { limit: 10000 } })
-      const mediaInsideFolder = allMedia.items.filter((item: Media) => {
-        const mediaFolder = normalizeFolder(item.folder)
-        return (
-          mediaFolder === targetFolderPath ||
-          (typeof mediaFolder === 'string' && mediaFolder.startsWith(`${targetFolderPath}/`))
-        )
-      })
-
-      for (const mediaItem of mediaInsideFolder) {
-        await Api.fetch.media.deleteFile({ body: { id: mediaItem.id } })
-        await window.mediaAPI.deleteFile(mediaItem.filePath, mediaItem.thumbnail)
-      }
-
-      return window.mediaAPI.deleteFolder(targetFolderPath)
-    },
+    mutationFn: (folderName: string) =>
+      Api.fetch.media.deleteFolder({
+        body: { folderPath: buildFolderPath(currentFolder, folderName) }
+      }),
     onSuccess: invalidateAll
   })
 
-  // Renombrar
   const renameMutation = useMutation({
     mutationFn: async ({
       oldPath,
@@ -109,10 +86,9 @@ export function useMediaOperations(currentFolder: string | null) {
       isFolder: boolean
       mediaId?: number
     }) => {
-      const result = await window.mediaAPI.rename(oldPath, newName, isFolder)
+      const result = await Api.fetch.media.renamePath({ body: { oldPath, newName } })
 
       if (isFolder) {
-        // Actualizar archivos dentro de la carpeta renombrada
         const allMedia = await Api.fetch.media.findAll()
         const affectedFiles = allMedia.items.filter(
           (item: Media) => item.folder === oldPath || item.folder?.startsWith(`${oldPath}/`)
@@ -137,7 +113,6 @@ export function useMediaOperations(currentFolder: string | null) {
           })
         }
       } else if (mediaId) {
-        // Actualizar archivo individual
         await Api.fetch.media.update({
           body: {
             id: mediaId.toString(),
@@ -154,13 +129,11 @@ export function useMediaOperations(currentFolder: string | null) {
     onSuccess: invalidateAll
   })
 
-  // Eliminar
   const deleteMutation = useMutation({
     ...Api.mutation.media.deleteFile,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
   })
 
-  // Mover
   const moveMutation = useMutation({
     mutationFn: async ({
       sourcePath,
@@ -173,7 +146,7 @@ export function useMediaOperations(currentFolder: string | null) {
       isFolder: boolean
       mediaId?: number
     }) => {
-      const result = await window.mediaAPI.move(sourcePath, targetFolder, isFolder)
+      const result = await Api.fetch.media.movePath({ body: { sourcePath, targetFolder } })
 
       if (!isFolder && mediaId) {
         await Api.fetch.media.update({
@@ -192,7 +165,6 @@ export function useMediaOperations(currentFolder: string | null) {
     onSuccess: invalidateAll
   })
 
-  // Copiar
   const copyMutation = useMutation({
     mutationFn: async ({
       sourcePath,
@@ -205,7 +177,9 @@ export function useMediaOperations(currentFolder: string | null) {
       isFolder: boolean
       originalMedia?: Media
     }) => {
-      const result = await window.mediaAPI.copyFile(sourcePath, targetFolder, isFolder)
+      const result = await Api.fetch.media.copyFile({
+        body: { sourcePath, targetFolder, isFolder }
+      })
 
       if (!isFolder && originalMedia) {
         await Api.fetch.media.create({
@@ -239,7 +213,6 @@ export function useMediaOperations(currentFolder: string | null) {
     copyMutation,
     stripFilesPrefix,
     buildFolderPath,
-    normalizeFolder,
-    importBibleMutation
+    normalizeFolder
   }
 }

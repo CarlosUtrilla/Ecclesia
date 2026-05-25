@@ -5,7 +5,9 @@ export type CanvaImportSourceSplit = {
 }
 
 export type CanvaResolvedAsset = {
-  filePath: string
+  filePath?: string
+  fileName?: string
+  bytes?: number[]
   folder?: string
   sourceKey: string
   slideNumber: number | null
@@ -72,7 +74,9 @@ export function sortCanvaResolvedAssets(assets: CanvaResolvedAsset[]): CanvaReso
     if (aNumber !== null && bNumber === null) return -1
     if (aNumber === null && bNumber !== null) return 1
 
-    return a.filePath.localeCompare(b.filePath, undefined, {
+    const aPath = a.filePath ?? a.fileName ?? ''
+    const bPath = b.filePath ?? b.fileName ?? ''
+    return aPath.localeCompare(bPath, undefined, {
       numeric: true,
       sensitivity: 'base'
     })

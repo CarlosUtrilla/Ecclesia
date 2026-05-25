@@ -34,3 +34,10 @@ export type GetCompleteChapterDTO = {
   book: number
   chapter: number
 }
+
+export type ImportBibleResult = {
+  name: string
+  fileName: string
+  filePath: string
+  fileSize: number
+}

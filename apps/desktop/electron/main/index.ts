@@ -5,7 +5,7 @@ import { app, BrowserWindow, ipcMain, session } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { initializeHttpServer } from '@ecclesia/api'
-import { getBiblesResourcesPath } from './bibleManager/bibleManager'
+import { getBiblesResourcesPath } from './paths'
 import { setGetBiblesResourcesPath } from '@ecclesia/api/src/prisma'
 import {
   createMainWindow,
@@ -22,7 +22,6 @@ import {
 } from './windowManager'
 import 'reflect-metadata'
 import fontList from 'font-list'
-import { initializeBibleManager } from './bibleManager'
 import { initializeMediaManager } from './mediaManager'
 import { initializeDisplayManager } from './displayManager'
 import { initializeFontManager } from './fontManager'
@@ -130,9 +129,6 @@ app.whenReady().then(async () => {
 
   updateSplashStatus('Cargando fuentes...')
   initializeFontManager()
-
-  updateSplashStatus('Cargando Biblia...')
-  initializeBibleManager()
 
   //inicalizar gestor de pantallas
   initializeDisplayManager()

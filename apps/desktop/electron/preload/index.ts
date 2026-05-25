@@ -7,7 +7,6 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { bibleAPI } from '../main/bibleManager'
 import { mediaAPI } from '../main/mediaManager'
 import { displayAPI } from '../main/displayManager/displaysMethods'
 import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
@@ -50,7 +49,6 @@ const systemAPI = {
 }
 
 export const HandleManagers = {
-  bibleAPI,
   electron: electronAPI,
   mediaAPI,
   systemAPI,
@@ -80,8 +78,6 @@ if (process.contextIsolated) {
   window.windowAPI = windowAPI
   // @ts-ignore (define in dts)
   window.systemAPI = systemAPI
-  // @ts-ignore (define in dts)
-  window.bibleAPI = bibleAPI
   // @ts-ignore (define in dts)
   window.mediaAPI = mediaAPI
   // @ts-ignore (define in dts)

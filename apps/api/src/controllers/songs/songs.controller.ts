@@ -47,6 +47,10 @@ class SongsController {
   }: RequestHandler<ImportSongsFromFileDTO>) {
     return this.songImporter.importSongsFromFile(filesPath, source)
   }
+
+  async deleteSongsNoLyrics() {
+    return this.songsService.deleteSongsNoLyrics()
+  }
 }
 
 // Exportar clase

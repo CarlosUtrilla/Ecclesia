@@ -399,11 +399,16 @@ export default function PresentationEditor() {
       event.preventDefault()
 
       try {
-        const sourcePath = window.mediaAPI.getPathForFile(imagePayload.file)
-        const importedFile = sourcePath
-          ? await window.mediaAPI.importFile(sourcePath)
-          : await window.mediaAPI.importClipboardImage(imagePayload.bytes, imagePayload.mimeType)
-        const mediaRecord = await Api.fetch.media.create({ body: importedFile })
+        const formData = new FormData()
+        const blob = new Blob([new Uint8Array(imagePayload.bytes)], { type: imagePayload.mimeType })
+        const ext = imagePayload.mimeType.split('/')[1] || 'png'
+        formData.append('file', blob, `clipboard-${Date.now()}.${ext}`)
+        const res = await fetch('http://localhost:7777/api/media/importFile', {
+          method: 'POST',
+          body: formData
+        })
+        if (!res.ok) return
+        const [mediaRecord] = await res.json()
         const mediaId = Number(mediaRecord.id)
 
         if (!Number.isFinite(mediaId) || mediaId <= 0) return

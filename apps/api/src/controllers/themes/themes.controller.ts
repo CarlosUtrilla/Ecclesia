@@ -1,6 +1,7 @@
 import { ThemesService } from './themes.service'
 import { CreateThemeDto, UpdateThemeDto } from './themes.dto'
 import { RequestHandler } from '../../utils/RequestHandler'
+import { UsingMulter } from '../../decorators/multerDecorator'
 
 export class ThemesController {
   private themesService: ThemesService
@@ -39,5 +40,17 @@ export class ThemesController {
 
   async importThemeFromZip({ body }: RequestHandler<{ zipPath: string }>) {
     return await this.themesService.importThemeFromZip(body.zipPath)
+  }
+
+  @UsingMulter({ fieldName: 'file', maxFiles: 10 })
+  async importThemeZip({
+    file,
+    files
+  }: RequestHandler<unknown, Express.Multer.File>) {
+    const targetFiles = file ? [file] : (files ?? [])
+    const results = await Promise.all(
+      targetFiles.map((f) => this.themesService.importThemeFromZip(f.path))
+    )
+    return results
   }
 }

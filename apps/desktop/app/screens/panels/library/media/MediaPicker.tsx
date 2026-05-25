@@ -70,7 +70,8 @@ export function MediaPicker({
 
   const { data: folders = [] } = useQuery({
     queryKey: ['folders', currentFolder],
-    queryFn: () => window.mediaAPI.listFolders(currentFolder || undefined)
+    queryFn: () =>
+      Api.fetch.media.listFolders({ body: { parentFolder: currentFolder || undefined } })
   })
 
   const mediaItems = mediaData?.items || []
@@ -96,25 +97,18 @@ export function MediaPicker({
 
   const handleImport = async () => {
     try {
-      const filePaths = await window.mediaAPI.selectFiles(filterType || 'all')
-      if (filePaths.length > 0) {
-        await operations.importMutation.mutateAsync(filePaths)
+      const files = await window.mediaAPI.selectFiles(filterType || 'all')
+      if (files.length > 0) {
+        await operations.importMutation.mutateAsync(files)
       }
     } catch (error) {
       console.error('Error en importación:', error)
     }
   }
-  // Escuchar progreso de conversión de video
+  // Escuchar si otra ventana importa medios
   useEffect(() => {
-    const unsubscribe = window.mediaAPI.onImportProgress(({ progress, fileName }) => {
-      setConversionProgress({ fileName, progress })
-
-      if (progress >= 100) {
-        setTimeout(() => {
-          refetch()
-          setConversionProgress(null)
-        }, 500)
-      }
+    const unsubscribe = window.electron.ipcRenderer.on('media-saved', () => {
+      refetch()
     })
 
     return () => {

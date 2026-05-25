@@ -1,9 +1,9 @@
 import { BiblePresentationSettings } from '@prisma/client'
-import { GetCompleteChapterDTO, GetVersesDTO, TextFragmentSearchDTO } from './bible.dto'
+import { GetCompleteChapterDTO, GetVersesDTO, TextFragmentSearchDTO, ImportBibleResult } from './bible.dto'
 import BibleService from './bible.service'
 import { BibleManagmentService } from './bibleManagment.service'
 import { RequestHandler } from '../../utils/RequestHandler'
-import Logger from 'electron-log'
+import { UsingMulter } from '../../decorators/multerDecorator'
 class BibleController {
   private BibleService = new BibleService()
   private BibleManagmentService = new BibleManagmentService()
@@ -17,7 +17,6 @@ class BibleController {
   }
 
   async getCompleteChapter({ body }: RequestHandler<GetCompleteChapterDTO>) {
-    Logger.info('complete champer', body)
     return this.BibleService.getCompleteChapter(body)
   }
   async getAvailableBibles() {
@@ -35,7 +34,17 @@ class BibleController {
   async updateDefaultBibleSettings({ body }: RequestHandler<BiblePresentationSettings>) {
     return this.BibleService.updateDefaultBibleSettings(body)
   }
+
+  @UsingMulter({ fieldName: 'file', maxFiles: 10 })
+  async importBible({
+    file,
+    files
+  }: RequestHandler<unknown, Express.Multer.File>): Promise<ImportBibleResult[]> {
+    const targetFiles = file ? [file] : (files ?? [])
+    return Promise.all(
+      targetFiles.map((f) => this.BibleManagmentService.importBibleFile(f?.path, f?.originalname))
+    )
+  }
 }
 
-// Exportar clase
 export default BibleController

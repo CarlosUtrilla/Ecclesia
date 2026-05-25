@@ -1,8 +1,14 @@
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
 
+interface FileData {
+  fileName: string
+  bytes: number[]
+  fileSize: number
+}
+
 interface UseDragAndDropProps {
-  onFilesDropped: (files: string[]) => void
+  onFilesDropped: (files: FileData[]) => void
 }
 
 const VALID_EXTENSIONS = [
@@ -86,10 +92,16 @@ export function useDragAndDrop({ onFilesDropped }: UseDragAndDropProps) {
     }
 
     try {
-      const filePaths = validFiles.map((file) => window.mediaAPI.getPathForFile(file))
+      const fileData = await Promise.all(
+        validFiles.map(async (file) => ({
+          fileName: file.name,
+          bytes: Array.from(new Uint8Array(await file.arrayBuffer())),
+          fileSize: file.size
+        }))
+      )
 
-      await onFilesDropped(filePaths)
-      toast.success(`Importando ${filePaths.length} archivo(s)...`)
+      await onFilesDropped(fileData)
+      toast.success(`Importando ${fileData.length} archivo(s)...`)
     } catch (error) {
       toast.error('Error al procesar archivos', error as any)
     }

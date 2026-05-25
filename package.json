@@ -41,6 +41,7 @@
     "db:reset": "pnpm --filter @ecclesia/desktop db:reset",
     "db:backup": "pnpm --filter @ecclesia/desktop db:backup",
     "db:inspect": "pnpm --filter @ecclesia/desktop db:inspect",
+    "db:studio": "prisma studio --schema=apps/api/prisma/schema.prisma",
     "sync": "git pull && pnpm --filter @ecclesia/api db:migrate",
     "bible:reset-schema": "sqlite3 apps/api/prisma/dev.db \"DELETE FROM BibleVerses; DELETE FROM BibleSchema; DELETE FROM sqlite_sequence WHERE name='BibleVerses' OR name='BibleSchema';\" && rm -f ~/Library/Application\\ Support/ecclesia/bibles/.schema-initialized && echo '✅ Tablas de biblia vaciadas, IDs reiniciados y marcador eliminado'"
   },

@@ -8,7 +8,7 @@ import { google } from 'googleapis'
 import log from 'electron-log'
 import SyncService from '@ecclesia/api/src/controllers/sync/sync.service'
 import { getPrisma, setOnOutboxWriteCallback, setOnMediaChangeCallback } from '../prisma'
-import { getBiblesResourcesPath } from '../bibleManager/bibleManager'
+import { getBiblesResourcesPath } from '../paths'
 
 type GoogleDriveSyncConfig = {
   enabled: boolean

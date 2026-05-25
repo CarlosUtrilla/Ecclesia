@@ -1,6 +1,7 @@
 import { MediaService } from './media.service'
 import { CreateMediaDto, UpdateMediaDto, MediaFilterDto } from './media.dto'
 import { RequestHandler } from '../../utils/RequestHandler'
+import { UsingMulter } from '../../decorators/multerDecorator'
 
 export class MediaController {
   private mediaService = new MediaService()
@@ -21,14 +22,26 @@ export class MediaController {
     return await this.mediaService.findByFilePath(body.filePath)
   }
 
-  async importFile({ body }: RequestHandler<{ sourcePath: string; folder?: string }>) {
-    return await this.mediaService.importFile(body.sourcePath, body.folder)
+  @UsingMulter({ fieldName: 'file', maxFiles: 10 })
+  async importFile({
+    file,
+    files,
+    body
+  }: RequestHandler<{ folder?: string }, Express.Multer.File>) {
+    const targetFiles = file ? [file] : (files ?? [])
+    const mediaRecords = await Promise.all(
+      targetFiles.map((f) => this.mediaService.importFileFromMulter(f, body.folder))
+    )
+    return mediaRecords
   }
 
+  @UsingMulter({ fieldName: 'file', maxFiles: 1 })
   async importClipboardImage({
+    file,
     body
-  }: RequestHandler<{ bytes: number[]; mimeType: string; folder?: string }>) {
-    return await this.mediaService.importClipboardImage(body.bytes, body.mimeType, body.folder)
+  }: RequestHandler<{ mimeType: string; folder?: string }, Express.Multer.File>) {
+    if (!file) throw new Error('No se recibió la imagen del portapapeles')
+    return await this.mediaService.importFileFromMulter(file, body.folder)
   }
 
   async createFolder({ body }: RequestHandler<{ folderPath: string }>) {

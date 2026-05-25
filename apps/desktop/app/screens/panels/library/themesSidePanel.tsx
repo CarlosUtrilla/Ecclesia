@@ -47,16 +47,27 @@ export function ThemesSidePanel() {
 
   const handleImportarTemas = async () => {
     try {
-      const selectedPaths = await window.mediaAPI.selectFiles('all')
-      const zipPaths = selectedPaths.filter((filePath) => filePath.toLowerCase().endsWith('.zip'))
+      const selectedFiles = await window.mediaAPI.selectFiles('all')
+      const zipFiles = selectedFiles.filter((f) => f.fileName.toLowerCase().endsWith('.zip'))
 
-      if (zipPaths.length === 0) {
+      if (zipFiles.length === 0) {
         window.alert('Selecciona al menos un archivo .zip válido para importar.')
         return
       }
 
       const results = await Promise.allSettled(
-        zipPaths.map((zipPath) => Api.fetch.themes.importThemeFromZip({ body: { zipPath } }))
+        zipFiles.map(async (zf) => {
+          const formData = new FormData()
+          const blob = new Blob([new Uint8Array(zf.bytes)])
+          formData.append('file', blob, zf.fileName)
+          const res = await fetch('http://localhost:7777/api/themes/importThemeZip', {
+            method: 'POST',
+            body: formData
+          })
+          if (!res.ok) throw new Error(await res.text())
+          const data = await res.json()
+          return data[0]
+        })
       )
 
       const successCount = results.filter((item) => item.status === 'fulfilled').length

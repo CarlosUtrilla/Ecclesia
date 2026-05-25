@@ -1,9 +1,9 @@
 import { getPrisma } from '../../prisma'
-import { BibleSchemaDTO } from './bible.dto'
+import { BibleSchemaDTO, ImportBibleResult } from './bible.dto'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
-import { openBible } from './utils'
+import { openBible, openBiblePath } from './utils'
 import { TestamentEnum } from '@prisma/client'
 import { getBiblesResourcesPath } from '../../prisma'
 
@@ -204,8 +204,11 @@ export class BibleManagmentService {
   }
 
   async getBibleMetadata(file: string, absolutePath = false) {
-    const version = file.replace('.ebbl', '')
-    const db = await openBible(version, absolutePath)
+    if (!file) {
+      throw new Error(`getBibleMetadata called with empty file path`)
+    }
+    const versionName = absolutePath ? path.basename(file).replace('.ebbl', '') : file.replace('.ebbl', '')
+    const db = absolutePath ? await openBiblePath(file) : await openBible(versionName, false)
 
     // obtener name, language y version de la biblia
     const info = db
@@ -219,7 +222,52 @@ export class BibleManagmentService {
       .all() as { value: string; key: string }[] | undefined
     db.close()
     const obj = Object.fromEntries(info!.map((i) => [i.key, i.value]))
-    obj.version = version
+    obj.version = versionName
     return obj as { name: string; language: string; version: string }
+  }
+
+  async importBibleFile(sourcePath: string, originalName: string): Promise<ImportBibleResult> {
+    if (!sourcePath) {
+      throw new Error(`sourcePath is empty for file: ${originalName}`)
+    }
+
+    if (!originalName.endsWith('.ebbl')) {
+      throw new Error(`El archivo debe tener extensión .ebbl: ${originalName}`)
+    }
+
+    const bibleMetadata = await this.getBibleMetadata(sourcePath, true)
+    if (!bibleMetadata) {
+      throw new Error(`El archivo no es una biblia válida: ${originalName}`)
+    }
+
+    const currentBibles = await this.getAvalableBibles()
+    const isAlreadyInSystem = currentBibles.some((b) => b.name === bibleMetadata.name)
+    if (isAlreadyInSystem) {
+      throw new Error(`La biblia "${bibleMetadata.name}" ya está cargada en el sistema`)
+    }
+
+    const targetDir = getBiblesResourcesPath()
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true })
+    }
+
+    let finalPath = path.join(targetDir, originalName)
+    let counter = 1
+    while (fs.existsSync(finalPath)) {
+      const nameWithoutExt = originalName.replace('.ebbl', '')
+      finalPath = path.join(targetDir, `${nameWithoutExt}-${counter}.ebbl`)
+      counter++
+    }
+
+    await fs.promises.copyFile(sourcePath, finalPath)
+    const stats = fs.statSync(finalPath)
+    const finalFileName = path.basename(finalPath)
+
+    return {
+      name: finalFileName.replace('.ebbl', ''),
+      fileName: finalFileName,
+      filePath: finalPath,
+      fileSize: stats.size
+    }
   }
 }

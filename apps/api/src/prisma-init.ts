@@ -1035,4 +1035,29 @@ function getPrisma() {
   return prisma
 }
 
+export async function initializeBibleData(): Promise<void> {
+  try {
+    const { BibleManagmentService } = await import('./controllers/bible/bibleManagment.service')
+    const prisma = getPrisma()
+
+    const hasSchema = await prisma.bibleSchema.findFirst()
+    if (hasSchema) {
+      log.info('📖 Bible schema already initialized, skipping')
+      return
+    }
+
+    log.info('📖 Initializing Bible schema data...')
+    const bibleService = new BibleManagmentService()
+
+    await runWithoutSyncOutboxTracking(async () => {
+      await bibleService.generateBibleSchema()
+      await bibleService.checkInitialBibleSettings()
+    })
+
+    log.info('✅ Bible schema data initialized')
+  } catch (error) {
+    log.error('❌ Error initializing Bible data:', error)
+  }
+}
+
 export { initializeDatabase, getPrisma, registerOutboxMiddleware, getDefaultDatabaseConfig }

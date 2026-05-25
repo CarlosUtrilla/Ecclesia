@@ -52,7 +52,8 @@ function copyFolderRecursive(source: string, target: string) {
 
 export async function importMediaFromSourcePath(
   sourcePath: string,
-  folder?: string
+  folder?: string,
+  originalFileName?: string
 ): Promise<{
   name: string
   type: MediaType
@@ -77,9 +78,11 @@ export async function importMediaFromSourcePath(
     : filesRoot
   ensureDir(targetFolderPath)
 
-  const ext = path.extname(sourcePath).toLowerCase()
+  const ext = (originalFileName ? path.extname(originalFileName) : path.extname(sourcePath)).toLowerCase()
   const stats = fs.statSync(sourcePath)
-  const originalName = path.basename(sourcePath, ext)
+  const originalName = originalFileName
+    ? path.basename(originalFileName, ext)
+    : path.basename(sourcePath, ext)
   const hash = crypto.randomBytes(8).toString('hex')
 
   let type: MediaType

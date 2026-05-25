@@ -38,3 +38,11 @@ export async function openBible(version: string, absolutePath = false) {
   LOG(`openBible: opened OK`)
   return db
 }
+
+export async function openBiblePath(filePath: string) {
+  LOG(`openBiblePath: trying ${filePath}`)
+  console.info('biblia direct path', filePath)
+  const db = getDatabase()(filePath, { readonly: true })
+  LOG(`openBiblePath: opened OK`)
+  return db
+}

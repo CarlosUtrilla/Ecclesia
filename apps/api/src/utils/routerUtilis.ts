@@ -1,21 +1,23 @@
 import { routes } from '../routes'
 import express from 'express'
+import * as os from 'os'
 
 import { restoreDecimals } from '../middleware/decimal'
-import { USING_MULTER_KEY, UsingMulterOptions } from './multerDecorator'
+import { USING_MULTER_KEY, UsingMulterOptions } from '../decorators/multerDecorator'
 import multer from 'multer'
 import 'reflect-metadata'
-import Logger from 'electron-log'
+import { UPDATE_QUERY_KEY } from '../decorators/UpdateQueryKey.decorator'
 
 const routeHandler =
-  (handler: (params: any) => Promise<any>) => async (req: any, res: express.Response) => {
+  (handler: (params: any) => Promise<any>, queryKeys?: string[]) =>
+  async (req: any, res: express.Response) => {
     try {
       const requestData = req?.body ?? {}
       const body = restoreDecimals(requestData?.body ?? requestData)
       const result = await handler({
         body,
-        file: requestData?.file,
-        files: requestData?.files,
+        file: req.file ?? requestData?.file,
+        files: req.files ?? requestData?.files,
         req: requestData?.req,
         res: requestData?.res
       })
@@ -51,6 +53,10 @@ export function registerRoutes(app: ReturnType<typeof express>) {
         | UsingMulterOptions
         | undefined
 
+      const updateQueryKeys = Reflect.getMetadata(UPDATE_QUERY_KEY, proto, method) as
+        | string[]
+        | undefined
+
       /**
        * Si usa multer
        */
@@ -62,7 +68,7 @@ export function registerRoutes(app: ReturnType<typeof express>) {
         let multerMiddleware
 
         const upload = multer({
-          dest: path
+          dest: path ?? os.tmpdir()
         })
 
         if (mode === 'single') {
@@ -71,7 +77,11 @@ export function registerRoutes(app: ReturnType<typeof express>) {
           multerMiddleware = upload.array(fieldName, maxFiles)
         }
 
-        app.post(`/api/${channel}`, multerMiddleware, routeHandler(instance[method].bind(instance)))
+        app.post(
+          `/api/${channel}`,
+          multerMiddleware,
+          routeHandler(instance[method].bind(instance), updateQueryKeys)
+        )
 
         continue
       }
@@ -79,7 +89,7 @@ export function registerRoutes(app: ReturnType<typeof express>) {
       /**
        * Ruta normal
        */
-      app.post(`/api/${channel}`, routeHandler(instance[method].bind(instance)))
+      app.post(`/api/${channel}`, routeHandler(instance[method].bind(instance), updateQueryKeys))
     }
   }
 }

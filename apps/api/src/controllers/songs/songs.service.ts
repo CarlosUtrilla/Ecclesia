@@ -210,6 +210,15 @@ class SongsService {
 
     return songs.map((song) => this.mapSongResponse(song))
   }
+
+  async deleteSongsNoLyrics() {
+    this.prisma.song.deleteMany({
+      where: {
+        lyrics: '[]'
+      }
+    })
+    return 'Songs deleteted'
+  }
 }
 
 export default SongsService
