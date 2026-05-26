@@ -14,8 +14,10 @@ type GoogleDriveSyncConfig = {
 
 export const googleDriveSyncAPI = {
   getStatus: () => ipcRenderer.invoke('sync:google-drive:status'),
-  configure: (config: GoogleDriveSyncConfig) => ipcRenderer.invoke('sync:google-drive:configure', config),
-  connect: (config: GoogleDriveSyncConfig) => ipcRenderer.invoke('sync:google-drive:connect', config),
+  configure: (config: GoogleDriveSyncConfig) =>
+    ipcRenderer.invoke('sync:google-drive:configure', config),
+  connect: (config: GoogleDriveSyncConfig) =>
+    ipcRenderer.invoke('sync:google-drive:connect', config),
   disconnect: () => ipcRenderer.invoke('sync:google-drive:disconnect'),
   pushNow: () => ipcRenderer.invoke('sync:google-drive:push'),
   pullNow: () => ipcRenderer.invoke('sync:google-drive:pull'),
@@ -24,7 +26,8 @@ export const googleDriveSyncAPI = {
   notifyAutoSaveEvent: () => ipcRenderer.send('sync:google-drive:auto-save-event'),
   microPushMedia: () => ipcRenderer.invoke('sync:google-drive:micro-push-media'),
   onSyncStateChange: (callback: (data: { syncing: boolean; progress: number }) => void) => {
-    const listener = (_event: unknown, data: { syncing: boolean; progress: number }) => callback(data)
+    const listener = (_event: unknown, data: { syncing: boolean; progress: number }) =>
+      callback(data)
     ipcRenderer.on('sync-state', listener)
     return () => ipcRenderer.removeListener('sync-state', listener)
   }

@@ -24,7 +24,7 @@ export default function BibleLiveSection() {
   const queryClient = useQueryClient()
 
   const { data: settings } = useQuery({
-    ...Api.query.setttings.getSettings({
+    ...Api.query.settings.getSettings({
       body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] }
     }),
     staleTime: Infinity
@@ -35,7 +35,7 @@ export default function BibleLiveSection() {
 
   const { mutate: saveSettings } = useMutation({
     mutationFn: (value: BibleLiveSplitMode) =>
-      Api.fetch.setttings.updateSettings({
+      Api.fetch.settings.updateSettings({
         body: { settings: [{ key: BIBLE_LIVE_CHUNK_MODE_KEY as never, value }] }
       }),
     onSuccess: () => {

@@ -69,7 +69,7 @@ export default function LiveScreen({
 
     const loadFallbackSettings = async () => {
       try {
-        const settings = await Api.fetch.setttings.getSettings({
+        const settings = await Api.fetch.settings.getSettings({
           body: { settings: [FALLBACK_MEDIA_KEY as never, FALLBACK_COLOR_KEY as never] }
         })
         const mediaIdValue = settings.find((s) => s.key === FALLBACK_MEDIA_KEY)?.value

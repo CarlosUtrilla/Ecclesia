@@ -20,7 +20,7 @@ export default function LogoFallbackSection() {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
 
   const { data: settings } = useQuery({
-    ...Api.query.setttings.getSettings({
+    ...Api.query.settings.getSettings({
       body: { settings: [FALLBACK_MEDIA_KEY, FALLBACK_COLOR_KEY] }
     }),
     staleTime: Infinity
@@ -39,7 +39,7 @@ export default function LogoFallbackSection() {
   const media = mediaRecord?.[0] ?? null
 
   const { mutate: saveSettings } = useMutation({
-    ...Api.mutation.setttings.updateSettings,
+    ...Api.mutation.settings.updateSettings,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'logoFallback'] })
     }

@@ -55,7 +55,10 @@ window.electron.ipcRenderer.on('sync-data-applied', () => {
 // Invalidación genérica de queries cross-window
 window.queryKeysAPI.onInvalidateQueries((keys) => {
   if (keys) {
-    keys.forEach((key) => queryClient.invalidateQueries(key))
+    keys.forEach((key) => {
+      console.log('invalidating', key)
+      queryClient.invalidateQueries({ queryKey: key })
+    })
   }
 })
 

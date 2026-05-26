@@ -66,7 +66,7 @@ export default function ViewVerses({
 
   // Obtener configuración de chunk mode para calcular splits
   const { data: chunkSettings } = useQuery({
-    ...Api.query.setttings.getSettings({
+    ...Api.query.settings.getSettings({
       body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] }
     }),
     staleTime: Infinity

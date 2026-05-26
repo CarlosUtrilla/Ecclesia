@@ -35,7 +35,7 @@ export default function PresentationPreview({ presentation, presentationMediaByI
 
   // Obtener configuración de chunk size
   const { data: splitSettings = [] } = useQuery(
-    Api.query.setttings.getSettings({ body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] } })
+    Api.query.settings.getSettings({ body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] } })
   )
 
   const maxChunkLength = useMemo(() => {

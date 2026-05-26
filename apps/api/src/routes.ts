@@ -13,7 +13,7 @@ import SyncController from './controllers/sync/sync.controller'
 import SyncDriveController from './controllers/sync-drive/sync-drive.controller'
 
 export const routes = {
-  setttings: SettingsController,
+  settings: SettingsController,
   songs: SongsController,
   themes: ThemesController,
   media: MediaController,

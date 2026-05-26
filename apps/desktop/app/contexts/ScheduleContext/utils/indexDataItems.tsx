@@ -248,7 +248,7 @@ export const useIndexDataItems = (
     ): Promise<ContentScreen> => {
       const { accessData, type } = item
       if (type === 'BIBLE') {
-        const splitSettings = await Api.fetch.setttings.getSettings({
+        const splitSettings = await Api.fetch.settings.getSettings({
           body: {
             settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never]
           }
@@ -367,9 +367,7 @@ export const useIndexDataItems = (
         const mediaUrl = mediaItem ? buildMediaUrl(mediaItem.filePath) : ''
         return {
           title: mediaItem?.name || 'Medio',
-          content: mediaItem
-            ? [{ ...mediaItem, resourceType: item.type, mediaUrl } as any]
-            : []
+          content: mediaItem ? [{ ...mediaItem, resourceType: item.type, mediaUrl } as any] : []
         }
       }
       if (type === 'PRESENTATION') {
@@ -419,7 +417,7 @@ export const useIndexDataItems = (
         const mediaById = new Map(mediaItems.map((mediaItem) => [mediaItem.id, mediaItem]))
         const themeById = new Map(themes.map((theme) => [theme.id, theme]))
 
-        const splitSettings = await Api.fetch.setttings.getSettings({
+        const splitSettings = await Api.fetch.settings.getSettings({
           body: {
             settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never]
           }

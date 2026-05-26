@@ -53,12 +53,16 @@ vi.mock('@ecclesia/queries', () => ({
   Api: {
     query: {
       bible: {
-        getCompleteChapter: ({ body }: { body: { version: string; book: number; chapter: number } }) => ({
+        getCompleteChapter: ({
+          body
+        }: {
+          body: { version: string; book: number; chapter: number }
+        }) => ({
           queryKey: ['bible', body.version, body.chapter],
           queryFn: vi.fn()
         })
       },
-      setttings: {
+      settings: {
         getSettings: () => ({
           queryKey: ['settings'],
           queryFn: vi.fn()
