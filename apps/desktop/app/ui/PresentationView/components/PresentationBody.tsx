@@ -12,6 +12,7 @@ import { type Variants } from 'framer-motion'
 
 type Props = {
   live: boolean
+  buildMediaUrl: (filePath: string) => string
   currentItem: PresentationViewProps['items'][number]
   isMediaItem: boolean
   backgroundType: 'image' | 'video' | 'color' | 'gradient'
@@ -73,6 +74,7 @@ type Props = {
 
 function PresentationBodyComponent({
   live,
+  buildMediaUrl,
   currentItem,
   isMediaItem,
   backgroundType,
@@ -170,7 +172,7 @@ function PresentationBodyComponent({
 
   const mainContent = (
     <>
-      {isMediaItem ? <MediaRender currentItem={currentItem} live={live} /> : null}
+      {isMediaItem ? <MediaRender currentItem={currentItem} live={live} externalBuildMediaUrl={buildMediaUrl} /> : null}
 
       {!isMediaItem ? (
         <ResourceContent
@@ -249,6 +251,7 @@ function PresentationBodyComponent({
 function arePresentationBodyPropsEqual(prevProps: Props, nextProps: Props) {
   return (
     prevProps.live === nextProps.live &&
+    prevProps.buildMediaUrl === nextProps.buildMediaUrl &&
     prevProps.currentItem === nextProps.currentItem &&
     prevProps.isMediaItem === nextProps.isMediaItem &&
     prevProps.backgroundType === nextProps.backgroundType &&

@@ -497,7 +497,7 @@ export const useIndexDataItems = (
         content: [{ text: accessData, resourceType: item.type }]
       }
     },
-    [media, presentations, songs, themes]
+    [media, presentations, songs, themes, buildMediaUrl]
   )
 
   return {

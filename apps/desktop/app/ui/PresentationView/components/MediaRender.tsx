@@ -7,17 +7,24 @@ import { CSSProperties, memo, useId, useLayoutEffect, useMemo, useRef } from 're
 type MediaRenderProps = {
   currentItem: PresentationViewItems
   live?: boolean
+  externalBuildMediaUrl?: (filePath: string) => string
 }
 
-function MediaRenderComponent({ currentItem, live = false }: MediaRenderProps) {
+function MediaRenderComponent({
+  currentItem,
+  live = false,
+  externalBuildMediaUrl
+}: MediaRenderProps) {
   const videoId = useId()
 
-  const { buildMediaUrl } = useMediaServer()
+  const { buildMediaUrl: contextBuildMediaUrl } = useMediaServer()
+  const buildMediaUrl = externalBuildMediaUrl || contextBuildMediaUrl
   const itemData = currentItem as PresentationViewItems & Media
   const thumbnailUrl = buildMediaUrl(itemData.thumbnail || '')
   const originalUrl =
     (itemData as PresentationViewItems & { mediaUrl?: string }).mediaUrl ||
     buildMediaUrl(itemData.filePath)
+
 
   const type = getMediaType(itemData.format)
   const shouldLoop = currentItem.videoLoop === true
@@ -202,6 +209,7 @@ function areMediaRenderPropsEqual(prevProps: MediaRenderProps, nextProps: MediaR
 
   return (
     prevProps.live === nextProps.live &&
+    prevProps.externalBuildMediaUrl === nextProps.externalBuildMediaUrl &&
     prevItem.id === nextItem.id &&
     prevItem.filePath === nextItem.filePath &&
     prevItem.thumbnail === nextItem.thumbnail &&

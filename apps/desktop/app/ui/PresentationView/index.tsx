@@ -194,6 +194,7 @@ function PresentationViewComponent({
   const viewContent = (
     <PresentationBody
       live={live}
+      buildMediaUrl={buildMediaUrl}
       currentItem={currentItem}
       isMediaItem={isMediaItem}
       backgroundType={backgroundType}

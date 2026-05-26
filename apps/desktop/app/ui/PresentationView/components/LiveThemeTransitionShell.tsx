@@ -66,13 +66,20 @@ export function LiveThemeTransitionShell({
       'scale'
     ].includes(themeTransitionType)
 
-    if (!shouldForceSolidOpacity) {
-      return themeTransitionVariants
-    }
-
     const initial = (themeTransitionVariants.initial as Record<string, unknown>) ?? {}
     const animate = (themeTransitionVariants.animate as Record<string, unknown>) ?? {}
     const exit = (themeTransitionVariants.exit as Record<string, unknown>) ?? {}
+
+    if (!shouldForceSolidOpacity) {
+      // Para tipos como 'none' o 'fade', asegurar que opacity default a 1
+      // cuando no está explícitamente definido en la variante
+      return {
+        ...themeTransitionVariants,
+        initial: { ...initial, opacity: initial.opacity ?? 1 },
+        animate: { ...animate, opacity: animate.opacity ?? 1 },
+        exit: { ...exit, opacity: exit.opacity ?? 1 }
+      }
+    }
 
     const animateTransition = (animate.transition as Record<string, unknown> | undefined) ?? {}
     const exitTransition = (exit.transition as Record<string, unknown> | undefined) ?? {}

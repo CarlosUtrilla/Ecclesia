@@ -51,13 +51,18 @@ export function LiveSlideTransitionShell({
       'scale'
     ].includes(slideTransitionType)
 
-    if (!shouldForceSolidOpacity) {
-      return slideTransitionVariants
-    }
-
     const initial = (slideTransitionVariants.initial as Record<string, unknown>) ?? {}
     const animate = (slideTransitionVariants.animate as Record<string, unknown>) ?? {}
     const exit = (slideTransitionVariants.exit as Record<string, unknown>) ?? {}
+
+    if (!shouldForceSolidOpacity) {
+      return {
+        ...slideTransitionVariants,
+        initial: { ...initial, opacity: initial.opacity ?? 1 },
+        animate: { ...animate, opacity: animate.opacity ?? 1 },
+        exit: { ...exit, opacity: exit.opacity ?? 1 }
+      }
+    }
 
     const animateTransition =
       (animate.transition as Record<string, unknown> | undefined) ?? {}
