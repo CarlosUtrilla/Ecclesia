@@ -257,6 +257,13 @@ app.whenReady().then(async () => {
     }
   })
 
+  // Receptor genérico: reenvía keys de query a todas las ventanas para invalidación
+  ipcMain.on('update-query-keys', (_event, keys: string[][]) => {
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send('invalidate-queries', keys)
+    })
+  })
+
   updateSplashStatus('Abriendo Ecclesia...')
   const mainWindow = createMainWindow()
 

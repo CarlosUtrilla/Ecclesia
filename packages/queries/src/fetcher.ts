@@ -1,21 +1,24 @@
+import { QueryClient } from '@tanstack/react-query'
 import Decimal from 'decimal.js'
 
-export async function Fetcher(
-  apiUrl: string,
-  port: number,
-  path: string,
-  body?: any,
+type FetcherParams = {
+  apiUrl: string
+  port: number
+  path: string
+  body?: any
   token?: string
-) {
+  queryClient: QueryClient
+}
+export async function Fetcher({ apiUrl, port, path, body, token, queryClient }: FetcherParams) {
   try {
     const url = `${apiUrl}:${port}${path}`
     const isFormData = body instanceof FormData
-    const parsedBody = !isFormData ? serializeBody(body) : body
+    const parsedBody = !isFormData ? (serializeBody(body) as string | null) : body
     const init: RequestInit = {
       headers: {
         ...(token && token !== '' ? { authorization: `Bearer ${token}` } : undefined),
         ...(!isFormData
-          ? isStringJSON(parsedBody)
+          ? isStringJSON(parsedBody as string | null)
             ? { 'Content-Type': 'application/json' }
             : {
                 'Content-Type': 'text/plain'
@@ -40,7 +43,16 @@ export async function Fetcher(
     const data = contentType?.includes('application/json')
       ? await response.json()
       : await response.text()
-
+    if (data && typeof data === 'object') {
+      if ('queryKeys' in data && data.queryKeys.length > 0) {
+        const keys = data.queryKeys as string[][]
+        /*  keys.forEach((key) => {
+          queryClient.invalidateQueries({ queryKey: key })
+        }) */
+        ;(window as any).queryKeysAPI.updateQueryKeys(keys)
+      }
+      if ('response' in data) return data.response
+    }
     return data
   } catch (e) {
     const error = e as Error
@@ -50,19 +62,21 @@ export async function Fetcher(
   }
 }
 
-function isStringJSON(str: string) {
+function isStringJSON(str: string | null) {
   try {
-    JSON.parse(str)
+    if (str === null) return false
+    JSON.parse(str as string)
     return true
   } catch {
     return false
   }
 }
 
-function serializeBody(body: any) {
-  if (!body || body === null) return body
+/**Funcion que regresa el body como un string siempre, a menos que sea un null o undefined */
+function serializeBody(body: any): string | null {
+  if (!body || body === null) return null
   const serializedDecimalsBody = serializeDecimals(body)
-  if (typeof serializedDecimalsBody === 'string') return serializedDecimalsBody
+  if (typeof body === 'string') return serializedDecimalsBody
   return JSON.stringify(serializedDecimalsBody)
 }
 

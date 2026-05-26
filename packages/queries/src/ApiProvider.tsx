@@ -1,6 +1,7 @@
 import { createContext, PropsWithChildren } from 'react'
 import type { ApiTypes } from './queriesTypes'
 import { exposeRoutes } from './SDK'
+import { QueryClient } from '@tanstack/react-query'
 
 const ApiProviderContext = createContext({} as any)
 
@@ -21,10 +22,14 @@ export const Api = new Proxy(
 
 let initPromise: Promise<void> | null = null
 
-export const initializeApi = (serverUrl = 'http://localhost', port = 7777): Promise<void> => {
+export const initializeApi = (
+  queryClient: QueryClient,
+  serverUrl = 'http://localhost',
+  port = 7777
+): Promise<void> => {
   if (!initPromise) {
     initPromise = (async () => {
-      const sdk = await exposeRoutes(serverUrl, port)
+      const sdk = await exposeRoutes(queryClient, serverUrl, port)
       apiInstance = sdk
     })()
   }

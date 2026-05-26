@@ -5,7 +5,12 @@ import {
   MEDIA_SERVER_PORT
 } from './controllers/media/mediaServer.controller'
 import { registerRoutes } from './utils/routerUtilis'
-import { DatabaseConfig, initializeDatabase, getDefaultDatabaseConfig, initializeBibleData } from './prisma-init'
+import {
+  DatabaseConfig,
+  initializeDatabase,
+  getDefaultDatabaseConfig,
+  initializeBibleData
+} from './prisma-init'
 import { setUserDataPath } from './config'
 import { routes } from './routes'
 
@@ -44,7 +49,7 @@ export async function initializeHttpServer(config?: DatabaseConfig, serverPort?:
 
         return [namespace, methods]
       })
-      res.json(routesMap)
+      return res.json({ response: routesMap })
     } catch (err: any) {
       res.status(500).json({ error: 'Failed to retrieve routes', errMsg: err })
     }

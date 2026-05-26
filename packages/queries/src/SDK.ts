@@ -1,12 +1,16 @@
-import { mutationOptions, queryOptions } from '@tanstack/react-query'
+import { mutationOptions, QueryClient, queryOptions } from '@tanstack/react-query'
 import { Fetcher } from './fetcher'
 
-export const exposeRoutes = async (apiUrl: string, port: number) => {
+export const exposeRoutes = async (queryClient: QueryClient, apiUrl: string, port: number) => {
   const queryMap = {} as any
   const mutationMap = {} as any
   const fetchMap = {} as any
 
-  const routes = (await Fetcher(apiUrl, port, '/api/getRoutes')) as [string, string[]][]
+  const routes = (await Fetcher({ apiUrl, port, path: '/api/getRoutes', queryClient })) as [
+    string,
+    string[]
+  ][]
+  console.log('Retrieved routes from server:', routes)
 
   for (const [namespace, Methods] of routes) {
     queryMap[namespace] = {}
@@ -18,16 +22,23 @@ export const exposeRoutes = async (apiUrl: string, port: number) => {
         queryOptions({
           queryKey: [namespace, method, params],
 
-          queryFn: async () => Fetcher(apiUrl, port, `/api/${namespace}/${method}`, params)
+          queryFn: async () =>
+            Fetcher({
+              apiUrl,
+              port,
+              path: `/api/${namespace}/${method}`,
+              body: params,
+              queryClient
+            })
         })
 
       mutationMap[namespace][method] = mutationOptions({
         mutationFn: async (params: any) =>
-          Fetcher(apiUrl, port, `/api/${namespace}/${method}`, params)
+          Fetcher({ apiUrl, port, path: `/api/${namespace}/${method}`, body: params, queryClient })
       })
 
       fetchMap[namespace][method] = async (params?: any) =>
-        Fetcher(apiUrl, port, `/api/${namespace}/${method}`, params)
+        Fetcher({ apiUrl, port, path: `/api/${namespace}/${method}`, body: params, queryClient })
     }
   }
 

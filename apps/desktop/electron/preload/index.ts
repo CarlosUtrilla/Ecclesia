@@ -43,9 +43,19 @@ const windowAPI = {
   triggerClose: () => ipcRenderer.send('window:trigger-close')
 }
 
-// API para obtener fuentes del sistema
+// API para fuentes del sistema
 const systemAPI = {
   getSystemFonts: (): Promise<string[]> => ipcRenderer.invoke('get-system-fonts')
+}
+
+// API para invalidación cross-window de queries React Query
+const queryKeysAPI = {
+  updateQueryKeys: (keys: string[][]) => ipcRenderer.send('update-query-keys', keys),
+  onInvalidateQueries: (callback: (keys: string[][]) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, keys: string[][]) => callback(keys)
+    ipcRenderer.on('invalidate-queries', handler)
+    return () => ipcRenderer.removeListener('invalidate-queries', handler)
+  }
 }
 
 export const HandleManagers = {
@@ -56,7 +66,8 @@ export const HandleManagers = {
   displayAPI,
   liveMediaAPI,
   googleDriveSyncAPI,
-  updaterAPI
+  updaterAPI,
+  queryKeysAPI
 }
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise

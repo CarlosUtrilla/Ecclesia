@@ -22,7 +22,7 @@ const routeHandler =
         res: requestData?.res
       })
 
-      return res.json(result)
+      return res.json({ response: result, queryKeys: queryKeys ?? [] })
     } catch (err: any) {
       const rawMessage = err?.message || 'Unknown error'
 

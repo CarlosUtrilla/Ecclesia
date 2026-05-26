@@ -52,6 +52,13 @@ window.electron.ipcRenderer.on('sync-data-applied', () => {
   queryClient.invalidateQueries()
 })
 
+// Invalidación genérica de queries cross-window
+window.queryKeysAPI.onInvalidateQueries((keys) => {
+  if (keys) {
+    keys.forEach((key) => queryClient.invalidateQueries(key))
+  }
+})
+
 // Pre-carga el chunk de la ruta activa antes de renderizar React.
 // Como Electron sirve desde el ASAR local, los imports resuelven en ~0ms y
 // el módulo queda en caché. Cuando React.lazy() lo pide, ya está listo y
@@ -85,7 +92,7 @@ async function preloadCurrentRoute(): Promise<void> {
 // - preloadCurrentRoute() carga el chunk en la caché ESM mientras React ya monta
 // - Suspense muestra el Spinner inmediatamente en vez de ventana oscura vacía
 // - React.lazy() comparte la misma Promise del import() → resuelve en cuanto el chunk está listo
-initializeApi().then(() => {
+initializeApi(queryClient).then(() => {
   preloadCurrentRoute()
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
