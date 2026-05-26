@@ -57,15 +57,6 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
     refreshSelectedItemContent()
   }, [refreshSelectedItemContent])
 
-  useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('presentation-saved', () => {
-      if (selectedItem?.type !== 'PRESENTATION') return
-      refreshSelectedItemContent()
-    })
-
-    return unsubscribe
-  }, [refreshSelectedItemContent, selectedItem?.type])
-
   useLayoutEffect(() => {
     const el = document.getElementById('theme-selector') as HTMLDivElement
     if (el) {

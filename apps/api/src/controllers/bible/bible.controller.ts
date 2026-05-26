@@ -1,9 +1,15 @@
 import { BiblePresentationSettings } from '@prisma/client'
-import { GetCompleteChapterDTO, GetVersesDTO, TextFragmentSearchDTO, ImportBibleResult } from './bible.dto'
+import {
+  GetCompleteChapterDTO,
+  GetVersesDTO,
+  TextFragmentSearchDTO,
+  ImportBibleResult
+} from './bible.dto'
 import BibleService from './bible.service'
 import { BibleManagmentService } from './bibleManagment.service'
 import { RequestHandler } from '../../utils/RequestHandler'
 import { UsingMulter } from '../../decorators/multerDecorator'
+import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
 class BibleController {
   private BibleService = new BibleService()
   private BibleManagmentService = new BibleManagmentService()
@@ -31,6 +37,7 @@ class BibleController {
     return this.BibleService.getDefaultBibleSettings()
   }
 
+  @UpdateQueryKey(['bible'])
   async updateDefaultBibleSettings({ body }: RequestHandler<BiblePresentationSettings>) {
     return this.BibleService.updateDefaultBibleSettings(body)
   }

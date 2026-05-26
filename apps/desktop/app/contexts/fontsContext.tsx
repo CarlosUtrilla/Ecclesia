@@ -25,19 +25,6 @@ export function FontsProvider({ children }: { children: React.ReactNode }) {
     staleTime: Infinity
   })
 
-  // Listener IPC para refetch cuando se agregue una fuente
-  useEffect(() => {
-    const handler = () => {
-      refetch()
-    }
-    window.electron.ipcRenderer.on('font-added', handler)
-    window.electron.ipcRenderer.on('font-deleted', handler)
-    return () => {
-      window.electron.ipcRenderer.removeListener('font-added', handler)
-      window.electron.ipcRenderer.removeListener('font-deleted', handler)
-    }
-  }, [refetch])
-
   // Cargar todas las fuentes personalizadas globalmente
   const { buildMediaUrl } = useMediaServer()
   useEffect(() => {

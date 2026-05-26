@@ -274,7 +274,6 @@ export default function ThemesEditor() {
         await Api.fetch.themes.createTheme({ body: data as any })
       }
       // cerrar ventana
-      window.electron.ipcRenderer.send('theme-saved')
       window.googleDriveSyncAPI.notifyAutoSaveEvent()
       pendingCloseRef.current = false
       window.windowAPI.confirmThemeClose()

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/ui/input'
@@ -52,14 +52,6 @@ export default function PresentationsPanel() {
     ...Api.query.media.getMediaByIds({ body: { ids: presentationMediaIds } }),
     enabled: presentationMediaIds.length > 0
   })
-
-  useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('presentation-saved', () => {
-      refetchPresentationMedia()
-    })
-
-    return unsubscribe
-  }, [refetchPresentationMedia])
 
   const presentationMediaById = useMemo(
     () => new Map(presentationMedia.map((mediaItem) => [mediaItem.id, mediaItem])),

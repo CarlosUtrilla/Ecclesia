@@ -1,5 +1,5 @@
 import { routes } from '../routes'
-import express from 'express'
+import express, { Request } from 'express'
 import * as os from 'os'
 
 import { restoreDecimals } from '../middleware/decimal'
@@ -7,10 +7,11 @@ import { USING_MULTER_KEY, UsingMulterOptions } from '../decorators/multerDecora
 import multer from 'multer'
 import 'reflect-metadata'
 import { UPDATE_QUERY_KEY } from '../decorators/UpdateQueryKey.decorator'
+import Logger from 'electron-log'
 
 const routeHandler =
   (handler: (params: any) => Promise<any>, queryKeys?: string[]) =>
-  async (req: any, res: express.Response) => {
+  async (req: Request, res: express.Response) => {
     try {
       const requestData = req?.body ?? {}
       const body = restoreDecimals(requestData?.body ?? requestData)
@@ -22,6 +23,9 @@ const routeHandler =
         res: requestData?.res
       })
 
+      if (!queryKeys || queryKeys.length <= 0) {
+        Logger.info(`no querykeys on ${req.originalUrl}`)
+      }
       return res.json({ response: result, queryKeys: queryKeys ?? [] })
     } catch (err: any) {
       const rawMessage = err?.message || 'Unknown error'

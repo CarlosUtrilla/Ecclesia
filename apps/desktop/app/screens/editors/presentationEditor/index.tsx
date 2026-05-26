@@ -196,16 +196,6 @@ export default function PresentationEditor() {
   })
 
   useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('media-saved', () => {
-      void refetchMedia()
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [refetchMedia])
-
-  useEffect(() => {
     const unsubscribe = window.electron.ipcRenderer.on('presentation-close-requested', () => {
       if (!isDirty) {
         window.windowAPI.confirmPresentationClose()
@@ -403,12 +393,8 @@ export default function PresentationEditor() {
         const blob = new Blob([new Uint8Array(imagePayload.bytes)], { type: imagePayload.mimeType })
         const ext = imagePayload.mimeType.split('/')[1] || 'png'
         formData.append('file', blob, `clipboard-${Date.now()}.${ext}`)
-        const res = await fetch('http://localhost:7777/api/media/importFile', {
-          method: 'POST',
-          body: formData
-        })
-        if (!res.ok) return
-        const [mediaRecord] = await res.json()
+        const result = await Api.fetch.media.importFile(formData)
+        const [mediaRecord] = result
         const mediaId = Number(mediaRecord.id)
 
         if (!Number.isFinite(mediaId) || mediaId <= 0) return
@@ -432,7 +418,6 @@ export default function PresentationEditor() {
           setSelectedItemIds([newItem.id])
         }
 
-        window.electron.ipcRenderer.send('media-saved')
         return
       } catch (error) {
         console.error('No se pudo importar la imagen pegada:', error)
@@ -692,7 +677,6 @@ export default function PresentationEditor() {
       })
     }
 
-    window.electron.ipcRenderer.send('presentation-saved')
     window.windowAPI.confirmPresentationClose()
   })
 

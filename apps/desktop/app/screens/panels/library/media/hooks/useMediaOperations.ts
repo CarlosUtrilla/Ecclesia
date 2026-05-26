@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { Media } from '../types'
 import type { MediaType } from '@ecclesia/api'
 import { Api } from '@ecclesia/queries'
@@ -28,13 +28,6 @@ const buildFolderPath = (currentFolder: string | null, folderName: string) =>
 const normalizeFolder = (folder: string | null | undefined): string | null => folder ?? null
 
 export function useMediaOperations(currentFolder: string | null) {
-  const queryClient = useQueryClient()
-
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['media'] })
-    queryClient.invalidateQueries({ queryKey: ['folders'] })
-  }
-
   const importMutation = useMutation({
     mutationFn: async (files: { fileName: string; bytes: number[]; fileSize: number }[]) => {
       const results: MediaDto[] = []
@@ -45,33 +38,25 @@ export function useMediaOperations(currentFolder: string | null) {
         if (currentFolder) {
           formData.append('folder', currentFolder)
         }
-        const response = await fetch('http://localhost:7777/api/media/importFile', {
-          method: 'POST',
-          body: formData
-        })
-        if (!response.ok) throw new Error(await response.text())
-        const mediaRecords = await response.json()
-        results.push(mediaRecords[0])
+        const result = await Api.fetch.media.importFile(formData)
+        results.push(result[0])
       }
       return results
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
+    }
   })
 
   const createFolderMutation = useMutation({
     mutationFn: (folderName: string) =>
       Api.fetch.media.createFolder({
         body: { folderPath: buildFolderPath(currentFolder, folderName) }
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['folders'] })
+      })
   })
 
   const deleteFolderMutation = useMutation({
     mutationFn: (folderName: string) =>
       Api.fetch.media.deleteFolder({
         body: { folderPath: buildFolderPath(currentFolder, folderName) }
-      }),
-    onSuccess: invalidateAll
+      })
   })
 
   const renameMutation = useMutation({
@@ -125,14 +110,10 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
-    },
-    onSuccess: invalidateAll
+    }
   })
 
-  const deleteMutation = useMutation({
-    ...Api.mutation.media.deleteFile,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] })
-  })
+  const deleteMutation = useMutation(Api.mutation.media.deleteFile)
 
   const moveMutation = useMutation({
     mutationFn: async ({
@@ -161,8 +142,7 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
-    },
-    onSuccess: invalidateAll
+    }
   })
 
   const copyMutation = useMutation({
@@ -199,8 +179,7 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
-    },
-    onSuccess: invalidateAll
+    }
   })
 
   return {

@@ -78,7 +78,6 @@ export function ThemesSidePanel() {
         .filter((item) => item.backgroundMediaWasRenamed)
 
       if (successCount > 0) {
-        window.electron.ipcRenderer.send('theme-saved')
         refetchThemes()
       }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
@@ -105,17 +105,6 @@ export function MediaPicker({
       console.error('Error en importación:', error)
     }
   }
-  // Escuchar si otra ventana importa medios
-  useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('media-saved', () => {
-      refetch()
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [])
-
   const loading =
     isLoading || operations.importMutation.isPending || operations.deleteMutation.isPending
 

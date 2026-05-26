@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import {
@@ -21,8 +21,6 @@ const OPTION_LABELS: Record<BibleLiveSplitMode, string> = {
 }
 
 export default function BibleLiveSection() {
-  const queryClient = useQueryClient()
-
   const { data: settings } = useQuery({
     ...Api.query.settings.getSettings({
       body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] }
@@ -37,10 +35,7 @@ export default function BibleLiveSection() {
     mutationFn: (value: BibleLiveSplitMode) =>
       Api.fetch.settings.updateSettings({
         body: { settings: [{ key: BIBLE_LIVE_CHUNK_MODE_KEY as never, value }] }
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings', 'bibleLive'] })
-    }
+      })
   })
 
   return (

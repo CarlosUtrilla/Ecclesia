@@ -3,11 +3,8 @@ import { Card } from '@/ui/card'
 import { Skeleton } from '@/ui/skeleton'
 import t from '@locales'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import {
-  SongResponseDTO,
-  SongsListResponseDTO
-} from '@ecclesia/api/src/controllers/songs/songs.dto'
-import { useEffect, useRef, useState } from 'react'
+import { SongsListResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, Music, Plus } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Tooltip } from '@/ui/tooltip'
@@ -25,7 +22,7 @@ export default function SongsPanelLibrary() {
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [selectedSong, setSelectedSong] = useState<SongResponseDTO | null>(null)
+  const [selectedSongId, setSelectedSongId] = useState<number | null>(null)
 
   // Debounce para el buscador
   useEffect(() => {
@@ -52,19 +49,6 @@ export default function SongsPanelLibrary() {
         return lastPage.totalPages > lastPage.page ? lastPage.page + 1 : undefined
       }
     })
-  useEffect(() => {
-    // Refrescar la lista de canciones cuando se guarde una canción
-    const unsubscribe = window.electron.ipcRenderer.on('song-saved', async () => {
-      const songs = await refetch()
-      if (selectedSong) {
-        const updatedSong = songs.data?.pages
-          .flatMap((page) => page.songs)
-          .find((s) => s.id === selectedSong.id)
-        setSelectedSong(updatedSong || null)
-      }
-    })
-    return unsubscribe
-  }, [selectedSong])
   // Intersection Observer para scroll infinito
   useEffect(() => {
     if (!observerRef.current || !hasNextPage || isFetchingNextPage) return
@@ -83,7 +67,11 @@ export default function SongsPanelLibrary() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const allSongs = data?.pages.flatMap((page) => page.songs) ?? []
+  const selectedSong = useMemo(() => {
+    if (selectedSongId === null) return null
 
+    return allSongs.find((s) => s.id === selectedSongId) ?? null
+  }, [allSongs, selectedSongId])
   const handleDeleteSong = async (songId: number) => {
     const song = allSongs.find((s) => s.id === songId)
     // Primero preguntar al usuario
@@ -91,8 +79,8 @@ export default function SongsPanelLibrary() {
       `¿Estás seguro de que deseas eliminar la canción "${song?.title}"?`
     )
     if (!confirm) return
-    if (selectedSong?.id === songId) {
-      setSelectedSong(null)
+    if (selectedSongId === songId) {
+      setSelectedSongId(null)
     }
     await Api.fetch.songs.deleteSong({ body: { id: songId } })
     await refetch()
@@ -102,7 +90,7 @@ export default function SongsPanelLibrary() {
     onNavigate(direction) {
       console.log('navigating', direction)
       if (direction === 'up' || direction === 'down') {
-        const currentIndex = allSongs.findIndex((s) => s.id === selectedSong?.id)
+        const currentIndex = allSongs.findIndex((s) => s.id === selectedSongId)
         let newIndex = currentIndex
         if (direction === 'down') {
           newIndex = Math.min(currentIndex + 1, allSongs.length - 1)
@@ -111,7 +99,7 @@ export default function SongsPanelLibrary() {
         }
         const newSelectedSong = allSongs[newIndex]
         if (newSelectedSong) {
-          setSelectedSong(newSelectedSong)
+          setSelectedSongId(newSelectedSong.id)
         }
       }
     }
@@ -178,8 +166,8 @@ export default function SongsPanelLibrary() {
                 <SongItem
                   key={song.id}
                   song={song}
-                  selectedSong={selectedSong}
-                  setSelectedSong={setSelectedSong}
+                  selectedSong={selectedSongId}
+                  setSelectedSong={setSelectedSongId}
                   handleDeleteSong={handleDeleteSong}
                 />
               ))}

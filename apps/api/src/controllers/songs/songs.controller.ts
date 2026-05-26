@@ -8,10 +8,12 @@ import type {
 } from './songs.dto'
 import SongImporter from './songImporter.service'
 import { RequestHandler } from '../../utils/RequestHandler'
+import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
 
 class SongsController {
   private songsService = new SongsService()
   private songImporter = new SongImporter()
+  @UpdateQueryKey(['songs'], ['songsByIds'])
   async createSong({ body }: RequestHandler<CreateSongDTO>) {
     return this.songsService.createSong(body)
   }
@@ -30,10 +32,12 @@ class SongsController {
     return this.songsService.getSongById(body.id)
   }
 
+  @UpdateQueryKey(['songs'], ['songsByIds'])
   async updateSong({ body }: RequestHandler<UpdateSongBody>) {
     return this.songsService.updateSong(body)
   }
 
+  @UpdateQueryKey(['songs'], ['songsByIds'])
   async deleteSong({ body }: RequestHandler<{ id: number }>): Promise<void> {
     return this.songsService.deleteSong(body.id)
   }

@@ -855,12 +855,8 @@ export default function usePresentationEditorActions({
         const blob = new Blob([new Uint8Array(entry.bytes)])
         fd.append('file', blob, entry.fileName)
         if (entry.folder) fd.append('folder', entry.folder)
-        const res = await fetch('http://localhost:7777/api/media/importFile', {
-          method: 'POST',
-          body: fd
-        })
-        if (!res.ok) { failedImports += 1; continue }
-        const [mediaRecord] = await res.json()
+        const result = await Api.fetch.media.importFile(fd)
+        const [mediaRecord] = result
         importedAssets.push({
           mediaId: Number(mediaRecord.id),
           sourceKey: entry.sourceKey,
@@ -946,7 +942,6 @@ export default function usePresentationEditorActions({
       zipWithoutMp4Count === 0 &&
       zipExtractionFailureCount === 0
     ) {
-      window.electron.ipcRenderer.send('media-saved')
       const parts = [`Se importaron ${importedCount} videos.`]
       if (updatedSlidesCount > 0) parts.push(`${updatedSlidesCount} diapositiva(s) actualizada(s).`)
       if (appendedSlidesCount > 0) parts.push(`${appendedSlidesCount} diapositiva(s) agregada(s).`)
@@ -974,7 +969,6 @@ export default function usePresentationEditorActions({
       parts.push(`Fallaron ${failedImports} importación(es).`)
     }
 
-    window.electron.ipcRenderer.send('media-saved')
     alert(parts.join(' '))
   }
 

@@ -76,17 +76,6 @@ export default function MediaLibrary() {
   const mediaItems = mediaData?.items || []
   const allSelectableItems: SelectableItem[] = [...folders, ...mediaItems]
 
-  // Refetch si otra ventana importa/crea medios
-  useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('media-saved', () => {
-      void Promise.all([refetch(), refetchFolders()])
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [refetch, refetchFolders])
-
   // Limpiar selección cuando cambie de carpeta
   useEffect(() => {
     selection.clearSelection()
@@ -139,7 +128,6 @@ export default function MediaLibrary() {
           })
         }
       }
-      window.electron.ipcRenderer.send('media-saved')
       selection.clearSelection()
     } catch (error) {
       console.error('Error al eliminar:', error)
@@ -200,7 +188,6 @@ export default function MediaLibrary() {
 
     try {
       await operations.deleteFolderMutation.mutateAsync(folderName)
-      window.electron.ipcRenderer.send('media-saved')
     } catch (error: any) {
       alert(error.message || 'Error al eliminar carpeta')
     }

@@ -209,54 +209,6 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Notificar a ventana principal cuando se guarda un tema
-  ipcMain.on('theme-saved', () => {
-    const mainWindow = BrowserWindow.getAllWindows()
-    if (mainWindow && mainWindow.length > 0) {
-      mainWindow.forEach((win) => {
-        win.webContents.send('theme-saved')
-      })
-    }
-  })
-
-  // Notificar a ventana principal cuando se guarda un tag
-  ipcMain.on('tags-saved', () => {
-    const mainWindow = BrowserWindow.getAllWindows()
-    if (mainWindow && mainWindow.length > 0) {
-      mainWindow.forEach((win) => {
-        win.webContents.send('tags-saved')
-      })
-    }
-  })
-
-  // Notificar a ventana principal cuando se guarda una canción
-  ipcMain.on('song-saved', () => {
-    const mainWindow = BrowserWindow.getAllWindows()
-    if (mainWindow && mainWindow.length > 0) {
-      mainWindow.forEach((win) => {
-        win.webContents.send('song-saved')
-      })
-    }
-  })
-
-  ipcMain.on('presentation-saved', () => {
-    const mainWindow = BrowserWindow.getAllWindows()
-    if (mainWindow && mainWindow.length > 0) {
-      mainWindow.forEach((win) => {
-        win.webContents.send('presentation-saved')
-      })
-    }
-  })
-
-  ipcMain.on('media-saved', () => {
-    const windows = BrowserWindow.getAllWindows()
-    if (windows && windows.length > 0) {
-      windows.forEach((win) => {
-        win.webContents.send('media-saved')
-      })
-    }
-  })
-
   // Receptor genérico: reenvía keys de query a todas las ventanas para invalidación
   ipcMain.on('update-query-keys', (_event, keys: string[][]) => {
     BrowserWindow.getAllWindows().forEach((win) => {

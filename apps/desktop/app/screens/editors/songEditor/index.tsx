@@ -89,7 +89,6 @@ export default function SongEditor() {
       } else {
         await Api.fetch.songs.createSong({ body: data })
       }
-      window.electron.ipcRenderer.send('song-saved')
       window.googleDriveSyncAPI.notifyAutoSaveEvent()
       window.windowAPI.closeCurrentWindow()
     } catch (e) {

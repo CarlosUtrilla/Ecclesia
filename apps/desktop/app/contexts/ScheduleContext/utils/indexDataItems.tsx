@@ -4,7 +4,7 @@ import type { ScheduleItem } from '@ecclesia/api'
 import { BookPlusIcon, FileSliders, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from '../types'
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { useMemo, useState } from 'react'
 import { SongResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
 import { useMediaServer } from '../../MediaServerContext'
@@ -105,31 +105,6 @@ export const useIndexDataItems = (
     },
     enabled: !!currentSchedule
   })
-
-  useEffect(() => {
-    const unsubscribePresentationSaved = window.electron.ipcRenderer.on(
-      'presentation-saved',
-      () => {
-        refetchPresentationsByIds()
-        refetchMedia()
-      }
-    )
-
-    const unsubscribeSongSaved = window.electron.ipcRenderer.on('song-saved', () => {
-      refetchSongs()
-    })
-
-    const unsubscribeMediaSaved = window.electron.ipcRenderer.on('media-saved', () => {
-      refetchMedia()
-      refetchPresentationsByIds()
-    })
-
-    return () => {
-      unsubscribePresentationSaved()
-      unsubscribeSongSaved()
-      unsubscribeMediaSaved()
-    }
-  }, [refetchMedia, refetchPresentationsByIds, refetchSongs])
 
   const songs = useMemo(() => {
     const byId = new Map<number, SongResponseDTO>()

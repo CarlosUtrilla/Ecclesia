@@ -20,7 +20,7 @@ export function initializeFontManager() {
       await controller.addFont({ name, fileName, filePath: 'fonts/' + fileName })
 
       BrowserWindow.getAllWindows().forEach((win) => {
-        win.webContents.send('font-added')
+        win.webContents.send('invalidate-queries', [['fonts']])
       })
       return { success: true, filePath: 'fonts/' + fileName }
     } catch (error) {

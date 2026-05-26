@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { ImageIcon, Trash2, Video } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
@@ -15,7 +15,6 @@ const FALLBACK_COLOR_KEY: LogoFallbackSettingKey = 'LOGO_FALLBACK_COLOR'
 const DEFAULT_FALLBACK_COLOR = '#000000'
 
 export default function LogoFallbackSection() {
-  const queryClient = useQueryClient()
   const { buildMediaUrl } = useMediaServer()
   const [isPickerOpen, setIsPickerOpen] = useState(false)
 
@@ -39,21 +38,16 @@ export default function LogoFallbackSection() {
   const media = mediaRecord?.[0] ?? null
 
   const { mutate: saveSettings } = useMutation({
-    ...Api.mutation.settings.updateSettings,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings', 'logoFallback'] })
-    }
+    ...Api.mutation.settings.updateSettings
   })
 
   const handleSelectMedia = (selected: Media) => {
     saveSettings({ body: { settings: [{ key: FALLBACK_MEDIA_KEY, value: String(selected.id) }] } })
-    queryClient.invalidateQueries({ queryKey: ['media', 'fallback'] })
     setIsPickerOpen(false)
   }
 
   const handleRemoveMedia = () => {
     saveSettings({ body: { settings: [{ key: FALLBACK_MEDIA_KEY, value: '' }] } })
-    queryClient.invalidateQueries({ queryKey: ['media', 'fallback'] })
   }
 
   const handleColorChange = (color: string) => {

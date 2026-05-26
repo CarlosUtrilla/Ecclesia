@@ -7,6 +7,7 @@ import {
   UpdateStageScreenThemeDTO
 } from './stageScreenConfig.dto'
 import StageScreenConfigService from './stageScreenConfig.service'
+import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
 
 class StageScreenConfigController {
   private stageScreenConfigService = new StageScreenConfigService()
@@ -27,18 +28,22 @@ class StageScreenConfigController {
     )
   }
 
+  @UpdateQueryKey(['stageScreenConfig'])
   async upsertStageScreenConfig({ body }: RequestHandler<UpsertStageScreenConfigDTO>) {
     return await this.stageScreenConfigService.upsertStageScreenConfig(body)
   }
 
+  @UpdateQueryKey(['stageScreenConfig'])
   async updateStageScreenTheme({ body }: RequestHandler<UpdateStageScreenThemeDTO>) {
     return await this.stageScreenConfigService.updateStageScreenTheme(body)
   }
 
+  @UpdateQueryKey(['stageScreenConfig'])
   async updateStageScreenLayout({ body }: RequestHandler<UpdateStageScreenLayoutDTO>) {
     return await this.stageScreenConfigService.updateStageScreenLayout(body)
   }
 
+  @UpdateQueryKey(['stageScreenConfig'])
   async updateStageScreenState({ body }: RequestHandler<UpdateStageScreenStateDTO>) {
     return await this.stageScreenConfigService.updateStageScreenState(body)
   }

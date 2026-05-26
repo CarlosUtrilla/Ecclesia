@@ -5,7 +5,6 @@ import { Tooltip } from '@/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { AppsImportersIcons } from '@/icons/appsImporters'
 import { Download, FolderOpen, Upload } from 'lucide-react'
-import { queryClient } from '@/main'
 import { Api } from '@ecclesia/queries'
 
 export default function SongImporter() {
@@ -25,9 +24,6 @@ export default function SongImporter() {
           }
         })
         setOpenDialog(false)
-        queryClient.invalidateQueries({
-          queryKey: ['songs', 'libraryPanel']
-        })
       } catch (error) {
         console.error('Error importing songs:', error)
         setError('Ocurrió un error al importar las canciones. Por favor, intenta de nuevo.')

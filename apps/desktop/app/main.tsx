@@ -47,9 +47,21 @@ mediaQuery.addEventListener('change', () => {
 
 export const queryClient = new QueryClient()
 
-// Cuando el sync pull aplica filas nuevas, invalidar todas las queries para que la UI refresque.
+// Cuando el sync pull aplica filas nuevas, invalidar queries relevantes
 window.electron.ipcRenderer.on('sync-data-applied', () => {
-  queryClient.invalidateQueries()
+  queryClient.invalidateQueries({ queryKey: ['songs'] })
+  queryClient.invalidateQueries({ queryKey: ['songsByIds'] })
+  queryClient.invalidateQueries({ queryKey: ['themes'] })
+  queryClient.invalidateQueries({ queryKey: ['presentations'] })
+  queryClient.invalidateQueries({ queryKey: ['presentationsByIds'] })
+  queryClient.invalidateQueries({ queryKey: ['media'] })
+  queryClient.invalidateQueries({ queryKey: ['mediaByIds'] })
+  queryClient.invalidateQueries({ queryKey: ['folders'] })
+  queryClient.invalidateQueries({ queryKey: ['tagSongs'] })
+  queryClient.invalidateQueries({ queryKey: ['scheduleGroupTemplates'] })
+  queryClient.invalidateQueries({ queryKey: ['fonts'] })
+  queryClient.invalidateQueries({ queryKey: ['settings'] })
+  queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
 })
 
 // Invalidación genérica de queries cross-window
@@ -57,7 +69,15 @@ window.queryKeysAPI.onInvalidateQueries((keys) => {
   if (keys) {
     keys.forEach((key) => {
       console.log('invalidating', key)
-      queryClient.invalidateQueries({ queryKey: key })
+      queryClient.refetchQueries({
+        predicate: (query) => {
+          console.log(
+            query.queryKey,
+            query.queryKey.some((k) => key.includes(k as string))
+          )
+          return query.queryKey.some((k) => key.includes(k as string))
+        }
+      })
     })
   }
 })

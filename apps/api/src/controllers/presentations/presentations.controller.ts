@@ -6,10 +6,12 @@ import type {
 } from './presentations.dto'
 
 import { RequestHandler } from '../../utils/RequestHandler'
+import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
 
 export class PresentationsController {
   private presentationsService = new PresentationsService()
 
+  @UpdateQueryKey(['presentations'], ['presentationsByIds'])
   async createPresentation({ body }: RequestHandler<CreatePresentationDTO>) {
     return this.presentationsService.createPresentation(body)
   }
@@ -27,10 +29,12 @@ export class PresentationsController {
     return this.presentationsService.getPresentationById(body.id)
   }
 
+  @UpdateQueryKey(['presentations'], ['presentationsByIds'])
   async updatePresentation({ body }: RequestHandler<{ id: number; data: UpdatePresentationDTO }>) {
     return this.presentationsService.updatePresentation(body.id, body.data)
   }
 
+  @UpdateQueryKey(['presentations'], ['presentationsByIds'])
   async deletePresentation({ body }: RequestHandler<{ id: number }>) {
     return this.presentationsService.deletePresentation(body.id)
   }

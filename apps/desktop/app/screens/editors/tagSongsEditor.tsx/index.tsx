@@ -2,7 +2,7 @@ import { Button } from '@/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table'
 import { Input } from '@/ui/input'
 import { ColorPicker } from '@/ui/colorPicker'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { Plus, Save, X, Trash2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import type { TagSongs } from '@ecclesia/api'
@@ -30,7 +30,6 @@ const generateUniqueShortName = (name: string, existingShortNames: Set<string>):
 }
 
 export default function TagSongsEditor() {
-  const queryClient = useQueryClient()
   const [editedTags, setEditedTags] = useState<EditableTag[]>([])
   const [hasChanges, setHasChanges] = useState(false)
 
@@ -45,10 +44,8 @@ export default function TagSongsEditor() {
   const updateMutation = useMutation({
     ...Api.mutation.tagSongs.saveManyTagSongs,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tagsSongs'] })
       toast.success('Tags guardadas correctamente')
       setHasChanges(false)
-      window.electron.ipcRenderer.send('tags-saved')
       window.googleDriveSyncAPI.notifyAutoSaveEvent()
       window.windowAPI.closeCurrentWindow()
     },
@@ -60,7 +57,6 @@ export default function TagSongsEditor() {
   const deleteMutation = useMutation({
     ...Api.mutation.tagSongs.deleteTagSongs,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tagsSongs'] })
       toast.success('Tag eliminada correctamente')
     },
     onError: (error: Error) => {

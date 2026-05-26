@@ -2,6 +2,7 @@ import { RequestHandler } from '../../utils/RequestHandler'
 import { ScheduleGroupTemplateService } from './schedule-group.service'
 import { AddScheduleItemDto, CreateScheduleBody, UpdateScheduleDto } from './schedule.dto'
 import { ScheduleService } from './schedule.service'
+import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
 
 export class ScheduleController {
   private scheduleService = new ScheduleService()
@@ -41,6 +42,7 @@ export class ScheduleController {
     return this.scheduleService.deleteItemFromSchedule(body.scheduleId, body.itemId)
   }
 
+  @UpdateQueryKey(['scheduleGroupTemplates'])
   async createGroupTemplate({ body }: RequestHandler<{ name: string; color: string }>) {
     return await this.scheduleTemplateService.createGroupTemplate(body)
   }
@@ -56,6 +58,7 @@ export class ScheduleController {
   }
 
   // Actualizar un template de grupo
+  @UpdateQueryKey(['scheduleGroupTemplates'])
   async updateGroupTemplate({
     body
   }: RequestHandler<{ id: number; data: { name?: string; color?: string } }>) {
@@ -63,6 +66,7 @@ export class ScheduleController {
   }
 
   // Eliminar un template de grupo
+  @UpdateQueryKey(['scheduleGroupTemplates'])
   async deleteGroupTemplate({ body }: RequestHandler<{ id: number }>) {
     return await this.scheduleTemplateService.deleteGroupTemplate(body.id)
   }

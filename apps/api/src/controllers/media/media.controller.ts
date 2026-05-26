@@ -2,6 +2,7 @@ import { MediaService } from './media.service'
 import { CreateMediaDto, UpdateMediaDto, MediaFilterDto } from './media.dto'
 import { RequestHandler } from '../../utils/RequestHandler'
 import { UsingMulter } from '../../decorators/multerDecorator'
+import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
 
 export class MediaController {
   private mediaService = new MediaService()
@@ -23,6 +24,7 @@ export class MediaController {
   }
 
   @UsingMulter({ fieldName: 'file', maxFiles: 10 })
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
   async importFile({
     file,
     files,
@@ -30,12 +32,13 @@ export class MediaController {
   }: RequestHandler<{ folder?: string }, Express.Multer.File>) {
     const targetFiles = file ? [file] : (files ?? [])
     const mediaRecords = await Promise.all(
-      targetFiles.map((f) => this.mediaService.importFileFromMulter(f, body.folder))
+      targetFiles.map(async (f) => await this.mediaService.importFileFromMulter(f, body.folder))
     )
     return mediaRecords
   }
 
   @UsingMulter({ fieldName: 'file', maxFiles: 1 })
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
   async importClipboardImage({
     file,
     body
@@ -44,14 +47,17 @@ export class MediaController {
     return await this.mediaService.importFileFromMulter(file, body.folder)
   }
 
+  @UpdateQueryKey(['folders'])
   async createFolder({ body }: RequestHandler<{ folderPath: string }>) {
     return await this.mediaService.createFolder(body.folderPath)
   }
 
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
   async deleteFolder({ body }: RequestHandler<{ folderPath: string }>) {
     return await this.mediaService.deleteFolder(body.folderPath)
   }
 
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
   async renamePath({ body }: RequestHandler<{ oldPath: string; newName: string }>) {
     return await this.mediaService.renamePath(body.oldPath, body.newName)
   }
@@ -60,10 +66,12 @@ export class MediaController {
     return await this.mediaService.listFolders(body.parentFolder)
   }
 
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
   async movePath({ body }: RequestHandler<{ sourcePath: string; targetFolder: string | null }>) {
     return await this.mediaService.movePath(body.sourcePath, body.targetFolder)
   }
 
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
   async copyFile({
     body
   }: RequestHandler<{ sourcePath: string; targetFolder: string | null; isFolder: boolean }>) {
@@ -82,6 +90,7 @@ export class MediaController {
     return await this.mediaService.update(parseInt(body.id), body.data)
   }
 
+  @UpdateQueryKey(['media'], ['mediaByIds'])
   async deleteFile({ body }: RequestHandler<{ id: number }>) {
     return await this.mediaService.deleteFile(body.id)
   }

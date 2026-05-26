@@ -39,12 +39,19 @@ type MutationShape<T> = {
     : never
 }
 
+// Métodos cuyos controllers usan @UsingMulter — HTTP espera FormData, no el IPC params object
+type MulterEndpoints = {
+  media: 'importFile' | 'importClipboardImage'
+}
+
+type AllMulterMethods = MulterEndpoints[keyof MulterEndpoints]
+
 type FetchShape<T> = {
-  [K in keyof NamespaceMethods<T>]: NamespaceMethods<T>[K] extends (
-    ...args: infer A
-  ) => Promise<infer R>
-    ? (...args: OptionalArgs<A>) => Promise<Awaited<R>>
-    : never
+  [K in keyof NamespaceMethods<T>]: K extends AllMulterMethods
+    ? (formData: FormData) => Promise<Awaited<ReturnType<NamespaceMethods<T>[K]>>>
+    : NamespaceMethods<T>[K] extends (...args: infer A) => Promise<infer R>
+      ? (...args: OptionalArgs<A>) => Promise<Awaited<R>>
+      : never
 }
 
 export type ApiTypes = {

@@ -121,16 +121,6 @@ export default function LiveScreens() {
     }
   }, [])
 
-  useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('stageScreen-config-updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [queryClient])
-
   const globalStageConfig = useMemo(() => {
     return getGlobalStageConfig(stageScreensForConfig, stageConfigs)?.config ?? null
   }, [stageConfigs, stageScreensForConfig])

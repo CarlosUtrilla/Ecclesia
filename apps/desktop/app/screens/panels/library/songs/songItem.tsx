@@ -14,8 +14,8 @@ import { Tooltip } from '@/ui/tooltip'
 
 type Props = {
   song: SongResponseDTO
-  selectedSong: SongResponseDTO | null
-  setSelectedSong: (song: SongResponseDTO | null) => void
+  selectedSong: number | null
+  setSelectedSong: (song: number | null) => void
   handleDeleteSong: (songId: number) => void
 }
 
@@ -38,17 +38,17 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
       <ContextMenuTrigger>
         <div
           className={cn('p-1 px-4 pl-3 hover:bg-muted/30', 'cursor-pointer transition-colors', {
-            'bg-secondary/20 hover:bg-secondary/10': selectedSong?.id === song.id,
+            'bg-secondary/20 hover:bg-secondary/10': selectedSong === song.id,
             'opacity-50 bg-muted ': isDragging
           })}
           ref={setNodeRef}
           {...listeners}
           {...attributes}
-          onClick={() => setSelectedSong(song)}
+          onClick={() => setSelectedSong(song.id)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
-              setSelectedSong(song)
+              setSelectedSong(song.id)
             }
           }}
           onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
