@@ -22,12 +22,19 @@ Modulo encargado de la ventana de proyeccion en vivo y su sincronizacion por IPC
   - `backgroundMedia.fallback`
 - Si llega el mismo tema/fondo (evento redundante), no dispara una nueva transicion.
 
+## Atajo de teclado F7
+
+- Cuando la ventana live screen tiene el foco y se presiona F7, se invoca `window.displayAPI.closeAllScreens()`.
+- `closeAllScreens` cierra todas las ventanas live y stage en el main process y emite `all-screens-closed` a la ventana principal, que actualiza `showLiveScreen = false`.
+
 ## Integracion
 
 - Entrada IPC:
   - `liveScreen-update`
   - `liveScreen-update-theme`
 - `liveScreen-update` acepta payload parcial (por ejemplo solo `liveControls`), y la pantalla actualiza únicamente las claves presentes para no resetear contenido/video innecesariamente.
+- Salida IPC:
+  - `window.displayAPI.closeAllScreens()` cuando se presiona F7.
 - Salida UI:
   - `PresentationView` con `themeTransitionKey` para controlar transiciones.
 

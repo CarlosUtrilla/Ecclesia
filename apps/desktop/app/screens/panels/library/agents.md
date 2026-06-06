@@ -117,6 +117,7 @@ app/screens/panels/library/
 - Estado: `selectedVersion`, `selectedBook`, `selectedChapter`, `selectedVerse[]`.
 - Auto-scroll al libro/capitulo/versiculo seleccionado via refs.
 - Cada seccion scrolleable independiente.
+- El panel de versículos maneja casos de texto de verso faltante sin crashear al seleccionar versiones.
 
 ### VerseSearch (`bible/verseSearch.tsx`)
 

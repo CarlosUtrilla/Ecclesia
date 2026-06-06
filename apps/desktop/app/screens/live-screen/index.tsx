@@ -135,9 +135,19 @@ export default function LiveScreen({
         }
       }
     )
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === 'F7') {
+        event.preventDefault()
+        window.displayAPI.closeAllScreens()
+      }
+    }
+    addEventListener('keyup', handleKeyUp)
+
     return () => {
       unsuscribeItems()
       unsuscribeThemes()
+      removeEventListener('keyup', handleKeyUp)
     }
   }, [])
 
@@ -166,9 +176,7 @@ export default function LiveScreen({
         setKeepFallbackDuringThemeEnter(false)
         fallbackDelayTimeoutRef.current = null
       }, totalTransitionMs)
-    }
-
-    if (!hasLiveItem) {
+    } else if (!hasLiveItem) {
       setKeepFallbackDuringThemeEnter(false)
 
       if (fallbackDelayTimeoutRef.current !== null) {
@@ -189,9 +197,6 @@ export default function LiveScreen({
   }, [])
 
   const fallbackMediaUrl = fallbackMedia ? buildMediaUrl(fallbackMedia.filePath) : null
-  const fallbackThumbnailUrl = fallbackMedia?.thumbnail
-    ? buildMediaUrl(fallbackMedia.thumbnail)
-    : null
   const effectiveLiveControls = liveControlsOverride ?? liveControls
   const shouldShowBlackScreen = shouldApplyFallback && effectiveLiveControls.blackScreen
   const shouldForceLogoFallback =
@@ -201,14 +206,16 @@ export default function LiveScreen({
     !shouldShowBlackScreen &&
     (shouldForceLogoFallback || !hasLiveItem || keepFallbackDuringThemeEnter)
   const shouldRenderPresentation = !shouldShowBlackScreen && !shouldForceLogoFallback
-  const containerBackground = shouldShowFallbackBackground ? fallbackColor : '#000000'
 
   return (
-    <div className="overflow-hidden w-full h-full" style={{ background: containerBackground }}>
+    <div
+      className="overflow-hidden w-full h-full"
+      style={{ background: shouldShowFallbackBackground ? fallbackColor : '#000000' }}
+    >
       {/* Capa de fondo: logo/fallback */}
-      {shouldShowFallbackBackground && fallbackMediaUrl && (
+      {shouldShowFallbackBackground && fallbackMedia && fallbackMediaUrl && (
         <div className="absolute inset-0 z-0">
-          {fallbackMedia!.type === 'VIDEO' ? (
+          {fallbackMedia.type === 'VIDEO' ? (
             <video
               src={fallbackMediaUrl}
               autoPlay
@@ -218,15 +225,10 @@ export default function LiveScreen({
               className="w-full h-full object-cover"
             />
           ) : (
-            <img
-              src={fallbackMediaUrl ?? fallbackThumbnailUrl}
-              alt=""
-              className="w-full h-full object-cover"
-            />
+            <img src={fallbackMediaUrl} alt="" className="w-full h-full object-cover" />
           )}
         </div>
       )}
-
       {/* Contenido de la presentación en vivo (encima del fondo) */}
       {shouldRenderPresentation ? (
         <div className="relative z-10 w-full h-full">

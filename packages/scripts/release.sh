@@ -78,6 +78,16 @@ prepare_windows_sharp() {
     mkdir -p apps/desktop/node_modules/@img
     cp -r "$win_pkg" apps/desktop/node_modules/@img/
     echo -e "  ${GREEN}✓ Binario Windows x64 de sharp instalado${RESET}"
+
+    # Populate the root pnpm store so electron-builder's install-app-deps can resolve it
+    local sharp_version
+    sharp_version=$(node -p "require('./apps/desktop/node_modules/sharp/package.json').version" 2>/dev/null || echo "0.34.5")
+    local pnpm_store_dir="node_modules/.pnpm/@img+sharp-win32-x64@${sharp_version}"
+    if [ ! -d "$pnpm_store_dir/node_modules/@img/sharp-win32-x64" ]; then
+      mkdir -p "$pnpm_store_dir/node_modules/@img"
+      cp -r "$win_pkg" "$pnpm_store_dir/node_modules/@img/"
+      echo -e "  ${GREEN}✓ Binario Windows x64 de sharp instalado en pnpm store${RESET}"
+    fi
   else
     echo -e "  ${YELLOW}⚠ No se encontró binario Windows x64 de sharp${RESET}"
   fi
@@ -94,17 +104,34 @@ prepare_windows_sharp() {
     if echo "$bsqlite3_type" | grep -q "PE32+"; then
       echo -e "  ${GREEN}✓ better-sqlite3 compilado para Windows x64${RESET}"
     else
-      echo -e "  ${YELLOW}⚠ better-sqlite3 no es PE32+, se fuerza rebuild explícito...${RESET}"
+      echo -e "  ${YELLOW}⚠ better-sqlite3 no es PE32+, forzando rebuild con runtime electron...${RESET}"
+      local electron_ver
+      electron_ver=$(node -p "require('./apps/desktop/node_modules/electron/package.json').version" 2>/dev/null || echo "35.0.0")
       (cd apps/desktop && node -e "
         const { execSync } = require('child_process');
-        execSync('npx prebuild-install --platform=win32 --arch=x64', {
-          cwd: require('path').dirname(require.resolve('better-sqlite3/package.json'))
+        const pkgDir = require('path').dirname(require.resolve('better-sqlite3/package.json'));
+        console.log('  -> prebuild-install --runtime=electron --target=$electron_ver --platform=win32 --arch=x64');
+        execSync('npx prebuild-install --runtime=electron --target=$electron_ver --platform=win32 --arch=x64', {
+          cwd: pkgDir,
+          stdio: 'inherit',
+          timeout: 120000
         });
-      ") 2>/dev/null || true
+      ") 2>&1 || {
+        echo -e "  ${YELLOW}⚠ falló prebuild electron, intentando con --runtime=node --target=22.0.0...${RESET}"
+        (cd apps/desktop && node -e "
+          const { execSync } = require('child_process');
+          const pkgDir = require('path').dirname(require.resolve('better-sqlite3/package.json'));
+          execSync('npx prebuild-install --runtime=node --target=22.0.0 --platform=win32 --arch=x64', {
+            cwd: pkgDir,
+            stdio: 'inherit',
+            timeout: 120000
+          });
+        ") 2>&1 || true
+      }
       bsqlite3_type=$(file "$bsqlite3" 2>/dev/null)
       echo "$bsqlite3_type" | grep -q "PE32+" && \
         echo -e "  ${GREEN}✓ better-sqlite3 forzado a Windows x64${RESET}" || \
-        echo -e "  ${YELLOW}⚠ better-sqlite3 podría no ser Windows, se intentará con install-app-deps forzado${RESET}"
+        echo -e "  ${YELLOW}⚠ better-sqlite3 podría no ser Windows${RESET}"
     fi
   else
     echo -e "  ${YELLOW}⚠ No se encontró better-sqlite3.node${RESET}"
@@ -300,6 +327,23 @@ cd apps/desktop && npx electron-builder --win --x64 --publish never && cd "$OLDP
 
 echo -e "  -> Restaurando dependencias del host (macOS)"
 pnpm install --frozen-lockfile
+ensure_native_modules
+ensure_sharp_ready
+
+echo ""
+read -p "  ¿Compilar también para macOS ARM64? (s/N): " SHOULD_BUILD_MACOS_ARM64
+if [[ "$SHOULD_BUILD_MACOS_ARM64" == "s" || "$SHOULD_BUILD_MACOS_ARM64" == "S" ]]; then
+  echo -e "  -> Reconstruyendo módulos nativos para macOS ARM64..."
+  (cd apps/desktop && npx electron-builder install-app-deps --platform=darwin --arch=arm64 2>&1 | tail -3)
+  echo -e "  ${GREEN}✓ Módulos nativos preparados para macOS ARM64${RESET}"
+
+  echo -e "  -> Eliminando symlinks de workspace para electron-builder..."
+  rm -rf apps/desktop/node_modules/@ecclesia
+
+  echo -e "  -> Empaquetando macOS ARM64"
+  cd apps/desktop && npx electron-builder --config electron-builder.yml --mac --arm64 --publish never && cd "$OLDPWD"
+  echo -e "  ${GREEN}✓ macOS ARM64 compilado${RESET}"
+fi
 
 echo ""
 read -p "  ¿Subir artefactos de apps/desktop/dist/ a GitHub Release con gh? (s/N): " SHOULD_UPLOAD_RELEASE

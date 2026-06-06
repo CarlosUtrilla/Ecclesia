@@ -227,6 +227,9 @@ npx electron-builder --win --x64 --publish never
 
 echo -e "  -> Restaurando dependencias del host (macOS)"
 pnpm install --frozen-lockfile
+# Rebuild native modules for macOS host (restored after Windows build replaced them)
+npx electron-builder install-app-deps 2>/dev/null || true
+ensure_sharp_ready
 
 echo ""
 read -p "  ¿Subir artefactos de dist/ a GitHub Release con gh? (s/N): " SHOULD_UPLOAD_RELEASE

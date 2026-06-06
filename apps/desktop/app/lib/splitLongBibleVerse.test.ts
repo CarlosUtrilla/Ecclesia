@@ -55,6 +55,11 @@ describe('splitLongBibleVerse', () => {
     ])
   })
 
+  it('deberia retornar arreglo vacio cuando el texto es nulo o indefinido', () => {
+    expect(splitLongBibleVerse(null, 80)).toEqual([])
+    expect(splitLongBibleVerse(undefined, 80)).toEqual([])
+  })
+
   it('deberia resolver maxLength fijo y automatico segun fontSize', () => {
     expect(resolveBibleChunkMaxLength('200')).toBe(200)
     expect(resolveBibleChunkMaxLength('auto', 72)).toBe(180)

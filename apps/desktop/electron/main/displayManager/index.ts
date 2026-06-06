@@ -353,6 +353,36 @@ export function initializeDisplayManager() {
       if (!win.isDestroyed()) win.webContents.send('liveScreen-hide')
     })
   })
+
+  ipcMain.handle('close-all-screens', () => {
+    // Cerrar todas las ventanas live/stage
+    for (const [, liveScreen] of liveScreensByDisplayId) {
+      if (!liveScreen.isDestroyed()) {
+        liveScreen.setFullScreen(false)
+        liveScreen.setAlwaysOnTop(false)
+        liveScreen.setClosable(true)
+        liveScreen.destroy()
+      }
+    }
+    liveScreensByDisplayId.clear()
+
+    for (const [, stageScreen] of stageScreensByDisplayId) {
+      if (!stageScreen.isDestroyed()) {
+        stageScreen.setFullScreen(false)
+        stageScreen.setAlwaysOnTop(false)
+        stageScreen.setClosable(true)
+        stageScreen.destroy()
+      }
+    }
+    stageScreensByDisplayId.clear()
+
+    // Notificar a la ventana principal para actualizar estado
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) win.webContents.send('all-screens-closed')
+    })
+  })
+  // Cierra todas las ventanas live y stage y notifica a la ventana principal
+  // Invocado desde LiveScreen via F7 o desde cualquier ventana via closeAllScreens API
   // Handler para abrir la ventana de gestión de pantallas
   ipcMain.handle('show-new-display-connected', (event) => {
     const callerWindow = BrowserWindow.fromWebContents(event.sender)

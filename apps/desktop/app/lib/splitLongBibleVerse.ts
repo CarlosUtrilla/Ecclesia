@@ -6,7 +6,8 @@ export const BIBLE_LIVE_SPLIT_MODE_OPTIONS = ['auto', '100', '150', '200', '250'
 
 export type BibleLiveSplitMode = (typeof BIBLE_LIVE_SPLIT_MODE_OPTIONS)[number]
 
-function normalizeBibleText(text: string): string {
+function normalizeBibleText(text: string | null | undefined): string {
+  if (typeof text !== 'string') return ''
   return text.replace(/\s+/g, ' ').trim()
 }
 
@@ -160,7 +161,10 @@ function addContinuityEllipsis(chunks: string[]): string[] {
   })
 }
 
-export function splitLongBibleVerse(text: string, maxLength = MAX_BIBLE_CHUNK_LENGTH): string[] {
+export function splitLongBibleVerse(
+  text: string | null | undefined,
+  maxLength = MAX_BIBLE_CHUNK_LENGTH
+): string[] {
   const normalized = normalizeBibleText(text)
   if (!normalized) return []
 
@@ -206,7 +210,7 @@ export type BibleChunkWithMetadata = {
  * Formato del texto: "1 texto verso 1... 2 texto verso 2... 3 texto verso 3..."
  */
 export function splitBibleRangeIntoVerses(
-  text: string,
+  text: string | null | undefined,
   bookId: number,
   chapter: number,
   verseStart: number,

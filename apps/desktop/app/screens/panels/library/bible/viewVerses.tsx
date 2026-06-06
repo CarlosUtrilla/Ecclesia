@@ -320,11 +320,10 @@ export default function ViewVerses({
         className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent flex-1"
       >
         {completeChapter.map((v, index) => {
-          // Calcular si el versículo se debe dividir en chunks
-          const chunks = splitLongBibleVerse(v.text, maxChunkLength)
+          const rawText = v.text ?? ''
+          const chunks = rawText ? splitLongBibleVerse(rawText, maxChunkLength) : []
           const hasMultipleChunks = chunks.length > 1
 
-          // Si tiene múltiples chunks, mostrar cada uno
           if (hasMultipleChunks) {
             return chunks.map((chunkText, chunkIndex) => (
               <VerseItem
@@ -348,11 +347,11 @@ export default function ViewVerses({
             ))
           }
 
-          // Si no se divide, mostrar normalmente
           return (
             <VerseItem
               key={v.verse}
               verse={v}
+              displayText={rawText}
               index={index}
               chapter={chapter}
               version={version}

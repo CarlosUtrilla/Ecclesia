@@ -23,7 +23,11 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./app/*"],
-      "@locales": ["./locales/index.ts"]
+      "@locales": ["./locales/index.ts"],
+      "@ecclesia/queries": ["../../packages/queries"],
+      "@ecclesia/queries/*": ["../../packages/queries/*"],
+      "@ecclesia/api": ["../../apps/api"],
+      "@ecclesia/api/*": ["../../apps/api/*"]
     },
     "skipLibCheck": true,
     "incremental": true
