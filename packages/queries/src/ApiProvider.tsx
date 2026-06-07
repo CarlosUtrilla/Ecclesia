@@ -1,9 +1,13 @@
-import { createContext, PropsWithChildren } from 'react'
+import { createContext, PropsWithChildren, useContext } from 'react'
 import type { ApiTypes } from './queriesTypes'
 import { exposeRoutes } from './SDK'
 import { QueryClient } from '@tanstack/react-query'
 
-const ApiProviderContext = createContext({} as any)
+const ApiProviderContext = createContext(
+  {} as {
+    setApiConfiguration: (queryClient: QueryClient, serverUrl?: string, port?: number) => Promise<void>
+  }
+)
 
 let apiInstance: ApiTypes | null = null
 
@@ -22,6 +26,14 @@ export const Api = new Proxy(
 
 let initPromise: Promise<void> | null = null
 
+export function getApiInstance(): ApiTypes | null {
+  return apiInstance
+}
+
+export function waitForInit(): Promise<void> {
+  return initPromise ?? Promise.resolve()
+}
+
 export const initializeApi = (
   queryClient: QueryClient,
   serverUrl = 'http://localhost',
@@ -37,5 +49,30 @@ export const initializeApi = (
 }
 
 export const ApiProvider = ({ children }: PropsWithChildren) => {
-  return <ApiProviderContext.Provider value={{}}>{children}</ApiProviderContext.Provider>
+  const setApiConfiguration = async (
+    queryClient: QueryClient,
+    serverUrl = 'http://localhost',
+    port = 7777
+  ): Promise<void> => {
+    const promise = (async () => {
+      const sdk = await exposeRoutes(queryClient, serverUrl, port)
+      apiInstance = sdk
+    })()
+    initPromise = promise
+    await promise
+  }
+
+  return (
+    <ApiProviderContext.Provider value={{ setApiConfiguration }}>
+      {children}
+    </ApiProviderContext.Provider>
+  )
+}
+
+export function useApiConfiguration() {
+  const ctx = useContext(ApiProviderContext)
+  if (!ctx.setApiConfiguration) {
+    throw new Error('useApiConfiguration debe usarse dentro de un ApiProvider')
+  }
+  return ctx
 }

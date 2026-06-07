@@ -10,7 +10,7 @@ import { UPDATE_QUERY_KEY } from '../decorators/UpdateQueryKey.decorator'
 import Logger from 'electron-log'
 
 const routeHandler =
-  (handler: (params: any) => Promise<any>, queryKeys?: string[]) =>
+  (handler: (params: any) => Promise<any>, queryKeys?: string[], onQueryKeys?: (keys: string[][]) => void) =>
   async (req: Request, res: express.Response) => {
     try {
       const requestData = req?.body ?? {}
@@ -23,14 +23,18 @@ const routeHandler =
         res: requestData?.res
       })
 
-      if (!queryKeys || queryKeys.length <= 0) {
-        Logger.info(`no querykeys on ${req.originalUrl}`)
+      const normalizedKeys = (queryKeys ?? []).map((k) => (Array.isArray(k) ? k : [k]))
+
+      if (normalizedKeys.length > 0 && onQueryKeys) {
+        onQueryKeys(normalizedKeys)
       }
-      return res.json({ response: result, queryKeys: queryKeys ?? [] })
+      return res.json({ response: result, queryKeys: normalizedKeys })
     } catch (err: any) {
       const rawMessage = err?.message || 'Unknown error'
 
       const cleanedMessage = rawMessage.replace(/^Error invoking remote method '.*?':\s*/, '')
+
+      Logger.error(`[API Error] ${req.originalUrl}: ${cleanedMessage}`, err?.stack)
 
       return res.status(500).json({
         error: cleanedMessage
@@ -38,7 +42,7 @@ const routeHandler =
     }
   }
 
-export function registerRoutes(app: ReturnType<typeof express>) {
+export function registerRoutes(app: ReturnType<typeof express>, onQueryKeys?: (keys: string[][]) => void) {
   // REGISTRO DE RUTAS EXPRESS DESDE CONTROLLERS
   for (const [namespace, ControllerClass] of Object.entries(routes)) {
     const proto = ControllerClass.prototype
@@ -84,7 +88,7 @@ export function registerRoutes(app: ReturnType<typeof express>) {
         app.post(
           `/api/${channel}`,
           multerMiddleware,
-          routeHandler(instance[method].bind(instance), updateQueryKeys)
+          routeHandler(instance[method].bind(instance), updateQueryKeys, onQueryKeys)
         )
 
         continue
@@ -93,7 +97,7 @@ export function registerRoutes(app: ReturnType<typeof express>) {
       /**
        * Ruta normal
        */
-      app.post(`/api/${channel}`, routeHandler(instance[method].bind(instance), updateQueryKeys))
+      app.post(`/api/${channel}`, routeHandler(instance[method].bind(instance), updateQueryKeys, onQueryKeys))
     }
   }
 }

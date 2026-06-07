@@ -6,7 +6,7 @@ export const exposeRoutes = async (queryClient: QueryClient, apiUrl: string, por
   const mutationMap = {} as any
   const fetchMap = {} as any
 
-  const routes = (await Fetcher({ apiUrl, port, path: '/api/getRoutes', queryClient })) as [
+  const routes = (await Fetcher({ apiUrl, port, path: '/api/getRoutes' })) as [
     string,
     string[]
   ][]
@@ -27,18 +27,17 @@ export const exposeRoutes = async (queryClient: QueryClient, apiUrl: string, por
               apiUrl,
               port,
               path: `/api/${namespace}/${method}`,
-              body: params,
-              queryClient
+              body: params
             })
         })
 
       mutationMap[namespace][method] = mutationOptions({
         mutationFn: async (params: any) =>
-          Fetcher({ apiUrl, port, path: `/api/${namespace}/${method}`, body: params, queryClient })
+          Fetcher({ apiUrl, port, path: `/api/${namespace}/${method}`, body: params })
       })
 
       fetchMap[namespace][method] = async (params?: any) =>
-        Fetcher({ apiUrl, port, path: `/api/${namespace}/${method}`, body: params, queryClient })
+        Fetcher({ apiUrl, port, path: `/api/${namespace}/${method}`, body: params })
     }
   }
 

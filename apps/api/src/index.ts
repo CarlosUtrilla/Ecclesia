@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import os from 'os'
 import {
   registerMediaServerRoutes,
   MEDIA_SERVER_PORT
@@ -13,8 +14,23 @@ import {
 } from './prisma-init'
 import { setUserDataPath } from './config'
 import { routes } from './routes'
+import Logger from 'electron-log'
 
-export async function initializeHttpServer(config?: DatabaseConfig, serverPort?: number) {
+const sseClients = new Set<express.Response>()
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+
+export function broadcastToRemoteClients(event: string, data: unknown): void {
+  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+  for (const client of sseClients) {
+    client.write(message)
+  }
+}
+
+export async function initializeHttpServer(
+  config?: DatabaseConfig,
+  serverPort?: number,
+  onQueryKeys?: (keys: string[][]) => void
+) {
   const app = express()
   const port = serverPort ?? MEDIA_SERVER_PORT
 
@@ -34,7 +50,10 @@ export async function initializeHttpServer(config?: DatabaseConfig, serverPort?:
       credentials: false
     })
   )
-  registerRoutes(app)
+  registerRoutes(app, (keys) => {
+    broadcastToRemoteClients('query-keys-invalidate', keys)
+    onQueryKeys?.(keys)
+  })
   registerMediaServerRoutes(app)
 
   app.post('/api/getRoutes', (req, res) => {
@@ -55,8 +74,47 @@ export async function initializeHttpServer(config?: DatabaseConfig, serverPort?:
     }
   })
 
+  // Endpoint para descubrimiento LAN de otras instancias
+  const APP_VERSION = '1.0.0'
+  app.get('/api/remote/info', (_req, res) => {
+    res.json({
+      name: os.hostname(),
+      version: APP_VERSION,
+      port: port
+    })
+  })
+
+  // SSE endpoint para broadcasting de eventos a todos los renderers conectados (host + remotos)
+  app.get('/api/remote/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.flushHeaders()
+
+    res.write(`event: connected\ndata: ${JSON.stringify({ status: 'ok' })}\n\n`)
+
+    sseClients.add(res)
+
+    req.on('close', () => {
+      sseClients.delete(res)
+      if (sseClients.size === 0 && heartbeatTimer) {
+        clearInterval(heartbeatTimer)
+        heartbeatTimer = null
+      }
+    })
+
+    if (sseClients.size === 1) {
+      heartbeatTimer = setInterval(() => {
+        for (const client of sseClients) {
+          client.write(': keepalive\n\n')
+        }
+      }, 30000)
+    }
+  })
+
   app.listen(port, () => {
-    console.info(`Eclessia server running on port ${port}`)
+    Logger.info(`Eclessia server running on port ${port}`)
   })
 }
 

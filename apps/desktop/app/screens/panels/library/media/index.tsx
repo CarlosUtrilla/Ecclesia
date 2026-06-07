@@ -17,6 +17,7 @@ import { useKeyboardShortcuts } from '../../../../hooks/useKeyboardShortcuts'
 import { useDragAndDrop } from './hooks/useDragAndDrop'
 import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } from './utils'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
+import { toast } from 'sonner'
 import { Api } from '@ecclesia/queries'
 
 export default function MediaLibrary() {
@@ -43,9 +44,8 @@ export default function MediaLibrary() {
 
   // Drag and drop para importar archivos
   const dragAndDrop = useDragAndDrop({
-    onFilesDropped: (filePaths) => {
-      operations.importMutation.mutate(filePaths)
-    }
+    onFilesDropped: (filePaths) =>
+      operations.importMutation.mutateAsync(filePaths)
   })
 
   // Queries
@@ -158,7 +158,9 @@ export default function MediaLibrary() {
         await operations.importMutation.mutateAsync(files)
       }
     } catch (error) {
-      console.error('Error en importación:', error)
+      toast.error('Error al importar archivo', {
+        description: error instanceof Error ? error.message : 'Error desconocido'
+      })
     }
   }
 

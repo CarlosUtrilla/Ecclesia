@@ -103,7 +103,8 @@ export function useDragAndDrop({ onFilesDropped }: UseDragAndDropProps) {
       await onFilesDropped(fileData)
       toast.success(`Importando ${fileData.length} archivo(s)...`)
     } catch (error) {
-      toast.error('Error al procesar archivos', error as any)
+      const message = error instanceof Error ? error.message : 'Error desconocido'
+      toast.error('Error al procesar archivos', { description: message })
     }
   }
 

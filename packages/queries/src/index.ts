@@ -1,2 +1,2 @@
-import { Api, ApiProvider, initializeApi } from './ApiProvider'
-export { Api, ApiProvider, initializeApi }
+import { Api, ApiProvider, initializeApi, useApiConfiguration, getApiInstance, waitForInit } from './ApiProvider'
+export { Api, ApiProvider, initializeApi, useApiConfiguration, getApiInstance, waitForInit }

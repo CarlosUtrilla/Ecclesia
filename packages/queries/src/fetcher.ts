@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query'
 import Decimal from 'decimal.js'
 
 type FetcherParams = {
@@ -7,9 +6,8 @@ type FetcherParams = {
   path: string
   body?: any
   token?: string
-  queryClient: QueryClient
 }
-export async function Fetcher({ apiUrl, port, path, body, token, queryClient }: FetcherParams) {
+export async function Fetcher({ apiUrl, port, path, body, token }: FetcherParams) {
   try {
     const url = `${apiUrl}:${port}${path}`
     const isFormData = body instanceof FormData
@@ -44,13 +42,6 @@ export async function Fetcher({ apiUrl, port, path, body, token, queryClient }: 
       ? await response.json()
       : await response.text()
     if (data && typeof data === 'object') {
-      if ('queryKeys' in data && data.queryKeys.length > 0) {
-        const keys = data.queryKeys as string[][]
-        /*  keys.forEach((key) => {
-          queryClient.invalidateQueries({ queryKey: key })
-        }) */
-        ;(window as any).queryKeysAPI.updateQueryKeys(keys)
-      }
       if ('response' in data) return data.response
     }
     return data

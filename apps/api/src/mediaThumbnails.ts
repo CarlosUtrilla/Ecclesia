@@ -1,5 +1,6 @@
 import { spawn } from 'child_process'
 import path from 'path'
+import Logger from 'electron-log'
 
 type SharpFn = (input: string) => {
   resize: (
@@ -27,7 +28,8 @@ function resolveSharp(): SharpFn | null {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const loaded = require('sharp') as { default?: SharpFn } | SharpFn
     return (loaded as { default?: SharpFn }).default ?? (loaded as SharpFn)
-  } catch {
+  } catch (err) {
+    Logger.error('[Thumbnail] sharp failed to load, falling back to ffmpeg:', err)
     return null
   }
 }
@@ -59,9 +61,15 @@ export async function generateImageThumbnail(sourcePath: string, destPath: strin
     const proc = spawn(ffmpegPath, args)
     proc.on('close', (code) => {
       if (code === 0) resolve()
-      else reject(new Error(`FFmpeg exited with code ${code}`))
+      else {
+        Logger.error(`[Thumbnail] FFmpeg image thumbnail exited with code ${code} for:`, sourcePath)
+        reject(new Error(`FFmpeg exited with code ${code}`))
+      }
     })
-    proc.on('error', reject)
+    proc.on('error', (err) => {
+      Logger.error(`[Thumbnail] FFmpeg image thumbnail error for ${sourcePath}:`, err)
+      reject(err)
+    })
   })
 }
 
@@ -84,9 +92,15 @@ export function generateVideoThumbnail(sourcePath: string, destPath: string): Pr
     const proc = spawn(ffmpegPath, args)
     proc.on('close', (code) => {
       if (code === 0) resolve()
-      else reject(new Error(`FFmpeg exited with code ${code}`))
+      else {
+        Logger.error(`[Thumbnail] FFmpeg video thumbnail exited with code ${code} for:`, sourcePath)
+        reject(new Error(`FFmpeg exited with code ${code}`))
+      }
     })
-    proc.on('error', reject)
+    proc.on('error', (err) => {
+      Logger.error(`[Thumbnail] FFmpeg video thumbnail error for ${sourcePath}:`, err)
+      reject(err)
+    })
   })
 }
 
@@ -109,9 +123,15 @@ export function generateVideoFallback(sourcePath: string, destPath: string): Pro
     const proc = spawn(ffmpegPath, args)
     proc.on('close', (code) => {
       if (code === 0) resolve()
-      else reject(new Error(`FFmpeg exited with code ${code}`))
+      else {
+        Logger.error(`[Thumbnail] FFmpeg video fallback exited with code ${code} for:`, sourcePath)
+        reject(new Error(`FFmpeg exited with code ${code}`))
+      }
     })
-    proc.on('error', reject)
+    proc.on('error', (err) => {
+      Logger.error(`[Thumbnail] FFmpeg video fallback error for ${sourcePath}:`, err)
+      reject(err)
+    })
   })
 }
 

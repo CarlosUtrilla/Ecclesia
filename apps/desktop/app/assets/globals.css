@@ -67,22 +67,36 @@
 }
 
 @keyframes pulse-fast {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.4;
   }
 }
 
 @keyframes shake {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(0);
   }
-  10%, 30%, 50%, 70%, 90% {
+
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
     transform: translateX(-4px);
   }
-  20%, 40%, 60%, 80% {
+
+  20%,
+  40%,
+  60%,
+  80% {
     transform: translateX(4px);
   }
 }
@@ -98,8 +112,8 @@
   --card-foreground: hsl(210.0000 40.0000% 98.5000%);
   --popover: hsl(222.8571 38.0000% 12.0000%);
   --popover-foreground: hsl(210.0000 40.0000% 98.5000%);
-  --primary: hsl(160.1183 84.0796% 39.4118%);
-  --primary-foreground: hsl(178.6047 84.3137% 10%);
+  --primary: hsl(160, 98%, 21%);
+  --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(206.0000 88.0000% 56.0000%);
   --secondary-foreground: hsl(222.8571 45.0000% 12.0000%);
   --muted: hsl(217.2414 23.0000% 20.0000%);
@@ -202,12 +216,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
     pointer-events: auto !important;
   }
-  
+
 }
 
 /* Utility class for scrollable resizable panels */
@@ -218,19 +233,20 @@
     height: 100%;
     min-height: 0;
   }
-  
+
   .panel-scroll-content {
     flex: 1;
     min-height: 0;
     overflow: auto;
   }
-  
+
   .panel-header {
     flex-shrink: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

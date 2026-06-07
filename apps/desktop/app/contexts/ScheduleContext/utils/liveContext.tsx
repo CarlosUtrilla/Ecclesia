@@ -117,16 +117,6 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     }
 
     const reconcileScreens = async () => {
-      // Pantallas que debería haber abierto
-      const desiredLiveScreenIds = new Set(liveScreens.map((d) => d.id))
-      const desiredStageScreenIds = new Set(stageScreens.map((d) => d.id))
-
-      // Pantallas que actualmente están abiertas
-      const currentLiveScreenIds = new Set<number>()
-      const currentStageScreenIds = new Set<number>()
-
-      // Nota: windowsLiveScreenOpens y windowsStageScreenOpens son IDs de ventana, no de display
-      // No podemos hacer matching directo. Necesitamos cerrar y reabrir si hay cambios.
       const screenCountChanged =
         windowsLiveScreenOpens.length !== liveScreens.length ||
         windowsStageScreenOpens.length !== stageScreens.length

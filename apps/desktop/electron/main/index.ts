@@ -28,6 +28,7 @@ import { initializeFontManager } from './fontManager'
 import { initializeGoogleDriveSyncManager } from './googleDriveSyncManager/googleDriveSyncManager'
 import { loadAppEnv } from './loadEnv'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
+import { initializeRemoteManager } from './remoteManager'
 
 let isQuittingAfterStageTimersCleanup = false
 
@@ -111,7 +112,13 @@ app.whenReady().then(async () => {
     resourcesPath: process.resourcesPath || path.join(app.getAppPath(), '..'),
     cwd: process.cwd()
   }
-  await initializeHttpServer(config)
+  await initializeHttpServer(config, undefined, (keys) => {
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('invalidate-queries', keys)
+      }
+    })
+  })
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.ecclesia.app')
@@ -140,6 +147,9 @@ app.whenReady().then(async () => {
 
   // Inicializar manager de actualizaciones automáticas
   initializeUpdaterManager()
+
+  // Inicializar manager de control remoto LAN
+  initializeRemoteManager()
 
   // Obtener fuentes del sistema
   ipcMain.handle('get-system-fonts', async () => {
@@ -207,13 +217,6 @@ app.whenReady().then(async () => {
     if (win && !win.isDestroyed()) {
       win.destroy()
     }
-  })
-
-  // Receptor genérico: reenvía keys de query a todas las ventanas para invalidación
-  ipcMain.on('update-query-keys', (_event, keys: string[][]) => {
-    BrowserWindow.getAllWindows().forEach((win) => {
-      win.webContents.send('invalidate-queries', keys)
-    })
   })
 
   updateSplashStatus('Abriendo Ecclesia...')

@@ -248,6 +248,17 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
   - Expone limpieza de temporales (`media:cleanup-temp-path`) restringida al root temporal de importaciones Canva.
 - El renderer construye URLs `http://localhost:{port}/{filePath}` con `useMediaServer()`.
 
+### Remote Manager (`remoteManager.ts`)
+
+- Manager dedicado para descubrimiento LAN de otras instancias de Ecclesia.
+- Usa **UDP broadcast** para descubrimiento: envía `{ type: 'ECCLESIA_DISCOVER' }` como datagrama UDP al puerto 7777 y recoge respuestas `{ type: 'ECCLESIA_RESPONSE', name, ip }`.
+- **Listener permanente**: Al iniciar el manager, se crea un socket UDP (`dgram`) en puerto 7777 que responde automáticamente a broadcasts de descubrimiento. Usa `reuseAddr: true` para coexistir con otras instancias en el mismo equipo.
+- **Scanner**: Crea socket efímero, envía broadcast a `255.255.255.255:7777` y al broadcast de subred, espera 2.5s y devuelve todos los dispositivos que respondieron.
+- El cliente se conecta al host vía `setApiConfiguration(queryClient, 'http://{ip}', 7777)` (desde el renderer) — todas las llamadas `Api.fetch.*` van directo al host.
+- Las actualizaciones fluyen vía SSE: el host emite `query-keys-invalidate` a todos los clientes conectados.
+- Canal IPC:
+  - `remote:discover-lan` → Invoke, devuelve `LanDevice[]` (`{ ip: string, name: string }`)
+
 ### Bible Manager (`bibleManager/`)
 
 - Gestiona archivos `.ebbl` (SQLite separadas).
@@ -322,6 +333,7 @@ Definidas en `electron/preload/index.ts`:
 | `window.bibleAPI` | Wrappers del bible manager |
 | `window.googleDriveSyncAPI` | `getStatus()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()` |
 | `window.updaterAPI` | `checkForUpdates()`, `downloadUpdate()`, `installUpdate()`, `getVersion()`, `onUpdateAvailable()`, `onUpdateDownloaded()`, `onDownloadProgress()` |
+| `window.remoteControlAPI` | `discoverLan()` |
 
 ## Convenciones
 

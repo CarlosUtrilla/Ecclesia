@@ -1,6 +1,4 @@
 export const SETTING_STORAGE_KEY_BY_PUBLIC_KEY = {
-  SALES_DAILY: 'goals.daily',
-  SALES_MONTHLY: 'goals.monthly',
   LOGO_FALLBACK_MEDIA_ID: 'logo.fallback.mediaId',
   LOGO_FALLBACK_COLOR: 'logo.fallback.color',
   BIBLE_LIVE_CHUNK_MODE: 'bible.live.chunkMode'

@@ -11,6 +11,7 @@ import { MediaList } from './MediaList'
 import { formatFileSize, normalizeFolder, buildFolderPath } from './utils'
 import { useMediaOperations } from './hooks/useMediaOperations'
 import { useDragAndDrop } from './hooks/useDragAndDrop'
+import { toast } from 'sonner'
 import { Api } from '@ecclesia/queries'
 
 interface MediaPickerProps {
@@ -42,9 +43,8 @@ export function MediaPicker({
 
   // Drag and drop para importar archivos
   const dragAndDrop = useDragAndDrop({
-    onFilesDropped: (filePaths) => {
-      operations.importMutation.mutate(filePaths)
-    }
+    onFilesDropped: (filePaths) =>
+      operations.importMutation.mutateAsync(filePaths)
   })
 
   const {
@@ -102,7 +102,9 @@ export function MediaPicker({
         await operations.importMutation.mutateAsync(files)
       }
     } catch (error) {
-      console.error('Error en importación:', error)
+      toast.error('Error al importar archivo', {
+        description: error instanceof Error ? error.message : 'Error desconocido'
+      })
     }
   }
   const loading =

@@ -12,6 +12,7 @@ import { displayAPI } from '../main/displayManager/displaysMethods'
 import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
 import { googleDriveSyncAPI } from '../main/googleDriveSyncManager/googleDriveSyncAPI'
 import { updaterAPI } from '../main/updaterManager/updaterAPI'
+import { remoteControlAPI } from '../main/remoteAPI'
 import log from 'electron-log'
 
 // Silenciar el transporte de consola de `electron-log` en el renderer para
@@ -48,16 +49,6 @@ const systemAPI = {
   getSystemFonts: (): Promise<string[]> => ipcRenderer.invoke('get-system-fonts')
 }
 
-// API para invalidación cross-window de queries React Query
-const queryKeysAPI = {
-  updateQueryKeys: (keys: string[][]) => ipcRenderer.send('update-query-keys', keys),
-  onInvalidateQueries: (callback: (keys: string[][]) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, keys: string[][]) => callback(keys)
-    ipcRenderer.on('invalidate-queries', handler)
-    return () => ipcRenderer.removeListener('invalidate-queries', handler)
-  }
-}
-
 export const HandleManagers = {
   electron: electronAPI,
   mediaAPI,
@@ -67,7 +58,7 @@ export const HandleManagers = {
   liveMediaAPI,
   googleDriveSyncAPI,
   updaterAPI,
-  queryKeysAPI
+  remoteControlAPI
 }
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -95,4 +86,6 @@ if (process.contextIsolated) {
   window.displayAPI = displayAPI
   // @ts-ignore (define in dts)
   window.googleDriveSyncAPI = googleDriveSyncAPI
+  // @ts-ignore (define in dts)
+  window.remoteControlAPI = remoteControlAPI
 }

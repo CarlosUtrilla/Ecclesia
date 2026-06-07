@@ -29,6 +29,7 @@ app/screens/settings/
 │   ├── syncSettingsSection.tsx     # Lógica/UI del menú Sincronización
 │   ├── logoFallbackSection.tsx     # Lógica/UI del menú Logo / Pantalla de fondo
 │   ├── bibleLiveSection.tsx        # Lógica/UI del menú Biblia en vivo
+│   ├── remoteControl.tsx          # Control remoto LAN: descubre y conecta otras instancias
 │   └── aboutSection.tsx           # Versión de la app, icono y estado de actualizaciones
 └── agents.md
 ```
@@ -43,6 +44,17 @@ app/screens/settings/
 - **El botón "Subir" hace reconcile automático** antes del push: ejecuta `window.googleDriveSyncAPI.reconcileNow()` y luego `pushNow`, para indexar estado actual (incluyendo cambios históricos) y subirlo a Google Drive sin pasos manuales adicionales.
 - El campo `deviceName` se muestra visible en el formulario. Al cargar, se auto-rellena con el hostname del sistema si no hay valor guardado. **Debe ser único por dispositivo** para que el pull funcione correctamente entre equipos.
 - El estado visible incluye: cuenta conectada, nombre del dispositivo, última sincronización, errores del último run y cambios pendientes de subir.
+
+### Control remoto LAN (`remoteControl.tsx`)
+
+- Permite descubrir y conectar con otras instancias de Ecclesia en la misma red LAN.
+- **Búsqueda LAN**: descubre dispositivos vía UDP broadcast mediante `window.remoteControlAPI.discoverLan()`.
+- **Lista de dispositivos**: muestra nombre + IP de cada instancia encontrada, con botón `Conectar` por fila.
+- **Conexión manual**: entrada de IP directa + botón `Conectar`.
+- Al conectar: llama `setApiConfiguration(queryClient, 'http://{ip}', 7777)` para redirigir todas las llamadas `Api.fetch.*` al host, y `switchSSEConnection('http://{ip}')` para recibir actualizaciones SSE del host.
+- Al desconectar: restaura API a localhost y reconecta SSE local.
+- No usa `forwardCall` ni canales IPC intermediarios — la conexión es directa del renderer al Express del host.
+- `remoteControlEnabled` y `remoteControlIP` se persisten en `localStorage` (no en DB).
 
 ## Convenciones
 
