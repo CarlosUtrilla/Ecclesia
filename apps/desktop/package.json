@@ -158,5 +158,8 @@
     "vite": "^6.2.6",
     "vite-plugin-pages": "^0.33.1",
     "vitest": "^4.0.18"
+  },
+  "optionalDependencies": {
+    "@ffmpeg-installer/win32-x64": "4.1.0"
   }
 }

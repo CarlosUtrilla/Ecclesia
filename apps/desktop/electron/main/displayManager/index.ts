@@ -191,6 +191,7 @@ export function initializeDisplayManager() {
       width: targetDisplay.bounds.width,
       height: targetDisplay.bounds.height,
       show: false,
+      skipTaskbar: true,
       autoHideMenuBar: true,
       frame: false,
       alwaysOnTop: true,

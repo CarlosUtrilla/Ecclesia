@@ -113,6 +113,12 @@ export async function initializeHttpServer(
     }
   })
 
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    Logger.error('[Express] Error no capturado:', err.message, err.stack)
+    const message = err?.message ?? err?.toString() ?? 'Error interno del servidor'
+    res.status(500).json({ error: message })
+  })
+
   app.listen(port, () => {
     Logger.info(`Eclessia server running on port ${port}`)
   })

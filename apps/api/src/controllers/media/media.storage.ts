@@ -16,6 +16,10 @@ import { resolveFilesRoot, resolveMediaRoot, resolveThumbnailsRoot } from '../..
 export const SUPPORTED_IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 export const SUPPORTED_VIDEO_FORMATS = ['.mp4', '.webm', '.mov', '.avi']
 
+export function sanitizeFileName(name: string): string {
+  return name.replace(/[<>:"/\\|?*]/g, '_')
+}
+
 export function normalizeMediaPath(mediaPath: string): string {
   return mediaPath.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '')
 }
@@ -80,9 +84,11 @@ export async function importMediaFromSourcePath(
 
   const ext = (originalFileName ? path.extname(originalFileName) : path.extname(sourcePath)).toLowerCase()
   const stats = fs.statSync(sourcePath)
-  const originalName = originalFileName
-    ? path.basename(originalFileName, ext)
-    : path.basename(sourcePath, ext)
+  const originalName = sanitizeFileName(
+    originalFileName
+      ? path.basename(originalFileName, ext)
+      : path.basename(sourcePath, ext)
+  )
   const hash = crypto.randomBytes(8).toString('hex')
 
   let type: MediaType

@@ -41,6 +41,11 @@ export default function RemoteControl() {
       setConnectedIp(savedIp)
       setRemoteControlIp(savedIp)
     }
+    window.remoteControlAPI.getConnectionState().then((state) => {
+      if (state) {
+        setConnectedIp(state.url.replace(/^https?:\/\//, ''))
+      }
+    })
   }, [])
 
   const handleToggleRemoteMode = (enabled: boolean) => {
@@ -83,6 +88,7 @@ export default function RemoteControl() {
     try {
       await setApiConfiguration(queryClient, `http://${targetIp}`, 7777)
       switchSSEConnection(`http://${targetIp}`)
+      window.remoteControlAPI.notifyConnectionChanged(`http://${targetIp}`, 7777)
       setConnectedIp(targetIp)
       setRemoteControlIp(targetIp)
       saveLocalSetting('remoteControlIP', targetIp)
@@ -101,6 +107,7 @@ export default function RemoteControl() {
     try {
       await setApiConfiguration(queryClient, 'http://localhost', 7777)
       switchSSEConnection(null)
+      window.remoteControlAPI.notifyDisconnected()
       setConnectedIp(null)
       toast.success('Desconectado del dispositivo remoto')
     } catch {

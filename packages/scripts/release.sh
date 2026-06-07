@@ -92,6 +92,22 @@ prepare_windows_sharp() {
     echo -e "  ${YELLOW}⚠ No se encontró binario Windows x64 de sharp${RESET}"
   fi
 
+  local ffmpeg_version
+  ffmpeg_version=$(node -p "require('./node_modules/@ffmpeg-installer/ffmpeg/package.json').optionalDependencies['@ffmpeg-installer/win32-x64']" 2>/dev/null || echo "4.1.0")
+  if ! (cd "$tmp_dir" \
+    && npm pack "@ffmpeg-installer/win32-x64@${ffmpeg_version}" > /dev/null 2>&1 \
+    && tar -xzf "ffmpeg-installer-win32-x64-${ffmpeg_version}.tgz" > /dev/null 2>&1); then
+    echo -e "  ${YELLOW}⚠ Falló descarga de @ffmpeg-installer/win32-x64 (npm pack)${RESET}"
+  fi
+
+  if [ -d "$tmp_dir/package" ] && [ -f "$tmp_dir/package/ffmpeg.exe" ]; then
+    mkdir -p apps/desktop/node_modules/@ffmpeg-installer
+    cp -r "$tmp_dir/package" apps/desktop/node_modules/@ffmpeg-installer/win32-x64
+    echo -e "  ${GREEN}✓ Binario Windows x64 de ffmpeg instalado${RESET}"
+  else
+    echo -e "  ${YELLOW}⚠ No se encontró binario Windows x64 de ffmpeg${RESET}"
+  fi
+
   rm -rf "$tmp_dir"
 
   npx electron-builder install-app-deps --platform=win32 --arch=x64
@@ -152,14 +168,21 @@ ensure_prisma_client_targets() {
 
   echo -e "  Reemplazando symlink de @prisma/client con copia real..."
   if [ ! -e apps/desktop/node_modules/@prisma/client ]; then
-    echo -e "  ${YELLOW}⚠ Symlink faltante, reinstalando...${RESET}"
+    echo -e "  ${YELLOW}⚠ @prisma/client no existe, reinstalando...${RESET}"
     pnpm install --frozen-lockfile > /dev/null 2>&1
   fi
-  (cd apps/desktop/node_modules/@prisma \
-    && client_target="$(readlink client)" \
-    && rm -rf client \
-    && cp -r "$client_target" ./client)
-  echo -e "  ${GREEN}✓ @prisma/client copiado como directorio real${RESET}"
+  if [ -L apps/desktop/node_modules/@prisma/client ]; then
+    client_target="$(readlink apps/desktop/node_modules/@prisma/client)" || true
+    if [ -n "$client_target" ] && [ -d "$client_target" ]; then
+      rm -rf apps/desktop/node_modules/@prisma/client
+      cp -r "$client_target" apps/desktop/node_modules/@prisma/client
+      echo -e "  ${GREEN}✓ @prisma/client copiado como directorio real${RESET}"
+    else
+      echo -e "  ${YELLOW}⚠ readlink falló o target no existe, se deja symlink${RESET}"
+    fi
+  else
+    echo -e "  ${YELLOW}⚠ @prisma/client no es symlink, se deja como está${RESET}"
+  fi
 }
 
 clean_dist_dir() {

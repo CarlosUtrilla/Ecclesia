@@ -1,5 +1,6 @@
 import { spawn } from 'child_process'
 import path from 'path'
+import fs from 'fs'
 import Logger from 'electron-log'
 
 type SharpFn = (input: string) => {
@@ -15,11 +16,56 @@ type SharpFn = (input: string) => {
 }
 
 function resolveFfmpegPath(): string {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const ffmpeg = require('@ffmpeg-installer/ffmpeg') as { path: string }
-  if (typeof ffmpeg?.path === 'string') {
-    return ffmpeg.path.replace('app.asar', 'app.asar.unpacked')
+  const subdir = `${process.platform}-${process.arch}`
+  const exeName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+
+  const checkPath = (p: string): string | null =>
+    fs.existsSync(p) ? p : null
+
+  // 1. Try parent package @ffmpeg-installer/ffmpeg (works on host platform, or production with asarUnpack)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ffmpeg = require('@ffmpeg-installer/ffmpeg') as { path: string }
+    if (typeof ffmpeg?.path === 'string') {
+      const resolved = ffmpeg.path.replace('app.asar', 'app.asar.unpacked')
+      const found = checkPath(resolved)
+      if (found) return found
+    }
+  } catch {
+    Logger.warn('[Thumbnail] @ffmpeg-installer/ffmpeg require failed')
   }
+
+  // 2. Try resourcesPath (production, app.asar.unpacked)
+  try {
+    const resourcesPath = (process as any).resourcesPath as string | undefined
+    if (resourcesPath) {
+      const productionCandidates = [
+        path.join(resourcesPath, 'app.asar.unpacked', 'node_modules', '@ffmpeg-installer', subdir, exeName),
+        path.join(resourcesPath, 'app.asar', 'node_modules', '@ffmpeg-installer', subdir, exeName),
+        path.join(resourcesPath, 'node_modules', '@ffmpeg-installer', subdir, exeName),
+      ]
+      for (const c of productionCandidates) {
+        const found = checkPath(c)
+        if (found) return found
+      }
+    }
+  } catch {
+    Logger.warn('[Thumbnail] resourcesPath resolution failed')
+  }
+
+  // 3. Search node_modules via require.resolve paths (dev mode fallback, cross-platform builds)
+  try {
+    const resolvePaths = require.resolve.paths('@ffmpeg-installer/ffmpeg') || []
+    for (const base of resolvePaths) {
+      const candidate = path.join(base, '@ffmpeg-installer', subdir, exeName)
+      const found = checkPath(candidate)
+      if (found) return found
+    }
+  } catch {
+    // require.resolve.paths not available
+  }
+
+  Logger.warn('[Thumbnail] ffmpeg not found anywhere, returning "ffmpeg" as last resort')
   return 'ffmpeg'
 }
 
