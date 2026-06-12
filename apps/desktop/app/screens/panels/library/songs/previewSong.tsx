@@ -3,6 +3,7 @@ import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { Button } from '@/ui/button'
 import RenderSongLyricList from '@/ui/renderSongLyricList'
 import { ResizablePanel } from '@/ui/resizable'
+import { ScrollArea } from '@/ui/scroll-area'
 import { Tooltip } from '@/ui/tooltip'
 import type { ScheduleItemType } from '@ecclesia/api'
 import { SongResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
@@ -91,14 +92,14 @@ export default function PreviewSong({ song, onDelete }: Props) {
           </Tooltip>
         </div>
       </div>
-      <div className="panel-scroll-content text-sm bg-muted/10">
+      <ScrollArea className="panel-scroll-content text-sm bg-muted/10">
         <RenderSongLyricList
           song={song}
           selectedLyricIndex={selectedIndex}
           setSelectedLyricIndex={setSelectedIndex}
           onDoubleClick={(_, index) => showItemOnLiveScreen(dataForLive, index)}
         />
-      </div>
+      </ScrollArea>
     </ResizablePanel>
   )
 }

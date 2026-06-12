@@ -37,13 +37,14 @@ export default function RemoteControl() {
 
   useEffect(() => {
     const savedIp = loadLocalSetting('remoteControlIP')
-    if (savedIp && usingRemoteMode) {
-      setConnectedIp(savedIp)
+    if (savedIp) {
       setRemoteControlIp(savedIp)
     }
     window.remoteControlAPI.getConnectionState().then((state) => {
       if (state) {
         setConnectedIp(state.url.replace(/^https?:\/\//, ''))
+      } else {
+        setConnectedIp(null)
       }
     })
   }, [])
@@ -92,6 +93,7 @@ export default function RemoteControl() {
       setConnectedIp(targetIp)
       setRemoteControlIp(targetIp)
       saveLocalSetting('remoteControlIP', targetIp)
+      window.remoteControlAPI.invalidateAllWindows()
       toast.success(`Conectado a ${targetIp}`)
     } catch (error) {
       toast.error('No se pudo conectar', {
@@ -109,6 +111,7 @@ export default function RemoteControl() {
       switchSSEConnection(null)
       window.remoteControlAPI.notifyDisconnected()
       setConnectedIp(null)
+      window.remoteControlAPI.invalidateAllWindows()
       toast.success('Desconectado del dispositivo remoto')
     } catch {
       toast.error('Error al restaurar conexión local')

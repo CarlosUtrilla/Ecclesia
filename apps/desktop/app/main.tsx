@@ -49,6 +49,14 @@ mediaQuery.addEventListener('change', () => {
 export const queryClient = new QueryClient()
 
 // Cuando el sync pull aplica filas nuevas, invalidar queries relevantes
+window.electron.ipcRenderer.on('invalidate-queries', (_event: unknown, keys?: string[][]) => {
+  if (keys && keys.length > 0) {
+    keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))
+  } else {
+    queryClient.invalidateQueries()
+  }
+})
+
 window.electron.ipcRenderer.on('sync-data-applied', () => {
   queryClient.invalidateQueries({ queryKey: ['songs'] })
   queryClient.invalidateQueries({ queryKey: ['songsByIds'] })

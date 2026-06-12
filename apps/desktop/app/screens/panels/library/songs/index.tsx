@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, Music, Plus } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Tooltip } from '@/ui/tooltip'
+import { ScrollArea } from '@/ui/scroll-area'
 
 import PreviewSong from './previewSong'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -17,7 +18,7 @@ import SongImporter from './songImporter'
 import { Api } from '@ecclesia/queries'
 
 export default function SongsPanelLibrary() {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<HTMLDivElement>(null)
 
   const [search, setSearch] = useState('')
@@ -51,7 +52,7 @@ export default function SongsPanelLibrary() {
     })
   // Intersection Observer para scroll infinito
   useEffect(() => {
-    if (!observerRef.current || !hasNextPage || isFetchingNextPage) return
+    if (!observerRef.current || !viewportRef.current || !hasNextPage || isFetchingNextPage) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -59,7 +60,7 @@ export default function SongsPanelLibrary() {
           fetchNextPage()
         }
       },
-      { threshold: 1.0 }
+      { root: viewportRef.current, rootMargin: '0px 0px 100px 0px', threshold: 0.1 }
     )
 
     observer.observe(observerRef.current)
@@ -86,7 +87,7 @@ export default function SongsPanelLibrary() {
     await refetch()
   }
 
-  useKeyboardShortcuts(containerRef, {
+  useKeyboardShortcuts(viewportRef, {
     onNavigate(direction) {
       console.log('navigating', direction)
       if (direction === 'up' || direction === 'down') {
@@ -133,10 +134,9 @@ export default function SongsPanelLibrary() {
         </div>
 
         {/* Lista de canciones */}
-        <div
-          className="panel-scroll-content  p-2 space-y-2"
-          ref={containerRef}
-          style={{ position: 'relative' }}
+        <ScrollArea
+          className="panel-scroll-content p-2 space-y-2 overflow-hidden!"
+          viewPortRef={viewportRef}
         >
           {isLoading ? (
             // Loading skeleton
@@ -184,7 +184,7 @@ export default function SongsPanelLibrary() {
               )}
             </>
           )}
-        </div>
+        </ScrollArea>
       </ResizablePanel>
       <ResizableHandle />
       <PreviewSong song={selectedSong} onDelete={handleDeleteSong} />

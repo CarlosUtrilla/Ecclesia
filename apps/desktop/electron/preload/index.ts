@@ -13,6 +13,7 @@ import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
 import { googleDriveSyncAPI } from '../main/googleDriveSyncManager/googleDriveSyncAPI'
 import { updaterAPI } from '../main/updaterManager/updaterAPI'
 import { remoteControlAPI } from '../main/remoteAPI'
+import { bibleSearchAPI } from '../main/bibleSearchAPI'
 import log from 'electron-log'
 
 // Silenciar el transporte de consola de `electron-log` en el renderer para
@@ -58,7 +59,8 @@ export const HandleManagers = {
   liveMediaAPI,
   googleDriveSyncAPI,
   updaterAPI,
-  remoteControlAPI
+  remoteControlAPI,
+  bibleSearchAPI
 }
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -88,4 +90,6 @@ if (process.contextIsolated) {
   window.googleDriveSyncAPI = googleDriveSyncAPI
   // @ts-ignore (define in dts)
   window.remoteControlAPI = remoteControlAPI
+  // @ts-ignore (define in dts)
+  window.bibleSearchAPI = bibleSearchAPI
 }

@@ -1,9 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Search, FolderPlus, ChevronRight, Home, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, FolderPlus, LayoutGrid, List, ClipboardPaste, ArrowLeft } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Tooltip } from '@/ui/tooltip'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem
+} from '@/ui/context-menu'
 import { MediaFilterDto } from '@ecclesia/api/src/controllers/media/media.dto'
 import { Media } from './types'
 import { MediaGridWrapper } from './MediaGridWrapper'
@@ -16,9 +22,9 @@ import { useSelection, SelectableItem } from './hooks/useSelection'
 import { useKeyboardShortcuts } from '../../../../hooks/useKeyboardShortcuts'
 import { useDragAndDrop } from './hooks/useDragAndDrop'
 import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } from './utils'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
 import { toast } from 'sonner'
 import { Api } from '@ecclesia/queries'
+import { ScrollArea } from '@/ui/scroll-area'
 
 export default function MediaLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -33,10 +39,6 @@ export default function MediaLibrary() {
     isFolder: boolean
     currentName: string
   } | null>(null)
-  const [conversionProgress, setConversionProgress] = useState<{
-    fileName: string
-    progress: number
-  } | null>(null)
 
   const operations = useMediaOperations(currentFolder)
   const { clipboard, copy, cut, clear, getSourcePath } = useClipboard(currentFolder)
@@ -44,16 +46,11 @@ export default function MediaLibrary() {
 
   // Drag and drop para importar archivos
   const dragAndDrop = useDragAndDrop({
-    onFilesDropped: (filePaths) =>
-      operations.importMutation.mutateAsync(filePaths)
+    onFilesDropped: (filePaths) => operations.importMutation.mutateAsync(filePaths)
   })
 
   // Queries
-  const {
-    data: mediaData,
-    isLoading,
-    refetch
-  } = useQuery({
+  const { data: mediaData, isLoading } = useQuery({
     queryKey: ['media', searchTerm, currentFolder],
     queryFn: async () => {
       const params: MediaFilterDto = searchTerm ? { search: searchTerm } : {}
@@ -67,7 +64,7 @@ export default function MediaLibrary() {
     }
   })
 
-  const { data: folders = [], refetch: refetchFolders } = useQuery({
+  const { data: folders = [] } = useQuery({
     queryKey: ['folders', currentFolder],
     queryFn: () =>
       Api.fetch.media.listFolders({ body: { parentFolder: currentFolder || undefined } })
@@ -337,7 +334,6 @@ export default function MediaLibrary() {
     setCurrentFolder(folderName ? buildFolderPath(currentFolder, folderName) : null)
   }
 
-  const breadcrumbs = currentFolder?.split('/') || []
   const loading =
     isLoading || operations.importMutation.isPending || operations.deleteMutation.isPending
 
@@ -374,209 +370,215 @@ export default function MediaLibrary() {
   })
 
   return (
-    <div ref={containerRef} className="panel-scrollable relative">
-      <ResizablePanelGroup className="flex h-full">
-        {/* Sidebar izquierdo - Controles */}
-        <ResizablePanel
-          defaultSize={'20%'}
-          minSize={'15%'}
-          maxSize={'35%'}
-          className="w-48 border-r bg-muted/10 panel-scrollable"
-        >
-          <div className="panel-header p-2">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-sm font-medium">Biblioteca de Medios</h3>
-              <div className="flex gap-1">
-                <Tooltip content="Crear nueva carpeta">
-                  <Button
-                    onClick={() => setShowNewFolderDialog(true)}
-                    size="sm"
-                    className="text-xs"
-                    disabled={loading}
-                  >
-                    <FolderPlus />
-                  </Button>
-                </Tooltip>
-                <Tooltip content="Importar medios">
-                  <Button onClick={handleImport} size="sm" className="text-xs" disabled={loading}>
-                    <Plus />
-                  </Button>
-                </Tooltip>
-              </div>
-            </div>
+    <div ref={containerRef} className="panel-scrollable relative flex flex-col">
+      {/* Header unificado */}
+      <div className="panel-header border-b bg-background/50 gap-2 p-3 py-1 flex flex-col md:flex-row md:items-center flex-wrap">
+        {/* Primera fila: navegación y botones */}
+        <div className="flex items-center gap-2 flex-1 min-w-0 mb-2 md:mb-0">
+          {/* Botón back */}
+          {currentFolder && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const parts = currentFolder.split('/')
+                const parentFolder = parts.slice(0, -1).join('/')
+                setCurrentFolder(parentFolder || null)
+              }}
+              title="Volver"
+              className="h-7 w-7 p-0 flex-shrink-0"
+            >
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+          )}
 
-            {/* Búsqueda */}
-            <div className="relative mb-2">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-7 h-8 text-xs"
-              />
-            </div>
+          {/* Breadcrumb navegable */}
+          <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto scrollbar-hide flex-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentFolder(null)}
+              className="text-xs h-7 px-2 whitespace-nowrap flex-shrink-0"
+            >
+              Home
+            </Button>
 
-            {/* Controles de vista */}
-            <div className="mb-3">
-              <div className="text-xs text-muted-foreground mb-1">Vista</div>
-              <div className="flex border rounded-md">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  className="rounded-r-none h-7 flex-1 text-xs"
-                  onClick={() => setViewMode('grid')}
-                  title="Vista de cuadrícula"
-                >
-                  <LayoutGrid className="h-3 w-3 mr-1" />
-                  Grid
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  className="rounded-l-none h-7 flex-1 text-xs"
-                  onClick={() => setViewMode('list')}
-                  title="Vista de lista"
-                >
-                  <List className="h-3 w-3 mr-1" />
-                  Lista
-                </Button>
-              </div>
-            </div>
-
-            {/* Breadcrumbs compactos */}
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">Ubicación</div>
-              <div className="flex flex-col gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 justify-start text-xs"
-                  onClick={() => navigateToFolder(null)}
-                >
-                  <Home className="h-2.5 w-2.5 mr-1" />
-                  Raíz
-                </Button>
-                {breadcrumbs.map((crumb, index) => (
-                  <Button
-                    key={crumb}
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 justify-start text-xs ml-2"
-                    onClick={() => {
-                      const path = breadcrumbs.slice(0, index + 1).join('/')
-                      setCurrentFolder(path)
-                    }}
-                  >
-                    <ChevronRight className="h-2.5 w-2.5 mr-1" />
-                    {crumb}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </ResizablePanel>
-        <ResizableHandle />
-        {/* Área de contenido principal */}
-        <ResizablePanel className="flex-1 panel-scrollable">
-          {/*
-            Wrapper no-scrollable: los drag handlers y el overlay viven aquí.
-            absolute inset-0 se posiciona relativo a este div, no al área de scroll,
-            así el overlay siempre cubre el área visible sin importar cuánto se haya scrolleado.
-          */}
-          <div
-            className="relative flex flex-col h-full min-h-0"
-            onDragEnter={dragAndDrop.handleDragEnter}
-            onDragOver={dragAndDrop.handleDragOver}
-            onDragLeave={dragAndDrop.handleDragLeave}
-            onDrop={dragAndDrop.handleDrop}
-          >
-            {/* Overlay cuando se está arrastrando */}
-            {dragAndDrop.isDragging && (
-              <div
-                className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50"
-                onDragEnter={dragAndDrop.handleDragEnter}
-                onDragOver={dragAndDrop.handleDragOver}
-                onDragLeave={dragAndDrop.handleDragLeave}
-                onDrop={dragAndDrop.handleDrop}
-              >
-                <div className="bg-background rounded-lg p-4 shadow-lg pointer-events-none">
-                  <p className="text-sm font-semibold">Suelta los archivos aquí</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Se importarán a {currentFolder || 'la raíz'}
-                  </p>
-                </div>
-              </div>
+            {currentFolder && (
+              <>
+                {currentFolder.split('/').map((folder, index, array) => {
+                  const path = array.slice(0, index + 1).join('/')
+                  return (
+                    <div key={path} className="flex items-center gap-0.5 flex-shrink-0">
+                      <span className="text-muted-foreground text-xs">/</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCurrentFolder(path)}
+                        className="text-xs h-7 px-2 whitespace-nowrap"
+                        title={folder}
+                      >
+                        {folder}
+                      </Button>
+                    </div>
+                  )
+                })}
+              </>
             )}
+          </div>
+        </div>
 
-            <div className="panel-scroll-content p-2">
-              {/* Grid o Lista de medios */}
-              <div className="h-full">
-                {viewMode === 'grid' ? (
-                  <MediaGridWrapper
-                    items={mediaItems}
-                    folders={folders}
-                    currentFolder={currentFolder}
-                    onDelete={handleDelete}
-                    onDeleteFolder={handleDeleteFolder}
-                    onNavigateToFolder={navigateToFolder}
-                    onCopy={handleCopySingle}
-                    onCut={handleCutSingle}
-                    onPaste={handlePaste}
-                    onDrop={handleDrop}
-                    onRename={(item, isFolder, currentName) => {
-                      setRenameTarget({ item, isFolder, currentName })
-                      setShowRenameDialog(true)
-                    }}
-                    formatFileSize={formatFileSize}
-                    onItemClick={handleKeyboardItemClick}
-                    isSelected={selection.isSelected}
-                    onClearSelection={selection.clearSelection}
-                  />
-                ) : (
-                  <MediaList
-                    items={mediaItems}
-                    folders={folders}
-                    onDelete={handleDelete}
-                    onDeleteFolder={handleDeleteFolder}
-                    onNavigateToFolder={navigateToFolder}
-                    onCopy={handleCopySingle}
-                    onCut={handleCutSingle}
-                    onRename={(item, isFolder, currentName) => {
-                      setRenameTarget({ item, isFolder, currentName })
-                      setShowRenameDialog(true)
-                    }}
-                    onItemClick={handleKeyboardItemClick}
-                    isSelected={selection.isSelected}
-                  />
-                )}
+        {/* Segunda fila: buscador y controles */}
+        <div className="flex items-center gap-2 flex-1 min-w-0 md:flex-none">
+          {/* Búsqueda */}
+          <div className="relative flex-1 md:flex-none md:w-48">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+            <Input
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-7 h-8 text-xs"
+            />
+          </div>
+
+          {/* Controles de vista */}
+          <div className="flex border rounded-md">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-r-none h-8 w-8 p-0"
+              onClick={() => setViewMode('grid')}
+              title="Vista de cuadrícula"
+            >
+              <LayoutGrid className="h-6 w-6" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-l-none h-8 w-8 p-0"
+              onClick={() => setViewMode('list')}
+              title="Vista de lista"
+            >
+              <List className="h-6 w-6" />
+            </Button>
+          </div>
+
+          {/* Botones de acción */}
+          <Tooltip content="Crear nueva carpeta">
+            <Button
+              onClick={() => setShowNewFolderDialog(true)}
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={loading}
+            >
+              <FolderPlus className="h-6 w-6" />
+            </Button>
+          </Tooltip>
+          <Tooltip content="Importar medios">
+            <Button onClick={handleImport} size="sm" className="h-8 w-8 p-0" disabled={loading}>
+              <Plus className="h-6 w-6" />
+            </Button>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* Área de contenido principal */}
+      <div className="flex-1 panel-scrollable">
+        <div
+          className="relative flex flex-col h-full min-h-0"
+          onDragEnter={dragAndDrop.handleDragEnter}
+          onDragOver={dragAndDrop.handleDragOver}
+          onDragLeave={dragAndDrop.handleDragLeave}
+          onDrop={dragAndDrop.handleDrop}
+        >
+          {/* Overlay cuando se está arrastrando */}
+          {dragAndDrop.isDragging && (
+            <div
+              className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center z-50"
+              onDragEnter={dragAndDrop.handleDragEnter}
+              onDragOver={dragAndDrop.handleDragOver}
+              onDragLeave={dragAndDrop.handleDragLeave}
+              onDrop={dragAndDrop.handleDrop}
+            >
+              <div className="bg-background rounded-lg p-4 shadow-lg pointer-events-none">
+                <p className="text-sm font-semibold">Suelta los archivos aquí</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se importarán a {currentFolder || 'la raíz'}
+                </p>
               </div>
             </div>
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+          )}
+
+          <ScrollArea
+            className="panel-scroll-content p-2 h-full"
+            viewPortClassName=" [&>div]:h-full"
+          >
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                {/* Grid o Lista de medios */}
+                <div className="h-full w-full min-h-full">
+                  {viewMode === 'grid' ? (
+                    <MediaGridWrapper
+                      items={mediaItems}
+                      folders={folders}
+                      currentFolder={currentFolder}
+                      onDelete={handleDelete}
+                      onDeleteFolder={handleDeleteFolder}
+                      onNavigateToFolder={navigateToFolder}
+                      onCopy={handleCopySingle}
+                      onCut={handleCutSingle}
+                      onPaste={handlePaste}
+                      onDrop={handleDrop}
+                      onCreateFolder={() => setShowNewFolderDialog(true)}
+                      onRename={(item, isFolder, currentName) => {
+                        setRenameTarget({ item, isFolder, currentName })
+                        setShowRenameDialog(true)
+                      }}
+                      formatFileSize={formatFileSize}
+                      onItemClick={handleKeyboardItemClick}
+                      isSelected={selection.isSelected}
+                      onClearSelection={selection.clearSelection}
+                    />
+                  ) : (
+                    <MediaList
+                      items={mediaItems}
+                      folders={folders}
+                      onDelete={handleDelete}
+                      onDeleteFolder={handleDeleteFolder}
+                      onNavigateToFolder={navigateToFolder}
+                      onCopy={handleCopySingle}
+                      onCut={handleCutSingle}
+                      onPaste={handlePaste}
+                      onRename={(item, isFolder, currentName) => {
+                        setRenameTarget({ item, isFolder, currentName })
+                        setShowRenameDialog(true)
+                      }}
+                      onItemClick={handleKeyboardItemClick}
+                      onClearSelection={selection.clearSelection}
+                      isSelected={selection.isSelected}
+                    />
+                  )}
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onClick={handlePaste}>
+                  <ClipboardPaste className="h-4 w-4" />
+                  Pegar
+                </ContextMenuItem>
+                <ContextMenuItem onClick={() => setShowNewFolderDialog(true)}>
+                  <FolderPlus className="h-4 w-4" />
+                  Crear carpeta
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          </ScrollArea>
+        </div>
+      </div>
 
       {loading && (
         <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-            {conversionProgress ? (
-              <>
-                <p className="mt-2 text-sm font-medium">
-                  Convirtiendo video &quot;{conversionProgress.fileName}&quot;
-                </p>
-                <div className="mt-2 w-48 mx-auto bg-secondary rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-primary h-full transition-all duration-300"
-                    style={{ width: `${conversionProgress.progress}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {conversionProgress.progress}% - Optimizando para máxima compatibilidad
-                </p>
-              </>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">Cargando...</p>
-            )}
+            <p className="mt-2 text-sm text-muted-foreground">Cargando...</p>
           </div>
         </div>
       )}

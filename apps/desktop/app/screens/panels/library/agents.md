@@ -78,13 +78,22 @@ app/screens/panels/library/
 ### MediaLibrary (`media/index.tsx`)
 
 - Componente principal de gestion de medios (514 lineas).
+- **Header unificado (2 filas):**
+  - Fila 1: Botón "Atrás" (visible en subcarpetas) + navegación breadcrumb con scroll horizontal (oculta scrollbar visual)
+  - Fila 2: Búsqueda + toggle Grid/List + botones "Crear carpeta" + "Importar"
+  - Responsive: en móvil flex-col, en desktop (md+) flex-row compacto
 - Soporta vista en grilla y lista.
-- Navegacion por carpetas con breadcrumbs.
+- Navegacion por carpetas con breadcrumbs clickeables (tipo explorador Windows).
 - Importacion de archivos (drag & drop de archivos del sistema + boton).
 - La importación específica de Canva (MP4/ZIP por diapositiva) se gestiona en `PresentationEditor` desde la pestaña `Insertar`.
 - La biblioteca escucha el evento IPC `media-saved` para refrescar queries de `media` y `folders`, y también refresca ambas al completar importaciones con progreso para mostrar carpetas nuevas sin recargar la ventana.
 - Operaciones: copiar, cortar, pegar, renombrar, eliminar, mover entre carpetas.
 - El borrado de carpetas en Media Library es recursivo (incluye archivos y subcarpetas internas); si la carpeta contiene subcarpetas, exige confirmación explícita escribiendo `eliminar` antes de ejecutar la acción.
+- **Menús contextuales mejorados:**
+  - Ambas vistas (grid/list) permiten copiar, cortar, pegar, renombrar, eliminar
+  - Carpetas: también permiten "Crear carpeta" (crea dentro de la carpeta seleccionada)
+  - Botón derecho en espacio vacío: "Pegar" + "Crear carpeta" (nuevos items en la carpeta actual)
+  - Funciona en home (carpeta raíz) y en subcarpetas
 - Usa hooks especializados en `hooks/` para separar logica.
 
 ### Hooks de Media
@@ -103,6 +112,26 @@ app/screens/panels/library/
 - Al enviar recursos directo a live (`showItemOnLiveScreen`), los items temporales incluyen `deletedAt: null` para cumplir el tipo `ScheduleItem` de Prisma.
 - Ambos tienen `role="button"`, `tabIndex`, `onKeyDown` para accesibilidad.
 
+### MediaGridWrapper (`media/MediaGridWrapper.tsx`)
+
+- Envuelve `MediaGrid` con `ContextMenu` para drag & drop y opciones de menú contextual.
+- Props: `onPaste`, `onCreateFolder`, `onDrop`, y todas las props de `MediaGrid`.
+- **Menú contextual (click derecho en espacio vacío):**
+  - Pegar: restaura items copiados/cortados a la carpeta actual
+  - Crear carpeta: abre el dialog para crear una carpeta nueva
+- Maneja `onDragEnter/Over/Leave/Drop` para feedback visual durante drag & drop.
+- Overlay visual (borde punteado + mensaje) aparece cuando se arrastra archivos sobre el componente.
+
+### MediaList (`media/MediaList.tsx`)
+
+- Vista de lista de medios/carpetas con filas interactivas.
+- Props: `onPaste`, `onCreateFolder`, `onRename`, `onCopy`, `onCut`, `onDelete`, etc.
+- **Menú contextual por fila:**
+  - **Para carpetas:** Abrir, Renombrar, Copiar, Cortar, Pegar, Eliminar
+  - **Para archivos:** Renombrar, Copiar, Cortar, Pegar, Eliminar
+- Cada fila es clickeable y seleccionable (soporta Ctrl+click, Shift+click).
+- Muestra nombre y tamaño del archivo (o "-" para carpetas).
+
 ### MediaPicker (`media/MediaPicker.tsx`)
 
 - Dialog reutilizable para seleccionar un medio.
@@ -111,8 +140,15 @@ app/screens/panels/library/
 
 ## Bible (Biblia)
 
+### LibraryPanel (`library/index.tsx`)
+
+- Escucha `bible-search` IPC event para recibir versículos desde la vista live (`RenderBibleLiveControls`). Al recibir `BibleSearchParams { version, bookId, chapter, verse }`, cambia al tab `bible` y pasa los parámetros a `BiblePanel`.
+- `BibleSearchParams` se pasa como prop `searchParams` a `BiblePanel`.
+
 ### BiblePanel (`bible/index.tsx`)
 
+- Acepta prop opcional `searchParams?: BibleSearchParams | null` para recibir versículos desde el buscador de biblia (enviados desde live).
+- Cuando `searchParams` cambia, actualiza `selectedVersion`, `selectedBook`, `selectedChapter`, `selectedVerse` y resetea `selectedChunkKey`.
 - Layout de 3 columnas: [Busqueda + Versiones | Libros + Capitulos | Versiculos].
 - Estado: `selectedVersion`, `selectedBook`, `selectedChapter`, `selectedVerse[]`.
 - Auto-scroll al libro/capitulo/versiculo seleccionado via refs.

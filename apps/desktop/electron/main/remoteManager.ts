@@ -164,6 +164,10 @@ export function initializeRemoteManager() {
     }
     return null
   })
+
+  ipcMain.on('remote:invalidate-all-windows', () => {
+    broadcastToAllWindows('invalidate-queries', undefined)
+  })
 }
 
 export function getCurrentRemoteState(): { url: string; port: number } | null {

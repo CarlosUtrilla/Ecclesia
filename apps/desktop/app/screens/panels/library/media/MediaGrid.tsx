@@ -54,7 +54,7 @@ export function MediaGrid({
   }
 
   return (
-    <div className="flex flex-wrap gap-3 content-start p-2">
+    <div className="flex flex-wrap gap-3 content-start p-2 min-h-full h-full">
       {/* Carpetas */}
       {folders.map((folderName) => (
         <FolderCard

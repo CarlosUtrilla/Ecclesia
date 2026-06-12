@@ -69,6 +69,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 
 - El case `BIBLE` usa `RenderBibleLiveControls` (no `RenderBibleVerses` directamente) para envolver la lista de versos con una barra de controles inferior.
 - Cuando un versículo bíblico es demasiado largo para live, el contenido llega fragmentado en múltiples slides del mismo verso; `RenderBibleVerses` usa `id` único por fragmento para evitar colisiones de render y permitir navegación estable entre partes.
+- La barra inferior incluye un botón con `ImportIcon` y tooltip "Enviar a buscador de biblia" que envía el versículo actual (`version, bookId, chapter, verse`) al panel de biblia vía `window.bibleSearchAPI.sendBibleSearch()`. El versículo enviado es el que está actualmente seleccionado en la lista (`data[itemIndex]?.verse?.verse`).
 - La barra inferior muestra un selector bíblico reutilizable (`BibleVersionSelector`) para cambiar la versión en tiempo real y lo renderiza con `contentPlacement="top"` para que el listado no se recorte contra el borde inferior del panel.
 - El selector bíblico ahora usa más ancho para que la versión elegida se lea completa también cuando incluye nombre descriptivo.
 - En el desplegable de versiones, cada opción muestra un `Tooltip` con preview del texto bíblico en esa traducción (hasta 150 caracteres), útil para comparar rápidamente qué versión elegir.

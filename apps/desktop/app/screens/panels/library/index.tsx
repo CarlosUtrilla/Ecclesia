@@ -4,15 +4,25 @@ import SongsPanelLibrary from './songs'
 import MediaLibrary from './media'
 import BiblePanel from './bible'
 import PresentationsPanel from './presentations'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
 import { CheckCircle2, MonitorCog, Settings } from 'lucide-react'
+
+export type BibleSearchParams = {
+  version: string
+  bookId: number
+  chapter: number
+  verse: number
+}
 
 export default function LibraryPanel() {
   const [activeTab, setActiveTab] = useState('songs')
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
+  const [bibleSearchParams, setBibleSearchParams] = useState<BibleSearchParams | null>(null)
+  const bibleSearchParamsRef = useRef(bibleSearchParams)
+  bibleSearchParamsRef.current = bibleSearchParams
 
   const refreshSyncConnection = useCallback(() => {
     window.googleDriveSyncAPI
@@ -52,6 +62,17 @@ export default function LibraryPanel() {
       unsubscribe()
     }
   }, [refreshSyncConnection])
+
+  useEffect(() => {
+    const unsubscribe = window.bibleSearchAPI.onBibleSearch((data) => {
+      setBibleSearchParams(data)
+      setActiveTab('bible')
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   return (
     <div className="flex flex-row h-full">
@@ -114,7 +135,7 @@ export default function LibraryPanel() {
           <div
             className={`${activeTab === 'bible' ? 'block' : 'hidden pointer-events-none'} h-full`}
           >
-            <BiblePanel />
+            <BiblePanel searchParams={bibleSearchParams} />
           </div>
           <div
             className={`${activeTab === 'presentations' ? 'block' : 'hidden pointer-events-none'} h-full`}

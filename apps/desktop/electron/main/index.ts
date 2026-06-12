@@ -29,6 +29,7 @@ import { initializeGoogleDriveSyncManager } from './googleDriveSyncManager/googl
 import { loadAppEnv } from './loadEnv'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
 import { initializeRemoteManager } from './remoteManager'
+import { initializeBibleSearchManager } from './bibleSearchManager'
 
 let isQuittingAfterStageTimersCleanup = false
 
@@ -150,6 +151,9 @@ app.whenReady().then(async () => {
 
   // Inicializar manager de control remoto LAN
   initializeRemoteManager()
+
+  // Inicializar manager de busqueda de biblia
+  initializeBibleSearchManager()
 
   // Obtener fuentes del sistema
   ipcMain.handle('get-system-fonts', async () => {

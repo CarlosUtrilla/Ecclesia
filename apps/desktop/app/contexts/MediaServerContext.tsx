@@ -12,6 +12,7 @@ interface MediaServerContextType {
   port: number | null
   isReady: boolean
   buildMediaUrl: (filePath: string) => string
+  setMediaServerHost: (host: string) => void
 }
 
 const MediaServerContext = createContext<MediaServerContextType | undefined>(undefined)
@@ -19,6 +20,7 @@ const MediaServerContext = createContext<MediaServerContextType | undefined>(und
 export function MediaServerProvider({ children }: { children: ReactNode }) {
   const [port, setPort] = useState<number | null>(null)
   const [isReady, setIsReady] = useState(false)
+  const [host, setHost] = useState('127.0.0.1')
 
   useEffect(() => {
     const initializeServer = async () => {
@@ -41,13 +43,13 @@ export function MediaServerProvider({ children }: { children: ReactNode }) {
 
       const normalizedPath = filePath.replace(/^\/+/, '')
       const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/')
-      return `http://127.0.0.1:${port}/media/${encodedPath}`
+      return `http://${host}:${port}/media/${encodedPath}`
     },
-    [port]
+    [port, host]
   )
 
   const contextValue = useMemo(
-    () => ({ port, isReady, buildMediaUrl }),
+    () => ({ port, isReady, buildMediaUrl, setMediaServerHost: setHost }),
     [port, isReady, buildMediaUrl]
   )
 

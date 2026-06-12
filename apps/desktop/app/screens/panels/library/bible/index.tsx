@@ -9,8 +9,13 @@ import ImportBibleButton from './importBible'
 import BiblePresentationConfiguration from '@/screens/editors/biblePresentationConfiguration'
 import { Button } from '@/ui/button'
 import { Settings } from 'lucide-react'
+import type { BibleSearchParams } from '../index'
 
-export default function BiblePanel() {
+type Props = {
+  searchParams?: BibleSearchParams | null
+}
+
+export default function BiblePanel({ searchParams }: Props) {
   const [selectedVersion, setSelectedVersion] = useState('RVR1960')
   const [selectedBook, setSelectedBook] = useState(1)
   const [selectedChapter, setSelectedChapter] = useState(1)
@@ -24,6 +29,26 @@ export default function BiblePanel() {
 
   const bookContainerRef = useRef<HTMLDivElement>(null)
   const chapterContainerRef = useRef<HTMLDivElement>(null)
+
+  const prevSearchParamsRef = useRef<BibleSearchParams | null>(null)
+
+  useEffect(() => {
+    if (
+      searchParams &&
+      searchParams !== prevSearchParamsRef.current &&
+      (searchParams.bookId !== selectedBook ||
+        searchParams.chapter !== selectedChapter ||
+        searchParams.verse !== selectedVerse[0] ||
+        searchParams.version !== selectedVersion)
+    ) {
+      prevSearchParamsRef.current = searchParams
+      setSelectedVersion(searchParams.version)
+      setSelectedBook(searchParams.bookId)
+      setSelectedChapter(searchParams.chapter)
+      setSelectedVerse([searchParams.verse])
+      setSelectedChunkKey(null)
+    }
+  }, [searchParams, selectedBook, selectedChapter, selectedVerse, selectedVersion])
 
   const { bibleSchema } = useBibleSchema()
   const chapters = useMemo(() => {

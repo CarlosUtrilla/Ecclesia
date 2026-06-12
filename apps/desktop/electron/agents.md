@@ -20,6 +20,8 @@ electron/
 │   │   └── updaterAPI.ts        # IPC API expuesta al renderer
 │   ├── googleDriveSyncManager/
 │   ├── bibleManager/
+│   ├── bibleSearchManager.ts
+│   ├── bibleSearchAPI.ts
 │   ├── displayManager/
 │   └── mediaManager/
 └── preload/
@@ -248,6 +250,15 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
   - Expone limpieza de temporales (`media:cleanup-temp-path`) restringida al root temporal de importaciones Canva.
 - El renderer construye URLs `http://localhost:{port}/{filePath}` con `useMediaServer()`.
 
+### Bible Search Manager (`bibleSearchManager.ts`)
+
+- Manager dedicado para enviar un versículo desde la vista live al buscador de biblia.
+- Canal IPC:
+  - `bible-search` (on): Recibe `BibleSearchData { version, bookId, chapter, verse }` y lo retransmite a todas las ventanas.
+- API preload (`bibleSearchAPI.ts`):
+  - `sendBibleSearch(data)`: Envía versículo al buscador.
+  - `onBibleSearch(callback)`: Escucha eventos de búsqueda; retorna función de cleanup.
+
 ### Remote Manager (`remoteManager.ts`)
 
 - Manager dedicado para descubrimiento LAN de otras instancias de Ecclesia.
@@ -334,6 +345,7 @@ Definidas en `electron/preload/index.ts`:
 | `window.googleDriveSyncAPI` | `getStatus()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()` |
 | `window.updaterAPI` | `checkForUpdates()`, `downloadUpdate()`, `installUpdate()`, `getVersion()`, `onUpdateAvailable()`, `onUpdateDownloaded()`, `onDownloadProgress()` |
 | `window.remoteControlAPI` | `discoverLan()` |
+| `window.bibleSearchAPI` | `sendBibleSearch()`, `onBibleSearch()` |
 
 ## Convenciones
 

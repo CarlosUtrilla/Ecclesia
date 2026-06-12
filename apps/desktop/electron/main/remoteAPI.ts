@@ -27,5 +27,8 @@ export const remoteControlAPI = {
     return () => {
       ipcRenderer.removeListener('remote:connection-changed', handler)
     }
+  },
+  invalidateAllWindows: (): void => {
+    ipcRenderer.send('remote:invalidate-all-windows')
   }
 }

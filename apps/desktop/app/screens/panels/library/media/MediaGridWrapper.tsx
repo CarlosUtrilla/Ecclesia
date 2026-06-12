@@ -1,11 +1,4 @@
-import { ClipboardPaste } from 'lucide-react'
 import { useState } from 'react'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger
-} from '@/ui/context-menu'
 import { MediaGrid } from './MediaGrid'
 import { Media } from './types'
 import { SelectableItem } from './hooks/useSelection'
@@ -21,6 +14,7 @@ interface MediaGridWrapperProps {
   onCopy: (item: Media | string, isFolder: boolean) => void
   onCut: (item: Media | string, isFolder: boolean) => void
   onPaste: () => void
+  onCreateFolder: () => void
   onDrop: (
     droppedItem: { item: Media | string; isFolder: boolean },
     targetFolder: string | null
@@ -33,7 +27,6 @@ interface MediaGridWrapperProps {
 }
 
 export function MediaGridWrapper({
-  onPaste,
   onDrop,
   currentFolder,
   onItemClick,
@@ -85,39 +78,29 @@ export function MediaGridWrapper({
   }
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger className="flex-1">
-        <div
-          className={cn('h-full outline-none', {
-            'ring-2 ring-primary ring-inset': isDragOver
-          })}
-          role="region"
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={handleClick}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              handleClick(e as any)
-            }
-          }}
-          tabIndex={0}
-        >
-          <MediaGrid
-            currentFolder={currentFolder}
-            onItemClick={onItemClick}
-            isSelected={isSelected}
-            {...gridProps}
-          />
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onClick={onPaste}>
-          <ClipboardPaste className="h-4 w-4" />
-          Pegar
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <div
+      className={cn('w-full h-full min-h-full flex flex-col outline-none', {
+        'ring-2 ring-primary ring-inset': isDragOver
+      })}
+      role="region"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleClick(e as any)
+        }
+      }}
+      tabIndex={0}
+    >
+      <MediaGrid
+        currentFolder={currentFolder}
+        onItemClick={onItemClick}
+        isSelected={isSelected}
+        {...gridProps}
+      />
+    </div>
   )
 }
