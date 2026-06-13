@@ -45,6 +45,7 @@ type Props = {
   blockBgStyle: React.CSSProperties | null
   blockBgPadding: number | null
   animationDuration: number
+  autoSplitVerseText: boolean
 }
 
 function ResourceContentComponent({
@@ -76,7 +77,8 @@ function ResourceContentComponent({
   hideTextInLive,
   blockBgStyle,
   blockBgPadding,
-  animationDuration
+  animationDuration,
+  autoSplitVerseText
 }: Props) {
   const nonBibleAnimatedItem = useMemo(
     () => ({
@@ -144,6 +146,7 @@ function ResourceContentComponent({
         onBibleVerseHorizontalBoundsChange={onBibleVerseHorizontalBoundsChange}
         onEditableTargetSelect={onEditableTargetSelect}
         hideTextInLive={hideTextInLive}
+        autoSplitVerseText={autoSplitVerseText}
         blockBgStyle={blockBgStyle}
         blockBgPadding={blockBgPadding}
         animationDuration={animationDuration}
@@ -168,9 +171,10 @@ function ResourceContentComponent({
       onTextBoundsChange={onTextBoundsChange}
       onEditableTargetSelect={onEditableTargetSelect}
       hideTextInLive={hideTextInLive}
-      blockBgStyle={blockBgStyle}
-      blockBgPadding={blockBgPadding}
-      animationDuration={animationDuration}
+        blockBgStyle={blockBgStyle}
+        blockBgPadding={blockBgPadding}
+        animationDuration={animationDuration}
+        autoSplitVerseText={autoSplitVerseText}
     />
   )
 }

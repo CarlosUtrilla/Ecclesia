@@ -11,7 +11,7 @@ import { Label } from '@/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
 import { Switch } from '@/ui/switch'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { PropsWithChildren, useEffect, useState } from 'react'
+import { PropsWithChildren, useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { BiblePresentationSchema } from './schema'
 import { Tooltip } from '@/ui/tooltip'
@@ -25,7 +25,26 @@ import { useSchedule } from '@/contexts/ScheduleContext'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { Slider } from '@/ui/slider'
 import { ThemeWithMedia } from '../../../ui/PresentationView/types'
+import {
+  BIBLE_LIVE_SPLIT_MODE_OPTIONS,
+  type BibleLiveSplitMode,
+  resolveBibleChunkMaxLength,
+  splitLongBibleVerse,
+  isBibleLiveSplitMode
+} from '@/lib/splitLongBibleVerse'
 import { Api } from '@ecclesia/queries'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
+
+const SAMPLE_TEXT =
+  'Por tanto, nosotros también, teniendo en derredor nuestro tan grande nube de testigos, despojémonos de todo peso y del pecado que nos asedia, y corramos con paciencia la carrera que tenemos por delante,'
+
+const CHUNK_MODE_LABELS: Record<BibleLiveSplitMode, string> = {
+  auto: 'Auto',
+  '100': '100 caracteres',
+  '150': '150 caracteres',
+  '200': '200 caracteres',
+  '250': '250 caracteres'
+}
 
 const DEFAULT_BIBLE_EDGE_OFFSET = 10
 
@@ -60,7 +79,8 @@ const toFormValues = (
   positionStyle:
     source?.positionStyle === null || source?.positionStyle === undefined
       ? DEFAULT_BIBLE_EDGE_OFFSET
-      : source.positionStyle
+      : source.positionStyle,
+  chunkMaxLength: source?.chunkMaxLength ?? 'auto'
 })
 
 export default function BiblePresentationConfiguration({
@@ -77,12 +97,23 @@ export default function BiblePresentationConfiguration({
   const { selectedTheme } = useSchedule()
   const [open, setOpen] = useState(false)
   const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
+
   const { control, handleSubmit, watch, reset } = useForm({
     defaultValues: toFormValues(customBibleSettings),
     resolver: zodResolver(BiblePresentationSchema)
   })
 
   const values = watch()
+
+  const { previewText, totalChunks } = useMemo(() => {
+    const chunkMode = values.chunkMaxLength
+    const maxLength = resolveBibleChunkMaxLength(
+      isBibleLiveSplitMode(chunkMode) ? chunkMode : 'auto',
+      72
+    )
+    const chunks = splitLongBibleVerse(SAMPLE_TEXT, maxLength)
+    return { previewText: chunks[0] || SAMPLE_TEXT, totalChunks: chunks.length }
+  }, [values.chunkMaxLength])
 
   const onSubmit = (data: any) => {
     logBibleConfigDebug('submit', {
@@ -162,13 +193,13 @@ export default function BiblePresentationConfiguration({
       <Tooltip content={hideTooltip ? undefined : 'Configurar presentación de Biblia'}>
         <DialogTrigger asChild>{children}</DialogTrigger>
       </Tooltip>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] max-w-xl! p-0 overflow-y-auto">
+        <DialogHeader className="px-4 pt-4">
           <DialogTitle>Configuración de presentación de Biblia</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-2 mb-4">
+          <div className="grid gap-2 mb-4 p-6 pt-0">
             {/* Modo de descripción */}
             <div className="space-y-2">
               <Label htmlFor="description">Modo de descripción del libro</Label>
@@ -277,6 +308,56 @@ export default function BiblePresentationConfiguration({
               </div>
             ) : null}
 
+            <Card>
+              <CardHeader className="px-3 pt-0">
+                <CardTitle className="text-sm">Fragmentación de versículos largos</CardTitle>
+                <CardDescription className="text-xs">
+                  Controla cómo se dividen automáticamente los versículos largos en múltiples partes
+                  para mantener la lectura legible en live.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-3 pb-0 space-y-2">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Longitud máxima por fragmento</p>
+                  <Controller
+                    name="chunkMaxLength"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || 'auto'}
+                        onValueChange={(value) => field.onChange(value)}
+                      >
+                        <SelectTrigger className="w-56">
+                          <SelectValue placeholder="Selecciona un modo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {BIBLE_LIVE_SPLIT_MODE_OPTIONS.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {CHUNK_MODE_LABELS[option]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  {watch('chunkMaxLength') === 'auto' || !watch('chunkMaxLength')
+                    ? `Auto actual: aprox. ${resolveBibleChunkMaxLength('auto', 72)} caracteres con una fuente base de 72px; aumenta o reduce según el tamaño de fuente real del tema.`
+                    : `Modo fijo activo: cada fragmento intentará mantenerse cerca de ${resolveBibleChunkMaxLength(watch('chunkMaxLength') as BibleLiveSplitMode)} caracteres, respetando palabras completas y puntuación cercana.`}
+                </div>
+              </CardContent>
+            </Card>
+
+            {totalChunks > 1 ? (
+              <p className="text-xs text-muted-foreground px-1">
+                Se dividirá en {totalChunks} fragmentos (diapositivas).
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground px-1">
+                El texto cabe completo en un solo fragmento.
+              </p>
+            )}
             <div className="p-4 flex items-center justify-center bg-muted rounded-md border">
               <PresentationView
                 theme={{
@@ -290,24 +371,25 @@ export default function BiblePresentationConfiguration({
                   },
                   useDefaultBibleSettings: false
                 }}
+                customAspectRatio="16 / 9"
                 items={[
                   {
-                    text: 'Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.',
+                    text: previewText,
                     verse: {
-                      bookId: 43,
-                      chapter: 3,
-                      verse: 16,
+                      bookId: 58,
+                      chapter: 12,
+                      verse: 1,
                       version: 'RVR1960'
                     },
                     resourceType: 'BIBLE'
                   }
                 ]}
-                maxHeight={220}
+                maxHeight={300}
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 bg-background p-3 z-10">
             <Button
               type="button"
               variant="destructive"

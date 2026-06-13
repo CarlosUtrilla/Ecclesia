@@ -16,8 +16,6 @@ Actualmente incluye:
 - El control de conexión es un único botón contextual (`Conectar Google` / `Desconectar`) según estado de sesión.
 - El botón principal de acción en el footer es `Sincronizar ahora`: persiste ajustes actuales y ejecuta `pushNow` inmediato cuando hay conexión activa.
 - **Logo / Pantalla de fondo**: permite seleccionar un recurso multimedia (imagen o video) de la biblioteca como fondo permanente en las pantallas en vivo, más un color de respaldo. Persistido en la DB via `window.api.setttings` usando los keys `LOGO_FALLBACK_MEDIA_ID` y `LOGO_FALLBACK_COLOR`.
-- **Biblia en vivo**: permite configurar cómo se fragmentan los versículos largos en live (`auto`, `100`, `150`, `200`, `250`). Persistido en la DB via `window.api.setttings` usando el key `BIBLE_LIVE_CHUNK_MODE`.
-
 ## Archivos
 
 ```text
@@ -28,7 +26,6 @@ app/screens/settings/
 │   ├── colorSettingsSection.tsx    # Lógica/UI del menú Tema de colores
 │   ├── syncSettingsSection.tsx     # Lógica/UI del menú Sincronización
 │   ├── logoFallbackSection.tsx     # Lógica/UI del menú Logo / Pantalla de fondo
-│   ├── bibleLiveSection.tsx        # Lógica/UI del menú Biblia en vivo
 │   ├── remoteControl.tsx          # Control remoto LAN: descubre y conecta otras instancias
 │   └── aboutSection.tsx           # Versión de la app, icono y estado de actualizaciones
 └── agents.md
@@ -40,7 +37,6 @@ app/screens/settings/
 - Electron carga la ruta hash `/settings` usando `createSettingsWindow()`.
 - El modo de color guardado se aplica globalmente en `app/main.tsx` para todas las ventanas.
 - La sección de sincronización usa `window.googleDriveSyncAPI` (preload) para conectarse y disparar `push/pull` del pipeline diferencial.
-- La sección `Biblia en vivo` usa `window.api.setttings.getSettings/updateSettings` para guardar el modo de fragmentación y el runtime lo aplica al construir contenido `BIBLE` en schedule/live.
 - **El botón "Subir" hace reconcile automático** antes del push: ejecuta `window.googleDriveSyncAPI.reconcileNow()` y luego `pushNow`, para indexar estado actual (incluyendo cambios históricos) y subirlo a Google Drive sin pasos manuales adicionales.
 - El campo `deviceName` se muestra visible en el formulario. Al cargar, se auto-rellena con el hostname del sistema si no hay valor guardado. **Debe ser único por dispositivo** para que el pull funcione correctamente entre equipos.
 - El estado visible incluye: cuenta conectada, nombre del dispositivo, última sincronización, errores del último run y cambios pendientes de subir.

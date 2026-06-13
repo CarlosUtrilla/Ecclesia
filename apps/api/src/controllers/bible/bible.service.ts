@@ -123,6 +123,7 @@ class BibleService {
         showVerseNumber: data.showVerseNumber,
         showVersion: data.showVersion,
         positionStyle: data.positionStyle,
+        chunkMaxLength: data.chunkMaxLength,
         defaultTheme: data.defaultTheme
       }
     })

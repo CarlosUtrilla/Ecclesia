@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { Button } from '@/ui/button'
-import { BookOpen, CloudCog, ImagePlay, Info, MonitorUp, Palette, Settings, X } from 'lucide-react'
+import { CloudCog, ImagePlay, Info, MonitorUp, Palette, Settings, X } from 'lucide-react'
 import ColorSettingsSection from './components/colorSettingsSection'
 import SyncSettingsSection from './components/syncSettingsSection'
 import LogoFallbackSection from './components/logoFallbackSection'
 import AboutSection from './components/aboutSection'
-import BibleLiveSection from './components/bibleLiveSection'
 import RemoteControl from './components/remoteControl'
 
 type SettingsSection =
@@ -13,7 +12,6 @@ type SettingsSection =
   | 'colors'
   | 'sync'
   | 'logoFallback'
-  | 'bibleLive'
   | 'about'
   | 'remoteControlMode'
 
@@ -52,14 +50,6 @@ export default function SettingsScreen() {
         </Button>
 
         <Button
-          variant={activeSection === 'bibleLive' ? 'secondary' : 'ghost'}
-          className="justify-start"
-          onClick={() => setActiveSection('bibleLive')}
-        >
-          <BookOpen className="size-4" /> Biblia en vivo
-        </Button>
-
-        <Button
           variant={activeSection === 'remoteControlMode' ? 'secondary' : 'ghost'}
           className="justify-start"
           onClick={() => setActiveSection('remoteControlMode')}
@@ -91,7 +81,6 @@ export default function SettingsScreen() {
           {activeSection === 'colors' ? <ColorSettingsSection /> : null}
           {activeSection === 'sync' ? <SyncSettingsSection /> : null}
           {activeSection === 'logoFallback' ? <LogoFallbackSection /> : null}
-          {activeSection === 'bibleLive' ? <BibleLiveSection /> : null}
           {activeSection === 'about' ? <AboutSection /> : null}
           {activeSection === 'remoteControlMode' ? <RemoteControl /> : null}
         </div>

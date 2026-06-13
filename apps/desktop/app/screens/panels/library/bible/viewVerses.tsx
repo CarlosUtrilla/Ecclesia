@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { BibleSchemaDTO } from '@ecclesia/api/src/controllers/bible/bible.dto'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import {
   ContextMenu,
@@ -24,8 +24,7 @@ import {
   isBibleLiveSplitMode
 } from '@/lib/splitLongBibleVerse'
 import { Api } from '@ecclesia/queries'
-
-const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
+import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 
 type Props = {
   bookData?: BibleSchemaDTO
@@ -64,18 +63,14 @@ export default function ViewVerses({
     staleTime: Infinity
   })
 
-  // Obtener configuración de chunk mode para calcular splits
-  const { data: chunkSettings } = useQuery({
-    ...Api.query.settings.getSettings({
-      body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] }
-    }),
-    staleTime: Infinity
-  })
+  // Obtener configuración de chunk mode desde BiblePresentationSettings
+  const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
 
-  const chunkMode = chunkSettings?.find((s) => s.key === BIBLE_LIVE_CHUNK_MODE_KEY)?.value
-  const maxChunkLength = isBibleLiveSplitMode(chunkMode)
-    ? resolveBibleChunkMaxLength(chunkMode)
-    : 180
+  const maxChunkLength = useMemo(() => {
+    const mode = defaultBiblePresentationSettings?.chunkMaxLength
+    const chunkMode = isBibleLiveSplitMode(mode) ? mode : 'auto'
+    return resolveBibleChunkMaxLength(chunkMode)
+  }, [defaultBiblePresentationSettings?.chunkMaxLength])
 
   const handleNavigation = (
     direction: 'up' | 'down' | 'left' | 'right' | 'PageUp' | 'PageDown',

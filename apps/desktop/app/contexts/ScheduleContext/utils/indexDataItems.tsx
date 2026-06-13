@@ -29,8 +29,6 @@ import {
 } from '@/screens/panels/library/bible/accessData'
 import { Api } from '@ecclesia/queries'
 
-const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
-
 function getThemeFontSize(theme: ThemeWithMedia): string | number | null {
   const textStyle = theme.textStyle
 
@@ -223,15 +221,10 @@ export const useIndexDataItems = (
     ): Promise<ContentScreen> => {
       const { accessData, type } = item
       if (type === 'BIBLE') {
-        const splitSettings = await Api.fetch.settings.getSettings({
-          body: {
-            settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never]
-          }
-        })
-        const splitModeValue = splitSettings.find(
-          (setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY
-        )?.value
-        const splitMode = isBibleLiveSplitMode(splitModeValue) ? splitModeValue : 'auto'
+        const defaultSettings = await Api.fetch.bible.getDefaultBibleSettings()
+        const splitMode = isBibleLiveSplitMode(defaultSettings?.chunkMaxLength)
+          ? defaultSettings.chunkMaxLength
+          : 'auto'
         const maxChunkLength = resolveBibleChunkMaxLength(
           splitMode,
           getThemeFontSize(selectedTheme)
@@ -392,15 +385,10 @@ export const useIndexDataItems = (
         const mediaById = new Map(mediaItems.map((mediaItem) => [mediaItem.id, mediaItem]))
         const themeById = new Map(themes.map((theme) => [theme.id, theme]))
 
-        const splitSettings = await Api.fetch.settings.getSettings({
-          body: {
-            settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never]
-          }
-        })
-        const splitModeValue = splitSettings.find(
-          (setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY
-        )?.value
-        const splitMode = isBibleLiveSplitMode(splitModeValue) ? splitModeValue : 'auto'
+        const defaultSettings = await Api.fetch.bible.getDefaultBibleSettings()
+        const splitMode = isBibleLiveSplitMode(defaultSettings?.chunkMaxLength)
+          ? defaultSettings.chunkMaxLength
+          : 'auto'
         const maxChunkLength = resolveBibleChunkMaxLength(
           splitMode,
           getThemeFontSize(selectedTheme)

@@ -15,5 +15,6 @@ export const BiblePresentationSchema = z.object({
 
   showVersion: z.boolean(),
   showVerseNumber: z.boolean(),
-  positionStyle: z.number().nullable()
+  positionStyle: z.number().nullable(),
+  chunkMaxLength: z.string().optional()
 })

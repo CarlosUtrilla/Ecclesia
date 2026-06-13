@@ -234,6 +234,7 @@ app/screens/editors/
 - Al abrir/cancelar el diálogo, el reset respeta el contexto: usa configuración personalizada cuando el componente se monta dentro de ThemesEditor y configuración global cuando se usa desde biblioteca.
 - La hidratación del formulario del diálogo se ejecuta al abrir (`open=true`) para evitar reinicios por re-render mientras está abierto.
 - Puede configurarse globalmente o por tema individual.
+- **Fragmentación de versículos** (movido desde `settings/bibleLiveSection`): ahora se configura dentro de este mismo diálogo, en una Card que controla `BIBLE_LIVE_CHUNK_MODE` via `Api.fetch.settings.updateSettings`.
 
 ## Tag Songs Editor
 

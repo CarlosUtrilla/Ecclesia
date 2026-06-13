@@ -60,11 +60,9 @@ vi.mock('@ecclesia/queries', () => ({
         }) => ({
           queryKey: ['bible', body.version, body.chapter],
           queryFn: vi.fn()
-        })
-      },
-      settings: {
-        getSettings: () => ({
-          queryKey: ['settings'],
+        }),
+        getDefaultBibleSettings: () => ({
+          queryKey: ['defaultBibleSettings'],
           queryFn: vi.fn()
         })
       }
@@ -79,6 +77,9 @@ vi.mock('@ecclesia/queries', () => ({
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+    if (queryKey[0] === 'defaultBibleSettings') {
+      return { data: { chunkMaxLength: 'auto' } }
+    }
     const chapter = Number(queryKey[2])
     const data = Array.from({ length: 10 }, (_, index) => ({
       verse: index + 1,

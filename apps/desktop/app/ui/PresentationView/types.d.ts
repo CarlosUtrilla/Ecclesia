@@ -34,6 +34,7 @@ export type PresentationViewProps = {
   customAspectRatio?: string
   style?: React.CSSProperties
   showTextBounds?: boolean
+  autoSplitVerseText?: boolean
   textBoundsIsSelected?: boolean
   bibleVerseIsSelected?: boolean
   onTextBoundsChange?: (next: TextBoundsValues) => void

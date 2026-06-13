@@ -12,11 +12,10 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { getPresentationSlideKey, getSlideVerseRange } from '@/lib/presentationVerseController'
 import { attachPresentationBibleChunkParts } from '@/lib/presentationSlides'
 import { resolveBibleChunkMaxLength, isBibleLiveSplitMode } from '@/lib/splitLongBibleVerse'
-import { useQuery } from '@tanstack/react-query'
-import { Api } from '@ecclesia/queries'
 import { ScrollArea } from '@/ui/scroll-area'
-
-const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
+import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
+import { useQuery } from '@tanstack/react-query'
+import { Api } from '@ecclesia/queries/src'
 
 type Props = {
   presentation: {
@@ -34,20 +33,16 @@ export default function PresentationPreview({ presentation, presentationMediaByI
   const themeById = useMemo(() => new Map(themes.map((theme) => [theme.id, theme])), [themes])
   const [selectedSlide, setSelectedSlide] = useState<number | null>(null)
 
-  // Obtener configuración de chunk size
-  const { data: splitSettings = [] } = useQuery(
-    Api.query.settings.getSettings({ body: { settings: [BIBLE_LIVE_CHUNK_MODE_KEY as never] } })
-  )
+  // Obtener configuración de chunk size desde BiblePresentationSettings
+  const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
 
   const maxChunkLength = useMemo(() => {
-    const splitModeValue = splitSettings.find(
-      (setting) => setting.key === BIBLE_LIVE_CHUNK_MODE_KEY
-    )?.value
-    const splitMode = isBibleLiveSplitMode(splitModeValue) ? splitModeValue : 'auto'
+    const mode = defaultBiblePresentationSettings?.chunkMaxLength
+    const splitMode = isBibleLiveSplitMode(mode) ? mode : 'auto'
     // Usar tema por defecto del slide si existe, sino BlankTheme
     const defaultTheme = themes[0] || BlankTheme
     return resolveBibleChunkMaxLength(splitMode, defaultTheme.textStyle.fontSize)
-  }, [splitSettings, themes])
+  }, [defaultBiblePresentationSettings?.chunkMaxLength, themes])
 
   // Recopilar todas las referencias bíblicas que necesitan hidratación
   const bibleReferences = useMemo(() => {

@@ -15,7 +15,7 @@ import { AnimatedText } from './AnimatedText'
 import { splitHtmlForWordAnimation } from '../utils/splitHtmlForWordAnimation'
 import { resolveBibleVerseTranslateX, resolveBibleVerseWidthPercent } from '../utils/verseWidth'
 import { useTextBoundsInteraction } from '../hooks/useTextBoundsInteraction'
-import { resolveBibleChunkMaxLength, splitLongBibleVerse } from '@/lib/splitLongBibleVerse'
+import { resolveBibleChunkMaxLength, splitLongBibleVerse, isBibleLiveSplitMode } from '@/lib/splitLongBibleVerse'
 
 interface BibleTextRenderProps {
   item: PresentationViewItems
@@ -127,22 +127,6 @@ export function BibleTextRender({
   forceHideVerseNumberPrefix = false
 }: BibleTextRenderProps) {
   const { text: originalRawText, verse } = item
-  const rawText = useMemo(() => {
-    const sourceText = originalRawText || ''
-    if (!autoSplitVerseText) return sourceText
-    if (!sourceText) return sourceText
-
-    // Si ya está dividido manualmente, respetar esa estructura.
-    if (/<br\s*\/?>|\n/i.test(sourceText)) return sourceText
-
-    // Evitar romper estilos inline/etiquetas HTML complejas.
-    if (/<[^>]+>/.test(sourceText)) return sourceText
-
-    const maxChunkLength = resolveBibleChunkMaxLength('auto', textStyle.fontSize ?? smallFontSize)
-    const chunks = splitLongBibleVerse(sourceText, maxChunkLength)
-
-    return chunks.length > 1 ? chunks.join('<br/>') : sourceText
-  }, [autoSplitVerseText, originalRawText, textStyle.fontSize, smallFontSize])
 
   const { biblePresentationSettings } = useBiblePresentationSetting()
   const { getCompleteNameById, getShortNameById } = useBibleSchema()
@@ -152,6 +136,25 @@ export function BibleTextRender({
       theme.useDefaultBibleSettings ? biblePresentationSettings : theme.biblePresentationSettings!,
     [theme.useDefaultBibleSettings, theme.biblePresentationSettings, biblePresentationSettings]
   )
+
+  const rawText = useMemo(() => {
+    const sourceText = originalRawText || ''
+    if (!autoSplitVerseText) return sourceText
+    if (!sourceText) return sourceText
+
+    if (/<br\s*\/?>|\n/i.test(sourceText)) return sourceText
+
+    if (/<[^>]+>/.test(sourceText)) return sourceText
+
+    const chunkMode = selectedBiblePresentationSettings?.chunkMaxLength
+    const maxChunkLength = resolveBibleChunkMaxLength(
+      isBibleLiveSplitMode(chunkMode) ? chunkMode : 'auto',
+      textStyle.fontSize ?? smallFontSize
+    )
+    const chunks = splitLongBibleVerse(sourceText, maxChunkLength)
+
+    return chunks.length > 1 ? chunks.join('<br/>') : sourceText
+  }, [autoSplitVerseText, originalRawText, textStyle.fontSize, smallFontSize, selectedBiblePresentationSettings?.chunkMaxLength])
 
   const isScreenModeVerse = useMemo(
     () =>
@@ -477,13 +480,14 @@ export function BibleTextRender({
       .trim()
     if (!plainText) return false
 
+    const chunkMode = selectedBiblePresentationSettings?.chunkMaxLength
     const autoMaxLength = resolveBibleChunkMaxLength(
-      'auto',
+      isBibleLiveSplitMode(chunkMode) ? chunkMode : 'auto',
       verseOverrideStyle.fontSize ?? smallFontSize
     )
 
     return plainText.length > autoMaxLength
-  }, [constrainScreenVerseToSingleLine, rawText, verseOverrideStyle.fontSize, smallFontSize])
+  }, [constrainScreenVerseToSingleLine, rawText, verseOverrideStyle.fontSize, smallFontSize, selectedBiblePresentationSettings?.chunkMaxLength])
 
   const verseTextStyle = useMemo(
     () => ({

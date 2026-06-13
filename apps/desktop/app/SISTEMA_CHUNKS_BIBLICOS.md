@@ -93,7 +93,7 @@ const text = result.map((v) => v.text).join(' ')
 
 ### 2. Configuración de Tamaño de Chunk
 
-**Archivo:** `app/screens/settings/components/bibleLiveSection.tsx`
+**Archivo:** `app/screens/editors/biblePresentationConfiguration/index.tsx`
 
 El usuario puede configurar el tamaño máximo de chunks:
 

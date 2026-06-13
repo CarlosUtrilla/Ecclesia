@@ -70,6 +70,7 @@ type Props = {
   blockBgStyle: React.CSSProperties | null
   blockBgPadding: number | null
   animationDuration: number
+  autoSplitVerseText: boolean
 }
 
 function PresentationBodyComponent({
@@ -117,7 +118,8 @@ function PresentationBodyComponent({
   hideTextInLive,
   blockBgStyle,
   blockBgPadding,
-  animationDuration
+  animationDuration,
+  autoSplitVerseText
 }: Props) {
   const backgroundLayer = !isMediaItem ? (
     <>
@@ -205,6 +207,7 @@ function PresentationBodyComponent({
           blockBgStyle={blockBgStyle}
           blockBgPadding={blockBgPadding}
           animationDuration={animationDuration}
+          autoSplitVerseText={autoSplitVerseText}
         />
       ) : null}
     </>

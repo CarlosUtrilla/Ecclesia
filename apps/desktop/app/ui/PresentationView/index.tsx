@@ -47,6 +47,7 @@ function PresentationViewComponent({
   displayId,
   customAspectRatio,
   showTextBounds = false,
+  autoSplitVerseText = false,
   textBoundsIsSelected = true,
   bibleVerseIsSelected = false,
   onTextBoundsChange,
@@ -238,6 +239,7 @@ function PresentationViewComponent({
       blockBgStyle={blockBgStyle}
       blockBgPadding={blockBgPadding}
       animationDuration={animationSettings.duration}
+      autoSplitVerseText={autoSplitVerseText}
     />
   )
 

@@ -163,6 +163,7 @@ model BiblePresentationSettings {
   showVerseNumber Boolean                  @default(false)
   isGlobal        Boolean                  @default(false)
   positionStyle   Float?
+  chunkMaxLength  String                   @default("auto")
   defaultTheme    Int?
   themes          Themes[]
   updatedAt       DateTime                 @default(now()) @updatedAt
