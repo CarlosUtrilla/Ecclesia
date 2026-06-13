@@ -15,6 +15,9 @@ import type { ScheduleItem } from '@ecclesia/api'
 import { Radio, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Api } from '@ecclesia/queries'
+import { Tooltip } from '@/ui/tooltip'
+import PreviewSchedule from './previewSchedule'
+import { PresentationViewItems } from '@/ui/PresentationView/types'
 
 type Props = {
   setSelectedItem?: (item: ScheduleItem | null) => void
@@ -23,6 +26,7 @@ type Props = {
   groupId?: string
   insertPosition?: number
   isLast?: boolean
+  setTooltipRef?: (ref: HTMLDivElement | null) => void
 }
 
 export function ScheduleItemComponent({
@@ -31,7 +35,8 @@ export function ScheduleItemComponent({
   item,
   groupId,
   insertPosition,
-  isLast
+  isLast,
+  setTooltipRef
 }: Props) {
   // Drop zone para inserción
   const { active } = useDndContext()
@@ -47,18 +52,28 @@ export function ScheduleItemComponent({
     },
     disabled: !isExternalDrag
   })
-  const { getScheduleItemIcon, getScheduleItemLabel, deleteItemFromSchedule, currentSchedule } =
-    useSchedule()
+  const {
+    getScheduleItemIcon,
+    getScheduleItemLabel,
+    deleteItemFromSchedule,
+    currentSchedule,
+    getScheduleItemContentScreen,
+    selectedTheme
+  } = useSchedule()
 
   const { showItemOnLiveScreen } = useLive()
   const [label, setLabel] = useState('')
   const [groupTemplate, setGroupTemplate] = useState<any>(null)
   const [groupColor, setGroupColor] = useState<string | undefined>(undefined)
   const { scheduleGroupTemplates } = useScheduleGroupTemplates()
+
+  const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
   useEffect(() => {
     const fetchLabel = async () => {
       const lbl = await getScheduleItemLabel(item)
       setLabel(lbl as string)
+      const content = await getScheduleItemContentScreen(item)
+      setItemContent(content.content)
     }
     fetchLabel()
   }, [getScheduleItemLabel, item])
@@ -162,86 +177,111 @@ export function ScheduleItemComponent({
       </div>
     )
   }
+  // Item normal, renderizar con menú contextual
   const belongsToGroup = groupId !== undefined
   return (
-    <div
-      style={{
-        background: belongsToGroup && groupColor && !isDragging ? groupColor + '33' : undefined,
-        ...style
-      }}
-      className={cn({})}
-      ref={(node) => {
-        setNodeRef(node)
-        setDropNodeRef(node)
+    <Tooltip
+      content={
+        itemContent ? (
+          <PreviewSchedule
+            itemContent={itemContent}
+            selectedItem={item}
+            selectedTheme={selectedTheme}
+            onLivePresentation={(index) => {
+              showItemOnLiveScreen(item, index)
+              setSelectedItem?.(null)
+            }}
+          />
+        ) : null
+      }
+      open={selectedItem?.id === item.id && itemContent !== null}
+      contentProps={{
+        side: 'right',
+        className: 'bg-muted [&>span>svg]:fill-muted [&>span>svg]:bg-muted text-muted-foreground',
+        ref: (el) => {
+          setTooltipRef?.(el)
+        }
       }}
     >
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <div
-            className={cn(
-              'p-3 py-1.5 border bg-background cursor-pointer rounded-md hover:bg-muted/50 transition-all duration-200',
-              {
-                'border-secondary bg-secondary/10': selectedItem?.order === item.order,
-                'cursor-grabbing': isDragging,
-                'cursor-grab': !isDragging,
-                'shadow-lg border-primary/50 bg-primary/5': isDragging,
-                'ml-4 mr-2': belongsToGroup && !isDragging
-              }
-            )}
-            onClick={(e) => {
-              setSelectedItem?.(item)
-              e.preventDefault()
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                setSelectedItem?.(item)
-              }
-            }}
-            onDoubleClick={() => showItemOnLiveScreen(item, 0)}
-            {...attributes}
-            {...listeners}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
-              <span className="text-sm font-medium">{label}</span>
-            </div>
-          </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem
-            onClick={() => {
-              showItemOnLiveScreen(item, 0)
-            }}
-          >
-            <Radio className="h-4 w-4 text-green-600" />
-            Presentar en vivo
-          </ContextMenuItem>
-          <ContextMenuItem
-            onClick={() => {
-              const index = currentSchedule.findIndex((i) => i.id === item.id)
-              if (index !== -1) {
-                deleteItemFromSchedule(index)
-                setSelectedItem?.(null)
-              }
-            }}
-          >
-            <Trash2 className="text-destructive size-4" />
-            Eliminar del cronograma
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
       <div
-        className={cn(
-          'w-full flex items-center justify-center transition-all duration-200 h-2.5 opacity-0',
-          {
-            'bg-primary/20 border-2 border-dashed border-primary rounded h-8 my-1 opacity-100':
-              isOver && isExternalDrag
-          }
-        )}
+        style={{
+          background: belongsToGroup && groupColor && !isDragging ? groupColor + '33' : undefined,
+          ...style
+        }}
+        className={cn({})}
+        ref={(node) => {
+          setNodeRef(node)
+          setDropNodeRef(node)
+        }}
       >
-        <span className="text-primary text-sm font-medium">Soltar para insertar aquí</span>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              className={cn(
+                'p-3 py-1.5 border bg-background cursor-pointer rounded-md hover:bg-muted/50 transition-all duration-200',
+                {
+                  'border-secondary bg-secondary/10': selectedItem?.order === item.order,
+                  'cursor-grabbing': isDragging,
+                  'cursor-grab': !isDragging,
+                  'shadow-lg border-primary/50 bg-primary/5': isDragging,
+                  'ml-4 mr-2': belongsToGroup && !isDragging
+                }
+              )}
+              onClick={(e) => {
+                setSelectedItem?.(item)
+                e.preventDefault()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setSelectedItem?.(item)
+                }
+              }}
+              onDoubleClick={() => showItemOnLiveScreen(item, 0)}
+              {...attributes}
+              {...listeners}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-primary">{getScheduleItemIcon(item)}</span>
+                <span className="text-sm font-medium">{label}</span>
+              </div>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem
+              onClick={() => {
+                showItemOnLiveScreen(item, 0)
+              }}
+            >
+              <Radio className="h-4 w-4 text-green-600" />
+              Presentar en vivo
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                const index = currentSchedule.findIndex((i) => i.id === item.id)
+                if (index !== -1) {
+                  deleteItemFromSchedule(index)
+                  setSelectedItem?.(null)
+                }
+              }}
+            >
+              <Trash2 className="text-destructive size-4" />
+              Eliminar del cronograma
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+        <div
+          className={cn(
+            'w-full flex items-center justify-center transition-all duration-200 h-2.5 opacity-0',
+            {
+              'bg-primary/20 border-2 border-dashed border-primary rounded h-8 my-1 opacity-100':
+                isOver && isExternalDrag
+            }
+          )}
+        >
+          <span className="text-primary text-sm font-medium">Soltar para insertar aquí</span>
+        </div>
       </div>
-    </div>
+    </Tooltip>
   )
 }

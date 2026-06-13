@@ -20,7 +20,7 @@ type RefType = React.RefObject<HTMLElement | null>
 export function useKeyboardShortcuts(
   containerRef: RefType,
   shortcuts: KeyboardShortcuts,
-  excludeRefs: RefType[] = []
+  excludeRefs: (RefType | (HTMLElement | null))[] = []
 ) {
   const [containerFocused, setContainerFocused] = useState(false)
 
@@ -46,8 +46,9 @@ export function useKeyboardShortcuts(
         return
       }
 
-      for (const ref of excludeRefs) {
-        if (ref.current && ref.current.contains(target)) {
+      for (const refRaw of excludeRefs) {
+        const refElement = getRefElement(refRaw)
+        if (refElement && refElement.contains(target)) {
           return
         }
       }
@@ -170,6 +171,13 @@ export function useKeyboardShortcuts(
 
   const handleSetContainerRef = (element: HTMLElement | null) => {
     containerRef.current = element
+  }
+
+  const getRefElement = (ref: RefType | (HTMLElement | null)): HTMLElement | null => {
+    if (ref !== null && 'current' in ref) {
+      return ref.current
+    }
+    return ref
   }
   // Retornar la función de click para que el componente la use
   return {

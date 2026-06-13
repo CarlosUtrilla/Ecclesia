@@ -14,6 +14,7 @@ import { attachPresentationBibleChunkParts } from '@/lib/presentationSlides'
 import { resolveBibleChunkMaxLength, isBibleLiveSplitMode } from '@/lib/splitLongBibleVerse'
 import { useQuery } from '@tanstack/react-query'
 import { Api } from '@ecclesia/queries'
+import { ScrollArea } from '@/ui/scroll-area'
 
 const BIBLE_LIVE_CHUNK_MODE_KEY = 'BIBLE_LIVE_CHUNK_MODE'
 
@@ -189,24 +190,23 @@ export default function PresentationPreview({ presentation, presentationMediaByI
           Editar
         </Button>
       </div>
-      <div
-        ref={containerRef}
-        className="panel-scroll-content flex flex-wrap items-start content-start gap-2 p-1"
-      >
-        {viewItemsWithChunks.map((viewItem, slideIndex) => (
-          <PresentationView
-            items={[viewItem]}
-            theme={BlankTheme}
-            className="max-w-40 h-auto"
-            selected={selectedSlide === slideIndex}
-            onClick={() => setSelectedSlide(slideIndex)}
-            onDoubleClick={() => handleShowSlideOnLive(slideIndex)}
-            presentationVerseBySlideKey={presentationVerseBySlideKey}
-            currentIndex={slideIndex}
-            key={slideIndex}
-          />
-        ))}
-      </div>
+      <ScrollArea ref={containerRef} className="panel-scroll-content">
+        <div className="flex flex-wrap items-start content-start gap-2 p-1">
+          {viewItemsWithChunks.map((viewItem, slideIndex) => (
+            <PresentationView
+              items={[viewItem]}
+              theme={BlankTheme}
+              className="max-w-40 h-auto"
+              selected={selectedSlide === slideIndex}
+              onClick={() => setSelectedSlide(slideIndex)}
+              onDoubleClick={() => handleShowSlideOnLive(slideIndex)}
+              presentationVerseBySlideKey={presentationVerseBySlideKey}
+              currentIndex={slideIndex}
+              key={slideIndex}
+            />
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   )
 }

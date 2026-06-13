@@ -9,7 +9,7 @@ export default function EmptyShcedule({ isOver }: { isOver: boolean }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className={cn(
-          'flex items-center justify-center flex-col text-center p-8',
+          'flex items-center justify-center flex-col text-center p-8 ',
           'border-2 border-dashed rounded-lg h-full transition-all duration-300 text-muted-foreground',
           {
             'border-primary bg-primary/5 text-primary shadow-lg scale-105': isOver

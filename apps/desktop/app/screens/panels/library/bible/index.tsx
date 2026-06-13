@@ -10,6 +10,7 @@ import BiblePresentationConfiguration from '@/screens/editors/biblePresentationC
 import { Button } from '@/ui/button'
 import { Settings } from 'lucide-react'
 import type { BibleSearchParams } from '../index'
+import { ScrollArea } from '@/ui/scroll-area'
 
 type Props = {
   searchParams?: BibleSearchParams | null
@@ -149,7 +150,7 @@ export default function BiblePanel({ searchParams }: Props) {
           ref={bookContainerRef}
           className="grid grid-cols-10 text-sm flex-1 panel-scroll-content"
         >
-          <div className="overflow-y-auto col-span-7">
+          <ScrollArea className="overflow-y-auto col-span-7">
             {bibleSchema.map((book) => (
               <div
                 key={book.id}
@@ -172,8 +173,8 @@ export default function BiblePanel({ searchParams }: Props) {
                 {book.book}
               </div>
             ))}
-          </div>
-          <div
+          </ScrollArea>
+          <ScrollArea
             ref={chapterContainerRef}
             className="overflow-y-auto text-center border-x col-span-3"
           >
@@ -199,7 +200,7 @@ export default function BiblePanel({ searchParams }: Props) {
                 {chapter}
               </div>
             ))}
-          </div>
+          </ScrollArea>
         </div>
       </div>
       <ViewVerses

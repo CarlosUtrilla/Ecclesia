@@ -10,6 +10,7 @@ import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import PresentationLibraryItem from './components/PresentationLibraryItem'
 import PresentationPreview from './components/PresentationPreview'
 import { Api } from '@ecclesia/queries'
+import { ScrollArea } from '@/ui/scroll-area'
 
 export default function PresentationsPanel() {
   const [search, setSearch] = useState('')
@@ -48,7 +49,7 @@ export default function PresentationsPanel() {
     )
   }, [presentations])
 
-  const { data: presentationMedia = [], refetch: refetchPresentationMedia } = useQuery({
+  const { data: presentationMedia = [] } = useQuery({
     ...Api.query.media.getMediaByIds({ body: { ids: presentationMediaIds } }),
     enabled: presentationMediaIds.length > 0
   })
@@ -72,7 +73,7 @@ export default function PresentationsPanel() {
           </Button>
         </div>
 
-        <div className="panel-scroll-content p-2 flex flex-col gap-1">
+        <ScrollArea className="panel-scroll-content p-2 flex flex-col gap-1">
           {isLoadingPresentations ? (
             <div className="text-sm text-muted-foreground p-2">Cargando presentaciones...</div>
           ) : presentations.length === 0 ? (
@@ -112,7 +113,7 @@ export default function PresentationsPanel() {
               />
             ))
           )}
-        </div>
+        </ScrollArea>
       </div>
 
       <div className="panel-scrollable p-3">

@@ -16,6 +16,7 @@ import { Separator } from '@/ui/separator'
 import { Input } from '@/ui/input'
 import { useState } from 'react'
 import { Api } from '@ecclesia/queries'
+import { ScrollArea } from '@/ui/scroll-area'
 
 type Schedule = {
   id: number
@@ -75,7 +76,7 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-muted/20 panel-scrollable">
+    <div className="flex flex-col h-full w-full bg-muted/20 panel-scrollable overflow-hidden">
       {/* Header mejorado */}
       <div className="panel-header px-4 pt-4 pb-2 border-b bg-muted/40">
         <div className="flex items-center justify-between mb-2">
@@ -112,98 +113,100 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
           Nuevo cronograma
         </Button>
       </div>
-      <div className="panel-scroll-content flex-1 overflow-y-auto px-2 py-3 space-y-3">
-        {/* Sesión temporal si está activa */}
-        {isTemporary && formData && (
-          <Card
-            className="p-2 border-amber-500 bg-amber-50 dark:bg-amber-900/20 cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-amber-400 outline-none"
-            tabIndex={0}
-            role="button"
-            aria-label="Volver al cronograma temporal"
-            onClick={onScheduleSelect}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                onScheduleSelect()
-              }
-            }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="h-4 w-4 text-amber-600" />
-              <span className="font-semibold text-sm truncate flex-1">
-                {formData.title || 'Cronograma temporal'}
-              </span>
-              <Badge
-                variant="outline"
-                className="border-amber-500 text-amber-700 bg-amber-100 dark:bg-amber-900/40"
-              >
-                Temporal
-              </Badge>
-            </div>
-            <span className="text-xs text-muted-foreground">Sin guardar</span>
-          </Card>
-        )}
-        <Separator className="my-1" />
-        {filteredSchedules.length === 0 && (
-          <div className="text-center text-muted-foreground text-xs py-8 select-none">
-            No hay cronogramas encontrados
-          </div>
-        )}
-        {filteredSchedules.map((schedule) => (
-          <ContextMenu key={schedule.id}>
-            <ContextMenuTrigger>
-              <Card
-                className={`cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-primary outline-none ${
-                  formData?.id === schedule.id && !isTemporary
-                    ? 'border-primary bg-primary/10'
-                    : 'border-transparent bg-background'
-                }`}
-                tabIndex={0}
-                role="button"
-                aria-label={`Abrir cronograma ${schedule.title}`}
-                onClick={async () => {
-                  await loadSchedule(schedule.id)
+      <ScrollArea className="panel-scroll-content ">
+        <div className="flex-1 px-2 py-3 space-y-3">
+          {/* Sesión temporal si está activa */}
+          {isTemporary && formData && (
+            <Card
+              className="p-2 border-amber-500 bg-amber-50 dark:bg-amber-900/20 cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-amber-400 outline-none"
+              tabIndex={0}
+              role="button"
+              aria-label="Volver al cronograma temporal"
+              onClick={onScheduleSelect}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
                   onScheduleSelect()
-                }}
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
+                }
+              }}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="h-4 w-4 text-amber-600" />
+                <span className="font-semibold text-sm truncate flex-1">
+                  {formData.title || 'Cronograma temporal'}
+                </span>
+                <Badge
+                  variant="outline"
+                  className="border-amber-500 text-amber-700 bg-amber-100 dark:bg-amber-900/40"
+                >
+                  Temporal
+                </Badge>
+              </div>
+              <span className="text-xs text-muted-foreground">Sin guardar</span>
+            </Card>
+          )}
+          <Separator className="my-1" />
+          {filteredSchedules.length === 0 && (
+            <div className="text-center text-muted-foreground text-xs py-8 select-none">
+              No hay cronogramas encontrados
+            </div>
+          )}
+          {filteredSchedules.map((schedule) => (
+            <ContextMenu key={schedule.id}>
+              <ContextMenuTrigger>
+                <Card
+                  className={`cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-primary outline-none ${
+                    formData?.id === schedule.id && !isTemporary
+                      ? 'border-primary bg-primary/10'
+                      : 'border-transparent bg-background'
+                  }`}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Abrir cronograma ${schedule.title}`}
+                  onClick={async () => {
                     await loadSchedule(schedule.id)
                     onScheduleSelect()
-                  }
-                }}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  <span className="font-semibold text-sm truncate flex-1">{schedule.title}</span>
-                  <Badge variant="outline" className="border-primary text-primary bg-primary/10">
-                    Guardado
-                  </Badge>
-                </div>
-                {schedule.date && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {format(new Date(schedule.date), 'PPP', { locale: es })}
-                  </span>
-                )}
-              </Card>
-            </ContextMenuTrigger>
-            <ContextMenuContent>
-              <ContextMenuItem onClick={() => handleEdit(schedule)}>
-                <Edit className="h-4 w-4" />
-                Editar
-              </ContextMenuItem>
-              <ContextMenuItem
-                onClick={() => handleDelete(schedule.id)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                Eliminar
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-        ))}
-      </div>
+                  }}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      await loadSchedule(schedule.id)
+                      onScheduleSelect()
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    <span className="font-semibold text-sm truncate flex-1">{schedule.title}</span>
+                    <Badge variant="outline" className="border-primary text-primary bg-primary/10">
+                      Guardado
+                    </Badge>
+                  </div>
+                  {schedule.date && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(schedule.date), 'PPP', { locale: es })}
+                    </span>
+                  )}
+                </Card>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onClick={() => handleEdit(schedule)}>
+                  <Edit className="h-4 w-4" />
+                  Editar
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() => handleDelete(schedule.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   )
 }
