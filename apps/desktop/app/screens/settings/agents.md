@@ -38,8 +38,13 @@ app/screens/settings/
 - El modo de color guardado se aplica globalmente en `app/main.tsx` para todas las ventanas.
 - La sección de sincronización usa `window.googleDriveSyncAPI` (preload) para conectarse y disparar `push/pull` del pipeline diferencial.
 - **El botón "Subir" hace reconcile automático** antes del push: ejecuta `window.googleDriveSyncAPI.reconcileNow()` y luego `pushNow`, para indexar estado actual (incluyendo cambios históricos) y subirlo a Google Drive sin pasos manuales adicionales.
+- **Diagnóstico y Reparación**: sección separada con dos botones:
+  - **"Diagnosticar"** → llama `window.googleDriveSyncAPI.diagnoseNow()` que ejecuta `diagnoseSyncIssues()` en el main process. Compara archivos locales vs manifest remoto y muestra un resumen con conteos de archivos OK, por subir, por descargar, huérfanos y eliminados. Incluye un detalle colapsable con la lista de archivos con problemas.
+  - **"Reparar"** → llama `window.googleDriveSyncAPI.healNow(diagnostic)` que ejecuta `healSyncIssues()` en el main process. Sube archivos que faltan en Drive y descarga archivos que faltan localmente. Actualiza ambos manifests al finalizar.
 - El campo `deviceName` se muestra visible en el formulario. Al cargar, se auto-rellena con el hostname del sistema si no hay valor guardado. **Debe ser único por dispositivo** para que el pull funcione correctamente entre equipos.
 - El estado visible incluye: cuenta conectada, nombre del dispositivo, última sincronización, errores del último run y cambios pendientes de subir.
+- La UI escucha el evento `sync-state` del main process para mostrar en tiempo real errores del scheduler automático (intervalo, retry, startup) sin necesidad de refrescar la página.
+- Los errores de descarga individual de archivos (media, biblias) ya no interrumpen el ciclo pull: se loguean y se salta el archivo, el resto del lote continúa y el manifest local se actualiza con las descargas exitosas.
 
 ### Control remoto LAN (`remoteControl.tsx`)
 

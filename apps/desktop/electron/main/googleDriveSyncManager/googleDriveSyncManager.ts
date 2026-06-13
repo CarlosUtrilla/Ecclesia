@@ -215,11 +215,16 @@ function clampSyncProgress(progress: number) {
   return Math.max(0, Math.min(100, Math.round(progress)))
 }
 
-function notifySyncState(syncing: boolean, progress?: number) {
+function notifySyncState(syncing: boolean, progress?: number, error?: string) {
   isSyncing = syncing
   syncProgress = syncing ? clampSyncProgress(progress ?? syncProgress) : 0
   BrowserWindow.getAllWindows().forEach((win) => {
-    win.webContents.send('sync-state', { syncing, progress: syncProgress })
+    win.webContents.send('sync-state', {
+      syncing,
+      progress: syncProgress,
+      ...(error ? { error } : {}),
+      ...(!syncing && error ? { lastRunStatus: 'error' as const, lastRunError: error } : {})
+    })
   })
 }
 
@@ -1772,7 +1777,14 @@ async function syncBibleFiles(
       const remoteFileId = remoteBlobByChecksum.get(remoteEntry.checksum)
       if (!remoteFileId) continue
 
-      await downloadBibleBlobToLocal(drive, remoteFileId, remoteEntry.fileName)
+      try {
+        await downloadBibleBlobToLocal(drive, remoteFileId, remoteEntry.fileName)
+      } catch (err) {
+        log.warn(
+          `[sync] Error descargando biblia ${remoteEntry.fileName}: ${err instanceof Error ? err.message : err}`
+        )
+        continue
+      }
       downloaded += 1
       localByName.set(remoteEntry.fileName, {
         ...remoteEntry,
@@ -2172,11 +2184,12 @@ async function syncMediaManifest(
           continue
         }
 
-        // Si el checksum no coincide o hay otro error, log de advertencia
+        // Error no-fatal (checksum mismatch, timeout, red): se loguea y se salta
+        // este archivo para no interrumpir la descarga del resto del lote.
         log.warn(
           `[sync] Error descargando/verificando blob ${remoteEntry.path}: ${err instanceof Error ? err.message : err}`
         )
-        throw err
+        continue
       }
 
       downloaded += 1
@@ -2680,8 +2693,9 @@ export async function executeSyncCycle(reason: SyncReason) {
 
       clearScheduledRetry()
       retrySyncTimeout = setTimeout(() => {
-        executeSyncCycle('retry').catch(() => {
-          notifySyncState(false)
+        executeSyncCycle('retry').catch((err) => {
+          const msg = err instanceof Error ? err.message : 'Error en reintento de sync'
+          notifySyncState(false, 0, msg)
         })
       }, retryBackoffState.delayMs)
     }
@@ -2935,6 +2949,295 @@ export function scheduleMicroMediaPush(): void {
   }, 1000)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DIAGNÓSTICO Y REPARACIÓN: herramientas para detectar y corregir
+// discrepancias entre archivos locales, Drive y manifests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type SyncDiagnosticEntry = {
+  path: string
+  size: number
+  localChecksum: string | null
+  remoteChecksum: string | null
+  localExists: boolean
+  remoteBlobExists: boolean
+  isTombstone: boolean
+  issue: 'ok' | 'missing-locally' | 'missing-in-drive' | 'orphan-local' | 'tombstoned'
+}
+
+type SyncDiagnostic = {
+  workspaceId: string
+  deviceId: string
+  fetchedAt: string
+  summary: {
+    total: number
+    ok: number
+    needUpload: number
+    needDownload: number
+    orphanLocal: number
+    tombstoned: number
+    totalSizeBytes: number
+  }
+  details: SyncDiagnosticEntry[]
+}
+
+async function diagnoseSyncIssues(): Promise<SyncDiagnostic> {
+  const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
+  if (!config || !config.enabled) throw new Error('Sync no está configurado o habilitado')
+
+  if (!config.workspaceId) config.workspaceId = 'default'
+
+  const { drive } = await getDriveClient()
+  const appInstanceId = await getOrCreateAppInstanceId()
+  const userMediaBase = path.join(app.getPath('userData'), 'media')
+
+  // 1. Leer ambos manifests
+  const localManifest = await buildLocalMediaManifest(config, appInstanceId)
+  const remoteManifest =
+    (await readRemoteMediaManifest(drive, config.workspaceId)) || { entries: [] }
+
+  // 2. Construir mapa de blobs remotos (checksum → fileId)
+  const remoteBlobByChecksum = new Map<string, string>()
+  const checksumsSinFileId = new Set<string>()
+
+  for (const entry of remoteManifest.entries) {
+    if (entry.driveFileId) {
+      remoteBlobByChecksum.set(entry.checksum, entry.driveFileId)
+    } else if (!entry.deletedAt) {
+      checksumsSinFileId.add(entry.checksum)
+    }
+  }
+
+  if (checksumsSinFileId.size > 0) {
+    const bySearch = await listRemoteMediaBlobs(drive, config.workspaceId)
+    for (const checksum of checksumsSinFileId) {
+      const fileId = bySearch.get(checksum)
+      if (fileId) remoteBlobByChecksum.set(checksum, fileId)
+    }
+  }
+
+  // 3. Indexar entries locales y remotos
+  const localByPath = new Map(localManifest.entries.map((e) => [e.path, e]))
+  const remoteByPath = new Map(remoteManifest.entries.map((e) => [e.path, e]))
+
+  // 4. Comparar todas las rutas (unión de local + remoto)
+  const allPaths = new Set<string>()
+  for (const p of localManifest.entries) allPaths.add(p.path)
+  for (const p of remoteManifest.entries) allPaths.add(p.path)
+
+  const details: SyncDiagnosticEntry[] = []
+
+  for (const filePath of allPaths) {
+    const local = localByPath.get(filePath)
+    const remote = remoteByPath.get(filePath)
+
+    const localFileOnDisk = local
+      ? await fs.pathExists(path.join(userMediaBase, local.path))
+      : false
+
+    const isTombstone = !!(local?.deletedAt || remote?.deletedAt)
+
+    const localChecksum = local?.checksum || null
+    const remoteChecksum = remote?.checksum || null
+
+    const remoteBlobExists = remoteChecksum
+      ? remoteBlobByChecksum.has(remoteChecksum)
+      : false
+
+    let issue: SyncDiagnosticEntry['issue'] = 'ok'
+
+    if (isTombstone) {
+      issue = 'tombstoned'
+    } else if (local && !localFileOnDisk && !remote) {
+      issue = 'orphan-local'
+    } else if (local && !localFileOnDisk && remote && remoteBlobExists) {
+      issue = 'missing-locally'
+    } else if (remote && !remoteBlobExists) {
+      issue = 'missing-in-drive'
+    } else if (local && !localFileOnDisk && remote && !remoteBlobExists) {
+      issue = 'missing-in-drive'
+    } else if (local && !localFileOnDisk && !remote) {
+      issue = 'orphan-local'
+    }
+
+    details.push({
+      path: filePath,
+      size: local?.size || remote?.size || 0,
+      localChecksum,
+      remoteChecksum,
+      localExists: localFileOnDisk,
+      remoteBlobExists,
+      isTombstone,
+      issue
+    })
+  }
+
+  // 5. Armar resumen
+  const summary = {
+    total: details.length,
+    ok: details.filter((d) => d.issue === 'ok').length,
+    needUpload: details.filter((d) => d.issue === 'missing-in-drive').length,
+    needDownload: details.filter((d) => d.issue === 'missing-locally').length,
+    orphanLocal: details.filter((d) => d.issue === 'orphan-local').length,
+    tombstoned: details.filter((d) => d.issue === 'tombstoned').length,
+    totalSizeBytes: details.reduce((acc, d) => acc + d.size, 0)
+  }
+
+  return {
+    workspaceId: config.workspaceId,
+    deviceId: appInstanceId,
+    fetchedAt: new Date().toISOString(),
+    summary,
+    details
+  }
+}
+
+async function healSyncIssues(diagnostic: SyncDiagnostic): Promise<{
+  uploaded: number
+  downloaded: number
+  errors: Array<{ path: string; error: string }>
+}> {
+  const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
+  if (!config || !config.enabled) throw new Error('Sync no configurado')
+
+  if (!config.workspaceId) config.workspaceId = 'default'
+
+  const { drive } = await getDriveClient()
+  const appInstanceId = await getOrCreateAppInstanceId()
+  const userMediaBase = path.join(app.getPath('userData'), 'media')
+  const nowIso = new Date().toISOString()
+
+  let uploaded = 0
+  let downloaded = 0
+  const errors: Array<{ path: string; error: string }> = []
+
+  // 1. Subir archivos que faltan en Drive (missing-in-drive)
+  const toUpload = diagnostic.details.filter((d) => d.issue === 'missing-in-drive')
+
+  for (const entry of toUpload) {
+    const fullPath = path.join(userMediaBase, entry.path)
+    if (!(await fs.pathExists(fullPath))) {
+      errors.push({ path: entry.path, error: 'Archivo local no encontrado para subir' })
+      continue
+    }
+
+    try {
+      const localEntry: MediaManifestEntry = {
+        path: entry.path,
+        size: entry.size,
+        checksum: entry.localChecksum || (await computeFileChecksum(fullPath)),
+        mtime: (await fs.stat(fullPath)).mtimeMs,
+        deletedAt: null,
+        lastSyncedAt: null,
+        driveFileId: null
+      }
+
+      const fileId = await uploadMediaBlob(drive, config.workspaceId, localEntry)
+      log.info(`[heal] Blob subido: ${entry.path} (${localEntry.checksum.slice(0, 12)}...)`)
+      uploaded++
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      errors.push({ path: entry.path, error: msg })
+      log.error(`[heal] Error subiendo ${entry.path}:`, msg)
+    }
+  }
+
+  // 2. Descargar archivos que faltan localmente (missing-locally)
+  // Necesitamos leer el manifest remoto de nuevo para obtener driveFileIds frescos
+  const remoteManifest = await readRemoteMediaManifest(drive, config.workspaceId)
+  const remoteByChecksum = new Map<string, { path: string; fileId: string }>()
+
+  if (remoteManifest) {
+    for (const re of remoteManifest.entries) {
+      if (re.deletedAt) continue
+      const fileId = re.driveFileId || null
+      if (fileId) {
+        remoteByChecksum.set(re.checksum, { path: re.path, fileId })
+      }
+    }
+
+    // Fallback: buscar blobs por nombre
+    const blobsBySearch = await listRemoteMediaBlobs(drive, config.workspaceId)
+    for (const re of remoteManifest.entries) {
+      if (re.deletedAt) continue
+      if (!remoteByChecksum.has(re.checksum)) {
+        const fileId = blobsBySearch.get(re.checksum)
+        if (fileId) {
+          remoteByChecksum.set(re.checksum, { path: re.path, fileId })
+        }
+      }
+    }
+  }
+
+  const toDownload = diagnostic.details.filter((d) => d.issue === 'missing-locally')
+
+  for (const entry of toDownload) {
+    const remoteChecksum = entry.remoteChecksum
+    if (!remoteChecksum) {
+      errors.push({ path: entry.path, error: 'Sin checksum remoto' })
+      continue
+    }
+
+    const blobInfo = remoteByChecksum.get(remoteChecksum)
+    if (!blobInfo) {
+      errors.push({ path: entry.path, error: 'Blob remoto no encontrado en Drive' })
+      continue
+    }
+
+    try {
+      await downloadAndVerifyBlobChecksum(drive, blobInfo.fileId, entry.path, remoteChecksum)
+      log.info(`[heal] Blob descargado: ${entry.path}`)
+      downloaded++
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      errors.push({ path: entry.path, error: msg })
+      log.error(`[heal] Error descargando ${entry.path}:`, msg)
+    }
+  }
+
+  // 3. Actualizar manifest local tras reparación
+  const updatedLocalManifest = await buildLocalMediaManifest(config, appInstanceId)
+  await writeJson(getLocalMediaManifestPath(), updatedLocalManifest)
+
+  // 4. Actualizar manifest remoto si hubo uploads
+  if (uploaded > 0) {
+    const localManifest = await buildLocalMediaManifest(config, appInstanceId)
+    const currentRemoteManifest =
+      (await readRemoteMediaManifest(drive, config.workspaceId)) || {
+        schemaVersion: MEDIA_MANIFEST_SCHEMA_VERSION,
+        workspaceId: config.workspaceId,
+        deviceId: appInstanceId,
+        updatedAt: nowIso,
+        entries: []
+      }
+
+    // Fusionar entries locales en remoto (preservando driveFileId)
+    const mergedByPath = new Map(
+      currentRemoteManifest.entries.map((e) => [e.path, e])
+    )
+    for (const localEntry of localManifest.entries) {
+      const existing = mergedByPath.get(localEntry.path)
+      mergedByPath.set(localEntry.path, {
+        ...localEntry,
+        driveFileId: localEntry.driveFileId || existing?.driveFileId || null,
+        lastSyncedAt: nowIso
+      })
+    }
+
+    await writeRemoteMediaManifest(drive, config.workspaceId, {
+      schemaVersion: MEDIA_MANIFEST_SCHEMA_VERSION,
+      workspaceId: config.workspaceId,
+      deviceId: appInstanceId,
+      updatedAt: nowIso,
+      entries: Array.from(mergedByPath.values()).sort((a, b) =>
+        a.path.localeCompare(b.path)
+      )
+    })
+  }
+
+  return { uploaded, downloaded, errors }
+}
+
 export function initializeGoogleDriveSyncManager() {
   lastSchedulerHeartbeat = Date.now()
   updateLocalSyncState({
@@ -2943,8 +3246,9 @@ export function initializeGoogleDriveSyncManager() {
     lastSchedulerHeartbeatAt: new Date(lastSchedulerHeartbeat).toISOString()
   }).catch(() => {})
 
-  executeSyncCycle('startup').catch(() => {
-    notifySyncState(false)
+  executeSyncCycle('startup').catch((err) => {
+    const msg = err instanceof Error ? err.message : 'Error en inicio de sync'
+    notifySyncState(false, 0, msg)
   })
 
   if (autoSyncInterval) {
@@ -2956,8 +3260,9 @@ export function initializeGoogleDriveSyncManager() {
   clearScheduledRetry()
 
   autoSyncInterval = setInterval(() => {
-    executeSyncCycle('interval').catch(() => {
-      notifySyncState(false)
+    executeSyncCycle('interval').catch((err) => {
+      const msg = err instanceof Error ? err.message : 'Error en sync automático'
+      notifySyncState(false, 0, msg)
     })
   }, AUTO_SYNC_INTERVAL_MS)
 
@@ -3010,6 +3315,24 @@ export function initializeGoogleDriveSyncManager() {
 
   ipcMain.handle('sync:google-drive:remote-data', async () => {
     return await getRemoteDriveData()
+  })
+
+  ipcMain.handle('sync:google-drive:diagnose', async () => {
+    notifySyncState(true, 10)
+    try {
+      return await diagnoseSyncIssues()
+    } finally {
+      notifySyncState(false)
+    }
+  })
+
+  ipcMain.handle('sync:google-drive:heal', async (_event, diagnostic: SyncDiagnostic) => {
+    notifySyncState(true, 10)
+    try {
+      return await healSyncIssues(diagnostic)
+    } finally {
+      notifySyncState(false)
+    }
   })
 
   // Registrar micro-push en el middleware de Prisma

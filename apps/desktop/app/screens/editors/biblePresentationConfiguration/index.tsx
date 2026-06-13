@@ -364,6 +364,7 @@ export default function BiblePresentationConfiguration({
                   ...(customTheme || selectedTheme),
                   biblePresentationSettings: {
                     ...values,
+                    chunkMaxLength: values.chunkMaxLength || 'auto',
                     id: -1,
                     isGlobal: true,
                     defaultTheme: null,

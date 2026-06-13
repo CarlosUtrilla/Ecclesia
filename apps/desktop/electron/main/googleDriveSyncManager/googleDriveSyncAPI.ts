@@ -23,6 +23,8 @@ export const googleDriveSyncAPI = {
   pullNow: () => ipcRenderer.invoke('sync:google-drive:pull'),
   reconcileNow: () => ipcRenderer.invoke('sync:google-drive:reconcile'),
   getRemoteData: () => ipcRenderer.invoke('sync:google-drive:remote-data'),
+  diagnoseNow: () => ipcRenderer.invoke('sync:google-drive:diagnose'),
+  healNow: (diagnostic: unknown) => ipcRenderer.invoke('sync:google-drive:heal', diagnostic),
   notifyAutoSaveEvent: () => ipcRenderer.send('sync:google-drive:auto-save-event'),
   microPushMedia: () => ipcRenderer.invoke('sync:google-drive:micro-push-media'),
   onSyncStateChange: (callback: (data: { syncing: boolean; progress: number }) => void) => {

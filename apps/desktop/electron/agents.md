@@ -96,6 +96,8 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
   - `sync:google-drive:push`
   - `sync:google-drive:pull`
   - `sync:google-drive:reconcile`
+  - `sync:google-drive:diagnose` — Diagnóstico: compara archivos locales vs manifest remoto y reporta discrepancias (read-only)
+  - `sync:google-drive:heal` — Reparación: toma el resultado del diagnóstico y repara subiendo/downloading blobs faltantes
 - Evento IPC adicional: `sync:google-drive:auto-save-event` para autosync al guardar.
 - Emite `sync-state` al renderer con `{ syncing, progress }`.
 
@@ -154,6 +156,22 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 - Antes: si `conflictStrategy=primaryDevice` y el dispositivo era secundario, se llamaba `notifySyncState(true, 100)` sin el correspondiente `notifySyncState(false)`, dejando `isSyncing=true` permanentemente.
 - Ahora: se llama `notifySyncState(false)` antes de retornar en ese caso.
+
+#### Fixes de robustez en pull (junio 2026)
+
+- **Errores no-fatales en descarga de media**: Antes, cualquier error en `downloadAndVerifyBlobChecksum` (checksum mismatch, timeout, red) relanzaba la excepción y mataba todo el ciclo pull. Ahora se loguea el error y se salta ese archivo (`continue`), permitiendo que el resto del lote se descargue.
+- **Errores no-fatales en descarga de biblias**: `downloadBibleBlobToLocal` no tenía try-catch; cualquier error interrumpía toda la sincronización de biblias. Ahora también captura errores y continúa.
+- **Manifest siempre se escribe**: Como el ciclo ya no lanza en errores individuales, `writeJson` del manifest local se ejecuta siempre al final, registrando todas las descargas exitosas del ciclo.
+- **Errores del scheduler visibles en UI**: `notifySyncState` ahora acepta un tercer parámetro `error?: string`. Los callbacks de interval, retry y startup pasan el mensaje de error. El renderer recibe `{ syncing, progress, error, lastRunStatus, lastRunError }` en el evento `sync-state`.
+
+#### Diagnóstico y reparación (sync)
+
+- **`diagnoseSyncIssues()`**: Función read-only que lee el manifest remoto de Drive, el manifest local, lista los blobs remotos, y compara cada archivo para clasificarlo como: `ok`, `missing-locally` (en Drive pero no en disco), `missing-in-drive` (en disco pero no en Drive), `orphan-local` (en manifest local pero sin archivo en disco ni en Drive), `tombstoned`. Retorna un `SyncDiagnostic` con resumen y detalle.
+- **`healSyncIssues(diagnostic)`**: Toma el diagnóstico y para cada archivo con problema:
+  - `missing-in-drive` → sube el blob a Drive vía `uploadMediaBlob()`
+  - `missing-locally` → descarga el blob desde Drive vía `downloadAndVerifyBlobChecksum()`
+  - Actualiza ambos manifests (local y remoto) al finalizar.
+- Canales IPC: `sync:google-drive:diagnose` (invoke, sin args) y `sync:google-drive:heal` (invoke, recibe el diagnostic).
 
 #### IMPORTANTE: electron-log solo en main
 
