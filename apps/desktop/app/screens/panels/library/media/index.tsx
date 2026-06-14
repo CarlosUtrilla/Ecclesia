@@ -1,5 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Search, FolderPlus, LayoutGrid, List, ClipboardPaste, ArrowLeft } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  FolderPlus,
+  LayoutGrid,
+  List,
+  ClipboardPaste,
+  ArrowLeft,
+  Home
+} from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
@@ -400,7 +409,7 @@ export default function MediaLibrary() {
               onClick={() => setCurrentFolder(null)}
               className="text-xs h-7 px-2 whitespace-nowrap flex-shrink-0"
             >
-              Home
+              <Home /> {!currentFolder ? 'Home' : null}
             </Button>
 
             {currentFolder && (

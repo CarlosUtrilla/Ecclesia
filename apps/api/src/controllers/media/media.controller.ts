@@ -98,4 +98,8 @@ export class MediaController {
   async getMediaByIds({ body }: RequestHandler<{ ids: number[] }>) {
     return await this.mediaService.getMediaByIds(body.ids)
   }
+
+  async cleanupOrphans() {
+    return await this.mediaService.cleanupOrphans()
+  }
 }

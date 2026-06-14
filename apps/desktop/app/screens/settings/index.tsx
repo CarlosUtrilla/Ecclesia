@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Button } from '@/ui/button'
-import { CloudCog, ImagePlay, Info, MonitorUp, Palette, Settings, X } from 'lucide-react'
+import { Bug, CloudCog, ImagePlay, Info, MonitorUp, Palette, Settings, X } from 'lucide-react'
 import ColorSettingsSection from './components/colorSettingsSection'
 import SyncSettingsSection from './components/syncSettingsSection'
 import LogoFallbackSection from './components/logoFallbackSection'
 import AboutSection from './components/aboutSection'
 import RemoteControl from './components/remoteControl'
+import DevSection from './components/devSection'
 
 type SettingsSection =
   | ''
@@ -14,6 +15,7 @@ type SettingsSection =
   | 'logoFallback'
   | 'about'
   | 'remoteControlMode'
+  | 'dev'
 
 export default function SettingsScreen() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('colors')
@@ -58,6 +60,14 @@ export default function SettingsScreen() {
         </Button>
 
         <Button
+          variant={activeSection === 'dev' ? 'secondary' : 'ghost'}
+          className="justify-start"
+          onClick={() => setActiveSection('dev')}
+        >
+          <Bug className="size-4" /> Dev
+        </Button>
+
+        <Button
           variant={activeSection === 'about' ? 'secondary' : 'ghost'}
           className="justify-start"
           onClick={() => setActiveSection('about')}
@@ -83,6 +93,7 @@ export default function SettingsScreen() {
           {activeSection === 'logoFallback' ? <LogoFallbackSection /> : null}
           {activeSection === 'about' ? <AboutSection /> : null}
           {activeSection === 'remoteControlMode' ? <RemoteControl /> : null}
+          {activeSection === 'dev' ? <DevSection /> : null}
         </div>
       </main>
     </div>

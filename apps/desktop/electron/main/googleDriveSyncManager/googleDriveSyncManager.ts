@@ -3238,6 +3238,196 @@ async function healSyncIssues(diagnostic: SyncDiagnostic): Promise<{
   return { uploaded, downloaded, errors }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LIMPIEZA DE ARCHIVOS HUÉRFANOS (local + Drive)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function cleanupOrphanMediaFromDiskAndDrive(): Promise<{
+  deletedOrphans: number
+  deletedStale: number
+  totalFreedBytes: number
+  driveDeleted: number
+  driveErrors: number
+  details: Array<{ path: string; reason: string; size: number; driveDeleted: boolean }>
+}> {
+  const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
+  if (!config || !config.enabled) throw new Error('Sync no está configurado o habilitado')
+  if (!config.workspaceId) config.workspaceId = 'default'
+
+  const { drive } = await getDriveClient()
+  const appInstanceId = await getOrCreateAppInstanceId()
+  const prisma = getPrisma()
+  const userMediaBase = path.join(app.getPath('userData'), 'media')
+  const filesRoot = path.join(userMediaBase, 'files')
+
+  // 1. Leer DB — solo Media (IMAGE/VIDEO) y Font, NUNCA biblias
+  const allMedia = await prisma.media.findMany({
+    select: { filePath: true, deletedAt: true, type: true, thumbnail: true, fallback: true }
+  })
+  log.info(`[cleanup] Media records found: ${allMedia.length}`)
+  const allFonts: Array<{ filePath: string | null; deletedAt: Date | null }> =
+    prisma && (prisma as any).font && typeof (prisma as any).font.findMany === 'function'
+      ? await (prisma as any).font.findMany({
+          select: { filePath: true, deletedAt: true }
+        })
+      : []
+
+  // Construir mapa filePath → registros solo para IMAGE/VIDEO + Font
+  const recordsByPath = new Map<string, Array<{ deletedAt: Date | null }>>()
+  for (const m of allMedia) {
+    if (!m.filePath) continue
+    if (m.type !== 'IMAGE' && m.type !== 'VIDEO') continue
+    const list = recordsByPath.get(m.filePath) || []
+    list.push({ deletedAt: m.deletedAt })
+    recordsByPath.set(m.filePath, list)
+  }
+  for (const f of allFonts) {
+    if (!f.filePath) continue
+    const list = recordsByPath.get(f.filePath) || []
+    list.push({ deletedAt: f.deletedAt })
+    recordsByPath.set(f.filePath, list)
+  }
+
+  const localManifest = await buildLocalMediaManifest(config, appInstanceId)
+  const manifestByPath = new Map(localManifest.entries.map(e => [e.path, e]))
+
+  log.info(`[cleanup] Registros en recordsByPath: ${recordsByPath.size}, Media: ${allMedia.length}, Fonts: ${allFonts.length}`)
+
+  // 2. Escanear disco
+  const scanFiles = (dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> => {
+    const results: Array<{ rel: string; abs: string; size: number }> = []
+    let entries: string[]
+    try { entries = fs.readdirSync(dir) } catch { return results }
+    for (const entry of entries) {
+      const absPath = path.join(dir, entry)
+      const relPath = prefix ? `${prefix}/${entry}` : entry
+      try {
+        const stat = fs.statSync(absPath)
+        if (stat.isDirectory()) results.push(...scanFiles(absPath, relPath))
+        else results.push({ rel: relPath, abs: absPath, size: stat.size })
+      } catch { /* skip */ }
+    }
+    return results
+  }
+
+  const diskFiles = scanFiles(filesRoot, '')
+  const details: Array<{ path: string; reason: string; size: number; driveDeleted: boolean }> = []
+  let totalFreedBytes = 0
+  let driveDeleted = 0
+  let driveErrors = 0
+
+  const deleteFromDrive = async (filePath: string): Promise<boolean> => {
+    const entry = manifestByPath.get(filePath)
+    const fileId = entry?.driveFileId
+    if (!fileId) return false
+    try {
+      await drive.files.delete({ fileId })
+      return true
+    } catch (err) {
+      if (isDriveNotFoundError(err)) return true
+      log.warn(`[cleanup] Error al eliminar de Drive ${filePath}:`, err)
+      return false
+    }
+  }
+
+  for (const file of diskFiles) {
+    const dbPath = `files/${file.rel.replace(/\\/g, '/')}`
+    const records = recordsByPath.get(dbPath)
+
+    if (!records) {
+      // Orphan: en disco pero sin registro en DB
+      log.warn(`[cleanup] ELIMINANDO huérfano: ${dbPath} (${file.size} bytes)`)
+      const driveOk = await deleteFromDrive(dbPath)
+      if (driveOk) driveDeleted++
+      else driveErrors++
+      try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+      details.push({ path: dbPath, reason: 'orphan', size: file.size, driveDeleted: driveOk })
+      totalFreedBytes += file.size
+    } else {
+      const allDeleted = records.every(r => r.deletedAt !== null)
+      if (allDeleted) {
+        log.warn(`[cleanup] ELIMINANDO stale (todos soft-deleted): ${dbPath} (${file.size} bytes, ${records.length} registros)`)
+        const driveOk = await deleteFromDrive(dbPath)
+        if (driveOk) driveDeleted++
+        else driveErrors++
+        try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+        details.push({ path: dbPath, reason: 'deleted-record', size: file.size, driveDeleted: driveOk })
+        totalFreedBytes += file.size
+      }
+    }
+  }
+
+  // 3. Thumbnails huérfanos
+  const thumbDir = path.join(userMediaBase, 'thumbnails')
+  if (fs.existsSync(thumbDir)) {
+    const scanThumbs = (dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> => {
+      const results: Array<{ rel: string; abs: string; size: number }> = []
+      let entries: string[]
+      try { entries = fs.readdirSync(dir) } catch { return results }
+      for (const entry of entries) {
+        const absPath = path.join(dir, entry)
+        const relPath = prefix ? `${prefix}/${entry}` : entry
+        try {
+          const stat = fs.statSync(absPath)
+          if (stat.isDirectory()) results.push(...scanThumbs(absPath, relPath))
+          else results.push({ rel: relPath, abs: absPath, size: stat.size })
+        } catch { /* skip */ }
+      }
+      return results
+    }
+    const thumbFiles = scanThumbs(thumbDir, '')
+    for (const file of thumbFiles) {
+      const dbPath = `thumbnails/${file.rel.replace(/\\/g, '/')}`
+      const isReferenced = allMedia.some(
+        m => m.thumbnail === dbPath || m.fallback === dbPath
+      )
+      if (isReferenced) {
+        continue
+      }
+      log.warn(`[cleanup] ELIMINANDO thumbnail huérfano: ${dbPath} (${file.size} bytes)`)
+      const driveOk = await deleteFromDrive(dbPath)
+      if (driveOk) driveDeleted++
+      else driveErrors++
+      try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+      details.push({ path: dbPath, reason: 'orphan-thumbnail', size: file.size, driveDeleted: driveOk })
+      totalFreedBytes += file.size
+    }
+  }
+
+  // 4. Actualizar manifiesto local (quitando las rutas limpiadas)
+  const cleanedPaths = new Set(details.map(d => d.path))
+  const updatedEntries = localManifest.entries.filter(e => !cleanedPaths.has(e.path))
+  if (updatedEntries.length !== localManifest.entries.length) {
+    const nowIso = new Date().toISOString()
+    const updatedManifest = {
+      ...localManifest,
+      updatedAt: nowIso,
+      entries: updatedEntries
+    }
+    await writeJson(getLocalMediaManifestPath(), updatedManifest)
+
+    // 5. Actualizar manifiesto remoto
+    try {
+      const remoteManifest = await readRemoteMediaManifest(drive, config.workspaceId)
+      if (remoteManifest) {
+        const remoteEntries = remoteManifest.entries.filter(e => !cleanedPaths.has(e.path))
+        await writeRemoteMediaManifest(drive, config.workspaceId, {
+          ...remoteManifest,
+          updatedAt: nowIso,
+          entries: remoteEntries
+        })
+      }
+    } catch (err) {
+      log.warn('[cleanup] Error actualizando manifest remoto:', err)
+    }
+  }
+
+  const deletedOrphans = details.filter(d => d.reason === 'orphan' || d.reason === 'orphan-thumbnail').length
+  const deletedStale = details.filter(d => d.reason === 'deleted-record').length
+
+  return { deletedOrphans, deletedStale, totalFreedBytes, driveDeleted, driveErrors, details }
+}
+
 export function initializeGoogleDriveSyncManager() {
   lastSchedulerHeartbeat = Date.now()
   updateLocalSyncState({
@@ -3330,6 +3520,15 @@ export function initializeGoogleDriveSyncManager() {
     notifySyncState(true, 10)
     try {
       return await healSyncIssues(diagnostic)
+    } finally {
+      notifySyncState(false)
+    }
+  })
+
+  ipcMain.handle('sync:google-drive:cleanup-media', async () => {
+    notifySyncState(true, 10)
+    try {
+      return await cleanupOrphanMediaFromDiskAndDrive()
     } finally {
       notifySyncState(false)
     }

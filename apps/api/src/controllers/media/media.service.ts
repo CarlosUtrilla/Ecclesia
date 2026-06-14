@@ -1,6 +1,7 @@
 import { getPrisma } from '../../prisma'
 import { CreateMediaDto, UpdateMediaDto, MediaDto, MediaListDto, MediaFilterDto } from './media.dto'
 import fs from 'fs'
+import path from 'path'
 import {
   cleanupTempPath,
   copyMediaSource,
@@ -14,7 +15,7 @@ import {
   normalizeMediaPath,
   resolveNormalizedPath
 } from './media.storage'
-import { resolveFilesRoot, resolveMediaRoot } from '../../config'
+import { resolveFilesRoot, resolveMediaRoot, resolveThumbnailsRoot } from '../../config'
 
 
 export class MediaService {
@@ -179,5 +180,126 @@ export class MediaService {
 
   async cleanupTempPath(targetPath: string) {
     return cleanupTempPath(targetPath)
+  }
+
+  async cleanupOrphans(): Promise<{
+    deletedOrphans: number
+    deletedStale: number
+    totalFreedBytes: number
+    details: Array<{ path: string; reason: string; size: number }>
+  }> {
+    const prisma = getPrisma()
+    const filesRoot = resolveFilesRoot()
+
+    // 1. Leer todos los registros de media (incluyendo soft-delete)
+    //    Construir mapa filePath → lista de registros para detectar paths compartidos
+    const allMedia = await prisma.media.findMany({
+      select: { filePath: true, deletedAt: true, thumbnail: true, fallback: true }
+    })
+
+    const recordsByPath = new Map<string, Array<{ deletedAt: Date | null }>>()
+    for (const m of allMedia) {
+      if (!m.filePath) continue
+      const list = recordsByPath.get(m.filePath) || []
+      list.push({ deletedAt: m.deletedAt })
+      recordsByPath.set(m.filePath, list)
+    }
+
+    // 2. Escanear recursivamente media/files/
+    const scanFiles = (dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> => {
+      const results: Array<{ rel: string; abs: string; size: number }> = []
+      let entries: string[]
+      try {
+        entries = fs.readdirSync(dir)
+      } catch {
+        return results
+      }
+      for (const entry of entries) {
+        const absPath = path.join(dir, entry)
+        const relPath = prefix ? `${prefix}/${entry}` : entry
+        try {
+          const stat = fs.statSync(absPath)
+          if (stat.isDirectory()) {
+            results.push(...scanFiles(absPath, relPath))
+          } else {
+            results.push({ rel: relPath, abs: absPath, size: stat.size })
+          }
+        } catch {
+          // skip inaccessible files
+        }
+      }
+      return results
+    }
+
+    const diskFiles = scanFiles(filesRoot, '')
+    const details: Array<{ path: string; reason: string; size: number }> = []
+    let totalFreedBytes = 0
+
+    for (const file of diskFiles) {
+      const dbPath = `files/${file.rel.replace(/\\/g, '/')}`
+      const records = recordsByPath.get(dbPath)
+
+      if (!records) {
+        // Orphan: file on disk but not in DB at all
+        details.push({ path: dbPath, reason: 'orphan', size: file.size })
+        totalFreedBytes += file.size
+        try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+      } else {
+        // Verificar si TODOS los registros que usan este path están eliminados
+        const allDeleted = records.every(r => r.deletedAt !== null)
+        if (allDeleted) {
+          // Todos los registros que referencian este archivo están soft-deleteados
+          details.push({ path: dbPath, reason: 'deleted-record', size: file.size })
+          totalFreedBytes += file.size
+          try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+        }
+        // Si algún registro activo usa este path, no se toca
+      }
+    }
+
+    // 3. Tambien limpiar thumbnails huerfanos
+    const scanThumbs = (dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> => {
+      const results: Array<{ rel: string; abs: string; size: number }> = []
+      let entries: string[]
+      try {
+        entries = fs.readdirSync(dir)
+      } catch {
+        return results
+      }
+      for (const entry of entries) {
+        const absPath = path.join(dir, entry)
+        const relPath = prefix ? `${prefix}/${entry}` : entry
+        try {
+          const stat = fs.statSync(absPath)
+          if (stat.isDirectory()) {
+            results.push(...scanThumbs(absPath, relPath))
+          } else {
+            results.push({ rel: relPath, abs: absPath, size: stat.size })
+          }
+        } catch {
+          // skip
+        }
+      }
+      return results
+    }
+
+    const thumbDir = resolveThumbnailsRoot()
+    if (fs.existsSync(thumbDir)) {
+      const thumbFiles = scanThumbs(thumbDir, '')
+      for (const file of thumbFiles) {
+        const dbPath = `thumbnails/${file.rel.replace(/\\/g, '/')}`
+        const isReferenced = allMedia.some(m => m.thumbnail === dbPath || m.fallback === dbPath)
+        if (!isReferenced) {
+          details.push({ path: dbPath, reason: 'orphan-thumbnail', size: file.size })
+          totalFreedBytes += file.size
+          try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+        }
+      }
+    }
+
+    const deletedOrphans = details.filter(d => d.reason === 'orphan' || d.reason === 'orphan-thumbnail').length
+    const deletedStale = details.filter(d => d.reason === 'deleted-record').length
+
+    return { deletedOrphans, deletedStale, totalFreedBytes, details }
   }
 }

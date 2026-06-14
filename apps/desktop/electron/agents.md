@@ -164,6 +164,20 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 - **Manifest siempre se escribe**: Como el ciclo ya no lanza en errores individuales, `writeJson` del manifest local se ejecuta siempre al final, registrando todas las descargas exitosas del ciclo.
 - **Errores del scheduler visibles en UI**: `notifySyncState` ahora acepta un tercer parámetro `error?: string`. Los callbacks de interval, retry y startup pasan el mensaje de error. El renderer recibe `{ syncing, progress, error, lastRunStatus, lastRunError }` en el evento `sync-state`.
 
+#### Limpieza de archivos huérfanos (local + Drive)
+
+- **`cleanupOrphanMediaFromDiskAndDrive()`**: Función que escanea `media/files/` y `media/thumbnails/`, compara contra todos los registros de la DB (incluyendo soft-delete), y:
+  - Identifica archivos **huérfanos** (en disco pero sin registro en DB) y **obsoletos** (todos los registros DB que usan ese path tienen `deletedAt != null`).
+  - **Seguridad de paths compartidos**: Si un archivo en disco es usado por al menos un registro activo (`deletedAt = null`), no se elimina aunque otro registro lo tenga como eliminado.
+  - Por cada archivo a limpiar:
+    1. Busca `driveFileId` en el manifest local
+    2. Si existe, elimina el blob de Google Drive (`drive.files.delete()`)
+    3. Elimina el archivo del disco local
+  - También limpia thumbnails/fallbacks huérfanos.
+  - Actualiza ambos manifests (local y remoto) eliminando las entradas limpiadas.
+- Canal IPC: `sync:google-drive:cleanup-media` (invoke, sin args)
+- Expuesto en preload como `window.googleDriveSyncAPI.cleanupMediaOrphans()`
+
 #### Diagnóstico y reparación (sync)
 
 - **`diagnoseSyncIssues()`**: Función read-only que lee el manifest remoto de Drive, el manifest local, lista los blobs remotos, y compara cada archivo para clasificarlo como: `ok`, `missing-locally` (en Drive pero no en disco), `missing-in-drive` (en disco pero no en Drive), `orphan-local` (en manifest local pero sin archivo en disco ni en Drive), `tombstoned`. Retorna un `SyncDiagnostic` con resumen y detalle.

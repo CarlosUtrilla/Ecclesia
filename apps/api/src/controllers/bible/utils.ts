@@ -34,6 +34,12 @@ export async function openBible(version: string, absolutePath = false) {
   const biblePath = absolutePath ? version + '.ebbl' : path.join(biblesFolder, `${version}.ebbl`)
   LOG(`openBible: trying ${biblePath}`)
   console.info('biblia folder', biblePath)
+  try {
+    const fs = require('fs')
+    LOG(`openBible: file exists=${fs.existsSync(biblePath)}, isFile=${fs.statSync(biblePath).isFile()}, size=${fs.statSync(biblePath).size}`)
+  } catch (e: any) {
+    LOG(`openBible: file check failed: ${e?.message || e}`)
+  }
   const db = getDatabase()(biblePath, { readonly: true })
   LOG(`openBible: opened OK`)
   return db

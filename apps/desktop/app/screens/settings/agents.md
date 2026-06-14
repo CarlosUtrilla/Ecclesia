@@ -45,6 +45,10 @@ app/screens/settings/
 - El estado visible incluye: cuenta conectada, nombre del dispositivo, última sincronización, errores del último run y cambios pendientes de subir.
 - La UI escucha el evento `sync-state` del main process para mostrar en tiempo real errores del scheduler automático (intervalo, retry, startup) sin necesidad de refrescar la página.
 - Los errores de descarga individual de archivos (media, biblias) ya no interrumpen el ciclo pull: se loguean y se salta el archivo, el resto del lote continúa y el manifest local se actualiza con las descargas exitosas.
+- **Pestaña Dev**: contiene utilidades de desarrollo y diagnóstico. Actualmente incluye:
+  - Botones Diagnosticar/Reparar de sincronización Google Drive (movidos desde Sincronización).
+  - Botón "Limpiar archivos no vinculados": llama `window.googleDriveSyncAPI.cleanupMediaOrphans()` que ejecuta `cleanupOrphanMediaFromDiskAndDrive()` en el main process. Pide confirmación antes de eliminar. Muestra resultado con detalle colapsable incluyendo conteo de eliminaciones de Drive.
+- Visible en producción por ahora.
 
 ### Control remoto LAN (`remoteControl.tsx`)
 
