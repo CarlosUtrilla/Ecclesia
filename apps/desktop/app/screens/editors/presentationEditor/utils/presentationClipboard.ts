@@ -8,7 +8,7 @@ import {
 
 export type PastedImagePayload = {
   file: File
-  bytes: number[]
+  bytes: Uint8Array
   mimeType: string
 }
 
@@ -37,7 +37,7 @@ export async function getPastedImagePayload(
   if (!mimeType.startsWith('image/')) return null
 
   const arrayBuffer = await imageFile.arrayBuffer()
-  const bytes = Array.from(new Uint8Array(arrayBuffer))
+  const bytes = new Uint8Array(arrayBuffer)
 
   return {
     file: imageFile,

@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 
 interface FileData {
   fileName: string
-  bytes: number[]
+  bytes: Uint8Array
   fileSize: number
 }
 
@@ -95,7 +95,7 @@ export function useDragAndDrop({ onFilesDropped }: UseDragAndDropProps) {
       const fileData = await Promise.all(
         validFiles.map(async (file) => ({
           fileName: file.name,
-          bytes: Array.from(new Uint8Array(await file.arrayBuffer())),
+          bytes: new Uint8Array(await file.arrayBuffer()),
           fileSize: file.size
         }))
       )

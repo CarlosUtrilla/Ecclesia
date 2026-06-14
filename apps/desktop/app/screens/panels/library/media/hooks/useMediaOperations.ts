@@ -29,11 +29,11 @@ const normalizeFolder = (folder: string | null | undefined): string | null => fo
 
 export function useMediaOperations(currentFolder: string | null) {
   const importMutation = useMutation({
-    mutationFn: async (files: { fileName: string; bytes: number[]; fileSize: number }[]) => {
+    mutationFn: async (files: { fileName: string; bytes: Uint8Array; fileSize: number }[]) => {
       const results: MediaDto[] = []
       for (const file of files) {
         const formData = new FormData()
-        const blob = new Blob([new Uint8Array(file.bytes)])
+        const blob = new Blob([file.bytes])
         formData.append('file', blob, file.fileName)
         if (currentFolder) {
           formData.append('folder', currentFolder)

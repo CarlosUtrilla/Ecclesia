@@ -46,7 +46,7 @@ describe('presentationClipboard', () => {
 
     expect(payload).not.toBeNull()
     expect(payload?.mimeType).toBe('image/png')
-    expect(payload?.bytes).toEqual([1, 2, 3])
+    expect(Array.from(payload!.bytes)).toEqual([1, 2, 3])
   })
 
   it('clona un item copiado con nuevo id, nueva capa y offset', () => {

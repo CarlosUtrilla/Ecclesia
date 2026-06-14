@@ -300,11 +300,9 @@ export function MediaPicker({
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {filterType === 'VIDEO' && (
-              <Button size="sm" variant="secondary" onClick={handleImport} className="h-8">
-                Importar video
-              </Button>
-            )}
+            <Button size="sm" variant="secondary" onClick={handleImport} className="h-8">
+              {filterType === 'VIDEO' ? 'Importar video' : 'Importar imagen'}
+            </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>

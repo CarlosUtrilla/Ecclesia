@@ -17,7 +17,7 @@ export function initializeFontManager() {
       const filePath = path.join(FONTS_DIR, fileName)
       fs.writeFileSync(filePath, Buffer.from(fileBuffer))
       const controller = new FontsController()
-      await controller.addFont({ name, fileName, filePath: 'fonts/' + fileName })
+      await controller.addFont({ body: { name, fileName, filePath: 'fonts/' + fileName } })
 
       BrowserWindow.getAllWindows().forEach((win) => {
         win.webContents.send('invalidate-queries', [['fonts']])

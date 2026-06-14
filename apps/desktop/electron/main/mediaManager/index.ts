@@ -9,13 +9,13 @@ export function initializeMediaManager() {
 export const mediaAPI = {
   selectFiles: (
     type: MediaType | 'all'
-  ): Promise<{ fileName: string; bytes: number[]; fileSize: number }[]> =>
+  ): Promise<{ fileName: string; bytes: Uint8Array; fileSize: number }[]> =>
     ipcRenderer.invoke('media:select-files', type),
   getServerPort: (): Promise<number> => ipcRenderer.invoke('get-media-server-port'),
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   extractZipMp4: (
-    zipBytes: number[]
-  ): Promise<{ fileName: string; bytes: number[]; fileSize: number }[]> =>
+    zipBytes: Uint8Array
+  ): Promise<{ fileName: string; bytes: Uint8Array; fileSize: number }[]> =>
     ipcRenderer.invoke('media:extract-zip-mp4', zipBytes),
   selectBibleFiles: (): Promise<{ fileName: string; bytes: number[]; fileSize: number }[]> =>
     ipcRenderer.invoke('bible:select-bible-file')

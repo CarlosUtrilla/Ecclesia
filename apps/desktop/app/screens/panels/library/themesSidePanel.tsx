@@ -58,7 +58,7 @@ export function ThemesSidePanel() {
       const results = await Promise.allSettled(
         zipFiles.map(async (zf) => {
           const formData = new FormData()
-          const blob = new Blob([new Uint8Array(zf.bytes)])
+          const blob = new Blob([zf.bytes])
           formData.append('file', blob, zf.fileName)
           const res = await fetch('http://localhost:7777/api/themes/importThemeZip', {
             method: 'POST',

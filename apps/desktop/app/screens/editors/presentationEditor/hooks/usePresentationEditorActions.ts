@@ -852,7 +852,7 @@ export default function usePresentationEditorActions({
     for (const entry of sortedAssets) {
       try {
         const fd = new FormData()
-        const blob = new Blob([new Uint8Array(entry.bytes)])
+        const blob = new Blob([entry.bytes])
         fd.append('file', blob, entry.fileName)
         if (entry.folder) fd.append('folder', entry.folder)
         const result = await Api.fetch.media.importFile(fd)

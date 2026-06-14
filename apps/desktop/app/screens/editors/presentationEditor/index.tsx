@@ -390,7 +390,7 @@ export default function PresentationEditor() {
 
       try {
         const formData = new FormData()
-        const blob = new Blob([new Uint8Array(imagePayload.bytes)], { type: imagePayload.mimeType })
+        const blob = new Blob([imagePayload.bytes], { type: imagePayload.mimeType })
         const ext = imagePayload.mimeType.split('/')[1] || 'png'
         formData.append('file', blob, `clipboard-${Date.now()}.${ext}`)
         const result = await Api.fetch.media.importFile(formData)

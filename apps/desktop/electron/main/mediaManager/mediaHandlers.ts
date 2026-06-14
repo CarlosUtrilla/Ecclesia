@@ -1,4 +1,4 @@
-import { ipcMain, dialog } from 'electron'
+import { ipcMain, dialog, app } from 'electron'
 import path from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
@@ -30,6 +30,7 @@ export function registerMediaHandlers() {
     }
 
     const result = await dialog.showOpenDialog({
+      defaultPath: app.getPath('pictures'),
       properties: ['openFile', 'multiSelections'],
       filters
     })
@@ -43,7 +44,7 @@ export function registerMediaHandlers() {
         const buffer = await fs.promises.readFile(filePath)
         return {
           fileName: path.basename(filePath),
-          bytes: [...buffer],
+          bytes: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
           fileSize: buffer.length
         }
       })
@@ -57,20 +58,20 @@ export function registerMediaHandlers() {
   })
 
   // Extraer MP4s de un ZIP (flujo Canva)
-  ipcMain.handle('media:extract-zip-mp4', async (_event, zipBytes: number[]) => {
+  ipcMain.handle('media:extract-zip-mp4', async (_event, zipBytes: Uint8Array) => {
     let tempZipPath: string | undefined
     let extractionTempDir: string | undefined
     try {
       const tempRoot = path.join(os.tmpdir(), 'ecclesia-canva-imports')
       if (!fs.existsSync(tempRoot)) fs.mkdirSync(tempRoot, { recursive: true })
       tempZipPath = path.join(tempRoot, `upload-${Date.now()}.zip`)
-      fs.writeFileSync(tempZipPath, Buffer.from(zipBytes))
+      fs.writeFileSync(tempZipPath, Buffer.from(zipBytes.buffer, zipBytes.byteOffset, zipBytes.byteLength))
       const result = extractZipMp4(tempZipPath)
       extractionTempDir = result.tempDir
       const mp4Data = await Promise.all(
         result.mp4Paths.map(async (mp4Path) => {
           const buffer = await fs.promises.readFile(mp4Path)
-          return { fileName: path.basename(mp4Path), bytes: [...buffer], fileSize: buffer.length }
+          return { fileName: path.basename(mp4Path), bytes: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength), fileSize: buffer.length }
         })
       )
       return mp4Data
@@ -108,7 +109,7 @@ export function registerMediaHandlers() {
         const buffer = await fs.promises.readFile(filePath)
         return {
           fileName: path.basename(filePath),
-          bytes: [...buffer],
+          bytes: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
           fileSize: buffer.length
         }
       })
