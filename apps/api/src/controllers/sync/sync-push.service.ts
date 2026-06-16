@@ -159,9 +159,6 @@ export class SyncPushService {
 
         syncProgressService.update(25, 'Subiendo snapshot a Google Drive...')
         await syncSnapshotService.uploadSnapshot(drive, config, snapshot, folderId)
-        if (latestPendingOutboxId !== null) {
-          await this.acknowledgeOutboxUpToId(config.workspaceId, config.deviceName, latestPendingOutboxId)
-        }
         snapshotUploaded = true
         syncProgressService.setMessage('Snapshot subido, sincronizando archivos...')
       }
@@ -181,10 +178,24 @@ export class SyncPushService {
         return res
       })
 
-      const [mediaRes, bibleRes] = await Promise.all([mediaPromise, biblePromise])
-      mediaUploaded = mediaRes.uploaded
-      bibleUploaded = bibleRes.uploaded
-      missingRemoteBlobs = mediaRes.missingRemoteBlobs
+      const settled = await Promise.allSettled([mediaPromise, biblePromise])
+
+      if (settled[0].status === 'fulfilled') {
+        mediaUploaded = settled[0].value.uploaded
+        missingRemoteBlobs = settled[0].value.missingRemoteBlobs
+      } else {
+        log.error('[sync] Media sync falló:', settled[0].reason)
+      }
+
+      if (settled[1].status === 'fulfilled') {
+        bibleUploaded = settled[1].value.uploaded
+      } else {
+        log.error('[sync] Bible sync falló:', settled[1].reason)
+      }
+
+      if (latestPendingOutboxId !== null && snapshotUploaded) {
+        await this.acknowledgeOutboxUpToId(config.workspaceId, config.deviceName, latestPendingOutboxId)
+      }
 
       syncProgressService.update(80, 'Actualizando manifiesto remoto...')
       const manifestFileName = getManifestFileName(config.workspaceId)

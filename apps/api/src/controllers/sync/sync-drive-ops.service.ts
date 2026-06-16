@@ -91,7 +91,8 @@ export class SyncDriveOpsService {
     try {
       const raw = await this.downloadFileContent(drive, fileId)
       return JSON.parse(raw) as T
-    } catch {
+    } catch (err) {
+      if (this.isDriveProcessingError(err)) throw err
       return null
     }
   }
@@ -181,7 +182,8 @@ export class SyncDriveOpsService {
     try {
       await drive.files.get({ fileId, fields: 'id' })
       return true
-    } catch {
+    } catch (err) {
+      if (this.isDriveProcessingError(err)) return true
       return false
     }
   }
@@ -191,6 +193,13 @@ export class SyncDriveOpsService {
     if (err.code === 404 || (err as any)?.status === 404) return true
     const msg = error instanceof Error ? error.message.toLowerCase() : ''
     return msg.includes('not found') || msg.includes('file not found')
+  }
+
+  isDriveProcessingError(error: unknown): boolean {
+    const err = (error || {}) as Record<string, unknown>
+    if (err.code === 403 || err.code === 429) return true
+    if ((err as any)?.response?.status === 403 || (err as any)?.response?.status === 429) return true
+    return false
   }
 }
 

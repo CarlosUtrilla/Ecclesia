@@ -40,7 +40,24 @@ export class SyncPullService {
       return res
     })
 
-    const [pullMediaResult, pullBibleResult] = await Promise.all([mediaPromise, biblePromise])
+    const settled = await Promise.allSettled([mediaPromise, biblePromise])
+
+    let mediaDownloaded = 0
+    let mediaMissingBlobs = 0
+    let bibleDownloaded = 0
+
+    if (settled[0].status === 'fulfilled') {
+      mediaDownloaded = settled[0].value.downloaded
+      mediaMissingBlobs = settled[0].value.missingRemoteBlobs
+    } else {
+      log.error('[sync] Media pull falló:', settled[0].reason)
+    }
+
+    if (settled[1].status === 'fulfilled') {
+      bibleDownloaded = settled[1].value.downloaded
+    } else {
+      log.error('[sync] Bible pull falló:', settled[1].reason)
+    }
 
     syncProgressService.update(100, 'Pull completado')
 
@@ -50,9 +67,9 @@ export class SyncPullService {
       stale: pullResult.stale,
       skipped: pullResult.skipped,
       failed: pullResult.failed,
-      mediaDownloaded: pullMediaResult.downloaded,
-      mediaMissingBlobs: pullMediaResult.missingRemoteBlobs,
-      bibleDownloaded: pullBibleResult.downloaded
+      mediaDownloaded,
+      mediaMissingBlobs,
+      bibleDownloaded
     }
   }
 }

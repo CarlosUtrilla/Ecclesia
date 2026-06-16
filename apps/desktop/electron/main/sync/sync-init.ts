@@ -9,6 +9,8 @@ let autoSyncInterval: ReturnType<typeof setInterval> | null = null
 let schedulerHealthInterval: ReturnType<typeof setInterval> | null = null
 let lastSchedulerHeartbeat = Date.now()
 let isSyncing = false
+let syncInProgressPromise: Promise<void> | null = null
+let isQuitting = false
 let microPushTimer: ReturnType<typeof setTimeout> | null = null
 let mediaMicroPushTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -29,49 +31,59 @@ export function getIsSyncing(): boolean {
 }
 
 export async function executeSyncCycle(reason: string): Promise<void> {
-  if (isSyncing) return
+  if (isSyncing) {
+    if (reason !== 'close') return
+    await syncInProgressPromise
+  }
+
   isSyncing = true
+  syncInProgressPromise = null
   lastSchedulerHeartbeat = Date.now()
   notifySyncState(true, 5)
 
-  try {
-    const apiOk = await checkApiHealth()
-    if (!apiOk) {
-      log.warn('[sync] API no disponible, saltando ciclo')
-      notifySyncState(false, 0, 'API no disponible')
-      return
-    }
+  const cyclePromise = (async () => {
+    try {
+      const apiOk = await checkApiHealth()
+      if (!apiOk) {
+        log.warn('[sync] API no disponible, saltando ciclo')
+        notifySyncState(false, 0, 'API no disponible')
+        return
+      }
 
-    const status = (await syncStatus()) as any
-    const config = status?.response ?? status
-    const isEnabled = config?.enabled ?? config?.connected ?? false
-    if (!isEnabled) {
-      notifySyncState(false)
-      return
-    }
+      const status = (await syncStatus()) as any
+      const config = status?.response ?? status
+      const isEnabled = config?.enabled ?? config?.connected ?? false
+      if (!isEnabled) {
+        notifySyncState(false)
+        return
+      }
 
-    if (reason === 'manual-pull' || reason === 'interval' || reason === 'startup' || reason === 'close') {
-      notifySyncState(true, 10)
-      const pullResult = await syncPull()
-      notifySyncState(true, 50)
-      log.warn(`[sync] Pull completado: ${JSON.stringify(pullResult)}`)
-      const pushResult = await syncPush()
-      log.warn(`[sync] Push completado: ${JSON.stringify(pushResult)}`)
-    } else {
-      notifySyncState(true, 10)
-      const pushResult = await syncPush()
-      log.warn(`[sync] Push completado: ${JSON.stringify(pushResult)}`)
-    }
+      if (reason === 'manual-pull' || reason === 'interval' || reason === 'startup' || reason === 'close') {
+        notifySyncState(true, 10)
+        const pullResult = await syncPull()
+        notifySyncState(true, 50)
+        log.warn(`[sync] Pull completado: ${JSON.stringify(pullResult)}`)
+        const pushResult = await syncPush()
+        log.warn(`[sync] Push completado: ${JSON.stringify(pushResult)}`)
+      } else {
+        notifySyncState(true, 10)
+        const pushResult = await syncPush()
+        log.warn(`[sync] Push completado: ${JSON.stringify(pushResult)}`)
+      }
 
-    notifySyncState(true, 100)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error en ciclo de sync'
-    log.error(`[sync] Error en ciclo ${reason}:`, msg)
-    notifySyncState(false, 0, msg)
-  } finally {
-    isSyncing = false
-    setTimeout(() => notifySyncState(false), 500)
-  }
+      notifySyncState(true, 100)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error en ciclo de sync'
+      log.error(`[sync] Error en ciclo ${reason}:`, msg)
+      notifySyncState(false, 0, msg)
+    } finally {
+      isSyncing = false
+      setTimeout(() => notifySyncState(false), 500)
+    }
+  })()
+
+  syncInProgressPromise = cyclePromise
+  await cyclePromise
 }
 
 function scheduleMicroPush(): void {
@@ -199,10 +211,18 @@ export function initializeSyncManager(): void {
   })
 
   // Before-quit hook
-  app.on('before-quit', () => {
-    executeSyncCycle('close').catch(() => {
+  app.on('before-quit', async (event) => {
+    if (isQuitting) return
+    event.preventDefault()
+    isQuitting = true
+
+    try {
+      await executeSyncCycle('close')
+    } catch {
       notifySyncState(false)
-    })
+    }
+
+    app.quit()
   })
 }
 

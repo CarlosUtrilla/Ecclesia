@@ -94,9 +94,9 @@ export class SyncBibleService {
     return syncDriveOpsService.uploadBlob(drive, folderId, fileName, fullPath)
   }
 
-  private async downloadBibleBlobToLocal(drive: drive_v3.Drive, fileId: string, fileName: string) {
+  private async downloadBibleBlobToLocal(drive: drive_v3.Drive, fileId: string, fileName: string, expectedChecksum?: string) {
     const destination = path.join(getBiblesDir(), fileName)
-    await syncDriveOpsService.downloadFileToDisk(drive, fileId, destination)
+    await syncDriveOpsService.downloadFileToDisk(drive, fileId, destination, { expectedChecksum })
   }
 
   async syncBibleFiles(
@@ -245,7 +245,7 @@ export class SyncBibleService {
         if (!remoteFileId) continue
 
         try {
-          await this.downloadBibleBlobToLocal(drive, remoteFileId, remoteEntry.fileName)
+          await this.downloadBibleBlobToLocal(drive, remoteFileId, remoteEntry.fileName, remoteEntry.checksum)
         } catch (err) {
           log.warn(`[sync] Error descargando biblia ${remoteEntry.fileName}:`, err instanceof Error ? err.message : err)
           continue
