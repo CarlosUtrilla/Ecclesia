@@ -100,6 +100,7 @@ Manager modular de sincronización **snapshot-based** con Google Drive. Arquitec
 
 - **API (`apps/api/src/controllers/sync/`)** — toda la lógica real vive aquí:
   - `sync.controller.ts`: Expone los métodos como endpoints Express (`/api/sync/*`).
+  - `sync-drive-ops.service.ts`: Operaciones Drive compartidas (find/upsert file, list by prefix, download blob, verify fileId).
   - `sync-drive-client.service.ts`: OAuth client, Drive API client, carpeta Ecclesia, appInstanceId.
   - `sync-state.service.ts`: Persistencia de estado (state file), retry backoff.
   - `sync-snapshot.service.ts`: Build/upload/download/aplicar snapshots de BD.

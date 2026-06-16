@@ -1,7 +1,7 @@
+import log from 'electron-log'
 import { drive_v3 } from 'googleapis'
 import path from 'path'
 import fs from 'fs-extra'
-import { randomUUID } from 'crypto'
 import { getPrisma } from '../../prisma'
 import { getMediaDir, getLocalMediaManifestPath } from './sync.config'
 import {
@@ -14,7 +14,9 @@ import {
   BLOB_REUPLOAD_GRACE_MS,
   MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE
 } from './sync.config'
-import { readJsonSafe, writeJson, computeFileChecksum, streamToString } from './sync.utils'
+import { readJsonSafe, writeJson, computeFileChecksum } from './sync.utils'
+import { syncDriveOpsService } from './sync-drive-ops.service'
+import { syncProgressService } from './sync-progress.service'
 
 export class SyncMediaService {
   async buildLocalMediaManifest(
@@ -117,34 +119,12 @@ export class SyncMediaService {
     folderId: string
   ): Promise<MediaManifestFile | null> {
     const fileName = getRemoteMediaManifestFileName(workspaceId)
-    const result = await drive.files.list({
-      q: `name='${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-      spaces: 'drive',
-      fields: 'files(id, name, modifiedTime)',
-      pageSize: 1,
-      orderBy: 'modifiedTime desc'
-    })
-    const metadata = result.data.files?.[0]
+    const metadata = await syncDriveOpsService.findFileByName(drive, folderId, fileName)
     if (!metadata?.id) return null
 
-    const response = await drive.files.get(
-      { fileId: metadata.id, alt: 'media' },
-      { responseType: 'stream' }
-    )
-    const raw = await streamToString(response.data as NodeJS.ReadableStream)
-    try {
-      const parsed = JSON.parse(raw)
-      if (
-        !parsed ||
-        parsed.schemaVersion !== MEDIA_MANIFEST_SCHEMA_VERSION ||
-        parsed.workspaceId !== workspaceId
-      ) {
-        return null
-      }
-      return parsed as MediaManifestFile
-    } catch {
-      return null
-    }
+    const parsed = await syncDriveOpsService.downloadJsonFile<MediaManifestFile>(drive, metadata.id)
+    if (!parsed || parsed.schemaVersion !== MEDIA_MANIFEST_SCHEMA_VERSION || parsed.workspaceId !== workspaceId) return null
+    return parsed
   }
 
   async writeRemoteMediaManifest(
@@ -154,24 +134,7 @@ export class SyncMediaService {
     folderId: string
   ) {
     const fileName = getRemoteMediaManifestFileName(workspaceId)
-    const result = await drive.files.list({
-      q: `name='${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-      spaces: 'drive',
-      fields: 'files(id)',
-      pageSize: 1
-    })
-    const existing = result.data.files?.[0]
-    const media = { mimeType: 'application/json', body: JSON.stringify(manifest) }
-
-    if (existing?.id) {
-      await drive.files.update({ fileId: existing.id, media, fields: 'id' })
-      return
-    }
-    await drive.files.create({
-      requestBody: { name: fileName, parents: [folderId] },
-      media,
-      fields: 'id'
-    })
+    await syncDriveOpsService.upsertFile(drive, folderId, fileName, manifest)
   }
 
   async listRemoteMediaBlobs(
@@ -180,29 +143,8 @@ export class SyncMediaService {
     folderId: string
   ): Promise<Map<string, string>> {
     const prefix = getRemoteMediaBlobFileName(workspaceId, '')
-    const basePrefix = prefix.slice(0, -64 - '.bin'.length) // Remove checksum + extension
-    const byChecksum = new Map<string, string>()
-    let pageToken: string | undefined
-
-    do {
-      const result = await drive.files.list({
-        q: `name contains '${basePrefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-        spaces: 'drive',
-        fields: 'nextPageToken, files(id, name)',
-        pageSize: 1000,
-        pageToken
-      })
-
-      for (const file of result.data.files || []) {
-        const name = file.name || ''
-        if (!name.startsWith(basePrefix) || !name.endsWith('.bin') || !file.id) continue
-        const checksum = name.slice(basePrefix.length, -'.bin'.length)
-        if (checksum) byChecksum.set(checksum, file.id)
-      }
-      pageToken = result.data.nextPageToken || undefined
-    } while (pageToken)
-
-    return byChecksum
+    const basePrefix = prefix.slice(0, -64 - '.bin'.length)
+    return syncDriveOpsService.listFilesByPrefix(drive, folderId, basePrefix, '.bin')
   }
 
   async uploadMediaBlob(
@@ -212,22 +154,8 @@ export class SyncMediaService {
     folderId: string
   ): Promise<string> {
     const fullPath = path.join(getMediaDir(), entry.path)
-    if (!(await fs.pathExists(fullPath))) {
-      throw new Error(`Archivo local de media no encontrado: ${entry.path}`)
-    }
-
     const fileName = getRemoteMediaBlobFileName(workspaceId, entry.checksum)
-    const created = await drive.files.create({
-      requestBody: { name: fileName, parents: [folderId] },
-      media: { mimeType: 'application/octet-stream', body: fs.createReadStream(fullPath) },
-      fields: 'id'
-    })
-
-    const fileId = created.data.id
-    if (!fileId) {
-      throw new Error(`[sync] Drive no devolvió fileId para blob de media: ${entry.path}`)
-    }
-    return fileId
+    return syncDriveOpsService.uploadBlob(drive, folderId, fileName, fullPath)
   }
 
   async downloadAndVerifyBlobChecksum(
@@ -236,79 +164,8 @@ export class SyncMediaService {
     relativePath: string,
     expectedChecksum: string
   ): Promise<string> {
-    const userMediaBase = getMediaDir()
-    const tempFile = path.join(userMediaBase, `.${randomUUID()}.tmp`)
-    const destination = path.join(userMediaBase, relativePath)
-
-    try {
-      await fs.ensureDir(path.dirname(tempFile))
-      const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' })
-
-      await new Promise<void>((resolve, reject) => {
-        const writer = fs.createWriteStream(tempFile)
-        ;(response.data as NodeJS.ReadableStream).pipe(writer)
-        writer.on('finish', () => resolve())
-        writer.on('error', reject)
-      })
-
-      const actualChecksum = await computeFileChecksum(tempFile)
-      if (actualChecksum !== expectedChecksum) {
-        await fs.remove(tempFile)
-        throw new Error(
-          `Checksum mismatch for blob ${fileId}: expected ${expectedChecksum}, got ${actualChecksum}`
-        )
-      }
-
-      await fs.ensureDir(path.dirname(destination))
-      let moveSuccess = false
-      let lastError: Error | null = null
-
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          await fs.move(tempFile, destination, { overwrite: true })
-          moveSuccess = true
-          break
-        } catch (err) {
-          lastError = err as Error
-          const isLock =
-            err instanceof Error &&
-            (err.message.includes('EBUSY') || err.message.includes('EPERM') || err.message.includes('EACCES'))
-          if (isLock && attempt < 2) {
-            console.warn(`[sync] Archivo bloqueado, reintentando mover ${relativePath} (intento ${attempt + 1}/3)`)
-            await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
-          } else if (!isLock) throw err
-        }
-      }
-
-      if (!moveSuccess) {
-        throw new Error(`No se pudo mover archivo descargado después de 3 intentos: ${lastError?.message || 'unknown error'}`)
-      }
-
-      if (process.platform === 'win32') {
-        try { await fs.chmod(destination, 0o644) } catch { /* ignore */ }
-      }
-
-      return actualChecksum
-    } catch (err) {
-      if (await fs.pathExists(tempFile)) await fs.remove(tempFile).catch(() => undefined)
-      throw err
-    }
-  }
-
-  async remoteFileIdExists(drive: drive_v3.Drive, fileId: string): Promise<boolean> {
-    try {
-      await drive.files.get({ fileId, fields: 'id' })
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  isDriveNotFoundError(error: unknown): boolean {
-    const err = (error || {}) as Record<string, unknown>
-    if (err.code === 404 || (err as any)?.status === 404) return true
-    const msg = error instanceof Error ? error.message.toLowerCase() : ''
-    return msg.includes('not found') || msg.includes('file not found')
+    const destination = path.join(getMediaDir(), relativePath)
+    return syncDriveOpsService.downloadFileToDisk(drive, fileId, destination, { expectedChecksum })
   }
 
   async syncMediaManifest(
@@ -318,7 +175,10 @@ export class SyncMediaService {
     appInstanceId: string,
     folderId: string
   ) {
+    syncProgressService.setMessage(`Construyendo manifiesto local de medios (${mode})...`)
+    log.warn(`[sync] Iniciando sync de medios (${mode})`)
     const localManifest = await this.buildLocalMediaManifest(config, appInstanceId)
+    log.warn(`[sync] Manifiesto local: ${localManifest.entries.length} entradas`)
     const remoteManifest =
       (await this.readRemoteMediaManifest(drive, config.workspaceId, folderId)) || {
         schemaVersion: MEDIA_MANIFEST_SCHEMA_VERSION,
@@ -354,7 +214,11 @@ export class SyncMediaService {
     const nowMs = Date.now()
 
     if (mode === 'push') {
-      for (const localEntry of localManifest.entries) {
+      syncProgressService.setMessage(`Sincronizando ${localManifest.entries.length} archivos de medios (push)...`)
+      for (const [index, localEntry] of localManifest.entries.entries()) {
+        if (index % 20 === 0 && index > 0) {
+          syncProgressService.setMessage(`Procesando medios: ${index}/${localManifest.entries.length}...`)
+        }
         if (localEntry.deletedAt) {
           const remoteEntry = remoteByPath.get(localEntry.path)
           let shouldClear = false
@@ -369,10 +233,10 @@ export class SyncMediaService {
               shouldClear = true
               if (localEntry.checksum) remoteBlobByChecksum.delete(localEntry.checksum)
             } catch (err) {
-              if (this.isDriveNotFoundError(err)) {
+              if (syncDriveOpsService.isDriveNotFoundError(err)) {
                 shouldClear = true
                 if (localEntry.checksum) remoteBlobByChecksum.delete(localEntry.checksum)
-              } else { console.warn(`[sync] No se pudo eliminar blob de Drive para ${localEntry.path}:`, err) }
+              } else { log.warn(`[sync] No se pudo eliminar blob de Drive para ${localEntry.path}:`, err) }
             }
           }
 
@@ -393,7 +257,7 @@ export class SyncMediaService {
 
           if (resolvedFileId && remoteEntry.driveFileId === resolvedFileId && driveFileIdVerifications < MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE) {
             driveFileIdVerifications++
-            const exists = await this.remoteFileIdExists(drive, resolvedFileId)
+            const exists = await syncDriveOpsService.remoteFileIdExists(drive, resolvedFileId)
             if (!exists) {
               hasRemoteBlob = false
               remoteBlobByChecksum.delete(localEntry.checksum)
@@ -417,7 +281,7 @@ export class SyncMediaService {
               hasRemoteBlob = true
               continue
             } catch {
-              if (this.isDriveNotFoundError(remoteEntry.driveFileId)) {
+              if (syncDriveOpsService.isDriveNotFoundError(remoteEntry.driveFileId)) {
                 remoteByPath.set(remoteEntry.path, { ...remoteEntry, driveFileId: null })
                 hasRemoteBlob = false
               }
@@ -436,7 +300,7 @@ export class SyncMediaService {
             remoteBlobByChecksum.set(localEntry.checksum, fileId)
             localEntry.driveFileId = fileId
           } catch (err) {
-            console.error(`[sync] Error subiendo blob para ${localEntry.path}:`, err instanceof Error ? err.message : err)
+            log.error(`[sync] Error subiendo blob para ${localEntry.path}:`, err instanceof Error ? err.message : err)
             continue
           }
         }
@@ -450,7 +314,11 @@ export class SyncMediaService {
     }
 
     if (mode === 'pull') {
-      for (const remoteEntry of remoteManifest.entries) {
+      syncProgressService.setMessage(`Sincronizando ${remoteManifest.entries.length} archivos de medios (pull)...`)
+      for (const [index, remoteEntry] of remoteManifest.entries.entries()) {
+        if (index % 20 === 0 && index > 0) {
+          syncProgressService.setMessage(`Procesando medios remotos: ${index}/${remoteManifest.entries.length}...`)
+        }
         if (remoteEntry.deletedAt) {
           const localFullPath = path.join(getMediaDir(), remoteEntry.path)
           if (await fs.pathExists(localFullPath)) await fs.remove(localFullPath)
@@ -463,7 +331,7 @@ export class SyncMediaService {
 
         if (remoteFileId && remoteEntry.driveFileId === remoteFileId && driveFileIdVerifications < MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE) {
           driveFileIdVerifications++
-          const exists = await this.remoteFileIdExists(drive, remoteFileId)
+          const exists = await syncDriveOpsService.remoteFileIdExists(drive, remoteFileId)
           if (!exists) {
             remoteBlobByChecksum.delete(remoteEntry.checksum)
             remoteFileId = undefined
@@ -486,7 +354,7 @@ export class SyncMediaService {
               remoteFileId = healedFileId
               localByPath.set(remoteEntry.path, { ...(localEntry || remoteEntry), ...remoteEntry, deletedAt: null, lastSyncedAt: nowIso, driveFileId: healedFileId })
             } catch {
-              console.warn(`[sync] No se pudo reparar blob remoto desde copia local para ${remoteEntry.path}`)
+              log.warn(`[sync] No se pudo reparar blob remoto desde copia local para ${remoteEntry.path}`)
             }
           }
 
@@ -501,11 +369,11 @@ export class SyncMediaService {
         try {
           await this.downloadAndVerifyBlobChecksum(drive, remoteFileId, remoteEntry.path, remoteEntry.checksum)
         } catch (err: any) {
-          if (this.isDriveNotFoundError(err)) {
+          if (syncDriveOpsService.isDriveNotFoundError(err)) {
             remoteBlobByChecksum.delete(remoteEntry.checksum)
             missingRemoteBlobs++
           } else {
-            console.warn(`[sync] Error descargando ${remoteEntry.path}:`, err.message || err)
+            log.warn(`[sync] Error descargando ${remoteEntry.path}:`, err.message || err)
           }
           continue
         }

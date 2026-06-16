@@ -27,6 +27,7 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
   - `cleanupMedia` — limpia huérfanos de disco y Drive
 
 ### Servicios modulares
+- `sync-drive-ops.service.ts` — Operaciones Drive compartidas (find/upsert file, list by prefix, download blob, verify fileId) — usado por media, bible, snapshot, push, lazy-fetch
 - `sync-drive-client.service.ts` — OAuth2, Drive v3 client, carpeta Ecclesia, appInstanceId
 - `sync-state.service.ts` — Persistencia de estado en JSON, retry backoff
 - `sync-snapshot.service.ts` — Build/upload/download/aplicar snapshots de modelos de BD

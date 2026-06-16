@@ -8,7 +8,9 @@ import { Badge } from '@/ui/badge'
 import { Label } from '@/ui/label'
 import { Input } from '@/ui/input'
 import { Switch } from '@/ui/switch'
+import { Progress } from '@/ui/progress'
 import { SyncSettingsForm, SyncSettingsSchema } from '../schema'
+import { onSyncProgress } from '@/lib/syncProgressService'
 
 const SYNC_SETTINGS_KEY = 'ecclesia-sync-settings'
 
@@ -56,6 +58,9 @@ export default function SyncSettingsSection() {
   const [status, setStatus] = useState<SyncStatus | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState(0)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState('')
   const storedSettings = useMemo(() => getStoredSyncSettings(), [])
 
   const syncForm = useForm<SyncSettingsForm>({
@@ -187,20 +192,38 @@ export default function SyncSettingsSection() {
       })
   }, [persistSyncSettings, storedSettings]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Escuchar eventos de error del scheduler automático
+  // Escuchar eventos de progreso de sync directo por Socket.IO (host + remoto)
   useEffect(() => {
-    const unsub = window.googleDriveSyncAPI.onSyncStateChange((data: {
+    const unsubProgress = onSyncProgress((data) => {
+      setIsSyncing(data.syncing)
+      setSyncProgress(data.progress)
+      if (data.message) setSyncMessage(data.message)
+      if (data.error) {
+        setStatusMessage(data.error)
+        setSyncProgress(0)
+      }
+      if (!data.syncing && !data.error) {
+        setSyncProgress(0)
+        setSyncMessage('')
+      }
+    })
+
+    const unsubIpc = window.googleDriveSyncAPI.onSyncStateChange((data: {
       syncing: boolean
       progress: number
       error?: string
-      lastRunStatus?: string
-      lastRunError?: string
     }) => {
-      if (!data.syncing && data.error) {
+      setIsSyncing(data.syncing)
+      if (data.error) {
         setStatusMessage(data.error)
+        setSyncProgress(0)
       }
     })
-    return () => unsub()
+
+    return () => {
+      unsubProgress()
+      unsubIpc()
+    }
   }, [])
 
   const watchedValues = syncForm.watch()
@@ -272,6 +295,16 @@ export default function SyncSettingsSection() {
           ) : null}
         </div>
 
+        {isSyncing ? (
+          <div className="space-y-1 rounded-lg border p-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{syncMessage || 'Sincronizando...'}</span>
+              <span className="font-medium">{syncProgress}%</span>
+            </div>
+            <Progress value={syncProgress} className="h-2" />
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
             <Label htmlFor="sync-enabled" className="text-sm font-medium">
@@ -323,27 +356,27 @@ export default function SyncSettingsSection() {
       <CardFooter className="justify-end gap-2 mt-2">
         <Button
           variant="outline"
-          disabled={isProcessing || (!status?.connected && !isSyncEnabled)}
+          disabled={isProcessing || isSyncing || (!status?.connected && !isSyncEnabled)}
           onClick={status?.connected ? handleDisconnect : handleConnectGoogleDrive}
         >
           <Link2 className="size-4" /> {status?.connected ? 'Desconectar' : 'Conectar Google'}
         </Button>
         <Button
           variant="outline"
-          disabled={isProcessing || !status?.connected}
+          disabled={isProcessing || isSyncing || !status?.connected}
           onClick={handlePullBackup}
         >
           <Download className="size-4" /> Descargar
         </Button>
         <Button
           variant="outline"
-          disabled={isProcessing || !status?.connected || !isSyncEnabled}
+          disabled={isProcessing || isSyncing || !status?.connected || !isSyncEnabled}
           onClick={handlePushBackup}
         >
           <Upload className="size-4" /> Subir
         </Button>
         <Button
-          disabled={isProcessing || !status?.connected || !isSyncEnabled}
+          disabled={isProcessing || isSyncing || !status?.connected || !isSyncEnabled}
           onClick={handleSyncNow}
         >
           <Upload className="size-4" /> Sincronizar ahora

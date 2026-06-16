@@ -82,6 +82,7 @@ src/
 │   │   ├── sync.dto.d.ts
 │   │   ├── sync.config.ts
 │   │   ├── sync.utils.ts
+│   │   ├── sync-drive-ops.service.ts
 │   │   ├── sync-drive-client.service.ts
 │   │   ├── sync-state.service.ts
 │   │   ├── sync-snapshot.service.ts

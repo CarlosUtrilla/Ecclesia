@@ -4,9 +4,10 @@ import SongsPanelLibrary from './songs'
 import MediaLibrary from './media'
 import BiblePanel from './bible'
 import PresentationsPanel from './presentations'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import SyncButton from './SyncButton'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
-import { CheckCircle2, MonitorCog, Settings } from 'lucide-react'
+import { MonitorCog, Settings } from 'lucide-react'
 
 export type BibleSearchParams = {
   version: string
@@ -17,51 +18,9 @@ export type BibleSearchParams = {
 
 export default function LibraryPanel() {
   const [activeTab, setActiveTab] = useState('songs')
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [syncProgress, setSyncProgress] = useState(0)
-  const [isConnected, setIsConnected] = useState(false)
   const [bibleSearchParams, setBibleSearchParams] = useState<BibleSearchParams | null>(null)
   const bibleSearchParamsRef = useRef(bibleSearchParams)
   bibleSearchParamsRef.current = bibleSearchParams
-
-  const refreshSyncConnection = useCallback(() => {
-    window.googleDriveSyncAPI
-      .getStatus()
-      .then((s: { connected?: boolean } | null) => setIsConnected(!!s?.connected))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    refreshSyncConnection()
-  }, [refreshSyncConnection])
-
-  useEffect(() => {
-    // Al volver de Ajustes (focus en ventana principal), refrescar estado de conexión.
-    const handleWindowFocus = () => {
-      refreshSyncConnection()
-    }
-
-    window.addEventListener('focus', handleWindowFocus)
-    return () => {
-      window.removeEventListener('focus', handleWindowFocus)
-    }
-  }, [refreshSyncConnection])
-
-  useEffect(() => {
-    const unsubscribe = window.googleDriveSyncAPI.onSyncStateChange(({ syncing, progress }) => {
-      setIsSyncing(syncing)
-      setSyncProgress(progress)
-
-      // Cuando finaliza connect/push/pull/reconcile, actualizar visibilidad del botón Sync.
-      if (!syncing) {
-        refreshSyncConnection()
-      }
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [refreshSyncConnection])
 
   useEffect(() => {
     const unsubscribe = window.bibleSearchAPI.onBibleSearch((data) => {
@@ -87,24 +46,7 @@ export default function LibraryPanel() {
             </TabsList>
           </Tabs>
           <div className="flex items-center gap-1">
-            {isConnected ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => !isSyncing && window.googleDriveSyncAPI.pushNow()}
-              >
-                {isSyncing ? (
-                  <span className="text-xs text-primary">
-                    {syncProgress > 0 ? `Sincronizando ${syncProgress}%` : 'Sincronizando...'}
-                  </span>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <span className="text-xs">Sync</span>
-                  </>
-                )}
-              </Button>
-            ) : null}
+            <SyncButton />
             <Button
               size="sm"
               variant="ghost"

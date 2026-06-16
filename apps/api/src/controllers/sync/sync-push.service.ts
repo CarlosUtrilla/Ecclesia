@@ -1,53 +1,72 @@
+import log from 'electron-log'
 import { drive_v3 } from 'googleapis'
 import { getPrisma } from '../../prisma'
 import {
   PersistedSyncConfig,
   getConfigFilePath,
-  getTokenFilePath
+  getTokenFilePath,
+  getManifestFileName
 } from './sync.config'
 import { readJsonSafe } from './sync.utils'
 import { syncSnapshotService } from './sync-snapshot.service'
 import { syncMediaService } from './sync-media.service'
 import { syncBibleService } from './sync-bible.service'
 import { driveClientService } from './sync-drive-client.service'
+import { syncDriveOpsService } from './sync-drive-ops.service'
+import { syncProgressService } from './sync-progress.service'
+
+async function loadConfigAndToken(): Promise<{ config: PersistedSyncConfig; token: Record<string, unknown> } | null> {
+  const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
+  if (!config?.enabled) return null
+  const token = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
+  if (!token) return null
+  if (!config.workspaceId) config.workspaceId = 'default'
+  if (!config.deviceName) config.deviceName = 'Este dispositivo'
+  return { config, token }
+}
 
 export class SyncPushService {
   async pushSnapshotOnly(): Promise<void> {
-    const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
-    if (!config?.enabled) return
-    const token = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
-    if (!token) return
-
-    if (!config.workspaceId) config.workspaceId = 'default'
-    if (!config.deviceName) config.deviceName = 'Este dispositivo'
+    const loaded = await loadConfigAndToken()
+    if (!loaded) return
 
     try {
+      syncProgressService.update(10, 'Conectando con Google Drive...')
       const { drive } = await driveClientService.getDriveClient()
       const appInstanceId = await driveClientService.getOrCreateAppInstanceId()
       const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
-      const snapshot = await syncSnapshotService.buildSnapshot(config, appInstanceId)
-      await syncSnapshotService.uploadSnapshot(drive, config, snapshot, folderId)
+
+      syncProgressService.update(25, 'Construyendo snapshot de base de datos...')
+      const snapshot = await syncSnapshotService.buildSnapshot(loaded.config, appInstanceId)
+
+      syncProgressService.update(60, 'Subiendo snapshot a Google Drive...')
+      await syncSnapshotService.uploadSnapshot(drive, loaded.config, snapshot, folderId)
+
+      syncProgressService.update(100, 'Snapshot subido correctamente')
     } catch (err) {
-      console.error('[sync] pushSnapshotOnly falló:', err)
+      log.error('[sync] pushSnapshotOnly falló:', err)
+      syncProgressService.error(`pushSnapshotOnly falló: ${err instanceof Error ? err.message : 'error desconocido'}`)
     }
   }
 
   async pushMediaOnly(): Promise<void> {
-    const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
-    if (!config?.enabled) return
-    const token = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
-    if (!token) return
-
-    if (!config.workspaceId) config.workspaceId = 'default'
-    if (!config.deviceName) config.deviceName = 'Este dispositivo'
+    const loaded = await loadConfigAndToken()
+    if (!loaded) return
 
     try {
+      syncProgressService.update(10, 'Conectando con Google Drive...')
       const { drive } = await driveClientService.getDriveClient()
       const appInstanceId = await driveClientService.getOrCreateAppInstanceId()
       const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
-      await syncMediaService.syncMediaManifest(drive, config, 'push', appInstanceId, folderId)
+
+      syncProgressService.update(30, 'Sincronizando archivos multimedia...')
+      const result = await syncMediaService.syncMediaManifest(drive, loaded.config, 'push', appInstanceId, folderId)
+
+      syncProgressService.update(100, `Media sincronizada: ${result.uploaded} archivos subidos`)
+      log.warn(`[sync] pushMediaOnly completado: ${result.uploaded} subidos, ${result.missingRemoteBlobs} blobs faltantes`)
     } catch (err) {
-      console.error('[sync] pushMediaOnly falló:', err)
+      log.error('[sync] pushMediaOnly falló:', err)
+      syncProgressService.error(`pushMediaOnly falló: ${err instanceof Error ? err.message : 'error desconocido'}`)
     }
   }
 
@@ -108,41 +127,6 @@ export class SyncPushService {
     })
   }
 
-  private async writeRemoteManifest(
-    drive: drive_v3.Drive,
-    config: PersistedSyncConfig,
-    folderId: string
-  ) {
-    const { getManifestFileName } = await import('./sync.config')
-    const manifestFileName = getManifestFileName(config.workspaceId)
-    const manifest = {
-      schemaVersion: 1,
-      workspaceId: config.workspaceId,
-      deviceName: config.deviceName,
-      updatedAt: new Date().toISOString(),
-      lastSyncAt: new Date().toISOString()
-    }
-
-    const result = await drive.files.list({
-      q: `name='${manifestFileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-      spaces: 'drive',
-      fields: 'files(id)',
-      pageSize: 1
-    })
-    const existing = result.data.files?.[0]
-    const media = { mimeType: 'application/json', body: JSON.stringify(manifest) }
-
-    if (existing?.id) {
-      await drive.files.update({ fileId: existing.id, media, fields: 'id' })
-      return
-    }
-    await drive.files.create({
-      requestBody: { name: manifestFileName, parents: [folderId] },
-      media,
-      fields: 'id'
-    })
-  }
-
   async push(
     drive: drive_v3.Drive,
     config: PersistedSyncConfig,
@@ -162,31 +146,62 @@ export class SyncPushService {
     let missingRemoteBlobs = 0
 
     if (reason !== 'manual-pull') {
+      syncProgressService.update(10, 'Verificando cambios pendientes...')
       const latestPendingOutboxId = await this.getLatestPendingOutboxChangeId(
         config.workspaceId,
         config.deviceName
       )
 
       if (latestPendingOutboxId !== null || snapApplied > 0) {
+        syncProgressService.update(15, 'Construyendo snapshot de base de datos...')
         const snapshot = await syncSnapshotService.buildSnapshot(config, appInstanceId)
+        log.warn(`[sync] Snapshot construido: ${Object.keys(snapshot.tables).length} tablas`)
+
+        syncProgressService.update(25, 'Subiendo snapshot a Google Drive...')
         await syncSnapshotService.uploadSnapshot(drive, config, snapshot, folderId)
         if (latestPendingOutboxId !== null) {
           await this.acknowledgeOutboxUpToId(config.workspaceId, config.deviceName, latestPendingOutboxId)
         }
         snapshotUploaded = true
+        syncProgressService.setMessage('Snapshot subido, sincronizando archivos...')
       }
 
-      const [mediaRes, bibleRes] = await Promise.all([
-        syncMediaService.syncMediaManifest(drive, config, 'push', appInstanceId, folderId),
-        syncBibleService.syncBibleFiles(drive, config, 'push', appInstanceId)
-      ])
+      syncProgressService.update(35, 'Sincronizando archivos multimedia...')
+      const mediaPromise = syncMediaService.syncMediaManifest(
+        drive, config, 'push', appInstanceId, folderId
+      ).then(res => {
+        log.warn(`[sync] Media sync completado: ${res.uploaded} subidos, ${res.downloaded} descargados, ${res.missingRemoteBlobs} blobs faltantes`)
+        return res
+      })
+
+      const biblePromise = syncBibleService.syncBibleFiles(
+        drive, config, 'push', appInstanceId
+      ).then(res => {
+        log.warn(`[sync] Bible sync completado: ${res.uploaded} subidos, ${res.downloaded} descargados`)
+        return res
+      })
+
+      const [mediaRes, bibleRes] = await Promise.all([mediaPromise, biblePromise])
       mediaUploaded = mediaRes.uploaded
       bibleUploaded = bibleRes.uploaded
       missingRemoteBlobs = mediaRes.missingRemoteBlobs
 
-      if (snapshotUploaded || mediaUploaded > 0 || bibleUploaded > 0 || missingRemoteBlobs > 0) {
-        await this.writeRemoteManifest(drive, config, folderId)
+      syncProgressService.update(80, 'Actualizando manifiesto remoto...')
+      const manifestFileName = getManifestFileName(config.workspaceId)
+      const manifest = {
+        schemaVersion: 1,
+        workspaceId: config.workspaceId,
+        deviceName: config.deviceName,
+        updatedAt: new Date().toISOString(),
+        lastSyncAt: new Date().toISOString()
       }
+
+      if (snapshotUploaded || mediaUploaded > 0 || bibleUploaded > 0 || missingRemoteBlobs > 0) {
+        await syncDriveOpsService.upsertFile(drive, folderId, manifestFileName, manifest)
+      }
+
+      syncProgressService.update(100, 'Push completado')
+      log.warn(`[sync] Push finalizado: snapshot=${snapshotUploaded}, media=${mediaUploaded}, bible=${bibleUploaded}, missing=${missingRemoteBlobs}`)
     }
 
     return { snapshotUploaded, mediaUploaded, bibleUploaded, missingRemoteBlobs }

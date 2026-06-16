@@ -1,14 +1,26 @@
+import log from 'electron-log'
 import { drive_v3 } from 'googleapis'
 import path from 'path'
 import fs from 'fs-extra'
-import { getBiblesDir, getLocalBibleManifestPath, PersistedSyncConfig, BibleManifestEntry, BibleManifestFile, BIBLE_MANIFEST_SCHEMA_VERSION, getRemoteBibleManifestFileName, getRemoteBibleBlobFileName, MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE, BLOB_REUPLOAD_GRACE_MS } from './sync.config'
-import { readJsonSafe, writeJson, computeFileChecksum, streamToString } from './sync.utils'
+import {
+  getBiblesDir,
+  getLocalBibleManifestPath,
+  PersistedSyncConfig,
+  BibleManifestEntry,
+  BibleManifestFile,
+  BIBLE_MANIFEST_SCHEMA_VERSION,
+  getRemoteBibleManifestFileName,
+  getRemoteBibleBlobFileName,
+  MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE,
+  BLOB_REUPLOAD_GRACE_MS
+} from './sync.config'
+import { readJsonSafe, writeJson, computeFileChecksum } from './sync.utils'
+import { syncDriveOpsService } from './sync-drive-ops.service'
+import { driveClientService } from './sync-drive-client.service'
+import { syncProgressService } from './sync-progress.service'
 
 export class SyncBibleService {
-  async buildLocalBibleManifest(
-    config: PersistedSyncConfig,
-    appInstanceId: string
-  ): Promise<BibleManifestFile> {
+  async buildLocalBibleManifest(config: PersistedSyncConfig, appInstanceId: string): Promise<BibleManifestFile> {
     const userBiblesDir = getBiblesDir()
     const existing = await readJsonSafe<BibleManifestFile>(getLocalBibleManifestPath())
     const existingByName = new Map(
@@ -52,143 +64,39 @@ export class SyncBibleService {
     }
   }
 
-  private async getRemoteBibleManifestMetadata(drive: drive_v3.Drive, workspaceId: string) {
-    const fileName = getRemoteBibleManifestFileName(workspaceId)
-    const { DriveClientService } = await import('./sync-drive-client.service')
-    const driveClientService = new DriveClientService()
+  async readRemoteBibleManifest(drive: drive_v3.Drive, workspaceId: string): Promise<BibleManifestFile | null> {
     const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
-    const result = await drive.files.list({
-      q: `name='${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-      spaces: 'drive',
-      fields: 'files(id, name, modifiedTime)',
-      pageSize: 1,
-      orderBy: 'modifiedTime desc'
-    })
-    return result.data.files?.[0]
-  }
-
-  async readRemoteBibleManifest(
-    drive: drive_v3.Drive,
-    workspaceId: string
-  ): Promise<BibleManifestFile | null> {
-    const metadata = await this.getRemoteBibleManifestMetadata(drive, workspaceId)
+    const fileName = getRemoteBibleManifestFileName(workspaceId)
+    const metadata = await syncDriveOpsService.findFileByName(drive, folderId, fileName)
     if (!metadata?.id) return null
 
-    const response = await drive.files.get(
-      { fileId: metadata.id, alt: 'media' },
-      { responseType: 'stream' }
-    )
-    const raw = await streamToString(response.data as NodeJS.ReadableStream)
-    try {
-      const parsed = JSON.parse(raw)
-      if (
-        !parsed || parsed.schemaVersion !== BIBLE_MANIFEST_SCHEMA_VERSION ||
-        parsed.workspaceId !== workspaceId
-      ) return null
-      return parsed as BibleManifestFile
-    } catch {
-      return null
-    }
+    const parsed = await syncDriveOpsService.downloadJsonFile<BibleManifestFile>(drive, metadata.id)
+    if (!parsed || parsed.schemaVersion !== BIBLE_MANIFEST_SCHEMA_VERSION || parsed.workspaceId !== workspaceId) return null
+    return parsed
   }
 
-  async writeRemoteBibleManifest(
-    drive: drive_v3.Drive,
-    workspaceId: string,
-    manifest: BibleManifestFile
-  ) {
+  async writeRemoteBibleManifest(drive: drive_v3.Drive, workspaceId: string, manifest: BibleManifestFile) {
+    const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
     const fileName = getRemoteBibleManifestFileName(workspaceId)
-    const existing = await this.getRemoteBibleManifestMetadata(drive, workspaceId)
-    const media = { mimeType: 'application/json', body: JSON.stringify(manifest) }
-
-    if (existing?.id) {
-      await drive.files.update({ fileId: existing.id, media, fields: 'id' })
-      return
-    }
-
-    const { DriveClientService } = await import('./sync-drive-client.service')
-    const driveClientService = new DriveClientService()
-    await drive.files.create({
-      requestBody: { name: fileName, parents: [await driveClientService.getOrCreateEcclesiaFolder(drive)] },
-      media,
-      fields: 'id'
-    })
+    await syncDriveOpsService.upsertFile(drive, folderId, fileName, manifest)
   }
 
   private async listRemoteBibleBlobs(drive: drive_v3.Drive, workspaceId: string) {
     const prefix = `${getRemoteBibleBlobFileName(workspaceId, '').slice(0, -64 - '.bin'.length)}`
-    const { DriveClientService } = await import('./sync-drive-client.service')
-    const driveClientService = new DriveClientService()
     const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
-    const byChecksum = new Map<string, string>()
-
-    let pageToken: string | undefined
-    do {
-      const result = await drive.files.list({
-        q: `name contains '${prefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-        spaces: 'drive',
-        fields: 'nextPageToken, files(id, name)',
-        pageSize: 1000,
-        pageToken
-      })
-
-      for (const file of result.data.files || []) {
-        const name = file.name || ''
-        if (!name.startsWith(prefix) || !name.endsWith('.bin') || !file.id) continue
-        const checksum = name.slice(prefix.length, -'.bin'.length)
-        if (checksum) byChecksum.set(checksum, file.id)
-      }
-      pageToken = result.data.nextPageToken || undefined
-    } while (pageToken)
-
-    return byChecksum
+    return syncDriveOpsService.listFilesByPrefix(drive, folderId, prefix, '.bin')
   }
 
-  private async uploadBibleBlob(
-    drive: drive_v3.Drive,
-    workspaceId: string,
-    entry: BibleManifestEntry
-  ) {
+  private async uploadBibleBlob(drive: drive_v3.Drive, workspaceId: string, entry: BibleManifestEntry) {
     const fullPath = path.join(getBiblesDir(), entry.fileName)
-    if (!(await fs.pathExists(fullPath))) {
-      throw new Error(`Archivo de biblia no encontrado: ${entry.fileName}`)
-    }
-
     const fileName = getRemoteBibleBlobFileName(workspaceId, entry.checksum)
-    const { DriveClientService } = await import('./sync-drive-client.service')
-    const driveClientService = new DriveClientService()
-    const created = await drive.files.create({
-      requestBody: { name: fileName, parents: [await driveClientService.getOrCreateEcclesiaFolder(drive)] },
-      media: { mimeType: 'application/octet-stream', body: fs.createReadStream(fullPath) },
-      fields: 'id'
-    })
-
-    const fileId = created.data.id || ''
-    if (!fileId) {
-      throw new Error(`[sync] Drive no devolvió fileId para blob de biblia: ${entry.fileName}`)
-    }
-    return fileId
+    const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
+    return syncDriveOpsService.uploadBlob(drive, folderId, fileName, fullPath)
   }
 
   private async downloadBibleBlobToLocal(drive: drive_v3.Drive, fileId: string, fileName: string) {
     const destination = path.join(getBiblesDir(), fileName)
-    await fs.ensureDir(path.dirname(destination))
-
-    const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' })
-    await new Promise<void>((resolve, reject) => {
-      const writer = fs.createWriteStream(destination)
-      ;(response.data as NodeJS.ReadableStream).pipe(writer)
-      writer.on('finish', () => resolve())
-      writer.on('error', reject)
-    })
-  }
-
-  private async remoteFileIdExists(drive: drive_v3.Drive, fileId: string): Promise<boolean> {
-    try {
-      await drive.files.get({ fileId, fields: 'id' })
-      return true
-    } catch {
-      return false
-    }
+    await syncDriveOpsService.downloadFileToDisk(drive, fileId, destination)
   }
 
   async syncBibleFiles(
@@ -197,7 +105,12 @@ export class SyncBibleService {
     mode: 'push' | 'pull',
     appInstanceId: string
   ) {
+    syncProgressService.setMessage(`Iniciando sync de biblias (${mode})...`)
+    log.warn(`[sync] Iniciando sync de biblias (${mode})`)
+
     const localManifest = await this.buildLocalBibleManifest(config, appInstanceId)
+    log.warn(`[sync] Manifiesto local de biblias: ${localManifest.entries.length} entradas`)
+
     if (localManifest.entries.length === 0 && mode === 'push') {
       return { uploaded: 0, downloaded: 0 }
     }
@@ -240,7 +153,11 @@ export class SyncBibleService {
     const nowMs = Date.now()
 
     if (mode === 'push') {
-      for (const localEntry of localManifest.entries) {
+      syncProgressService.setMessage(`Subiendo ${localManifest.entries.length} biblias...`)
+      for (const [index, localEntry] of localManifest.entries.entries()) {
+        if (index % 5 === 0 && index > 0) {
+          syncProgressService.setMessage(`Biblias: ${index}/${localManifest.entries.length}...`)
+        }
         if (localEntry.deletedAt) {
           remoteByName.set(localEntry.fileName, { ...localEntry, lastSyncedAt: nowIso })
           localByName.set(localEntry.fileName, { ...localEntry, lastSyncedAt: nowIso })
@@ -260,7 +177,7 @@ export class SyncBibleService {
 
           if (resolvedFileId && remoteEntry.driveFileId === resolvedFileId && driveFileIdVerifications < MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE) {
             driveFileIdVerifications++
-            const exists = await this.remoteFileIdExists(drive, resolvedFileId)
+            const exists = await syncDriveOpsService.remoteFileIdExists(drive, resolvedFileId)
             if (!exists) {
               hasRemoteBlob = false
               remoteBlobByChecksum.delete(localEntry.checksum)
@@ -287,7 +204,7 @@ export class SyncBibleService {
             remoteBlobByChecksum.set(localEntry.checksum, fileId)
             localEntry.driveFileId = fileId
           } catch (err) {
-            console.error(`[sync] Error subiendo blob de biblia para ${localEntry.fileName}:`, err instanceof Error ? err.message : err)
+            log.error(`[sync] Error subiendo blob de biblia para ${localEntry.fileName}:`, err instanceof Error ? err.message : err)
             continue
           }
         }
@@ -309,7 +226,11 @@ export class SyncBibleService {
     }
 
     if (mode === 'pull') {
-      for (const remoteEntry of remoteManifest.entries) {
+      syncProgressService.setMessage(`Descargando ${remoteManifest.entries.length} biblias...`)
+      for (const [index, remoteEntry] of remoteManifest.entries.entries()) {
+        if (index % 5 === 0 && index > 0) {
+          syncProgressService.setMessage(`Biblias: ${index}/${remoteManifest.entries.length}...`)
+        }
         if (remoteEntry.deletedAt) {
           const localFullPath = path.join(getBiblesDir(), remoteEntry.fileName)
           if (await fs.pathExists(localFullPath)) await fs.remove(localFullPath)
@@ -326,7 +247,7 @@ export class SyncBibleService {
         try {
           await this.downloadBibleBlobToLocal(drive, remoteFileId, remoteEntry.fileName)
         } catch (err) {
-          console.warn(`[sync] Error descargando biblia ${remoteEntry.fileName}:`, err instanceof Error ? err.message : err)
+          log.warn(`[sync] Error descargando biblia ${remoteEntry.fileName}:`, err instanceof Error ? err.message : err)
           continue
         }
         downloaded++

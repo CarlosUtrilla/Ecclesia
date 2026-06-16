@@ -1,3 +1,4 @@
+import log from 'electron-log'
 import { Prisma, SyncOperation } from '@prisma/client'
 import { getPrisma, runWithoutSyncOutboxTracking } from '../../prisma'
 import {
@@ -422,7 +423,7 @@ class SyncService {
             // diferente (campo requerido que no existe en el origen). Omitir silenciosamente.
             // P2006/P2009: tipo de dato incompatible entre versiones del schema.
             if (code === 'P2011' || code === 'P2006' || code === 'P2009') {
-              console.warn(
+              log.warn(
                 `[applySnapshot] Schema mismatch en tabla=${tableName} id=${recordId} code=${code} meta=${metaStr} - omitido (incompatibilidad de versiones)`
               )
               skipped += 1
@@ -467,7 +468,7 @@ class SyncService {
                     }
                   }
                 } catch (fallbackErr) {
-                  console.warn(
+                  log.warn(
                     `[applySnapshot] Fallback por id falló en tabla=${tableName} id=${recordId}:`,
                     fallbackErr
                   )
@@ -475,7 +476,7 @@ class SyncService {
               }
             }
 
-            console.error(
+            log.error(
               `[applySnapshot] Error en tabla=${tableName} id=${recordId} code=${code} meta=${metaStr}: ${msg}`
             )
             failed += 1
@@ -499,7 +500,7 @@ class SyncService {
             }
           })
         } catch (err) {
-          console.warn(
+          log.warn(
             `[applySnapshot] No se pudo actualizar SyncState para ${workspaceId}/${remoteDeviceId}:`,
             err
           )

@@ -1,9 +1,27 @@
+import log from 'electron-log'
 import path from 'path'
 import fs from 'fs-extra'
 import { getPrisma } from '../../prisma'
 import { getMediaDir, getLocalMediaManifestPath, PersistedSyncConfig } from './sync.config'
 import { writeJson } from './sync.utils'
 import { syncMediaService } from './sync-media.service'
+import { syncDriveOpsService } from './sync-drive-ops.service'
+
+function scanDiskFiles(dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> {
+  const results: Array<{ rel: string; abs: string; size: number }> = []
+  let entries: string[]
+  try { entries = fs.readdirSync(dir) } catch { return results }
+  for (const entry of entries) {
+    const absPath = path.join(dir, entry)
+    const relPath = prefix ? `${prefix}/${entry}` : entry
+    try {
+      const stat = fs.statSync(absPath)
+      if (stat.isDirectory()) results.push(...scanDiskFiles(absPath, relPath))
+      else results.push({ rel: relPath, abs: absPath, size: stat.size })
+    } catch { /* skip */ }
+  }
+  return results
+}
 
 export class SyncCleanupService {
   async cleanupOrphanMediaFromDiskAndDrive(
@@ -50,50 +68,18 @@ export class SyncCleanupService {
     const localManifest = await syncMediaService.buildLocalMediaManifest(config, appInstanceId)
     const manifestByPath = new Map(localManifest.entries.map(e => [e.path, e]))
 
-    const scanFiles = (dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> => {
-      const results: Array<{ rel: string; abs: string; size: number }> = []
-      let entries: string[]
-      try { entries = fs.readdirSync(dir) } catch { return results }
-      for (const entry of entries) {
-        const absPath = path.join(dir, entry)
-        const relPath = prefix ? `${prefix}/${entry}` : entry
-        try {
-          const stat = fs.statSync(absPath)
-          if (stat.isDirectory()) results.push(...scanFiles(absPath, relPath))
-          else results.push({ rel: relPath, abs: absPath, size: stat.size })
-        } catch { /* skip */ }
-      }
-      return results
-    }
-
-    const diskFiles = scanFiles(filesRoot, '')
+    const diskFiles = scanDiskFiles(filesRoot, '')
     const details: Array<{ path: string; reason: string; size: number; driveDeleted: boolean }> = []
     let totalFreedBytes = 0
     let driveDeleted = 0
     let driveErrors = 0
-
-    const deleteFromDrive = async (filePath: string): Promise<boolean> => {
-      const entry = manifestByPath.get(filePath)
-      const fileId = entry?.driveFileId
-      if (!fileId) return false
-      try {
-        await drive.files.delete({ fileId })
-        return true
-      } catch (err) {
-        const isNotFound = (err as any)?.code === 404 || ((err as any)?.status === 404) ||
-          (err instanceof Error && (err.message.includes('not found') || err.message.includes('file not found')))
-        if (isNotFound) return true
-        console.warn(`[cleanup] Error al eliminar de Drive ${filePath}:`, err)
-        return false
-      }
-    }
 
     for (const file of diskFiles) {
       const dbPath = `files/${file.rel.replace(/\\/g, '/')}`
       const records = recordsByPath.get(dbPath)
 
       if (!records) {
-        const driveOk = await deleteFromDrive(dbPath)
+        const driveOk = await this.deleteFromDriveIfExists(drive, manifestByPath, dbPath)
         if (driveOk) driveDeleted++
         else driveErrors++
         try { fs.unlinkSync(file.abs) } catch { /* skip */ }
@@ -102,7 +88,7 @@ export class SyncCleanupService {
       } else {
         const allDeleted = records.every(r => r.deletedAt !== null)
         if (allDeleted) {
-          const driveOk = await deleteFromDrive(dbPath)
+          const driveOk = await this.deleteFromDriveIfExists(drive, manifestByPath, dbPath)
           if (driveOk) driveDeleted++
           else driveErrors++
           try { fs.unlinkSync(file.abs) } catch { /* skip */ }
@@ -114,27 +100,12 @@ export class SyncCleanupService {
 
     const thumbDir = path.join(userMediaBase, 'thumbnails')
     if (fs.existsSync(thumbDir)) {
-      const scanThumbs = (dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> => {
-        const results: Array<{ rel: string; abs: string; size: number }> = []
-        let entries: string[]
-        try { entries = fs.readdirSync(dir) } catch { return results }
-        for (const entry of entries) {
-          const absPath = path.join(dir, entry)
-          const relPath = prefix ? `${prefix}/${entry}` : entry
-          try {
-            const stat = fs.statSync(absPath)
-            if (stat.isDirectory()) results.push(...scanThumbs(absPath, relPath))
-            else results.push({ rel: relPath, abs: absPath, size: stat.size })
-          } catch { /* skip */ }
-        }
-        return results
-      }
-      const thumbFiles = scanThumbs(thumbDir, '')
+      const thumbFiles = scanDiskFiles(thumbDir, '')
       for (const file of thumbFiles) {
         const dbPath = `thumbnails/${file.rel.replace(/\\/g, '/')}`
         const isReferenced = allMedia.some(m => m.thumbnail === dbPath || m.fallback === dbPath)
         if (isReferenced) continue
-        const driveOk = await deleteFromDrive(dbPath)
+        const driveOk = await this.deleteFromDriveIfExists(drive, manifestByPath, dbPath)
         if (driveOk) driveDeleted++
         else driveErrors++
         try { fs.unlinkSync(file.abs) } catch { /* skip */ }
@@ -164,7 +135,7 @@ export class SyncCleanupService {
           }, folderId)
         }
       } catch (err) {
-        console.warn('[cleanup] Error actualizando manifest remoto:', err)
+        log.warn('[cleanup] Error actualizando manifest remoto:', err)
       }
     }
 
@@ -172,6 +143,24 @@ export class SyncCleanupService {
     const deletedStale = details.filter(d => d.reason === 'deleted-record').length
 
     return { deletedOrphans, deletedStale, totalFreedBytes, driveDeleted, driveErrors, details }
+  }
+
+  private async deleteFromDriveIfExists(
+    drive: ReturnType<typeof import('googleapis').google.drive>,
+    manifestByPath: Map<string, { driveFileId?: string | null }>,
+    filePath: string
+  ): Promise<boolean> {
+    const entry = manifestByPath.get(filePath)
+    const fileId = entry?.driveFileId
+    if (!fileId) return false
+    try {
+      await drive.files.delete({ fileId })
+      return true
+    } catch (err) {
+      if (syncDriveOpsService.isDriveNotFoundError(err)) return true
+      log.warn(`[cleanup] Error al eliminar de Drive ${filePath}:`, err)
+      return false
+    }
   }
 }
 

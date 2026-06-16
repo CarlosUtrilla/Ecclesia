@@ -1,7 +1,9 @@
+import log from 'electron-log'
 import path from 'path'
 import fs from 'fs-extra'
 import { getMediaDir, PersistedSyncConfig, SyncDiagnostic, SyncDiagnosticEntry, MediaManifestEntry } from './sync.config'
 import { syncMediaService } from './sync-media.service'
+import { computeFileChecksum } from './sync.utils'
 
 export class SyncDiagnosticService {
   async diagnoseSyncIssues(
@@ -133,20 +135,18 @@ export class SyncDiagnosticService {
         const localEntry = {
           path: entry.path,
           size: entry.size,
-          checksum: entry.localChecksum || '',
+          checksum: entry.localChecksum || (await computeFileChecksum(fullPath)),
           mtime: (await fs.stat(fullPath)).mtimeMs,
           deletedAt: null,
           lastSyncedAt: null,
           driveFileId: null
         }
-        const { computeFileChecksum } = await import('./sync.utils')
-        if (!localEntry.checksum) localEntry.checksum = await computeFileChecksum(fullPath)
         await syncMediaService.uploadMediaBlob(drive, config.workspaceId, localEntry, folderId)
         uploaded++
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Error desconocido'
         errors.push({ path: entry.path, error: msg })
-        console.error(`[heal] Error subiendo ${entry.path}:`, msg)
+        log.error(`[heal] Error subiendo ${entry.path}:`, msg)
       }
     }
 
@@ -187,7 +187,7 @@ export class SyncDiagnosticService {
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Error desconocido'
         errors.push({ path: entry.path, error: msg })
-        console.error(`[heal] Error descargando ${entry.path}:`, msg)
+        log.error(`[heal] Error descargando ${entry.path}:`, msg)
       }
     }
 
@@ -207,9 +207,8 @@ export class SyncDiagnosticService {
           entries: []
         }
 
-      const currentEntries: MediaManifestEntry[] = (currentRemoteManifest as any).entries || []
       const mergedByPath = new Map<string, MediaManifestEntry>(
-        currentEntries.map((e: MediaManifestEntry) => [e.path, e])
+        (currentRemoteManifest as any).entries?.map((e: MediaManifestEntry) => [e.path, e]) || []
       )
       for (const localEntry of localManifest.entries) {
         const existing = mergedByPath.get(localEntry.path)

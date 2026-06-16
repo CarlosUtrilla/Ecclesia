@@ -1,6 +1,8 @@
+import http from 'http'
 import express from 'express'
 import cors from 'cors'
 import os from 'os'
+import { Server as SocketIOServer } from 'socket.io'
 import {
   registerMediaServerRoutes,
   MEDIA_SERVER_PORT,
@@ -16,6 +18,7 @@ import {
 import { setUserDataPath } from './config'
 import { routes } from './routes'
 import Logger from 'electron-log'
+import { setSocketIOInstance } from './controllers/sync/sync-progress.service'
 
 const sseClients = new Set<express.Response>()
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
@@ -25,6 +28,10 @@ export function broadcastToRemoteClients(event: string, data: unknown): void {
   for (const client of sseClients) {
     client.write(message)
   }
+}
+
+export function getSocketIOInstance(): SocketIOServer | null {
+  return null
 }
 
 export async function initializeHttpServer(
@@ -125,8 +132,22 @@ export async function initializeHttpServer(
     res.status(500).json({ error: message })
   })
 
-  app.listen(port, () => {
-    Logger.info(`Eclessia server running on port ${port}`)
+  // Crear servidor HTTP con Socket.IO
+  const server = http.createServer(app)
+  const io = new SocketIOServer(server, {
+    cors: { origin: true, credentials: false }
+  })
+  setSocketIOInstance(io)
+
+  io.on('connection', (socket) => {
+    Logger.info(`[Socket.IO] Cliente conectado: ${socket.id}`)
+    socket.on('disconnect', () => {
+      Logger.info(`[Socket.IO] Cliente desconectado: ${socket.id}`)
+    })
+  })
+
+  server.listen(port, () => {
+    Logger.info(`Eclessia server running on port ${port} (Socket.IO disponible)`)
   })
 }
 

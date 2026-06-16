@@ -32,7 +32,7 @@ export async function executeSyncCycle(reason: string): Promise<void> {
   if (isSyncing) return
   isSyncing = true
   lastSchedulerHeartbeat = Date.now()
-  notifySyncState(true, 30)
+  notifySyncState(true, 5)
 
   try {
     const apiOk = await checkApiHealth()
@@ -51,15 +51,16 @@ export async function executeSyncCycle(reason: string): Promise<void> {
     }
 
     if (reason === 'manual-pull' || reason === 'interval' || reason === 'startup' || reason === 'close') {
-      notifySyncState(true, 50)
+      notifySyncState(true, 10)
       const pullResult = await syncPull()
-      notifySyncState(true, 70)
-      const pushResult = await syncPush()
-      log.info(`[sync] Ciclo ${reason}: push=${JSON.stringify(pushResult)}, pull=${JSON.stringify(pullResult)}`)
-    } else {
       notifySyncState(true, 50)
+      log.warn(`[sync] Pull completado: ${JSON.stringify(pullResult)}`)
       const pushResult = await syncPush()
-      log.info(`[sync] Ciclo ${reason} (push-only): ${JSON.stringify(pushResult)}`)
+      log.warn(`[sync] Push completado: ${JSON.stringify(pushResult)}`)
+    } else {
+      notifySyncState(true, 10)
+      const pushResult = await syncPush()
+      log.warn(`[sync] Push completado: ${JSON.stringify(pushResult)}`)
     }
 
     notifySyncState(true, 100)
