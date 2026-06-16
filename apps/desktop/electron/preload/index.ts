@@ -10,7 +10,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { mediaAPI } from '../main/mediaManager'
 import { displayAPI } from '../main/displayManager/displaysMethods'
 import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
-import { googleDriveSyncAPI } from '../main/sync/googleDriveSyncAPI'
+
 import { updaterAPI } from '../main/updaterManager/updaterAPI'
 import { remoteControlAPI } from '../main/remoteAPI'
 import { bibleSearchAPI } from '../main/bibleSearchAPI'
@@ -57,7 +57,6 @@ export const HandleManagers = {
   windowAPI,
   displayAPI,
   liveMediaAPI,
-  googleDriveSyncAPI,
   updaterAPI,
   remoteControlAPI,
   bibleSearchAPI
@@ -86,8 +85,6 @@ if (process.contextIsolated) {
   window.mediaAPI = mediaAPI
   // @ts-ignore (define in dts)
   window.displayAPI = displayAPI
-  // @ts-ignore (define in dts)
-  window.googleDriveSyncAPI = googleDriveSyncAPI
   // @ts-ignore (define in dts)
   window.remoteControlAPI = remoteControlAPI
   // @ts-ignore (define in dts)

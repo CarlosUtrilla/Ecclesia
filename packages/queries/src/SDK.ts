@@ -1,5 +1,6 @@
 import { mutationOptions, QueryClient, queryOptions } from '@tanstack/react-query'
 import { Fetcher } from './fetcher'
+import { createSocketProxy } from './socket'
 
 export const exposeRoutes = async (queryClient: QueryClient, apiUrl: string, port: number) => {
   const queryMap = {} as any
@@ -10,7 +11,6 @@ export const exposeRoutes = async (queryClient: QueryClient, apiUrl: string, por
     string,
     string[]
   ][]
-  console.log('Retrieved routes from server:', routes)
 
   for (const [namespace, Methods] of routes) {
     queryMap[namespace] = {}
@@ -44,6 +44,7 @@ export const exposeRoutes = async (queryClient: QueryClient, apiUrl: string, por
   return {
     query: queryMap,
     mutation: mutationMap,
-    fetch: fetchMap
+    fetch: fetchMap,
+    socket: createSocketProxy(apiUrl, port)
   }
 }

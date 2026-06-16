@@ -14,6 +14,7 @@ import {
   DialogTitle
 } from '@/ui/dialog'
 
+import { Api } from '@ecclesia/queries'
 import BackgroundSelector from './backgroundSelector'
 import AnimationSelector from './animationSelector'
 import { PresentationView } from '../../../ui/PresentationView'
@@ -274,7 +275,7 @@ export default function ThemesEditor() {
         await Api.fetch.themes.createTheme({ body: data as any })
       }
       // cerrar ventana
-      window.googleDriveSyncAPI.notifyAutoSaveEvent()
+      Api.fetch.sync.push({ body: { reason: 'save' } }).catch(() => {})
       pendingCloseRef.current = false
       window.windowAPI.confirmThemeClose()
     } catch (error: any) {

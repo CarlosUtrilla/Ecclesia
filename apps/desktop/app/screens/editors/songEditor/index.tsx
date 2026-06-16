@@ -89,7 +89,7 @@ export default function SongEditor() {
       } else {
         await Api.fetch.songs.createSong({ body: data })
       }
-      window.googleDriveSyncAPI.notifyAutoSaveEvent()
+      Api.fetch.sync.push({ body: { reason: 'save' } }).catch(() => {})
       window.windowAPI.closeCurrentWindow()
     } catch (e) {
       console.error('Error saving song:', e)

@@ -19,9 +19,7 @@ electron/
 │   │   ├── updaterManager.ts    # Auto-update con electron-updater (canal beta)
 │   │   └── updaterAPI.ts        # IPC API expuesta al renderer
 │   ├── sync/
-│   │   ├── sync-init.ts          # Scheduler, OAuth BrowserWindow, lifecycle
-│   │   ├── sync-ipc.ts           # Thin IPC handlers → HTTP syncBridge
-│   │   ├── googleDriveSyncAPI.ts # Preload API (contextBridge)
+│   │   ├── sync-init.ts          # Scheduler, OAuth BrowserWindow, lifecycle, micro-push
 │   │   └── outboxPayload.test.ts
 │   ├── bibleManager/
 │   ├── bibleSearchManager.ts
@@ -95,8 +93,7 @@ Manager modular de sincronización **snapshot-based** con Google Drive. Arquitec
 
 - **Electron (`sync/`)**:
   - `sync-init.ts`: Scheduler (setInterval 5min), `before-quit` hook, OAuth BrowserWindow, wiring de callbacks `setOnOutboxWriteCallback` / `setOnMediaChangeCallback`, micro-push (debounce 1s).
-  - `sync-ipc.ts`: 13 thin IPC handlers (`sync:google-drive:*`) que delegan en la API via HTTP (`syncBridge.ts`).
-  - `googleDriveSyncAPI.ts`: Preload API (contextBridge) — interfaz idéntica a la anterior.
+  - `syncBridge.ts`: Helpers HTTP para que el main process llame a la API.
 
 - **API (`apps/api/src/controllers/sync/`)** — toda la lógica real vive aquí:
   - `sync.controller.ts`: Expone los métodos como endpoints Express (`/api/sync/*`).
@@ -114,20 +111,7 @@ Manager modular de sincronización **snapshot-based** con Google Drive. Arquitec
   - `sync.config.ts`: Constantes, tipos, helpers, snapshot model definitions.
   - `sync.utils.ts`: Utilidades de I/O, checksum.
 
-- **Canales IPC** (idénticos a la versión legacy):
-  - `sync:google-drive:status`
-  - `sync:google-drive:configure`
-  - `sync:google-drive:connect`
-  - `sync:google-drive:disconnect`
-  - `sync:google-drive:push`
-  - `sync:google-drive:pull`
-  - `sync:google-drive:reconcile`
-  - `sync:google-drive:remote-data`
-  - `sync:google-drive:diagnose` — read-only, reporta discrepancias
-  - `sync:google-drive:heal` — repara blobs faltantes/corruptos
-  - `sync:google-drive:cleanup-media` — limpia huérfanos
-  - `sync:google-drive:auto-save-event` — micro-push al guardar
-  - `sync:google-drive:micro-push-media` — micro-push al cambiar media
+El renderer ya no usa IPC para sync — todas las operaciones van por HTTP directo (`Api.fetch.sync.*`) y eventos Socket.IO (`Api.socket.listen.syncProgress`). Electron solo mantiene el scheduler, `before-quit`, OAuth BrowserWindow y micro-push vía `syncBridge.ts`.
 
 - **Eventos IPC**: `sync-state` emitido con `{ syncing, progress, error }`
 
@@ -324,7 +308,7 @@ Definidas en `electron/preload/index.ts`:
 | `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `showStageScreen()`, `closeStageScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()`, `updateStageScreenConfig()` |
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wrappers del bible manager |
-| `window.googleDriveSyncAPI` | `getStatus()`, `configure()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()`, `reconcileNow()`, `getRemoteData()`, `diagnoseNow()`, `healNow()`, `cleanupMediaOrphans()`, `notifyAutoSaveEvent()`, `microPushMedia()`, `onSyncStateChange()` |
+El renderer ahora usa `Api.fetch.sync.*` (HTTP directo) en lugar de canales IPC. `window.googleDriveSyncAPI` fue eliminado.
 | `window.updaterAPI` | `checkForUpdates()`, `downloadUpdate()`, `installUpdate()`, `getVersion()`, `onUpdateAvailable()`, `onUpdateDownloaded()`, `onDownloadProgress()` |
 | `window.remoteControlAPI` | `discoverLan()` |
 | `window.bibleSearchAPI` | `sendBibleSearch()`, `onBibleSearch()` |

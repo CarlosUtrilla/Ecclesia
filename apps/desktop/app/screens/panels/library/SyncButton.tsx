@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/ui/button'
 import { CheckCircle2 } from 'lucide-react'
-import { onSyncProgress } from '@/lib/syncProgressService'
+import { Api } from '@ecclesia/queries'
 
 export default function SyncButton() {
   const [isConnected, setIsConnected] = useState(false)
@@ -9,20 +9,25 @@ export default function SyncButton() {
   const [syncProgress, setSyncProgress] = useState(0)
 
   useEffect(() => {
-    window.googleDriveSyncAPI
+    Api.fetch.sync
       .getStatus()
       .then((s: { connected?: boolean } | null) => setIsConnected(!!s?.connected))
       .catch(() => {})
 
-    const unsubProgress = onSyncProgress((data) => {
-      setIsSyncing(data.syncing)
-      setSyncProgress(data.progress)
-
-      if (!data.syncing && !data.error) {
-        window.googleDriveSyncAPI
+    const unsubProgress = Api.socket.listen.syncProgress((data) => {
+      if (data.error) {
+        setIsSyncing(false)
+        setSyncProgress(0)
+      } else if (data.progress >= 100) {
+        setSyncProgress(100)
+        setIsSyncing(false)
+        Api.fetch.sync
           .getStatus()
           .then((s: { connected?: boolean } | null) => setIsConnected(!!s?.connected))
           .catch(() => {})
+      } else if (data.progress > 0) {
+        setIsSyncing(true)
+        setSyncProgress(data.progress)
       }
     })
 
@@ -37,7 +42,7 @@ export default function SyncButton() {
     <Button
       size="sm"
       variant="ghost"
-      onClick={() => !isSyncing && window.googleDriveSyncAPI.pushNow()}
+      onClick={() => !isSyncing && Api.fetch.sync.push({ body: { reason: 'manual-push' } })}
     >
       {isSyncing ? (
         <span className="text-xs text-primary">

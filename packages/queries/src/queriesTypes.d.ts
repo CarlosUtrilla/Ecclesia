@@ -1,5 +1,6 @@
 import type { routes } from '@ecclesia/api/src/routes'
 import type { UndefinedInitialDataOptions, MutationOptions } from '@tanstack/react-query'
+import type { SocketShape } from './socket'
 
 type RoutesMap = typeof routes
 
@@ -66,4 +67,6 @@ export type ApiTypes = {
   fetch: {
     [N in keyof RoutesMap]: FetchShape<RoutesMap[N]>
   }
+
+  socket: SocketShape
 }

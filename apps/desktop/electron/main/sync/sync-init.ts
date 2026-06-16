@@ -1,7 +1,6 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
-import { checkApiHealth, syncPush, syncPull, syncStatus } from '../syncBridge'
-import { registerSyncIpcHandlers, setNotifySyncState, getOrCreateAuthUrl, exchangeOAuthCode } from './sync-ipc'
+import { checkApiHealth, syncPush, syncPull, syncStatus, syncGetAuthUrl, syncSetOAuthToken } from '../syncBridge'
 import { setOnOutboxWriteCallback, setOnMediaChangeCallback } from '../prisma'
 
 // Scheduler state
@@ -117,7 +116,7 @@ function clearScheduledRetry(): void {
 }
 
 export async function showOAuthWindow(): Promise<void> {
-  const authUrl = (await getOrCreateAuthUrl()) as string
+  const authUrl = (await syncGetAuthUrl()) as string
   if (!authUrl) {
     log.error('[sync] No se pudo obtener URL de autenticación')
     return
@@ -139,7 +138,7 @@ export async function showOAuthWindow(): Promise<void> {
     const code = new URL(url).searchParams.get('code')
     if (code) {
       try {
-        await exchangeOAuthCode(code)
+        await syncSetOAuthToken({ code })
         authWindow.close()
       } catch (err) {
         log.error('[sync] Error intercambiando código OAuth:', err)
@@ -152,7 +151,7 @@ export async function showOAuthWindow(): Promise<void> {
     const code = new URL(url).searchParams.get('code')
     if (code) {
       try {
-        await exchangeOAuthCode(code)
+        await syncSetOAuthToken({ code })
         authWindow.close()
       } catch (err) {
         log.error('[sync] Error intercambiando código OAuth:', err)
@@ -163,10 +162,6 @@ export async function showOAuthWindow(): Promise<void> {
 
 export function initializeSyncManager(): void {
   lastSchedulerHeartbeat = Date.now()
-  setNotifySyncState(notifySyncState)
-
-  // Register all IPC handlers
-  registerSyncIpcHandlers()
 
   // Start cycle on startup
   executeSyncCycle('startup').catch((err) => {
@@ -198,16 +193,6 @@ export function initializeSyncManager(): void {
   setOnMediaChangeCallback(() => {
     scheduleMicroMediaPush()
     scheduleMicroPush()
-  })
-
-  // Auto-save event from renderer
-  ipcMain.on('sync:google-drive:auto-save-event', () => {
-    scheduleMicroPush()
-  })
-
-  // Micro-push media from renderer
-  ipcMain.handle('sync:google-drive:micro-push-media', () => {
-    scheduleMicroMediaPush()
   })
 
   // Before-quit hook

@@ -1,0 +1,66 @@
+import { io, Socket } from 'socket.io-client'
+import type { SocketEventMap } from '@ecclesia/api'
+
+let socketInstance: Socket | null = null
+let currentUrl = ''
+let currentPort = 0
+
+type SocketListenShape = {
+  [K in keyof SocketEventMap]: SocketEventMap[K] extends void
+    ? (cb: () => void) => () => void
+    : (cb: (data: SocketEventMap[K]) => void) => () => void
+}
+
+type SocketEmitShape = {
+  [K in keyof SocketEventMap]: SocketEventMap[K] extends void
+    ? () => void
+    : (data: SocketEventMap[K]) => void
+}
+
+export type SocketShape = {
+  listen: SocketListenShape
+  emit: SocketEmitShape
+}
+
+function getOrCreateSocket(apiUrl: string, port: number): Socket {
+  if (!socketInstance || apiUrl !== currentUrl || port !== currentPort) {
+    socketInstance?.disconnect()
+    currentUrl = apiUrl
+    currentPort = port
+    socketInstance = io(`${apiUrl}:${port}`, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+    })
+  }
+  return socketInstance
+}
+
+export function createSocketProxy(apiUrl: string, port: number): SocketShape {
+  const socket = getOrCreateSocket(apiUrl, port)
+
+  const listen = new Proxy({} as any, {
+    get: (_, eventName) => (callback: any) => {
+      socket.on(eventName as string, callback)
+      return () => socket.off(eventName as string, callback)
+    },
+  }) as SocketListenShape
+
+  const emit = new Proxy({} as any, {
+    get: (_, eventName) => (data?: any) => {
+      socket.emit(eventName as string, data)
+    },
+  }) as SocketEmitShape
+
+  return { listen, emit }
+}
+
+export function disconnectSocket(): void {
+  socketInstance?.disconnect()
+  socketInstance = null
+  currentUrl = ''
+  currentPort = 0
+}
+
+export function getSocketInstance(): Socket | null {
+  return socketInstance
+}

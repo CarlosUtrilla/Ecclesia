@@ -95,6 +95,7 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | Agregar una nueva ruta en React Router | Leer `packages/desktop/app/App.tsx` + [`electron`](packages/desktop/electron/agents.md) si requiere ventana nueva |
 | Crear o modificar ventana de ajustes | [`electron`](packages/desktop/electron/agents.md) + [`ui`](packages/desktop/app/ui/agents.md) |
 | Modificar estilos globales o temas CSS | Leer `packages/desktop/app/assets/globals.css` + [`ui`](packages/desktop/app/ui/agents.md) |
+| Agregar un nuevo evento Socket.IO | [`sockets`](apps/api/src/sockets/AGENTS.md) — definir en `SocketEventMap` + emitir desde service o registrar handler |
 
 ## Arquitectura general
 
@@ -134,6 +135,7 @@ packages/desktop/app/main.tsx (entry point React)
 │   │   │   ├── index.ts
 │   │   │   ├── prisma.ts      # setPrismaClient, getPrisma, setGetBiblesResourcesPath
 │   │   │   ├── routes.ts
+│   │   │   ├── sockets/       # Socket.IO — SocketEventMap (único registro), handlers runtime
 │   │   │   └── controllers/   # Bible, Songs, Media, Themes, etc.
 │   │   └── package.json
 │   └── desktop/               # @ecclesia/desktop — app Electron + React

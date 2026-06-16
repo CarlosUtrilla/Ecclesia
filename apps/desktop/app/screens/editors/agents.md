@@ -82,7 +82,7 @@ app/screens/editors/
 2. Click "Guardar" -> validacion Zod
 3. window.api.songs.createSong() o updateSong()
 4. ipcRenderer.send('song-saved') -> notifica a ventana principal
-5. `window.googleDriveSyncAPI.notifyAutoSaveEvent()` -> dispara autosync si está habilitado
+5. `Api.fetch.sync.push({ body: { reason: 'save' } })` -> dispara autosync si está habilitado
 5. window.windowAPI.closeCurrentWindow()
 ```
 

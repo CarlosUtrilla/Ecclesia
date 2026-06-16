@@ -18,7 +18,8 @@ import {
 import { setUserDataPath } from './config'
 import { routes } from './routes'
 import Logger from 'electron-log'
-import { setSocketIOInstance } from './controllers/sync/sync-progress.service'
+import { setSocketIO } from './sockets/socket.service'
+import { registerSocketHandlers } from './sockets/socket-handlers'
 
 const sseClients = new Set<express.Response>()
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
@@ -28,10 +29,6 @@ export function broadcastToRemoteClients(event: string, data: unknown): void {
   for (const client of sseClients) {
     client.write(message)
   }
-}
-
-export function getSocketIOInstance(): SocketIOServer | null {
-  return null
 }
 
 export async function initializeHttpServer(
@@ -137,7 +134,8 @@ export async function initializeHttpServer(
   const io = new SocketIOServer(server, {
     cors: { origin: true, credentials: false }
   })
-  setSocketIOInstance(io)
+  setSocketIO(io)
+  registerSocketHandlers()
 
   io.on('connection', (socket) => {
     Logger.info(`[Socket.IO] Cliente conectado: ${socket.id}`)
@@ -152,4 +150,5 @@ export async function initializeHttpServer(
 }
 
 export type { RoutesTypes } from './routeTypes'
+export type { SocketEventMap } from './sockets/socket.service'
 export * from '@prisma/client'

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Api } from '@ecclesia/queries'
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -62,8 +63,8 @@ export default function DevSection() {
     setDiagnostic(null)
     setStatusMessage('Analizando archivos locales vs Google Drive...')
     try {
-      const result = await window.googleDriveSyncAPI.diagnoseNow()
-      setDiagnostic(result as SyncDiagnostic)
+      const result = await Api.fetch.sync.diagnose()
+      setDiagnostic(result as unknown as SyncDiagnostic)
       const s = (result as SyncDiagnostic).summary
       if (s.ok === s.total) {
         setStatusMessage(`Todo en orden: ${s.total} archivos sincronizados correctamente`)
@@ -92,7 +93,7 @@ export default function DevSection() {
     setCleanupResult(null)
     setStatusMessage('Escaneando y limpiando archivos...')
     try {
-      const result = await window.googleDriveSyncAPI.cleanupMediaOrphans()
+      const result = await Api.fetch.sync.cleanupMedia()
       setCleanupResult(result as typeof cleanupResult)
       const mb = (result.totalFreedBytes / (1024 * 1024)).toFixed(2)
       setStatusMessage(
@@ -114,7 +115,7 @@ export default function DevSection() {
     setIsHealing(true)
     setStatusMessage('Reparando discrepancias...')
     try {
-      const result = await window.googleDriveSyncAPI.healNow(diagnostic) as {
+      const result = await Api.fetch.sync.heal({ body: { diagnostic } }) as {
         uploaded: number
         downloaded: number
         errors: Array<{ path: string; error: string }>

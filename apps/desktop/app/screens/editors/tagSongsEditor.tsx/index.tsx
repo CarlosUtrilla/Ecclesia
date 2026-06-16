@@ -46,7 +46,7 @@ export default function TagSongsEditor() {
     onSuccess: () => {
       toast.success('Tags guardadas correctamente')
       setHasChanges(false)
-      window.googleDriveSyncAPI.notifyAutoSaveEvent()
+      Api.fetch.sync.push({ body: { reason: 'save' } }).catch(() => {})
       window.windowAPI.closeCurrentWindow()
     },
     onError: (error: Error) => {

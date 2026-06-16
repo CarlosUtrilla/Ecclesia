@@ -1,11 +1,5 @@
-import { Server as SocketIOServer } from 'socket.io'
 import log from 'electron-log'
-
-let io: SocketIOServer | null = null
-
-export function setSocketIOInstance(instance: SocketIOServer): void {
-  io = instance
-}
+import { getSocket } from '../../sockets/socket.service'
 
 class SyncProgressService {
   private lastProgress = 0
@@ -15,7 +9,7 @@ class SyncProgressService {
     this.lastProgress = progress
     this.lastMessage = message
     log.warn(`[sync] ${message}`)
-    io?.emit('sync-progress', { progress, message })
+    getSocket().emit.syncProgress({ progress, message })
   }
 
   setMessage(message: string): void {
@@ -24,7 +18,7 @@ class SyncProgressService {
 
   error(message: string): void {
     log.error(`[sync] ERROR: ${message}`)
-    io?.emit('sync-progress', { progress: -1, message, error: true })
+    getSocket().emit.syncProgress({ progress: -1, message, error: true })
   }
 
   getLastProgress(): number {

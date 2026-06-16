@@ -10,7 +10,7 @@ import { Input } from '@/ui/input'
 import { Switch } from '@/ui/switch'
 import { Progress } from '@/ui/progress'
 import { SyncSettingsForm, SyncSettingsSchema } from '../schema'
-import { onSyncProgress } from '@/lib/syncProgressService'
+import { Api } from '@ecclesia/queries'
 
 const SYNC_SETTINGS_KEY = 'ecclesia-sync-settings'
 
@@ -75,11 +75,11 @@ export default function SyncSettingsSection() {
     localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(values))
     // No enviamos `enabled` — ese campo solo lo gestiona connect/disconnect
     const { enabled: _enabled, ...configWithoutEnabled } = values
-    await window.googleDriveSyncAPI.configure(configWithoutEnabled as SyncSettingsForm)
+    await Api.fetch.sync.configure({ body: configWithoutEnabled as SyncSettingsForm })
   }, [])
 
   const refreshStatus = async () => {
-    const nextStatus = await window.googleDriveSyncAPI.getStatus()
+    const nextStatus = await Api.fetch.sync.getStatus()
     setStatus(nextStatus)
     return nextStatus
   }
@@ -89,7 +89,7 @@ export default function SyncSettingsSection() {
     setStatusMessage('Abriendo autenticación de Google...')
     try {
       persistSyncSettings(values)
-      await window.googleDriveSyncAPI.connect({
+      await Api.fetch.sync.connect({ body: {
         enabled: values.enabled,
         workspaceId: values.workspaceId,
         deviceName: values.deviceName,
@@ -99,7 +99,7 @@ export default function SyncSettingsSection() {
         autoEvery5Min: values.autoEvery5Min,
         autoOnSave: values.autoOnSave,
         autoOnClose: values.autoOnClose
-      })
+      }})
       await refreshStatus()
       setStatusMessage('Google Drive conectado correctamente')
     } catch (error) {
@@ -121,7 +121,7 @@ export default function SyncSettingsSection() {
     setStatusMessage('Sincronizando con Google Drive...')
     try {
       persistSyncSettings(values)
-      await window.googleDriveSyncAPI.pushNow()
+      await Api.fetch.sync.push({ body: { reason: 'manual-push' } })
       await refreshStatus()
       setStatusMessage('Sincronización completada')
     } catch (error) {
@@ -134,7 +134,7 @@ export default function SyncSettingsSection() {
   const handleDisconnect = async () => {
     setIsProcessing(true)
     try {
-      await window.googleDriveSyncAPI.disconnect()
+      await Api.fetch.sync.disconnect()
       await refreshStatus()
       setStatusMessage('Sesión de Google Drive cerrada')
     } catch (error) {
@@ -153,8 +153,8 @@ export default function SyncSettingsSection() {
     setIsProcessing(true)
     setStatusMessage('Reconciliando cambios y subiendo respaldo a Google Drive...')
     try {
-      await window.googleDriveSyncAPI.reconcileNow()
-      await window.googleDriveSyncAPI.pushNow()
+      await Api.fetch.sync.reconcile()
+      await Api.fetch.sync.push({ body: { reason: 'manual-push' } })
       await refreshStatus()
       setStatusMessage('Respaldo subido correctamente')
     } catch (error) {
@@ -168,7 +168,7 @@ export default function SyncSettingsSection() {
     setIsProcessing(true)
     setStatusMessage('Descargando respaldo de Google Drive...')
     try {
-      await window.googleDriveSyncAPI.pullNow()
+      await Api.fetch.sync.pull({ body: { reason: 'manual-pull' } })
       await refreshStatus()
       setStatusMessage('Respaldo aplicado sin reiniciar. Datos actualizados.')
     } catch (error) {
@@ -194,36 +194,24 @@ export default function SyncSettingsSection() {
 
   // Escuchar eventos de progreso de sync directo por Socket.IO (host + remoto)
   useEffect(() => {
-    const unsubProgress = onSyncProgress((data) => {
-      setIsSyncing(data.syncing)
-      setSyncProgress(data.progress)
-      if (data.message) setSyncMessage(data.message)
+    const unsub = Api.socket.listen.syncProgress((data) => {
       if (data.error) {
-        setStatusMessage(data.error)
-        setSyncProgress(0)
-      }
-      if (!data.syncing && !data.error) {
+        setIsSyncing(false)
         setSyncProgress(0)
         setSyncMessage('')
+        setStatusMessage(data.message)
+      } else if (data.progress >= 100) {
+        setIsSyncing(false)
+        setSyncProgress(100)
+        if (data.message) setSyncMessage(data.message)
+      } else {
+        setIsSyncing(true)
+        setSyncProgress(data.progress)
+        if (data.message) setSyncMessage(data.message)
       }
     })
 
-    const unsubIpc = window.googleDriveSyncAPI.onSyncStateChange((data: {
-      syncing: boolean
-      progress: number
-      error?: string
-    }) => {
-      setIsSyncing(data.syncing)
-      if (data.error) {
-        setStatusMessage(data.error)
-        setSyncProgress(0)
-      }
-    })
-
-    return () => {
-      unsubProgress()
-      unsubIpc()
-    }
+    return () => unsub()
   }, [])
 
   const watchedValues = syncForm.watch()
