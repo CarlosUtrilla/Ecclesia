@@ -17,7 +17,6 @@ import {
 } from './media.storage'
 import { resolveFilesRoot, resolveMediaRoot, resolveThumbnailsRoot } from '../../config'
 
-
 export class MediaService {
   async create(data: CreateMediaDto): Promise<MediaDto> {
     const prisma = getPrisma()
@@ -86,6 +85,7 @@ export class MediaService {
 
     const filePath = mediaData?.filePath
     const thumbnail = mediaData?.thumbnail
+    const fallback = mediaData?.fallback
 
     if (filePath) {
       const fileFullPath = resolveNormalizedPath(mediaRoot, normalizeMediaPath(filePath))
@@ -97,11 +97,17 @@ export class MediaService {
       throw new Error('Media file path not found for deletion')
     }
 
-    console.info('THUMBNAIL', thumbnail)
     if (thumbnail) {
       const thumbnailFullPath = resolveNormalizedPath(mediaRoot, normalizeMediaPath(thumbnail))
       if (fs.existsSync(thumbnailFullPath)) {
         fs.unlinkSync(thumbnailFullPath)
+      }
+    }
+
+    if (fallback) {
+      const fallbackFullPath = resolveNormalizedPath(mediaRoot, normalizeMediaPath(fallback))
+      if (fs.existsSync(fallbackFullPath)) {
+        fs.unlinkSync(fallbackFullPath)
       }
     }
 
@@ -130,27 +136,59 @@ export class MediaService {
     return media
   }
 
-  async importClipboardFromBytes(bytes: number[], mimeType: string, folder?: string): Promise<MediaDto> {
+  async importClipboardFromBytes(
+    bytes: number[],
+    mimeType: string,
+    folder?: string
+  ): Promise<MediaDto> {
     const fileData = await importClipboardImage(bytes, mimeType, folder)
     const media = await getPrisma().media.create({ data: fileData })
     return media
   }
 
   async createFolder(folderPath: string) {
-    return createMediaFolder(folderPath)
+    const normalizedFolder = normalizeMediaPath(folderPath)
+    const parts = normalizedFolder.split('/')
+    const newFolderName = parts[parts.length - 1]
+    const parentFolder = parts.length > 1 ? parts.slice(0, -1).join('/') : undefined
+
+    // Check for name collision and auto-rename like OS explorer
+    const siblings = listMediaFolders(parentFolder)
+    let finalName = newFolderName
+    let counter = 1
+    while (siblings.includes(finalName)) {
+      finalName = `${newFolderName} (${counter})`
+      counter++
+    }
+
+    const finalPath = parentFolder ? `${parentFolder}/${finalName}` : finalName
+    return createMediaFolder(finalPath)
   }
 
   async deleteFolder(folderPath: string) {
+    const prisma = getPrisma()
     const filesRoot = resolveFilesRoot()
     const normalizedFolder = normalizeMediaPath(folderPath)
-    const fullPath = resolveNormalizedPath(filesRoot, normalizedFolder)
 
-    // Eliminar archivos dentro de la carpeta
-    const mediaInsideFolder = await this.findAll({ search: normalizedFolder })
-    for (const mediaItem of mediaInsideFolder.items) {
+    // Buscar todos los medios dentro de esta carpeta recursivamente
+    const folderFilter = normalizedFolder
+      ? {
+          OR: [{ folder: normalizedFolder }, { folder: { startsWith: `${normalizedFolder}/` } }]
+        }
+      : { folder: null }
+
+    const mediaInsideFolder = await prisma.media.findMany({
+      where: {
+        ...folderFilter,
+        deletedAt: null
+      }
+    })
+
+    for (const mediaItem of mediaInsideFolder) {
       await this.deleteFile(mediaItem.id)
     }
 
+    const fullPath = resolveNormalizedPath(filesRoot, normalizedFolder)
     if (fs.existsSync(fullPath)) {
       fs.rmSync(fullPath, { recursive: true, force: true })
     }
@@ -206,7 +244,10 @@ export class MediaService {
     }
 
     // 2. Escanear recursivamente media/files/
-    const scanFiles = (dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> => {
+    const scanFiles = (
+      dir: string,
+      prefix: string
+    ): Array<{ rel: string; abs: string; size: number }> => {
       const results: Array<{ rel: string; abs: string; size: number }> = []
       let entries: string[]
       try {
@@ -243,22 +284,33 @@ export class MediaService {
         // Orphan: file on disk but not in DB at all
         details.push({ path: dbPath, reason: 'orphan', size: file.size })
         totalFreedBytes += file.size
-        try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+        try {
+          fs.unlinkSync(file.abs)
+        } catch {
+          /* skip */
+        }
       } else {
         // Verificar si TODOS los registros que usan este path están eliminados
-        const allDeleted = records.every(r => r.deletedAt !== null)
+        const allDeleted = records.every((r) => r.deletedAt !== null)
         if (allDeleted) {
           // Todos los registros que referencian este archivo están soft-deleteados
           details.push({ path: dbPath, reason: 'deleted-record', size: file.size })
           totalFreedBytes += file.size
-          try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+          try {
+            fs.unlinkSync(file.abs)
+          } catch {
+            /* skip */
+          }
         }
         // Si algún registro activo usa este path, no se toca
       }
     }
 
     // 3. Tambien limpiar thumbnails huerfanos
-    const scanThumbs = (dir: string, prefix: string): Array<{ rel: string; abs: string; size: number }> => {
+    const scanThumbs = (
+      dir: string,
+      prefix: string
+    ): Array<{ rel: string; abs: string; size: number }> => {
       const results: Array<{ rel: string; abs: string; size: number }> = []
       let entries: string[]
       try {
@@ -288,17 +340,23 @@ export class MediaService {
       const thumbFiles = scanThumbs(thumbDir, '')
       for (const file of thumbFiles) {
         const dbPath = `thumbnails/${file.rel.replace(/\\/g, '/')}`
-        const isReferenced = allMedia.some(m => m.thumbnail === dbPath || m.fallback === dbPath)
+        const isReferenced = allMedia.some((m) => m.thumbnail === dbPath || m.fallback === dbPath)
         if (!isReferenced) {
           details.push({ path: dbPath, reason: 'orphan-thumbnail', size: file.size })
           totalFreedBytes += file.size
-          try { fs.unlinkSync(file.abs) } catch { /* skip */ }
+          try {
+            fs.unlinkSync(file.abs)
+          } catch {
+            /* skip */
+          }
         }
       }
     }
 
-    const deletedOrphans = details.filter(d => d.reason === 'orphan' || d.reason === 'orphan-thumbnail').length
-    const deletedStale = details.filter(d => d.reason === 'deleted-record').length
+    const deletedOrphans = details.filter(
+      (d) => d.reason === 'orphan' || d.reason === 'orphan-thumbnail'
+    ).length
+    const deletedStale = details.filter((d) => d.reason === 'deleted-record').length
 
     return { deletedOrphans, deletedStale, totalFreedBytes, details }
   }
