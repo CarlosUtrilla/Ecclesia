@@ -79,7 +79,19 @@ src/
 │   ├── sync/
 │   │   ├── sync.controller.ts
 │   │   ├── sync.service.ts
-│   │   └── sync.dto.d.ts
+│   │   ├── sync.dto.d.ts
+│   │   ├── sync.config.ts
+│   │   ├── sync.utils.ts
+│   │   ├── sync-drive-client.service.ts
+│   │   ├── sync-state.service.ts
+│   │   ├── sync-snapshot.service.ts
+│   │   ├── sync-media.service.ts
+│   │   ├── sync-bible.service.ts
+│   │   ├── sync-push.service.ts
+│   │   ├── sync-pull.service.ts
+│   │   ├── sync-diagnostic.service.ts
+│   │   ├── sync-cleanup.service.ts
+│   │   └── sync-lazy-fetch.service.ts
 │   └── selectedScreens/
 │       ├── index.ts
 │       ├── selectedScreens.controller.ts
@@ -111,7 +123,7 @@ Definidos en `routes.ts`:
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
 | `fonts` | FontsController | `addFont`, `getAllFonts`, `deleteFont` |
 | `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
-| `sync` | SyncController | `getSyncState`, `upsertSyncState`, `appendOutboxChange`, `getPendingOutboxChanges`, `acknowledgeOutboxChanges`, `ingestRemoteChanges`, `getPendingInboxChanges`, `markInboxChangesApplied`, `applyPendingInboxBatch`, `applySnapshotRows` |
+| `sync` | SyncController | `getSyncState`, `upsertSyncState`, `appendOutboxChange`, `getPendingOutboxChanges`, `acknowledgeOutboxChanges`, `ingestRemoteChanges`, `getPendingInboxChanges`, `markInboxChangesApplied`, `applyPendingInboxBatch`, `applySnapshotRows`, `getStatus`, `configure`, `connect`, `disconnect`, `push`, `pull`, `reconcile`, `getRemoteData`, `diagnose`, `heal`, `cleanupMedia` |
 
 **Nota:** El namespace `setttings` tiene un typo historico (3 t's). No cambiar sin actualizar todos los puntos de referencia.
 
@@ -182,6 +194,7 @@ export interface CreateSongDTO {
 - El módulo `sync` implementa sincronización basada en **instantáneas (snapshots)**: cada dispositivo exporta todos los registros de SNAPSHOT_MODELS a un JSON, lo sube a Drive, y al hacer pull descarga los snapshots de todos los demás dispositivos aplicando filas por `lastWriteWins` (updatedAt). Las tablas `SyncOutboxChange`/`SyncInboxChange` siguen en el schema pero ya no son el mecanismo principal de sync.
 - `applySnapshotRows(tables, workspaceId, remoteDeviceId)` en `SyncService` aplica las filas de un snapshot remoto a la BD local con `runWithoutSyncOutboxTracking` y `lastWriteWins` por `updatedAt`; preserva el `updatedAt` remoto en `create/update` via Prisma (sin SQL crudo) para evitar falsos `stale` por desfase de reloj entre PCs. Al finalizar, actualiza `SyncState.lastAppliedSnapshotAt` y `snapshotApplySequence` para rastrear aplicación de snapshots remotos.
 - El outbox middleware en `prisma.ts` sigue activo pero los datos que escribe en `SyncOutboxChange` no se usan en el flujo principal de sync (se conserva para posible tracking de deletes futuro).
+- **Nueva arquitectura modular**: Toda la lógica de sync con Drive se movió de `electron/main/googleDriveSyncManager/` (monolito de ~3,728 líneas) a servicios modulares en `apps/api/src/controllers/sync/`. Electron ahora solo maneja scheduler, OAuth UI, thin IPC handlers y wiring de callbacks — la lógica real (push, pull, media, bible, diagnóstico, limpieza) vive en los servicios del API.
 - La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones.
 - **`sync.service.ts` NO usa `electron-log`**: Este archivo se bundlea en el preload (renderer). Usar `console.warn`/`console.error` únicamente. `electron-log` solo puede importarse en archivos bajo `electron/main/`.
 - El módulo `settings` acepta claves string públicas (`LOGO_FALLBACK_*`, `BIBLE_LIVE_CHUNK_MODE`, etc.) y las mapea a valores persistidos en DB (`logo.fallback.*`, `bible.live.chunkMode`) con SQL directo, evitando errores cuando una instalación tiene el cliente Prisma con enums desactualizados.

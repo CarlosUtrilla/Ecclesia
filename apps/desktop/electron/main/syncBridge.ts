@@ -2,7 +2,7 @@ import http from 'http'
 
 const API_BASE = 'http://127.0.0.1:7777'
 
-function apiRequest(method: string, path: string, body?: unknown): Promise<unknown> {
+async function apiRequest(method: string, path: string, body?: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const url = new URL(path, API_BASE)
     const data = body ? JSON.stringify(body) : undefined
@@ -20,7 +20,8 @@ function apiRequest(method: string, path: string, body?: unknown): Promise<unkno
         res.on('data', (chunk: Buffer) => (responseData += chunk.toString()))
         res.on('end', () => {
           try {
-            resolve(JSON.parse(responseData))
+            const parsed = JSON.parse(responseData)
+            resolve(parsed?.response ?? parsed)
           } catch {
             resolve(responseData)
           }
@@ -37,36 +38,62 @@ function apiRequest(method: string, path: string, body?: unknown): Promise<unkno
 export async function checkApiHealth(): Promise<boolean> {
   try {
     const result = await apiRequest('POST', '/api/getRoutes')
-    return Array.isArray(result)
+    return !!(result as any)?.response ? true : Array.isArray(result)
   } catch {
     return false
   }
 }
 
-export async function syncPush(): Promise<unknown> {
-  return apiRequest('POST', '/api/syncDrive/executeSync')
+// --- New sync API methods (delegate to SyncController via Express) ---
+
+export function syncStatus(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/getStatus')
 }
 
-export async function syncPushSnapshot(): Promise<unknown> {
-  return apiRequest('POST', '/api/syncDrive/pushSnapshot')
+export function syncConfigure(config: Record<string, unknown>): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/configure', config)
 }
 
-export async function syncGetStatus(): Promise<unknown> {
-  return apiRequest('POST', '/api/syncDrive/getStatus')
+export function syncConnect(config: Record<string, unknown>): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/connect', config)
 }
 
-export async function syncConfigure(config: Record<string, unknown>): Promise<unknown> {
-  return apiRequest('POST', '/api/syncDrive/configure', { body: config })
+export function syncDisconnect(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/disconnect')
 }
 
-export async function syncGetAuthUrl(): Promise<unknown> {
-  return apiRequest('POST', '/api/syncDrive/getAuthUrl')
+export function syncPush(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/push', { reason: 'manual-push' })
 }
 
-export async function syncSetOAuthToken(token: Record<string, unknown>): Promise<unknown> {
-  return apiRequest('POST', '/api/syncDrive/setOAuthToken', { body: token })
+export function syncPull(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/pull', { reason: 'manual-pull' })
 }
 
-export async function syncDisconnect(): Promise<unknown> {
-  return apiRequest('POST', '/api/syncDrive/disconnect')
+export function syncReconcile(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/reconcile')
+}
+
+export function syncGetRemoteData(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/getRemoteData')
+}
+
+export function syncDiagnose(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/diagnose')
+}
+
+export function syncHeal(diagnostic: unknown): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/heal', { diagnostic })
+}
+
+export function syncCleanupMedia(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/cleanupMedia')
+}
+
+export function syncGetAuthUrl(): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/connect', { enabled: true, workspaceId: 'default', deviceName: 'Este dispositivo', conflictStrategy: 'lastWriteWins' })
+}
+
+export function syncSetOAuthToken(token: Record<string, unknown>): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/connect', { ...token, enabled: true, workspaceId: 'default', deviceName: 'Este dispositivo', conflictStrategy: 'lastWriteWins' })
 }

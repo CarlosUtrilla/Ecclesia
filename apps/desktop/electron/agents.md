@@ -18,7 +18,11 @@ electron/
 │   ├── updaterManager/
 │   │   ├── updaterManager.ts    # Auto-update con electron-updater (canal beta)
 │   │   └── updaterAPI.ts        # IPC API expuesta al renderer
-│   ├── googleDriveSyncManager/
+│   ├── sync/
+│   │   ├── sync-init.ts          # Scheduler, OAuth BrowserWindow, lifecycle
+│   │   ├── sync-ipc.ts           # Thin IPC handlers → HTTP syncBridge
+│   │   ├── googleDriveSyncAPI.ts # Preload API (contextBridge)
+│   │   └── outboxPayload.test.ts
 │   ├── bibleManager/
 │   ├── bibleSearchManager.ts
 │   ├── bibleSearchAPI.ts
@@ -70,9 +74,10 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 4. initializeBibleManager()       -> Registra IPC handlers de biblia
 5. initializeDisplayManager()     -> Registra IPC handlers de pantallas
 6. initializeLiveMediaManager()   -> Registra canal IPC de media en vivo
-7. initializeUpdaterManager()     -> Registra auto-updater (canal beta, check a los 10s)
-8. Registra IPC locales           -> Fuentes, ventanas, notificaciones
-9. createMainWindow()             -> Crea ventana principal
+7. initializeSyncManager()        -> Inicia sync scheduler + IPC handlers + callbacks
+8. initializeUpdaterManager()     -> Registra auto-updater (canal beta, check a los 10s)
+9. Registra IPC locales           -> Fuentes, ventanas, notificaciones
+10. createMainWindow()            -> Crea ventana principal
 ```
 
 ## Flujo de cierre
@@ -84,11 +89,31 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 ## Modulos
 
-### GoogleDriveSyncManager (`googleDriveSyncManager/`)
+### Sync Manager (`sync/`)
 
-- Manager dedicado para sincronizacion **snapshot-based** con Google Drive usando `appDataFolder`.
-- El login OAuth se abre en ventana interna de Electron.
-- Canales IPC:
+Manager modular de sincronización **snapshot-based** con Google Drive. Arquitectura thin Electron + thick API:
+
+- **Electron (`sync/`)**:
+  - `sync-init.ts`: Scheduler (setInterval 5min), `before-quit` hook, OAuth BrowserWindow, wiring de callbacks `setOnOutboxWriteCallback` / `setOnMediaChangeCallback`, micro-push (debounce 1s).
+  - `sync-ipc.ts`: 13 thin IPC handlers (`sync:google-drive:*`) que delegan en la API via HTTP (`syncBridge.ts`).
+  - `googleDriveSyncAPI.ts`: Preload API (contextBridge) — interfaz idéntica a la anterior.
+
+- **API (`apps/api/src/controllers/sync/`)** — toda la lógica real vive aquí:
+  - `sync.controller.ts`: Expone los métodos como endpoints Express (`/api/sync/*`).
+  - `sync-drive-client.service.ts`: OAuth client, Drive API client, carpeta Ecclesia, appInstanceId.
+  - `sync-state.service.ts`: Persistencia de estado (state file), retry backoff.
+  - `sync-snapshot.service.ts`: Build/upload/download/aplicar snapshots de BD.
+  - `sync-media.service.ts`: Manifest + blob sync para media (imágenes/videos).
+  - `sync-bible.service.ts`: Manifest + blob sync para biblias importadas.
+  - `sync-push.service.ts`: Orquestación push (snapshot + media + bible + outbox acks).
+  - `sync-pull.service.ts`: Orquestación pull (snapshots remotos + media + bible).
+  - `sync-diagnostic.service.ts`: Diagnóstico y reparación de blobs.
+  - `sync-cleanup.service.ts`: Limpieza de huérfanos (disco + Drive).
+  - `sync-lazy-fetch.service.ts`: Lazy fetch desde Drive para media server.
+  - `sync.config.ts`: Constantes, tipos, helpers, snapshot model definitions.
+  - `sync.utils.ts`: Utilidades de I/O, checksum.
+
+- **Canales IPC** (idénticos a la versión legacy):
   - `sync:google-drive:status`
   - `sync:google-drive:configure`
   - `sync:google-drive:connect`
@@ -96,112 +121,32 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
   - `sync:google-drive:push`
   - `sync:google-drive:pull`
   - `sync:google-drive:reconcile`
-  - `sync:google-drive:diagnose` — Diagnóstico: compara archivos locales vs manifest remoto y reporta discrepancias (read-only)
-  - `sync:google-drive:heal` — Reparación: toma el resultado del diagnóstico y repara subiendo/downloading blobs faltantes
-  - `sync:google-drive:verify-media-files` — Verificación independiente de integridad: revisa todos los registros Media en la DB contra el disco. Si Drive está configurado, también indica qué archivos faltantes pueden restaurarse desde Drive. No requiere sincronización activa.
-- Evento IPC adicional: `sync:google-drive:auto-save-event` para autosync al guardar.
-- Emite `sync-state` al renderer con `{ syncing, progress }`.
+  - `sync:google-drive:remote-data`
+  - `sync:google-drive:diagnose` — read-only, reporta discrepancias
+  - `sync:google-drive:heal` — repara blobs faltantes/corruptos
+  - `sync:google-drive:cleanup-media` — limpia huérfanos
+  - `sync:google-drive:auto-save-event` — micro-push al guardar
+  - `sync:google-drive:micro-push-media` — micro-push al cambiar media
 
-- **Verificación post-sync de archivos en disco**: Al final de cada ciclo de `syncDifferential`, se ejecuta `checkMediaFilesAfterSync()` que compara el manifest local (ya construido durante el ciclo y actualizado con `fs.pathExists`) contra los registros de la BD para detectar archivos que faltan en disco. **Sin I/O extra** — solo lee el manifest JSON de disco. Se espacia con `MEDIA_VERIFICATION_COOLDOWN_MS = 1 hora` para no ejecutarse en cada ciclo de 5 minutos. Si encuentra archivos faltantes, emite el evento IPC `media-files-missing` a todas las ventanas y los registra como warning.
+- **Eventos IPC**: `sync-state` emitido con `{ syncing, progress, error }`
 
-#### Arquitectura snapshot-based (actual)
+#### OAuth Flow
 
-- **Flujo push**: `reconcileSyncData()` → `buildSnapshot()` (todos los modelos de BD) → `uploadSnapshot()` → **Promise.all**: `syncMediaManifest push` + `syncBibleFiles push` (paralelos) → `writeRemoteManifest`.
-- **Optimización idle**: en ciclos normales, el snapshot solo se construye/sube si existe outbox local pendiente (`SyncOutboxChange.ackedAt = null`). Tras upload exitoso, se confirma outbox (`ackedAt`) para evitar re-subidas de snapshot en ciclos sin cambios de BD.
-- **Flujo pull**: `pullAllRemoteSnapshots()` → descarga snapshots de otros dispositivos → `applySnapshotRows()` (lastWriteWins por `updatedAt`) → **Promise.all**: `syncMediaManifest pull` + `syncBibleFiles pull` (paralelos).
-- **Ping-pong fix (actual)**: `applySnapshotRows` no usa SQL crudo para restaurar timestamps; preserva `updatedAt` remoto directamente en `create/update` via Prisma y mantiene trazabilidad por dispositivo en `SyncState.lastAppliedSnapshotAt` + `snapshotApplySequence`. Esto evita falsos `stale` por relojes desfasados entre equipos y mantiene coherencia temporal entre snapshots.
-- **Outbox identity fallback**: el middleware de Prisma que escribe `SyncOutboxChange` usa `workspaceId='default'` y `deviceId=os.hostname()` cuando `google-drive-config.json` tiene `workspaceId`/`deviceName` vacíos, para no perder micro-push al guardar presentaciones o cronogramas.
-- **Outbox payload BigInt-safe**: la serialización de payload del middleware de Prisma usa un serializer dedicado (`serializeOutboxPayload`) para convertir `bigint` sin lanzar `TypeError` (`number` si es seguro, `string` si no), evitando fallos al guardar `SelectedScreens.screenId`.
-- **Archivos en Drive**: `ecclesia-snapshot-{workspaceId}-{deviceId}.json` (un snapshot por dispositivo).
-- **deviceId / deviceName**: basado en `os.hostname()`; dos dispositivos con el mismo hostname no pueden sincronizarse correctamente.
+- `showOAuthWindow()` en `sync-init.ts` abre `BrowserWindow`, captura el código OAuth de la URL, y llama `exchangeOAuthCode()` que delega en la API vía `syncBridge.ts`.
+- La API usa `driveClientService.getAuthUrl()` / `driveClientService.exchangeAuthCode()`.
 
-#### Sincronizacion de archivos
+#### Arquitectura snapshot-based
 
-- **Media (imágenes/videos)**: Manifest `ecclesia-media-manifest-{workspaceId}.json` con checksum SHA-256. Incluye también archivos de fuentes (`Font` model, `userData/media/fonts/`).
-- El build de manifests local (media y biblias) reutiliza checksum previo cuando `size` y `mtime` no cambian, evitando recalcular hash de archivos sin cambios en cada ciclo.
-- Cuando se reutiliza checksum local, también se preserva `driveFileId` del manifest local anterior para evitar depender de `files.list()` en cada ciclo.
-- **Optimización de búsqueda de blobs:** Cada entry de manifest ahora incluye campo opcional `driveFileId` (Google Drive fileId del blob). En push, al subir un blob, se guarda el `driveFileId` en el manifest remoto. En pull, se carga primero desde `driveFileId` (búsqueda directa vía API), y solo en manifests viejos sin `driveFileId` se hace fallback a búsqueda lenta por nombre (`files.list()` con `name contains`). Esto elimina latencia de indexación de Google Drive que causaba que blobs recién subidos no se encontraran en syncs subsecuentes.
-- **Descarga con verificación rápida**: Se introdujo `downloadAndVerifyBlobChecksum()` que descarga blob directo por fileId (sin esperar `files.list()` indexing) y verifica checksum antes de confirmar descarga. En **push**, cuando manifest remoto válido pero blob no está aún indexado: si tenemos `driveFileId` conocido, intenta descargar+verificar primero (evita grace window innecesario si el blob está disponible). En **pull**, todas las descargas usan verificación de checksum para detectar blobs corruptos/incompletos durante transfer.
-  - **Retry logic para Windows**: `downloadAndVerifyBlobChecksum()` incluye 3 intentos con espera progresiva (500ms, 1000ms, 1500ms) cuando detecta errores de archivos bloqueados en Windows (`EBUSY`, `EPERM`, `EACCES`). Esto resuelve problemas de sincronización cuando el navegador o antivirus tienen el archivo abierto.
-  - **Permisos en Windows**: Después de mover archivos descargados, establece `chmod 0o644` (rw-r--r--) en Windows para asegurar que el servidor HTTP pueda leerlos correctamente.
-- En push, cuando checksum coincide y hay blob remoto, se hace **backfill automático** de `driveFileId` en manifest local/remoto si faltaba (sin re-subir blob), facilitando migración de manifests viejos.
-- Para detectar `driveFileId` stale sin saturar cuota, se valida existencia remota de IDs en forma acotada (`MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE`), y solo si falla se fuerza re-upload/reparación.
-- En push de media, el manifest remoto/local solo se actualiza cuando el blob queda confirmado en Drive. Si `uploadMediaBlob` falla (sin fileId o error de red/archivo bloqueado), se registra el error (con contexto completo) y ese entry se salta; el ciclo continúa con los demás (no se publica checksum huérfano, se loguea para observabilidad). Igual para biblias en `syncBibleFiles push`.
-- Si un manifest remoto conserva el mismo checksum pero el blob físico ya no existe en Drive, el siguiente push local reintenta subir ese blob y sana el manifest huérfano automáticamente en vez de saltarlo por igualdad de checksum.
-- Para evitar loops de re-upload cuando Drive todavía está asentando/indexando un blob recién subido, el push de media y biblias aplica una ventana de gracia (`BLOB_REUPLOAD_GRACE_MS`, basada en `lastSyncedAt`) antes de reintentar subida por checksum igual + blob no visible. La misma gracia se aplica en pull antes de "reparar" blobs remotos desde copia local. Sin embargo, si hay `driveFileId` conocido, la descarga+verificación intenta primero sin gracia.
-- En pull de media, entradas de manifest con checksum sin blob remoto se registran como `missingRemoteBlobs` para observabilidad (sin marcar descarga falsa ni sobrescribir archivo local).
-- En pull de media, si `downloadAndVerifyBlobChecksum()` falla por checksum mismatch (blob corrupto/incompleto), la descarga se rechaza y se log como error; el ciclo continúa y marca como faltante. Si falla por 404/notFound del fileId, se marca como `missingRemoteBlobs` y se limpia ese checksum del mapa.
-- En pull de media, si falta blob remoto pero existe copia local con el mismo checksum, se re-sube automáticamente el blob para reparar el estado remoto en el mismo ciclo; solo se incrementa `missingRemoteBlobs` cuando no hay forma de reparar.
-- En push de media para tombstones (`deletedAt`), no se indexan entradas remotas ya eliminadas para búsqueda por checksum; esto evita trabajo innecesario cuando hay muchos eliminados.
-- Si `drive.files.delete(media-blob)` responde `404/notFound`, se considera ya eliminado y se limpia `driveFileId` del tombstone local/remoto para no reintentar borrado en cada ciclo.
-- **Biblias importadas**: Manifest `ecclesia-bible-manifest-{workspaceId}.json` + blobs `ecclesia-bible-blob-{workspaceId}-{checksum}.bin`. Las biblias bundled en `resources/bibles/` se excluyen de la sincronización. Usan el mismo sistema de `driveFileId` que media.
-- `media_manifest` propaga tombstones (`deletedAt`) para borrado remoto/local.
-- El listado de blobs remotos (media y biblias) usa paginación de Drive (`nextPageToken`) para evitar omitir descargas cuando existen más de 1000 archivos en la carpeta de Ecclesia.
-
-#### Observabilidad y scheduler
-
-- OAuth se carga con `loadAppEnv()` (`.env`, `.env.local` o `userData/.env`).
-- `status` reporta: `nextRunAt`, `lastRunStatus`, `lastRunReason`, `lastRunAt`, `lastRunError`, `deviceName`, `systemHostname`.
-- El sync manager detecta y loguea explícitamente respuestas de rate limit/quota de Google Drive (`429` y `403` con razones `rateLimitExceeded`, `userRateLimitExceeded`, `quotaExceeded`, `dailyLimitExceeded`, `sharingRateLimitExceeded`) incluyendo operación y contexto del archivo/checksum cuando aplica.
-- El scheduler tiene backoff exponencial persistido: `retryCount`, `nextRetryAt`, `schedulerHealthy`, `lastSchedulerHeartbeatAt`.
-- Helpers puros de retry exportados: `calculateRetryDelayMs()` y `buildRetryBackoffState()`.
-- `executeSyncCycle()` se exporta para pruebas de recovery del scheduler.
-- En `buildSnapshot`, el acceso dinámico a delegates de Prisma debe usar cast intermedio vía `unknown` (`prisma as unknown as Record<string, unknown>`) para evitar errores de solapamiento de tipos en `tsconfig.node`.
-
-#### Micro-sync (push diferencial inmediato)
-
-- **`scheduleMicroPush()`**: Debounce de 1 s → llama `pushSnapshotOnly()`. Se dispara desde `setOnOutboxWriteCallback` (cualquier write a BD).
-- **`scheduleMicroMediaPush()`**: Debounce de 1 s → llama `pushMediaOnly()`. Se dispara desde `setOnMediaChangeCallback` (writes a `Media` o `Font`). Llama también a `scheduleMicroPush()`.
-- `pushSnapshotOnly` / `pushMediaOnly`: leen config y token del disco, aplican defaults de `workspaceId`/`deviceName`, verifican `!isSyncing`, luego ejecutan. Loguean errores via `log.error` (nunca silenciosos).
-- **`getOrCreateEcclesiaFolder`**: usa `cachedDriveFolderId` + `folderCreationPromise` (mutex de promise) para evitar race condition en llamadas concurrentes cuando la carpeta no existe.
-
-#### Bug crítico corregido: `notifySyncState` en dispositivo secundario
-
-- Antes: si `conflictStrategy=primaryDevice` y el dispositivo era secundario, se llamaba `notifySyncState(true, 100)` sin el correspondiente `notifySyncState(false)`, dejando `isSyncing=true` permanentemente.
-- Ahora: se llama `notifySyncState(false)` antes de retornar en ese caso.
-
-#### Fixes de robustez en pull (junio 2026)
-
-- **Errores no-fatales en descarga de media**: Antes, cualquier error en `downloadAndVerifyBlobChecksum` (checksum mismatch, timeout, red) relanzaba la excepción y mataba todo el ciclo pull. Ahora se loguea el error y se salta ese archivo (`continue`), permitiendo que el resto del lote se descargue.
-- **Errores no-fatales en descarga de biblias**: `downloadBibleBlobToLocal` no tenía try-catch; cualquier error interrumpía toda la sincronización de biblias. Ahora también captura errores y continúa.
-- **Manifest siempre se escribe**: Como el ciclo ya no lanza en errores individuales, `writeJson` del manifest local se ejecuta siempre al final, registrando todas las descargas exitosas del ciclo.
-- **Errores del scheduler visibles en UI**: `notifySyncState` ahora acepta un tercer parámetro `error?: string`. Los callbacks de interval, retry y startup pasan el mensaje de error. El renderer recibe `{ syncing, progress, error, lastRunStatus, lastRunError }` en el evento `sync-state`.
-
-#### Limpieza de archivos huérfanos (local + Drive)
-
-- **`cleanupOrphanMediaFromDiskAndDrive()`**: Función que escanea `media/files/` y `media/thumbnails/`, compara contra todos los registros de la DB (incluyendo soft-delete), y:
-  - Identifica archivos **huérfanos** (en disco pero sin registro en DB) y **obsoletos** (todos los registros DB que usan ese path tienen `deletedAt != null`).
-  - **Seguridad de paths compartidos**: Si un archivo en disco es usado por al menos un registro activo (`deletedAt = null`), no se elimina aunque otro registro lo tenga como eliminado.
-  - Por cada archivo a limpiar:
-    1. Busca `driveFileId` en el manifest local
-    2. Si existe, elimina el blob de Google Drive (`drive.files.delete()`)
-    3. Elimina el archivo del disco local
-  - También limpia thumbnails/fallbacks huérfanos.
-  - Actualiza ambos manifests (local y remoto) eliminando las entradas limpiadas.
-- Canal IPC: `sync:google-drive:cleanup-media` (invoke, sin args)
-- Expuesto en preload como `window.googleDriveSyncAPI.cleanupMediaOrphans()`
-
-#### Diagnóstico y reparación (sync)
-
-- **`diagnoseSyncIssues()`**: Función read-only que lee el manifest remoto de Drive, el manifest local, lista los blobs remotos, y compara cada archivo para clasificarlo como: `ok`, `missing-locally` (en Drive pero no en disco), `missing-in-drive` (en disco pero no en Drive), `orphan-local` (en manifest local pero sin archivo en disco ni en Drive), `tombstoned`. Retorna un `SyncDiagnostic` con resumen y detalle.
-- **`healSyncIssues(diagnostic)`**: Toma el diagnóstico y para cada archivo con problema:
-  - `missing-in-drive` → sube el blob a Drive vía `uploadMediaBlob()`
-  - `missing-locally` → descarga el blob desde Drive vía `downloadAndVerifyBlobChecksum()`
-  - Actualiza ambos manifests (local y remoto) al finalizar.
-- Canales IPC: `sync:google-drive:diagnose` (invoke, sin args) y `sync:google-drive:heal` (invoke, recibe el diagnostic).
+- **Flujo push**: `syncPushService.push()` → `buildSnapshot()` → `uploadSnapshot()` → Promise.all `syncMediaManifest push` + `syncBibleFiles push` → `writeRemoteManifest`.
+- **Micro-sync**: Debounce 1s `scheduleMicroPush()` / `scheduleMicroMediaPush()` en Electron, llama `syncPush()` vía HTTP.
+- **Flujo pull**: `syncPullService.pull()` → `pullAndApplySnapshots()` (descarga snapshots de otros dispositivos, `applySnapshotRows` con lastWriteWins) → Promise.all `syncMediaManifest pull` + `syncBibleFiles pull`.
+- **Archivos en Drive**: `ecclesia-snapshot-{workspaceId}-{deviceId}.json`, `ecclesia-media-manifest-{workspaceId}.json`, `ecclesia-media-blob-{workspaceId}-{checksum}.bin`, `ecclesia-bible-manifest-{workspaceId}.json`, `ecclesia-bible-blob-{workspaceId}-{checksum}.bin`.
+- Ver documentación completa de optimizaciones, grace window, paginación, tombstones, driveFileId backfill, y fixes en `apps/api/src/controllers/sync/sync-media.service.ts` y sus archivos relacionados.
 
 #### IMPORTANTE: electron-log solo en main
 
-- `electron-log` NO debe importarse en archivos del directorio `database/` (actualmente en `@ecclesia/api`) porque esos archivos se bundlean en el preload (renderer). Usar `console.warn`/`console.error` en su lugar.
+- `electron-log` NO debe importarse en archivos de `@ecclesia/api` porque se bundlean en el preload (renderer). Usar `console.warn`/`console.error` en su lugar.
 - Solo los archivos en `electron/main/` usan `electron-log`.
-
-#### Cobertura de tests
-
-- `electron/main/googleDriveSyncManager/googleDriveSyncManager.test.ts`
-- `electron/main/googleDriveSyncManager/googleDriveSyncManager.scheduler.test.ts`
-  - Incluye escenario de retry disparado por temporizador (sin invocacion manual del ciclo).
-- `electron/main/googleDriveSyncManager/googleDriveSyncManager.media.test.ts`
-  - Valida integridad de media (dedupe por checksum, descarga diferencial, tombstones, manifest remoto invalido), transferencia por delta y paginación de blobs remotos (>1000 archivos).
 
 ### Window Manager (`windowManager.ts`)
 
@@ -378,7 +323,7 @@ Definidas en `electron/preload/index.ts`:
 | `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `showStageScreen()`, `closeStageScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()`, `updateStageScreenConfig()` |
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wrappers del bible manager |
-| `window.googleDriveSyncAPI` | `getStatus()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()`, `verifyMediaFiles()` |
+| `window.googleDriveSyncAPI` | `getStatus()`, `configure()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()`, `reconcileNow()`, `getRemoteData()`, `diagnoseNow()`, `healNow()`, `cleanupMediaOrphans()`, `notifyAutoSaveEvent()`, `microPushMedia()`, `onSyncStateChange()` |
 | `window.updaterAPI` | `checkForUpdates()`, `downloadUpdate()`, `installUpdate()`, `getVersion()`, `onUpdateAvailable()`, `onUpdateDownloaded()`, `onDownloadProgress()` |
 | `window.remoteControlAPI` | `discoverLan()` |
 | `window.bibleSearchAPI` | `sendBibleSearch()`, `onBibleSearch()` |

@@ -2,7 +2,7 @@ import { BrowserWindow, shell, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { getIsSyncing, executeSyncCycle } from './googleDriveSyncManager/googleDriveSyncManager'
+import { getIsSyncing, executeSyncCycle } from './sync/sync-init'
 
 let splashWindowRef: BrowserWindow | null = null
 let settingsWindowRef: BrowserWindow | null = null
