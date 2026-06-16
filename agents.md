@@ -89,6 +89,7 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | Usar animaciones con Framer Motion | [`ui`](packages/desktop/app/ui/agents.md) |
 | Agregar un componente Shadcn UI | [`ui`](packages/desktop/app/ui/agents.md) |
 | Trabajar con el media server o archivos de medios | [`electron`](packages/desktop/electron/agents.md) + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
+| Verificar integridad de archivos de medios en disco | [`electron`](packages/desktop/electron/agents.md) + [`api`](apps/api/agents.md) |
 | Modificar gestion de displays/pantallas | [`electron`](packages/desktop/electron/agents.md) + [`contexts`](packages/desktop/app/contexts/agents.md) |
 | Importar o gestionar biblias | [`electron`](packages/desktop/electron/agents.md) + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
 | Agregar una nueva ruta en React Router | Leer `packages/desktop/app/App.tsx` + [`electron`](packages/desktop/electron/agents.md) si requiere ventana nueva |

@@ -1,5 +1,5 @@
 import { getPrisma } from '../../prisma'
-import { CreateMediaDto, UpdateMediaDto, MediaDto, MediaListDto, MediaFilterDto } from './media.dto'
+import { CreateMediaDto, UpdateMediaDto, MediaDto, MediaListDto, MediaFilterDto, VerifyMediaResult, VerifyMediaEntry } from './media.dto'
 import fs from 'fs'
 import path from 'path'
 import {
@@ -218,6 +218,69 @@ export class MediaService {
 
   async cleanupTempPath(targetPath: string) {
     return cleanupTempPath(targetPath)
+  }
+
+  async verifyFiles(): Promise<VerifyMediaResult> {
+    const prisma = getPrisma()
+    const mediaRoot = resolveMediaRoot()
+    const allMedia = await prisma.media.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        filePath: true,
+        thumbnail: true,
+        fallback: true
+      }
+    })
+
+    const details: VerifyMediaEntry[] = []
+    let missingFiles = 0
+    let missingThumbnails = 0
+    let missingFallbacks = 0
+
+    for (const media of allMedia) {
+      const fileExists = media.filePath
+        ? fs.existsSync(resolveNormalizedPath(mediaRoot, normalizeMediaPath(media.filePath)))
+        : true
+      const thumbnailExists = media.thumbnail
+        ? fs.existsSync(resolveNormalizedPath(mediaRoot, normalizeMediaPath(media.thumbnail)))
+        : true
+      const fallbackExists = media.fallback
+        ? fs.existsSync(resolveNormalizedPath(mediaRoot, normalizeMediaPath(media.fallback)))
+        : true
+
+      if (!fileExists) missingFiles++
+      if (!thumbnailExists) missingThumbnails++
+      if (!fallbackExists) missingFallbacks++
+
+      details.push({
+        id: media.id,
+        name: media.name,
+        type: media.type,
+        filePath: media.filePath,
+        thumbnail: media.thumbnail,
+        fallback: media.fallback,
+        fileExists,
+        thumbnailExists,
+        fallbackExists
+      })
+    }
+
+    const missing = details.filter(
+      (d) => !d.fileExists || !d.thumbnailExists || !d.fallbackExists
+    ).length
+
+    return {
+      total: allMedia.length,
+      present: allMedia.length - missing,
+      missing,
+      missingFiles,
+      missingThumbnails,
+      missingFallbacks,
+      details
+    }
   }
 
   async cleanupOrphans(): Promise<{

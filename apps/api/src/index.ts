@@ -3,7 +3,8 @@ import cors from 'cors'
 import os from 'os'
 import {
   registerMediaServerRoutes,
-  MEDIA_SERVER_PORT
+  MEDIA_SERVER_PORT,
+  LazyFetchHandler
 } from './controllers/media/mediaServer.controller'
 import { registerRoutes } from './utils/routerUtilis'
 import {
@@ -29,7 +30,8 @@ export function broadcastToRemoteClients(event: string, data: unknown): void {
 export async function initializeHttpServer(
   config?: DatabaseConfig,
   serverPort?: number,
-  onQueryKeys?: (keys: string[][]) => void
+  onQueryKeys?: (keys: string[][]) => void,
+  onLazyFetch?: LazyFetchHandler
 ) {
   const app = express()
   const port = serverPort ?? MEDIA_SERVER_PORT
@@ -54,7 +56,7 @@ export async function initializeHttpServer(
     broadcastToRemoteClients('query-keys-invalidate', keys)
     onQueryKeys?.(keys)
   })
-  registerMediaServerRoutes(app)
+  registerMediaServerRoutes(app, { lazyFetch: onLazyFetch })
 
   app.post('/api/getRoutes', (req, res) => {
     try {

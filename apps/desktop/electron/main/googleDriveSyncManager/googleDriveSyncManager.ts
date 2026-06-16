@@ -39,6 +39,7 @@ type SyncState = {
   nextRetryAt?: string
   schedulerHealthy?: boolean
   lastSchedulerHeartbeatAt?: string
+  lastMediaVerificationAt?: string
 }
 
 type SyncStatus = {
@@ -173,6 +174,9 @@ const HEALTH_CHECK_INTERVAL_MS = 60 * 1000
 const SCHEDULER_STALE_THRESHOLD_MS = AUTO_SYNC_INTERVAL_MS * 2 + 30 * 1000
 const MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE = 20
 const BLOB_REUPLOAD_GRACE_MS = 5 * 60 * 1000
+// Cada cuánto se verifica que archivos de la BD existan realmente en disco,
+// aprovechando el manifest ya construido durante el ciclo de sync (sin I/O extra).
+const MEDIA_VERIFICATION_COOLDOWN_MS = 1 * 60 * 60 * 1000 // 1 hora
 
 // Orden topológico: las tablas con FK dependencies van después de sus dependencias.
 // TagSongs → Song → Lyrics (FK: Song, TagSongs)
@@ -2382,6 +2386,166 @@ async function acknowledgeOutboxUpToId(workspaceId: string, deviceId: string, up
   })
 }
 
+// ── Verificación post-sync: compara manifest local vs DB para detectar archivos faltantes ──
+// No hace llamadas a fs.pathExists — lee el manifest (ya actualizado por el ciclo de sync).
+async function checkMediaFilesAfterSync(state: SyncState): Promise<void> {
+  const lastCheck = state.lastMediaVerificationAt
+  if (lastCheck && Date.now() - new Date(lastCheck).getTime() < MEDIA_VERIFICATION_COOLDOWN_MS) {
+    return
+  }
+
+  const manifest = await readJsonSafe<MediaManifestFile>(getLocalMediaManifestPath())
+  if (!manifest) return
+
+  const prisma = getPrisma()
+  const dbRecords = await prisma.media.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true, filePath: true }
+  })
+
+  // Índice de entries del manifest por path
+  const manifestByPath = new Map(manifest.entries.map((e) => [e.path, e]))
+  const missing: Array<{ id: number; name: string; path: string }> = []
+
+  for (const record of dbRecords) {
+    if (!record.filePath) continue
+    const entry = manifestByPath.get(record.filePath)
+    // Si no hay entry o tiene deletedAt, el archivo no existe en disco
+    if (!entry || entry.deletedAt) {
+      missing.push({ id: record.id, name: record.name, path: record.filePath })
+    }
+  }
+
+  if (missing.length > 0) {
+    log.warn(
+      `[verify] ${missing.length} archivos faltan en disco (de ${dbRecords.length} registros en BD):`,
+      missing.map((m) => m.path).join(', ')
+    )
+    // Emitir evento para que la UI pueda mostrar advertencia
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send('media-files-missing', {
+        count: missing.length,
+        total: dbRecords.length,
+        files: missing.map((m) => ({ id: m.id, name: m.name, path: m.path }))
+      })
+    })
+  }
+
+  await updateLocalSyncState({ lastMediaVerificationAt: new Date().toISOString() })
+}
+
+/**
+ * Lazy-fetch: descarga un archivo de medios desde Drive cuando Express responde 404.
+ * Se invoca on-demand desde el middleware del servidor HTTP de medios.
+ * Busca en: (1) manifest local, (2) manifest remoto de Drive, (3) fallback por checksum.
+ */
+async function getDriveClientFromTokensOnly(): Promise<ReturnType<typeof google.drive>> {
+  const tokens = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
+  if (!tokens) throw new Error('No hay sesión activa de Google Drive')
+  const oauthClient = getOAuthClient()
+  oauthClient.setCredentials(tokens)
+  return google.drive({ version: 'v3', auth: oauthClient })
+}
+
+export async function lazyFetchMediaFromDrive(relativePath: string): Promise<boolean> {
+  let workspaceId: string | undefined
+  let checksum: string | null = null
+  let driveFileId: string | null = null
+
+  // (1) Buscar en manifest local — no necesita config, siempre en ruta fija
+  const localManifest = await readJsonSafe<MediaManifestFile>(getLocalMediaManifestPath())
+  const localEntry = localManifest?.entries.find((e) => e.path === relativePath)
+  if (localEntry?.checksum) {
+    workspaceId = localManifest!.workspaceId
+    checksum = localEntry.checksum
+    driveFileId = localEntry.driveFileId ?? null
+    log.warn(`[lazy-fetch] Local: ${relativePath} ws=${workspaceId} cksum=${checksum.slice(0, 12)} deletedAt=${localEntry.deletedAt ?? 'null'} driveFileId=${driveFileId ?? 'null'}`)
+  }
+
+  // (2) Autenticar contra Drive (tokens directos, sin necesidad de config)
+  let drive: ReturnType<typeof google.drive>
+  try {
+    drive = await getDriveClientFromTokensOnly()
+  } catch {
+    try {
+      const client = await getDriveClient()
+      drive = client.drive
+      workspaceId ??= client.config.workspaceId
+    } catch {
+      log.warn(`[lazy-fetch] Sin acceso a Drive: ${relativePath}`)
+      return false
+    }
+  }
+
+  workspaceId ??= localManifest?.workspaceId
+  if (!workspaceId) {
+    log.warn(`[lazy-fetch] Sin workspaceId: ${relativePath}`)
+    return false
+  }
+
+  // (3) Si falta driveFileId (común si el local se regeneró sin él) consultar remoto
+  if (checksum && !driveFileId) {
+    log.warn(`[lazy-fetch] Sin driveFileId en local, buscando en remoto (ws=${workspaceId})...`)
+    try {
+      const remoteManifest = await readRemoteMediaManifest(drive, workspaceId)
+      const remoteEntry = remoteManifest?.entries.find((e) => e.path === relativePath)
+      if (remoteEntry?.driveFileId) {
+        driveFileId = remoteEntry.driveFileId
+        // Usar checksum del remoto si el local es diferente
+        if (remoteEntry.checksum) checksum = remoteEntry.checksum
+        log.warn(`[lazy-fetch] Remoto: driveFileId=${driveFileId} cksum=${checksum.slice(0, 12)}`)
+      } else if (remoteEntry?.checksum && remoteEntry.checksum !== checksum) {
+        checksum = remoteEntry.checksum
+        log.warn(`[lazy-fetch] Checksum remoto diferente: ${checksum.slice(0, 12)}`)
+      } else {
+        log.warn(`[lazy-fetch] Remoto: sin driveFileId, mismo cksum que local`)
+      }
+    } catch (e) {
+      log.warn(`[lazy-fetch] Error leyendo remoto: ${(e as Error).message}`)
+    }
+  }
+
+  // (4) Si tampoco hay entrada local, buscar solo en remoto
+  if (!checksum) {
+    log.warn(`[lazy-fetch] No en local, consultando remoto (ws=${workspaceId}): ${relativePath}`)
+    const remoteManifest = await readRemoteMediaManifest(drive, workspaceId)
+    const remoteEntry = remoteManifest?.entries.find((e) => e.path === relativePath)
+    if (!remoteEntry?.checksum) {
+      log.warn(`[lazy-fetch] No encontrado en remoto: ${relativePath}`)
+      return false
+    }
+    checksum = remoteEntry.checksum
+    driveFileId = remoteEntry.driveFileId ?? null
+    log.warn(`[lazy-fetch] Remoto: ${relativePath} cksum=${checksum.slice(0, 12)} driveFileId=${driveFileId ?? 'null'}`)
+  }
+
+  // (5) Descarga directa por driveFileId
+  if (driveFileId) {
+    try {
+      log.warn(`[lazy-fetch] Descargando driveFileId=${driveFileId}: ${relativePath}`)
+      await downloadAndVerifyBlobChecksum(drive, driveFileId, relativePath, checksum)
+      log.warn(`[lazy-fetch] Listo: ${relativePath}`)
+      return true
+    } catch (e) {
+      log.warn(`[lazy-fetch] driveFileId falló: ${(e as Error).message}`)
+    }
+  }
+
+  // (6) Fallback: buscar blob por checksum
+  log.warn(`[lazy-fetch] Buscando blob por checksum: ${checksum.slice(0, 12)}...`)
+  const blobsByChecksum = await listRemoteMediaBlobs(drive, workspaceId)
+  const fileId = blobsByChecksum.get(checksum)
+  if (!fileId) {
+    log.warn(`[lazy-fetch] Blob no encontrado en Drive: ${checksum.slice(0, 12)}`)
+    return false
+  }
+
+  log.warn(`[lazy-fetch] Descargando blob ${fileId}: ${relativePath}`)
+  await downloadAndVerifyBlobChecksum(drive, fileId, relativePath, checksum)
+  log.warn(`[lazy-fetch] Listo: ${relativePath}`)
+  return true
+}
+
 async function syncDifferential(reason: SyncReason) {
   const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
   const state = (await readJsonSafe<SyncState>(getStateFilePath())) || {}
@@ -2495,6 +2659,12 @@ async function syncDifferential(reason: SyncReason) {
       lastSyncAt: syncedAt,
       lastRemoteModifiedAt: syncedAt,
       conflictDetected: false
+    })
+
+    // Verificación periódica de archivos en disco (sin I/O extra — usa el manifest ya construido)
+    notifySyncState(true, 95)
+    await checkMediaFilesAfterSync({
+      lastMediaVerificationAt: state.lastMediaVerificationAt
     })
 
     notifySyncState(true, 100)

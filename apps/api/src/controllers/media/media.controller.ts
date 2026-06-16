@@ -99,6 +99,10 @@ export class MediaController {
     return await this.mediaService.getMediaByIds(body.ids)
   }
 
+  async verifyFiles() {
+    return await this.mediaService.verifyFiles()
+  }
+
   async cleanupOrphans() {
     return await this.mediaService.cleanupOrphans()
   }

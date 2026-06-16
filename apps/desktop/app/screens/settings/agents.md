@@ -47,6 +47,7 @@ app/screens/settings/
 - Los errores de descarga individual de archivos (media, biblias) ya no interrumpen el ciclo pull: se loguean y se salta el archivo, el resto del lote continúa y el manifest local se actualiza con las descargas exitosas.
 - **Pestaña Dev**: contiene utilidades de desarrollo y diagnóstico. Actualmente incluye:
   - Botones Diagnosticar/Reparar de sincronización Google Drive (movidos desde Sincronización).
+  - Botón "Verificar archivos en disco": llama `window.googleDriveSyncAPI.verifyMediaFiles()` que ejecuta `verifyMediaFilesOnDisk()` en el main process. Revisa todos los registros Media contra el disco. Si Drive está configurado, indica qué archivos faltantes pueden restaurarse desde Drive. Muestra resultado con detalle colapsable.
   - Botón "Limpiar archivos no vinculados": llama `window.googleDriveSyncAPI.cleanupMediaOrphans()` que ejecuta `cleanupOrphanMediaFromDiskAndDrive()` en el main process. Pide confirmación antes de eliminar. Muestra resultado con detalle colapsable incluyendo conteo de eliminaciones de Drive.
 - Visible en producción por ahora.
 

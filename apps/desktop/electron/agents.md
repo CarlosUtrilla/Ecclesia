@@ -98,8 +98,11 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
   - `sync:google-drive:reconcile`
   - `sync:google-drive:diagnose` — Diagnóstico: compara archivos locales vs manifest remoto y reporta discrepancias (read-only)
   - `sync:google-drive:heal` — Reparación: toma el resultado del diagnóstico y repara subiendo/downloading blobs faltantes
+  - `sync:google-drive:verify-media-files` — Verificación independiente de integridad: revisa todos los registros Media en la DB contra el disco. Si Drive está configurado, también indica qué archivos faltantes pueden restaurarse desde Drive. No requiere sincronización activa.
 - Evento IPC adicional: `sync:google-drive:auto-save-event` para autosync al guardar.
 - Emite `sync-state` al renderer con `{ syncing, progress }`.
+
+- **Verificación post-sync de archivos en disco**: Al final de cada ciclo de `syncDifferential`, se ejecuta `checkMediaFilesAfterSync()` que compara el manifest local (ya construido durante el ciclo y actualizado con `fs.pathExists`) contra los registros de la BD para detectar archivos que faltan en disco. **Sin I/O extra** — solo lee el manifest JSON de disco. Se espacia con `MEDIA_VERIFICATION_COOLDOWN_MS = 1 hora` para no ejecutarse en cada ciclo de 5 minutos. Si encuentra archivos faltantes, emite el evento IPC `media-files-missing` a todas las ventanas y los registra como warning.
 
 #### Arquitectura snapshot-based (actual)
 
@@ -362,6 +365,7 @@ Wrapper fino que delega toda la lógica de inicialización a `@ecclesia/api`:
 | `display-update` | displayManager | Refetch de displays |
 | `live-screen-ready` | LiveScreen window | Marca pantalla como lista |
 | `liveScreen-hide` | LiveScreen window | Notifica ocultamiento |
+| `media-files-missing` | sync (post-cycle) | Notifica que archivos de medios faltan en disco |
 
 ## APIs expuestas al renderer (preload)
 
@@ -374,7 +378,7 @@ Definidas en `electron/preload/index.ts`:
 | `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `showStageScreen()`, `closeStageScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()`, `updateStageScreenConfig()` |
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wrappers del bible manager |
-| `window.googleDriveSyncAPI` | `getStatus()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()` |
+| `window.googleDriveSyncAPI` | `getStatus()`, `connect()`, `disconnect()`, `pushNow()`, `pullNow()`, `verifyMediaFiles()` |
 | `window.updaterAPI` | `checkForUpdates()`, `downloadUpdate()`, `installUpdate()`, `getVersion()`, `onUpdateAvailable()`, `onUpdateDownloaded()`, `onDownloadProgress()` |
 | `window.remoteControlAPI` | `discoverLan()` |
 | `window.bibleSearchAPI` | `sendBibleSearch()`, `onBibleSearch()` |

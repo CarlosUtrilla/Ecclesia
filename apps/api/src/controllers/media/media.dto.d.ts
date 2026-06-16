@@ -33,3 +33,25 @@ export interface MediaFilterDto {
   page?: number
   limit?: number
 }
+
+export interface VerifyMediaEntry {
+  id: number
+  name: string
+  type: MediaType
+  filePath: string | null
+  thumbnail: string | null
+  fallback: string | null
+  fileExists: boolean
+  thumbnailExists: boolean
+  fallbackExists: boolean
+}
+
+export interface VerifyMediaResult {
+  total: number
+  present: number
+  missing: number
+  missingFiles: number
+  missingThumbnails: number
+  missingFallbacks: number
+  details: VerifyMediaEntry[]
+}

@@ -25,7 +25,10 @@ import fontList from 'font-list'
 import { initializeMediaManager } from './mediaManager'
 import { initializeDisplayManager } from './displayManager'
 import { initializeFontManager } from './fontManager'
-import { initializeGoogleDriveSyncManager } from './googleDriveSyncManager/googleDriveSyncManager'
+import {
+  initializeGoogleDriveSyncManager,
+  lazyFetchMediaFromDrive
+} from './googleDriveSyncManager/googleDriveSyncManager'
 import { loadAppEnv } from './loadEnv'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
 import { initializeRemoteManager } from './remoteManager'
@@ -119,7 +122,7 @@ app.whenReady().then(async () => {
         win.webContents.send('invalidate-queries', keys)
       }
     })
-  })
+  }, lazyFetchMediaFromDrive)
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.ecclesia.app')
