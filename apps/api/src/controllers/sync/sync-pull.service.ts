@@ -14,6 +14,7 @@ export class SyncPullService {
     appInstanceId: string,
     folderId: string
   ) {
+    syncProgressService.setPhaseRange(0, 50)
     syncProgressService.update(10, 'Iniciando pull...')
 
     syncProgressService.update(20, 'Aplicando snapshots remotos...')

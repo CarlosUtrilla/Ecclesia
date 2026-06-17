@@ -37,7 +37,6 @@ import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePres
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { clampBibleEdgeOffset, shouldDetachDefaultBibleSettings } from './utils/bibleSettings'
 import { clampBibleVerseWidthPercent } from '@/ui/PresentationView/utils/verseWidth'
-import { Api } from '@ecclesia/queries'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 

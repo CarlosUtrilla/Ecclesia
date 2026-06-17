@@ -9,10 +9,13 @@ import {
   MediaManifestEntry,
   MediaManifestFile,
   PersistedSyncConfig,
+  REMOTE_MEDIA_BLOB_FILE_PREFIX,
   getRemoteMediaManifestFileName,
   getRemoteMediaBlobFileName,
+  toSafeFileSegment,
   BLOB_REUPLOAD_GRACE_MS,
-  MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE
+  MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE,
+  BLOB_UPLOAD_CONCURRENCY
 } from './sync.config'
 import { readJsonSafe, writeJson, computeFileChecksum } from './sync.utils'
 import { syncDriveOpsService } from './sync-drive-ops.service'
@@ -80,6 +83,10 @@ export class SyncMediaService {
         ? previous.checksum
         : await computeFileChecksum(fullPath)
 
+      if (!canReuseChecksum && previous?.driveFileId) {
+        log.warn(`[sync] PERDIENDO driveFileId para ${relativePath}: prevDriveFileId=${previous.driveFileId}, sizeMatch=${previous.size === stats.size}, mtimeMatch=${previous.mtime === stats.mtimeMs}, prevMtime=${previous.mtime}, mtime=${stats.mtimeMs}`)
+      }
+
       nextEntriesMap.set(relativePath, {
         path: relativePath,
         size: stats.size,
@@ -142,9 +149,10 @@ export class SyncMediaService {
     workspaceId: string,
     folderId: string
   ): Promise<Map<string, string>> {
-    const prefix = getRemoteMediaBlobFileName(workspaceId, '')
-    const basePrefix = prefix.slice(0, -64 - '.bin'.length)
-    return syncDriveOpsService.listFilesByPrefix(drive, folderId, basePrefix, '.bin')
+    const basePrefix = `${REMOTE_MEDIA_BLOB_FILE_PREFIX}-${toSafeFileSegment(workspaceId)}-`
+    const result = await syncDriveOpsService.listFilesByPrefix(drive, folderId, basePrefix, '.bin')
+    log.warn(`[sync] listRemoteMediaBlobs: basePrefix="${basePrefix}", encontrados=${result.size}`)
+    return result
   }
 
   async uploadMediaBlob(
@@ -199,11 +207,14 @@ export class SyncMediaService {
     }
 
     if (checksumsSinFileId.size > 0) {
+      log.warn(`[sync] Resolviendo ${checksumsSinFileId.size} checksums sin driveFileId en manifest remoto`)
       const bySearch = await this.listRemoteMediaBlobs(drive, config.workspaceId, folderId)
+      let resueltos = 0
       for (const c of checksumsSinFileId) {
         const fid = bySearch.get(c)
-        if (fid) remoteBlobByChecksum.set(c, fid)
+        if (fid) { remoteBlobByChecksum.set(c, fid); resueltos++ }
       }
+      log.warn(`[sync] Checksums sin fileId: ${checksumsSinFileId.size}, resueltos por nombre: ${resueltos}`)
     }
 
     let uploaded = 0
@@ -214,6 +225,8 @@ export class SyncMediaService {
     const nowMs = Date.now()
 
     if (mode === 'push') {
+      const pendingUploads: MediaManifestEntry[] = []
+
       syncProgressService.setMessage(`Sincronizando ${localManifest.entries.length} archivos de medios (push)...`)
       for (const [index, localEntry] of localManifest.entries.entries()) {
         if (index % 20 === 0 && index > 0) {
@@ -259,6 +272,7 @@ export class SyncMediaService {
             driveFileIdVerifications++
             const exists = await syncDriveOpsService.remoteFileIdExists(drive, resolvedFileId)
             if (!exists) {
+              log.warn(`[sync] VERIFICACION FALLIDA para ${localEntry.path}: fileId=${resolvedFileId} no existe en Drive`)
               hasRemoteBlob = false
               remoteBlobByChecksum.delete(localEntry.checksum)
               resolvedFileId = null
@@ -274,6 +288,7 @@ export class SyncMediaService {
         }
 
         if (remoteEntry?.checksum === localEntry.checksum && !remoteEntry.deletedAt && !hasRemoteBlob) {
+          log.warn(`[sync] CHECKSUM MATCH SIN BLOB: path=${localEntry.path}, remoteDriveFileId=${remoteEntry.driveFileId}, localDriveFileId=${localEntry.driveFileId}`)
           if (remoteEntry.driveFileId) {
             try {
               await this.downloadAndVerifyBlobChecksum(drive, remoteEntry.driveFileId, remoteEntry.path, remoteEntry.checksum)
@@ -282,6 +297,7 @@ export class SyncMediaService {
               continue
             } catch {
               if (syncDriveOpsService.isDriveNotFoundError(remoteEntry.driveFileId)) {
+                log.warn(`[sync] BLOB NO ENCONTRADO en Drive para ${remoteEntry.path}, limpiando driveFileId`)
                 remoteByPath.set(remoteEntry.path, { ...remoteEntry, driveFileId: null })
                 hasRemoteBlob = false
               }
@@ -290,19 +306,17 @@ export class SyncMediaService {
 
           if (!hasRemoteBlob) {
             const lastSyncedAt = localEntry.lastSyncedAt || remoteEntry.lastSyncedAt
-            if (lastSyncedAt && (nowMs - Date.parse(lastSyncedAt)) < BLOB_REUPLOAD_GRACE_MS) continue
+            if (lastSyncedAt && (nowMs - Date.parse(lastSyncedAt)) < BLOB_REUPLOAD_GRACE_MS) {
+              log.warn(`[sync] SALTANDO por grace window: path=${localEntry.path}, graceMs=${nowMs - Date.parse(lastSyncedAt)}`)
+              continue
+            }
           }
         }
 
         if (!remoteBlobByChecksum.has(localEntry.checksum)) {
-          try {
-            const fileId = await this.uploadMediaBlob(drive, config.workspaceId, localEntry, folderId)
-            remoteBlobByChecksum.set(localEntry.checksum, fileId)
-            localEntry.driveFileId = fileId
-          } catch (err) {
-            log.error(`[sync] Error subiendo blob para ${localEntry.path}:`, err instanceof Error ? err.message : err)
-            continue
-          }
+          log.warn(`[sync] ENCOLANDO blob: path=${localEntry.path}, checksum=${localEntry.checksum.slice(0,12)}..., size=${localEntry.size}`)
+          pendingUploads.push(localEntry)
+          continue
         }
 
         if (!remoteBlobByChecksum.has(localEntry.checksum)) continue
@@ -310,6 +324,31 @@ export class SyncMediaService {
         uploaded++
         localByPath.set(localEntry.path, { ...localEntry, deletedAt: null, lastSyncedAt: nowIso, driveFileId: localEntry.driveFileId })
         remoteByPath.set(localEntry.path, { ...localEntry, deletedAt: null, lastSyncedAt: nowIso, driveFileId: localEntry.driveFileId })
+      }
+
+      // Process pending uploads in parallel batches after the main loop
+      if (pendingUploads.length > 0) {
+        log.warn(`[sync] Procesando ${pendingUploads.length} uploads pendientes en paralelo (concurrencia=${BLOB_UPLOAD_CONCURRENCY})...`)
+        for (let i = 0; i < pendingUploads.length; i += BLOB_UPLOAD_CONCURRENCY) {
+          const batch = pendingUploads.slice(i, i + BLOB_UPLOAD_CONCURRENCY)
+          syncProgressService.setMessage(`Subiendo blobs: ${Math.min(i + BLOB_UPLOAD_CONCURRENCY, pendingUploads.length)}/${pendingUploads.length}...`)
+          const results = await Promise.allSettled(
+            batch.map(e => this.uploadMediaBlob(drive, config.workspaceId, e, folderId))
+          )
+          for (const [j, result] of results.entries()) {
+            const entry = batch[j]
+            if (result.status === 'fulfilled') {
+              const fileId = result.value
+              remoteBlobByChecksum.set(entry.checksum, fileId)
+              entry.driveFileId = fileId
+              uploaded++
+              localByPath.set(entry.path, { ...entry, deletedAt: null, lastSyncedAt: nowIso, driveFileId: fileId })
+              remoteByPath.set(entry.path, { ...entry, deletedAt: null, lastSyncedAt: nowIso, driveFileId: fileId })
+            } else {
+              log.error(`[sync] Error subiendo blob para ${entry.path}:`, result.reason instanceof Error ? result.reason.message : result.reason)
+            }
+          }
+        }
       }
     }
 
@@ -394,6 +433,12 @@ export class SyncMediaService {
     await writeJson(getLocalMediaManifestPath(), nextLocalManifest)
 
     if (mode === 'push') {
+      const sinFileId = Array.from(remoteByPath.values()).filter(e => !e.driveFileId && !e.deletedAt)
+      if (sinFileId.length > 0) {
+        log.warn(`[sync] Entradas activas sin driveFileId en remoteByPath: ${sinFileId.length}`)
+        for (const e of sinFileId.slice(0, 5)) log.warn(`  - ${e.path} (checksum=${e.checksum.slice(0,12)}...)`)
+      }
+
       const nextRemoteManifest: MediaManifestFile = {
         schemaVersion: MEDIA_MANIFEST_SCHEMA_VERSION,
         workspaceId: config.workspaceId,
@@ -404,6 +449,7 @@ export class SyncMediaService {
       await this.writeRemoteMediaManifest(drive, config.workspaceId, nextRemoteManifest, folderId)
     }
 
+    log.warn(`[sync] Media sync completado: ${uploaded} subidos, ${downloaded} descargados, ${missingRemoteBlobs} blobs faltantes, ${driveFileIdVerifications} verificaciones`)
     return { uploaded, downloaded, missingRemoteBlobs }
   }
 }

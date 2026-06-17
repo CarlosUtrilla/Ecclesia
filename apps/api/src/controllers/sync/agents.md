@@ -28,17 +28,27 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
 
 ### Servicios modulares
 - `sync-drive-ops.service.ts` — Operaciones Drive compartidas (find/upsert file, list by prefix, download blob, verify fileId) — usado por media, bible, snapshot, push, lazy-fetch
+  - `remoteFileIdExists`: ahora reintenta 1 vez con 1s de delay ante errores transitorios (5xx/timeout), evitando falsos negativos que causaban re-uploads.
+  - `isDriveNotFoundError`: también verifica `response?.status === 404` para cubrir más formatos de error de Google API.
 - `sync-drive-client.service.ts` — OAuth2, Drive v3 client, carpeta Ecclesia, appInstanceId
 - `sync-state.service.ts` — Persistencia de estado en JSON, retry backoff
 - `sync-snapshot.service.ts` — Build/upload/download/aplicar snapshots de modelos de BD
 - `sync-media.service.ts` — Manifest local/remoto, blob upload/download, diff sync, driveFileId caching
+  - `syncMediaManifest`: los uploads se encolan durante el loop principal y se procesan en batches paralelos (`BLOB_UPLOAD_CONCURRENCY=5`) con `Promise.allSettled` después del loop.
+  - `listRemoteMediaBlobs`: `basePrefix` corregido (antes calculaba `prefix.slice(0, -68)` que daba `""`).
+  - Logging diagnóstico en todos los puntos de decisión: pérdida de `driveFileId`, verificación fallida, grace window, upload queue.
 - `sync-bible.service.ts` — Manifest + blob sync para biblias importadas
 - `sync-push.service.ts` — Orquestación push (snapshot + media + bible + outbox ack)
+  - Llama `syncProgressService.setPhaseRange(50, 100)` al iniciar para progreso continuo sin regresiones.
 - `sync-pull.service.ts` — Orquestación pull (snapshots remotos + media + bible)
+  - Llama `syncProgressService.setPhaseRange(0, 50)` al iniciar para progreso continuo.
 - `sync-diagnostic.service.ts` — Diagnóstico y reparación de blobs
 - `sync-cleanup.service.ts` — Limpieza de archivos huérfanos (local + Drive)
 - `sync-lazy-fetch.service.ts` — Lazy fetch de media desde Drive para media server
 - `sync.config.ts` — Constantes, tipos, helpers, snapshot model definitions
+  - `BLOB_UPLOAD_CONCURRENCY`: 5 uploads paralelos máximo por batch.
+- `sync-progress.service.ts` — Emisión de progreso vía Socket.IO `syncProgress`
+  - `setPhaseRange(from, to)`: mapea progreso local 0-100 a un rango global, eliminando regresiones entre fases (pull 0-50%, push 50-100%).
 - `sync.utils.ts` — Utilidades de I/O (read/write JSON, stream, checksum)
 
 ## Testing

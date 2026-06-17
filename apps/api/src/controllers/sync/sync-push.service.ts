@@ -145,6 +145,8 @@ export class SyncPushService {
     let bibleUploaded = 0
     let missingRemoteBlobs = 0
 
+    syncProgressService.setPhaseRange(50, 100)
+
     if (reason !== 'manual-pull') {
       syncProgressService.update(10, 'Verificando cambios pendientes...')
       const latestPendingOutboxId = await this.getLatestPendingOutboxChangeId(

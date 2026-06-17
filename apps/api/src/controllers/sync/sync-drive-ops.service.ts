@@ -3,6 +3,7 @@ import { drive_v3 } from 'googleapis'
 import fs from 'fs-extra'
 import path from 'path'
 import { randomUUID } from 'crypto'
+import { setTimeout as sleep } from 'timers/promises'
 import { streamToString, computeFileChecksum } from './sync.utils'
 
 const DEFAULT_PAGE_SIZE = 100
@@ -179,18 +180,31 @@ export class SyncDriveOpsService {
   }
 
   async remoteFileIdExists(drive: drive_v3.Drive, fileId: string): Promise<boolean> {
-    try {
-      await drive.files.get({ fileId, fields: 'id' })
-      return true
-    } catch (err) {
-      if (this.isDriveProcessingError(err)) return true
-      return false
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await drive.files.get({ fileId, fields: 'id' })
+        return true
+      } catch (err) {
+        if (this.isDriveProcessingError(err)) return true
+        if (this.isDriveNotFoundError(err)) return false
+
+        if (attempt === 0) {
+          log.warn(`[sync] remoteFileIdExists: error transitorio para fileId=${fileId} (${err instanceof Error ? err.message : err}), reintentando...`)
+          await sleep(1000)
+          continue
+        }
+
+        log.warn(`[sync] remoteFileIdExists: error persistente para fileId=${fileId} tras reintento: ${err instanceof Error ? err.message : err}`)
+        return false
+      }
     }
+    return false
   }
 
   isDriveNotFoundError(error: unknown): boolean {
     const err = (error || {}) as Record<string, unknown>
     if (err.code === 404 || (err as any)?.status === 404) return true
+    if ((err as any)?.response?.status === 404) return true
     const msg = error instanceof Error ? error.message.toLowerCase() : ''
     return msg.includes('not found') || msg.includes('file not found')
   }
