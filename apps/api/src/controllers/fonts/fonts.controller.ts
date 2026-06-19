@@ -2,6 +2,7 @@ import FontsService from './fonts.service'
 import type { AddFontDTO, DeleteFontDTO } from './fonts.dto'
 import { RequestHandler } from '../../utils/RequestHandler'
 import { notifyFontDeleted } from '../../config'
+import { UsingMulter } from '../../decorators/multerDecorator'
 import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
 
 export default class FontsController {
@@ -14,6 +15,13 @@ export default class FontsController {
 
   async getAllFonts() {
     return await this.fontsService.getAllFonts()
+  }
+
+  @UsingMulter({ fieldName: 'file', maxFiles: 1 })
+  @UpdateQueryKey(['fonts'])
+  async uploadFont({ file }: RequestHandler<unknown, Express.Multer.File>) {
+    if (!file) throw new Error('No se recibió el archivo de fuente')
+    return await this.fontsService.uploadFont(file)
   }
 
   @UpdateQueryKey(['fonts'])

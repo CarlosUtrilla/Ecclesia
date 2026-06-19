@@ -122,7 +122,7 @@ Definidos en `routes.ts`:
 | `presentations` | PresentationsController | `createPresentation`, `getPresentations`, `getPresentationsByIds`, `getPresentationById`, `updatePresentation`, `deletePresentation` |
 | `setttings` | SettingsController | `getSettings`, `updateSettings` (usa `upsert` internamente) |
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
-| `fonts` | FontsController | `addFont`, `getAllFonts`, `deleteFont` |
+| `fonts` | FontsController | `addFont`, `getAllFonts`, `uploadFont` (multipart HTTP), `deleteFont` |
 | `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
 | `sync` | SyncController | `getSyncState`, `upsertSyncState`, `appendOutboxChange`, `getPendingOutboxChanges`, `acknowledgeOutboxChanges`, `ingestRemoteChanges`, `getPendingInboxChanges`, `markInboxChangesApplied`, `applyPendingInboxBatch`, `applySnapshotRows`, `getStatus`, `configure`, `connect`, `disconnect`, `push`, `pull`, `reconcile`, `getRemoteData`, `diagnose`, `heal`, `cleanupMedia` |
 
@@ -179,7 +179,8 @@ export interface CreateSongDTO {
 - **DTOs** se definen como archivos `.dto.d.ts` (solo tipos, no runtime).
 - **Metodos del controller** son `async` y reciben los argumentos directamente (no `req/res`).
 - El canal IPC es `{namespace}.{method}` (ej: `songs.createSong`).
-- **No usar middleware HTTP** - todo es IPC directo.
+- **Métodos multipart (subida de archivos)**: usar `@UsingMulter` en el controller. Se registran como rutas HTTP POST (`/api/{namespace}/{method}`) en vez de IPC, y el `Fetcher` envía `FormData` directamente (sin serialización JSON).
+- Para métodos sin archivos, el canal IPC es `{namespace}.{method}` (ej: `songs.createSong`).
 - La configuración global de presentación bíblica se inicializa con `positionStyle = 10` (separación desde borde) y se normaliza si viene sin valor para mantener comportamiento visual consistente.
 - El módulo `presentations` serializa `slides` como JSON string en Prisma para MVP y lo normaliza a objeto en service antes de devolver al renderer.
 - `presentations.slides` ahora soporta estructura mixta por diapositiva con `items[]` (schedule-like): cada item define `type`, `accessData`, `layer`, `customStyle` y `animationSettings` para render por capas y animación por elemento.

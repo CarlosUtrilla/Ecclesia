@@ -19,6 +19,5 @@ export const displayAPI = {
     ipcRenderer.invoke('liveScreen-update-theme', theme),
   updateStageScreenConfig: (data: StageScreenConfigUpdate) =>
     ipcRenderer.invoke('stageScreen-config-update', data),
-  handleHideLiveScreen: (): Promise<void> => ipcRenderer.invoke('hide-live-screen'),
   closeAllScreens: (): Promise<void> => ipcRenderer.invoke('close-all-screens')
 }

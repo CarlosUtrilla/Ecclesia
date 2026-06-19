@@ -151,7 +151,6 @@ export function initializeDisplayManager() {
 
     const loadPromise = new Promise<number>((resolve) => {
       rendererReadyResolvers.set(liveScreen.webContents.id, () => {
-        mainWindow.webContents.send('live-screen-ready', liveScreen.id)
         resolve(liveScreen.id)
       })
     })
@@ -237,7 +236,6 @@ export function initializeDisplayManager() {
 
     const loadPromise = new Promise<number>((resolve) => {
       rendererReadyResolvers.set(stageScreen.webContents.id, () => {
-        mainWindow.webContents.send('stage-screen-ready', stageScreen.id)
         resolve(stageScreen.id)
       })
     })
@@ -346,12 +344,6 @@ export function initializeDisplayManager() {
   ipcMain.handle('stageScreen-config-update', (_event, data: StageScreenConfigUpdate) => {
     BrowserWindow.getAllWindows().forEach((win) => {
       if (!win.isDestroyed()) win.webContents.send('stageScreen-config-updated', data)
-    })
-  })
-
-  ipcMain.handle('hide-live-screen', () => {
-    BrowserWindow.getAllWindows().forEach((win) => {
-      if (!win.isDestroyed()) win.webContents.send('liveScreen-hide')
     })
   })
 

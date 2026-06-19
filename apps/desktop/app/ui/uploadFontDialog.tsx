@@ -1,7 +1,6 @@
 import { Dialog, DialogContent } from './dialog'
 import { Button } from './button'
 import { useRef, useState } from 'react'
-import { getCustomFontFamily } from '@/lib/customFontUtils'
 import { planFontUploads } from './uploadFontDialog.utils'
 import { Api } from '@ecclesia/queries'
 
@@ -39,19 +38,10 @@ export default function UploadFontDialog({ open, onOpenChange }: UploadFontDialo
       if (!file) continue
 
       try {
-        const fileBuffer = await file.arrayBuffer()
-        const fileName = file.name
-        const familyName = getCustomFontFamily(fileName)
-        const res = await window.electron.ipcRenderer.invoke('fonts.uploadFont', {
-          name: familyName || fileName.replace(/\.(ttf|otf)$/i, ''),
-          fileName,
-          fileBuffer
-        })
-        if (res.success) {
-          anySuccess = true
-        } else {
-          setError(res.error || 'Error al subir fuente: ' + fileName)
-        }
+        const formData = new FormData()
+        formData.append('file', file)
+        await Api.fetch.fonts.uploadFont(formData)
+        anySuccess = true
       } catch (err: any) {
         setError(err?.message || 'Error al subir fuente: ' + file.name)
       }

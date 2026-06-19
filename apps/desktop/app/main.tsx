@@ -56,23 +56,6 @@ window.electron.ipcRenderer.on('invalidate-queries', (_event: unknown, keys?: st
     queryClient.invalidateQueries()
   }
 })
-
-window.electron.ipcRenderer.on('sync-data-applied', () => {
-  queryClient.invalidateQueries({ queryKey: ['songs'] })
-  queryClient.invalidateQueries({ queryKey: ['songsByIds'] })
-  queryClient.invalidateQueries({ queryKey: ['themes'] })
-  queryClient.invalidateQueries({ queryKey: ['presentations'] })
-  queryClient.invalidateQueries({ queryKey: ['presentationsByIds'] })
-  queryClient.invalidateQueries({ queryKey: ['media'] })
-  queryClient.invalidateQueries({ queryKey: ['mediaByIds'] })
-  queryClient.invalidateQueries({ queryKey: ['folders'] })
-  queryClient.invalidateQueries({ queryKey: ['tagSongs'] })
-  queryClient.invalidateQueries({ queryKey: ['scheduleGroupTemplates'] })
-  queryClient.invalidateQueries({ queryKey: ['fonts'] })
-  queryClient.invalidateQueries({ queryKey: ['settings'] })
-  queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-})
-
 // Pre-carga el chunk de la ruta activa antes de renderizar React.
 // Como Electron sirve desde el ASAR local, los imports resuelven en ~0ms y
 // el módulo queda en caché. Cuando React.lazy() lo pide, ya está listo y

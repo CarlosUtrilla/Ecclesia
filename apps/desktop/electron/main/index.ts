@@ -24,7 +24,7 @@ import 'reflect-metadata'
 import fontList from 'font-list'
 import { initializeMediaManager } from './mediaManager'
 import { initializeDisplayManager } from './displayManager'
-import { initializeFontManager } from './fontManager'
+
 import { initializeSyncManager } from './sync/sync-init'
 import { loadAppEnv } from './loadEnv'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
@@ -134,9 +134,6 @@ app.whenReady().then(async () => {
 
   updateSplashStatus('Cargando medios...')
   initializeMediaManager()
-
-  updateSplashStatus('Cargando fuentes...')
-  initializeFontManager()
 
   //inicalizar gestor de pantallas
   initializeDisplayManager()

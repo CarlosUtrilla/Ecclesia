@@ -43,6 +43,7 @@ type MutationShape<T> = {
 // Métodos cuyos controllers usan @UsingMulter — HTTP espera FormData, no el IPC params object
 type MulterEndpoints = {
   media: 'importFile' | 'importClipboardImage'
+  fonts: 'uploadFont'
 }
 
 type AllMulterMethods = MulterEndpoints[keyof MulterEndpoints]

@@ -32,6 +32,10 @@ export function resolveThumbnailsRoot(): string {
   return path.join(resolveMediaRoot(), 'thumbnails')
 }
 
+export function resolveFontsRoot(): string {
+  return path.join(resolveMediaRoot(), 'fonts')
+}
+
 let onFontAddedCallback: (() => void) | null = null
 let onMediaChangeCallbackV2: (() => void) | null = null
 let onOutboxWriteCallbackV2: (() => void) | null = null

@@ -283,19 +283,9 @@ Wrapper fino que delega toda la lógica de inicialización a `@ecclesia/api`:
 - El empaquetado excluye `prisma/dev.db` y `prisma/dev.db-*` para evitar incluir datos de pruebas locales en releases.
 - `extraResources` incluye `apps/api/prisma/migrations/**`, `apps/api/prisma/schema.prisma` y `apps/api/prisma/empty-prod.db`.
 
-## IPC Events (entre ventanas)
+## Eventos entre ventanas
 
-| Evento IPC | Disparado por | Efecto en main window |
-| --- | --- | --- |
-| `theme-saved` | ThemesEditor | Refetch de temas (`useThemes()`) |
-| `tags-saved` | TagSongsEditor | Refetch de tags (`useTagSongs()`) |
-| `song-saved` | SongEditor | Refetch de canciones |
-| `schedule-group-templates-saved` | GroupTemplateManager | Refetch de plantillas |
-| `media-saved` | Media importers (Library/PresentationEditor) | Refetch de biblioteca de medios en todas las ventanas |
-| `display-update` | displayManager | Refetch de displays |
-| `live-screen-ready` | LiveScreen window | Marca pantalla como lista |
-| `liveScreen-hide` | LiveScreen window | Notifica ocultamiento |
-| `media-files-missing` | sync (post-cycle) | Notifica que archivos de medios faltan en disco |
+Las ventanas ya no se comunican por IPC directo. La invalidación de queries cross-window se maneja via SSE (`/api/remote/events`) desde el servidor Express. Los eventos de pantalla (live/stage updates) se transmiten via `webContents.send` desde displayManager.
 
 ## APIs expuestas al renderer (preload)
 

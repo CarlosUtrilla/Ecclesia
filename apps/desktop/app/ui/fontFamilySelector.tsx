@@ -83,11 +83,8 @@ export default function FontFamilySelector({ onChange, value }: FontFamilyProps)
         `¿Seguro que quieres borrar la fuente "${grouped.label}"? Esta acción no se puede deshacer.${variantsText}`
       )
     ) {
-      for (const [index, fontId] of grouped.fontIds.entries()) {
+      for (const fontId of grouped.fontIds) {
         await Api.fetch.fonts.deleteFont({ body: { id: fontId } })
-        await window.electron.ipcRenderer.invoke('fonts.deleteFontFile', {
-          fileName: grouped.fileNames[index]
-        })
       }
     }
   }
