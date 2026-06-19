@@ -13,10 +13,6 @@ export const mediaAPI = {
     ipcRenderer.invoke('media:select-files', type),
   getServerPort: (): Promise<number> => ipcRenderer.invoke('get-media-server-port'),
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
-  extractZipMp4: (
-    zipBytes: Uint8Array
-  ): Promise<{ fileName: string; bytes: Uint8Array; fileSize: number }[]> =>
-    ipcRenderer.invoke('media:extract-zip-mp4', zipBytes),
   selectBibleFiles: (): Promise<{ fileName: string; bytes: number[]; fileSize: number }[]> =>
     ipcRenderer.invoke('bible:select-bible-file')
 }

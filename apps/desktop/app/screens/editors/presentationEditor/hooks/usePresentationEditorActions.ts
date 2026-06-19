@@ -801,24 +801,30 @@ export default function usePresentationEditorActions({
 
     for (const zipFile of zipFiles) {
       try {
-        const extracted = await window.mediaAPI.extractZipMp4(zipFile.bytes)
         const folderBaseName = getCanvaZipFolderBaseName(zipFile.fileName)
         const folderName = getNextAvailableFolderName(folderBaseName, occupiedFolderNames)
         occupiedFolderNames.add(folderName)
         await Api.fetch.media.createFolder({ body: { folderPath: folderName } })
 
-        if (extracted.length === 0) {
+        const fd = new FormData()
+        const blob = new Blob([zipFile.bytes])
+        fd.append('file', blob, zipFile.fileName)
+        fd.append('folder', folderName)
+        const extracted = await Api.fetch.media.extractZipMp4(fd)
+
+        if (!extracted || extracted.length === 0) {
           zipWithoutMp4Count += 1
           continue
         }
 
-        for (const mp4 of extracted) {
+        for (const mediaRecord of extracted) {
           resolvedMp4Paths.push({
-            fileName: mp4.fileName,
-            bytes: mp4.bytes,
+            fileName: mediaRecord.fileName || `${mediaRecord.name}.mp4`,
+            bytes: new Uint8Array(0),
+            mediaId: Number(mediaRecord.id),
             folder: folderName,
             sourceKey: getCanvaSourceKeyFromZipPath(zipFile.fileName),
-            slideNumber: extractCanvaSlideNumber(mp4.fileName)
+            slideNumber: extractCanvaSlideNumber(mediaRecord.fileName || '')
           })
         }
       } catch {
@@ -850,6 +856,14 @@ export default function usePresentationEditorActions({
     let failedImports = 0
 
     for (const entry of sortedAssets) {
+      if (entry.mediaId) {
+        importedAssets.push({
+          mediaId: entry.mediaId,
+          sourceKey: entry.sourceKey,
+          slideNumber: entry.slideNumber
+        })
+        continue
+      }
       try {
         const fd = new FormData()
         const blob = new Blob([entry.bytes])

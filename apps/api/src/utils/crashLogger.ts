@@ -1,6 +1,6 @@
-const fs = require('node:fs')
-const p = require('node:path')
-const os = require('node:os')
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
 
 let logPath: string | null = null
 
@@ -14,14 +14,14 @@ function getFallbackPath(): string {
   }
   for (const dir of candidates) {
     try {
-      const testPath = p.join(dir, 'ecclesia-crash.log')
+      const testPath = path.join(dir, 'ecclesia-crash.log')
       fs.appendFileSync(testPath, '')
       return testPath
     } catch {
       continue
     }
   }
-  return p.join(os.tmpdir(), 'ecclesia-crash.log')
+  return path.join(os.tmpdir(), 'ecclesia-crash.log')
 }
 
 function writeLog(msg: string) {
@@ -53,23 +53,15 @@ process.on('uncaughtException', (error, origin) => {
       ? (error.stack || error.message || String(error))
       : String(error)
   writeLog(`UNCAUGHT EXCEPTION (${origin}):\n${msg}`)
-  try {
-    const { dialog } = require('electron')
-    dialog.showErrorBox('Error crítico en Ecclesia', msg)
-  } catch {
-    // dialog not available
-  }
   process.exit(1)
 })
 
-process.on('unhandledRejection', (reason) => {
-  const msg =
-    typeof reason === 'object' && reason
-      ? (reason.stack || reason.message || String(reason))
-      : String(reason)
+process.on('unhandledRejection', (reason: unknown) => {
+  const err = reason as { stack?: string; message?: string } | null
+  const msg = err?.stack || err?.message || String(reason)
   writeLog(`UNHANDLED REJECTION:\n${msg}`)
 })
 
-export function setCrashLogPath(path: string) {
-  logPath = path
+export function setCrashLogPath(p: string) {
+  logPath = p
 }

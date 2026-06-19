@@ -94,6 +94,17 @@ export async function initializeHttpServer(
     })
   })
 
+  // UDP discovery endpoint
+  app.get('/api/remote/discover-lan', async (_req, res) => {
+    try {
+      const { discoverLanDevices } = await import('./services/udp-discovery.service')
+      const devices = await discoverLanDevices()
+      res.json({ response: devices })
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
   // SSE endpoint para broadcasting de eventos a todos los renderers conectados (host + remotos)
   app.get('/api/remote/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream')
@@ -147,6 +158,14 @@ export async function initializeHttpServer(
   server.listen(port, () => {
     Logger.info(`Eclessia server running on port ${port} (Socket.IO disponible)`)
   })
+
+  // Start sync scheduler
+  const { startSyncScheduler } = await import('./controllers/sync/sync-scheduler.service')
+  startSyncScheduler()
+
+  // Initialize UDP discovery
+  const { initializeUdpDiscovery } = await import('./services/udp-discovery.service')
+  initializeUdpDiscovery()
 }
 
 export type { RoutesTypes } from './routeTypes'

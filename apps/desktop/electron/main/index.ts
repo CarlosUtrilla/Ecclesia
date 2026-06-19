@@ -1,10 +1,10 @@
-import './crashHandler'
-import { setCrashLogPath } from './crashHandler'
 import { initializeLiveMediaManager } from './liveMediaController/liveMediaController'
 import { app, BrowserWindow, ipcMain, session } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { initializeHttpServer } from '@ecclesia/api'
+import { setCrashLogPath } from '@ecclesia/api/src/utils/crashLogger'
+import { loadAppEnv } from '@ecclesia/api/src/utils/loadEnv'
 import { getBiblesResourcesPath } from './paths'
 import { setGetBiblesResourcesPath } from '@ecclesia/api/src/prisma'
 import {
@@ -21,15 +21,12 @@ import {
   getMainWindow
 } from './windowManager'
 import 'reflect-metadata'
-import fontList from 'font-list'
 import { initializeMediaManager } from './mediaManager'
 import { initializeDisplayManager } from './displayManager'
 
-import { initializeSyncManager } from './sync/sync-init'
-import { loadAppEnv } from './loadEnv'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
-import { initializeRemoteManager } from './remoteManager'
 import { initializeBibleSearchManager } from './bibleSearchManager'
+import { initializeRemoteManager } from './remoteManager'
 
 let isQuittingAfterStageTimersCleanup = false
 
@@ -101,8 +98,8 @@ app.whenReady().then(async () => {
   await new Promise<void>((resolve) => splash.webContents.once('dom-ready', resolve))
 
   updateSplashStatus('Cargando entorno...')
-  loadAppEnv()
   setCrashLogPath(path.join(app.getPath('userData'), 'ecclesia-crash.log'))
+  loadAppEnv(app.getPath('userData'))
 
   updateSplashStatus('Inicializando base de datos...')
   setGetBiblesResourcesPath(getBiblesResourcesPath)
@@ -140,9 +137,6 @@ app.whenReady().then(async () => {
   // Inicializar manager de media en vivo
   initializeLiveMediaManager()
 
-  updateSplashStatus('Iniciando sincronización...')
-  initializeSyncManager()
-
   // Inicializar manager de actualizaciones automáticas
   initializeUpdaterManager()
 
@@ -151,17 +145,6 @@ app.whenReady().then(async () => {
 
   // Inicializar manager de busqueda de biblia
   initializeBibleSearchManager()
-
-  // Obtener fuentes del sistema
-  ipcMain.handle('get-system-fonts', async () => {
-    try {
-      const fonts = await fontList.getFonts()
-      return fonts
-    } catch (error) {
-      console.error('Error al obtener fuentes del sistema:', error)
-      return []
-    }
-  })
 
   // Abrir ventana para crear/editar canción
   ipcMain.on('open-song-window', (_event, songId?: number) => {

@@ -1,3 +1,4 @@
+import fs from 'fs'
 import { MediaService } from './media.service'
 import { CreateMediaDto, UpdateMediaDto, MediaFilterDto } from './media.dto'
 import { RequestHandler } from '../../utils/RequestHandler'
@@ -78,8 +79,14 @@ export class MediaController {
     return await this.mediaService.copyFile(body.sourcePath, body.targetFolder, body.isFolder)
   }
 
-  async extractZipMp4({ body }: RequestHandler<{ zipPath: string }>) {
-    return await this.mediaService.extractZipMp4(body.zipPath)
+  @UsingMulter({ fieldName: 'file', maxFiles: 1 })
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
+  async extractZipMp4({ file, body }: RequestHandler<{ folder?: string }, Express.Multer.File>) {
+    if (!file) throw new Error('No se recibió el archivo ZIP')
+    const result = await this.mediaService.extractZipMp4(file.path, body.folder, file.originalname)
+    // Clean up temp file from multer
+    try { if (fs.existsSync(file.path)) fs.unlinkSync(file.path) } catch { /* ignore */ }
+    return result
   }
 
   async cleanupTempPath({ body }: RequestHandler<{ targetPath: string }>) {

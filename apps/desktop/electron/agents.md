@@ -19,7 +19,7 @@ electron/
 │   │   ├── updaterManager.ts    # Auto-update con electron-updater (canal beta)
 │   │   └── updaterAPI.ts        # IPC API expuesta al renderer
 │   ├── sync/
-│   │   ├── sync-init.ts          # Scheduler, OAuth BrowserWindow, lifecycle, micro-push
+│   │   ├── sync-init.ts          # OAuth BrowserWindow, close flow helpers (scheduler migrado a API)
 │   │   └── outboxPayload.test.ts
 │   ├── bibleManager/
 │   ├── bibleSearchManager.ts
@@ -72,7 +72,7 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 4. initializeBibleManager()       -> Registra IPC handlers de biblia
 5. initializeDisplayManager()     -> Registra IPC handlers de pantallas
 6. initializeLiveMediaManager()   -> Registra canal IPC de media en vivo
-7. initializeSyncManager()        -> Inicia sync scheduler + IPC handlers + callbacks
+7. initializeRemoteManager()      -> Inicia listener UDP + registra IPC handlers de descubrimiento LAN
 8. initializeUpdaterManager()     -> Registra auto-updater (canal beta, check a los 10s)
 9. Registra IPC locales           -> Fuentes, ventanas, notificaciones
 10. createMainWindow()            -> Crea ventana principal
@@ -92,8 +92,9 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 Manager modular de sincronización **snapshot-based** con Google Drive. Arquitectura thin Electron + thick API:
 
 - **Electron (`sync/`)**:
-  - `sync-init.ts`: Scheduler (setInterval 5min), `before-quit` hook, OAuth BrowserWindow, wiring de callbacks `setOnOutboxWriteCallback` / `setOnMediaChangeCallback`, micro-push (debounce 1s).
+  - `sync-init.ts`: OAuth BrowserWindow, close flow helpers (`getIsSyncing`, `executeSyncCycle` llamando a API vía syncBridge).
   - `syncBridge.ts`: Helpers HTTP para que el main process llame a la API.
+  - Scheduler (setInterval 5min) y micro-push → migrados a `apps/api/src/services/sync-scheduler.service.ts`.
 
 - **API (`apps/api/src/controllers/sync/`)** — toda la lógica real vive aquí:
   - `sync.controller.ts`: Expone los métodos como endpoints Express (`/api/sync/*`).
@@ -227,13 +228,12 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 ### Remote Manager (`remoteManager.ts`)
 
 - Manager dedicado para descubrimiento LAN de otras instancias de Ecclesia.
-- Usa **UDP broadcast** para descubrimiento: envía `{ type: 'ECCLESIA_DISCOVER' }` como datagrama UDP al puerto 7777 y recoge respuestas `{ type: 'ECCLESIA_RESPONSE', name, ip }`.
-- **Listener permanente**: Al iniciar el manager, se crea un socket UDP (`dgram`) en puerto 7777 que responde automáticamente a broadcasts de descubrimiento. Usa `reuseAddr: true` para coexistir con otras instancias en el mismo equipo.
-- **Scanner**: Crea socket efímero, envía broadcast a `255.255.255.255:7777` y al broadcast de subred, espera 2.5s y devuelve todos los dispositivos que respondieron.
+- Delega en `@ecclesia/api/src/services/udp-discovery.service.ts` para toda la lógica UDP (listener + scanner).
 - El cliente se conecta al host vía `setApiConfiguration(queryClient, 'http://{ip}', 7777)` (desde el renderer) — todas las llamadas `Api.fetch.*` van directo al host.
 - Las actualizaciones fluyen vía SSE: el host emite `query-keys-invalidate` a todos los clientes conectados.
 - Canal IPC:
   - `remote:discover-lan` → Invoke, devuelve `LanDevice[]` (`{ ip: string, name: string }`)
+- Endpoint HTTP alternativo: `GET /api/remote/discover-lan` (para frontend remoto).
 
 ### Bible Manager (`bibleManager/`)
 
@@ -294,7 +294,7 @@ Definidas en `electron/preload/index.ts`:
 | API global | Metodos principales |
 | --- | --- |
 | `window.api` | Namespaces de `@ecclesia/api` (routes.ts) |
-| `window.mediaAPI` | `getMediaServerPort()`, `importMedia()`, `extractZipMp4()`, `cleanupTempPath()` |
+| `window.mediaAPI` | `getMediaServerPort()`, `importMedia()`, `cleanupTempPath()` |
 | `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `showStageScreen()`, `closeStageScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()`, `updateStageScreenConfig()` |
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wrappers del bible manager |

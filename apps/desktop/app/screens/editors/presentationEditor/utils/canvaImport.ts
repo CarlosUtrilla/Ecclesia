@@ -7,10 +7,11 @@ export type CanvaImportSourceSplit = {
 export type CanvaResolvedAsset = {
   filePath?: string
   fileName?: string
-  bytes?: number[]
+  bytes?: Uint8Array | number[]
   folder?: string
   sourceKey: string
   slideNumber: number | null
+  mediaId?: number
 }
 
 function normalizeWhitespace(value: string) {

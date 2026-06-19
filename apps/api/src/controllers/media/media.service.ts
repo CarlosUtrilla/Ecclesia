@@ -212,8 +212,27 @@ export class MediaService {
     return copyMediaSource(sourcePath, targetFolder, isFolder)
   }
 
-  async extractZipMp4(zipPath: string) {
-    return extractZipMp4(zipPath)
+  async extractZipMp4(zipPath: string, folder?: string, originalName?: string) {
+    const { tempDir, mp4Paths } = extractZipMp4(zipPath)
+    const importedMedia = await Promise.all(
+      mp4Paths.map(async (mp4Path) => {
+        return await this.importFileFromMulter({
+          path: mp4Path,
+          originalname: path.basename(mp4Path),
+          fieldname: 'file',
+          encoding: '7bit',
+          mimetype: 'video/mp4',
+          size: fs.statSync(mp4Path).size,
+          destination: path.dirname(mp4Path),
+          filename: path.basename(mp4Path),
+          buffer: Buffer.alloc(0),
+          stream: fs.createReadStream(mp4Path)
+        }, folder)
+      })
+    )
+    // Clean up extraction temp dir
+    try { cleanupTempPath(tempDir) } catch { /* ignore */ }
+    return importedMedia
   }
 
   async cleanupTempPath(targetPath: string) {

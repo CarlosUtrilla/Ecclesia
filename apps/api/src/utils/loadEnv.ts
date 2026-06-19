@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import { app } from 'electron'
 
 function parseEnv(content: string): Record<string, string> {
   const entries: Record<string, string> = {}
@@ -34,11 +33,11 @@ function parseEnv(content: string): Record<string, string> {
   return entries
 }
 
-export function loadAppEnv() {
+export function loadAppEnv(userDataPath?: string) {
   const envPaths = [
     path.join(process.cwd(), '.env'),
     path.join(process.cwd(), '.env.local'),
-    path.join(app.getPath('userData'), '.env')
+    ...(userDataPath ? [path.join(userDataPath, '.env')] : [])
   ]
 
   for (const envPath of envPaths) {

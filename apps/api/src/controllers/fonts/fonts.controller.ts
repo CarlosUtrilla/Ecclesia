@@ -8,6 +8,10 @@ import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
 export default class FontsController {
   private fontsService = new FontsService()
 
+  async getSystemFonts() {
+    return await this.fontsService.getSystemFonts()
+  }
+
   @UpdateQueryKey(['fonts'])
   async addFont({ body }: RequestHandler<AddFontDTO>) {
     return await this.fontsService.addFont(body)

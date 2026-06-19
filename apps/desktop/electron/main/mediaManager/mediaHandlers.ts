@@ -1,11 +1,7 @@
 import { ipcMain, dialog, app } from 'electron'
 import path from 'path'
 import * as fs from 'fs'
-import * as os from 'os'
 import { MediaType } from '@ecclesia/api'
-import {
-  extractZipMp4,
-} from '@ecclesia/api/src/controllers/media/media.storage'
 
 export function registerMediaHandlers() {
   // Diálogo para seleccionar archivos multimedia y retornar su contenido
@@ -55,37 +51,6 @@ export function registerMediaHandlers() {
 
   ipcMain.handle('get-media-server-port', () => {
     return 7777
-  })
-
-  // Extraer MP4s de un ZIP (flujo Canva)
-  ipcMain.handle('media:extract-zip-mp4', async (_event, zipBytes: Uint8Array) => {
-    let tempZipPath: string | undefined
-    let extractionTempDir: string | undefined
-    try {
-      const tempRoot = path.join(os.tmpdir(), 'ecclesia-canva-imports')
-      if (!fs.existsSync(tempRoot)) fs.mkdirSync(tempRoot, { recursive: true })
-      tempZipPath = path.join(tempRoot, `upload-${Date.now()}.zip`)
-      fs.writeFileSync(tempZipPath, Buffer.from(zipBytes.buffer, zipBytes.byteOffset, zipBytes.byteLength))
-      const result = extractZipMp4(tempZipPath)
-      extractionTempDir = result.tempDir
-      const mp4Data = await Promise.all(
-        result.mp4Paths.map(async (mp4Path) => {
-          const buffer = await fs.promises.readFile(mp4Path)
-          return { fileName: path.basename(mp4Path), bytes: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength), fileSize: buffer.length }
-        })
-      )
-      return mp4Data
-    } catch (error: any) {
-      console.error('Error al extraer ZIP de Canva:', error)
-      throw error
-    } finally {
-      if (tempZipPath && fs.existsSync(tempZipPath)) {
-        try { fs.unlinkSync(tempZipPath) } catch { /* ignorar */ }
-      }
-      if (extractionTempDir && fs.existsSync(extractionTempDir)) {
-        try { fs.rmSync(extractionTempDir, { recursive: true, force: true }) } catch { /* ignorar */ }
-      }
-    }
   })
 
   // Diálogo para seleccionar archivos .ebbl (Biblia)

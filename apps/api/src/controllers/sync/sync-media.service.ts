@@ -18,6 +18,7 @@ import {
   BLOB_UPLOAD_CONCURRENCY
 } from './sync.config'
 import { readJsonSafe, writeJson, computeFileChecksum } from './sync.utils'
+import { withTimeout } from './sync.utils'
 import { syncDriveOpsService } from './sync-drive-ops.service'
 import { syncProgressService } from './sync-progress.service'
 
@@ -221,6 +222,7 @@ export class SyncMediaService {
     let downloaded = 0
     let missingRemoteBlobs = 0
     let driveFileIdVerifications = 0
+    const BLOB_UPLOAD_TIMEOUT_MS = 600_000
     const nowIso = new Date().toISOString()
     const nowMs = Date.now()
 
@@ -260,15 +262,11 @@ export class SyncMediaService {
 
         const remoteEntry = remoteByPath.get(localEntry.path)
         let hasRemoteBlob = remoteBlobByChecksum.has(localEntry.checksum)
-        if (!hasRemoteBlob && localEntry.driveFileId) {
-          remoteBlobByChecksum.set(localEntry.checksum, localEntry.driveFileId)
-          hasRemoteBlob = true
-        }
 
         if (remoteEntry?.checksum === localEntry.checksum && !remoteEntry.deletedAt && hasRemoteBlob) {
           let resolvedFileId = localEntry.driveFileId || remoteEntry.driveFileId || remoteBlobByChecksum.get(localEntry.checksum) || null
 
-          if (resolvedFileId && remoteEntry.driveFileId === resolvedFileId && driveFileIdVerifications < MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE) {
+          if (resolvedFileId && driveFileIdVerifications < MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE) {
             driveFileIdVerifications++
             const exists = await syncDriveOpsService.remoteFileIdExists(drive, resolvedFileId)
             if (!exists) {
@@ -333,7 +331,13 @@ export class SyncMediaService {
           const batch = pendingUploads.slice(i, i + BLOB_UPLOAD_CONCURRENCY)
           syncProgressService.setMessage(`Subiendo blobs: ${Math.min(i + BLOB_UPLOAD_CONCURRENCY, pendingUploads.length)}/${pendingUploads.length}...`)
           const results = await Promise.allSettled(
-            batch.map(e => this.uploadMediaBlob(drive, config.workspaceId, e, folderId))
+            batch.map(e =>
+              withTimeout(
+                this.uploadMediaBlob(drive, config.workspaceId, e, folderId),
+                BLOB_UPLOAD_TIMEOUT_MS,
+                `Timeout subiendo blob (${BLOB_UPLOAD_TIMEOUT_MS / 1000}s): ${e.path}`
+              )
+            )
           )
           for (const [j, result] of results.entries()) {
             const entry = batch[j]
@@ -388,7 +392,11 @@ export class SyncMediaService {
             if (lastSyncedAt && (nowMs - Date.parse(lastSyncedAt)) < BLOB_REUPLOAD_GRACE_MS) continue
 
             try {
-              const healedFileId = await this.uploadMediaBlob(drive, config.workspaceId, remoteEntry, folderId)
+              const healedFileId = await withTimeout(
+                this.uploadMediaBlob(drive, config.workspaceId, remoteEntry, folderId),
+                BLOB_UPLOAD_TIMEOUT_MS,
+                `[sync] Timeout sanando blob (${BLOB_UPLOAD_TIMEOUT_MS / 1000}s): ${remoteEntry.path}`
+              )
               remoteBlobByChecksum.set(remoteEntry.checksum, healedFileId)
               remoteFileId = healedFileId
               localByPath.set(remoteEntry.path, { ...(localEntry || remoteEntry), ...remoteEntry, deletedAt: null, lastSyncedAt: nowIso, driveFileId: healedFileId })

@@ -16,13 +16,16 @@ export class SyncDriveOpsService {
     fileName: string,
     pageSize = 1
   ) {
-    const result = await drive.files.list({
-      q: `name='${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
-      spaces: 'drive',
-      fields: 'files(id, name, modifiedTime)',
-      pageSize,
-      orderBy: 'modifiedTime desc'
-    })
+    const result = await drive.files.list(
+      {
+        q: `name='${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
+        spaces: 'drive',
+        fields: 'files(id, name, modifiedTime)',
+        pageSize,
+        orderBy: 'modifiedTime desc'
+      },
+      { timeout: 60000 }
+    )
     return result.data.files?.[0] || null
   }
 
@@ -37,15 +40,18 @@ export class SyncDriveOpsService {
     const media = { mimeType, body: JSON.stringify(body, (_k, v) => typeof v === 'bigint' ? Number(v) : v) }
 
     if (existing?.id) {
-      await drive.files.update({ fileId: existing.id, media, fields: 'id' })
+      await drive.files.update({ fileId: existing.id, media, fields: 'id' }, { timeout: 60000 })
       return existing.id
     }
 
-    const created = await drive.files.create({
-      requestBody: { name: fileName, parents: [folderId] },
-      media,
-      fields: 'id'
-    })
+    const created = await drive.files.create(
+      {
+        requestBody: { name: fileName, parents: [folderId] },
+        media,
+        fields: 'id'
+      },
+      { timeout: 60000 }
+    )
     return created.data.id!
   }
 
@@ -60,13 +66,16 @@ export class SyncDriveOpsService {
 
     const safePrefix = prefix.replace(/'/g, "\\'")
     do {
-      const result = await drive.files.list({
-        q: `name contains '${safePrefix}' and '${folderId}' in parents and trashed = false`,
-        spaces: 'drive',
-        fields: 'nextPageToken, files(id, name)',
-        pageSize: MAX_LIST_PAGE_SIZE,
-        pageToken
-      })
+      const result = await drive.files.list(
+        {
+          q: `name contains '${safePrefix}' and '${folderId}' in parents and trashed = false`,
+          spaces: 'drive',
+          fields: 'nextPageToken, files(id, name)',
+          pageSize: MAX_LIST_PAGE_SIZE,
+          pageToken
+        },
+        { timeout: 60000 }
+      )
 
       for (const file of result.data.files || []) {
         const name = file.name || ''
@@ -83,7 +92,7 @@ export class SyncDriveOpsService {
   async downloadFileContent(drive: drive_v3.Drive, fileId: string): Promise<string> {
     const response = await drive.files.get(
       { fileId, alt: 'media' },
-      { responseType: 'stream' }
+      { responseType: 'stream', timeout: 600000 }
     )
     return streamToString(response.data as NodeJS.ReadableStream)
   }
@@ -108,7 +117,7 @@ export class SyncDriveOpsService {
 
     try {
       await fs.ensureDir(path.dirname(tempFile))
-      const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' })
+      const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream', timeout: 600000 })
 
       await new Promise<void>((resolve, reject) => {
         const writer = fs.createWriteStream(tempFile)
@@ -166,11 +175,14 @@ export class SyncDriveOpsService {
       throw new Error(`Archivo local no encontrado: ${localPath}`)
     }
 
-    const created = await drive.files.create({
-      requestBody: { name: fileName, parents: [folderId] },
-      media: { mimeType: 'application/octet-stream', body: fs.createReadStream(localPath) },
-      fields: 'id'
-    })
+    const created = await drive.files.create(
+      {
+        requestBody: { name: fileName, parents: [folderId] },
+        media: { mimeType: 'application/octet-stream', body: fs.createReadStream(localPath) },
+        fields: 'id'
+      },
+      { timeout: 600000 }
+    )
 
     const fileId = created.data.id
     if (!fileId) {
@@ -182,7 +194,7 @@ export class SyncDriveOpsService {
   async remoteFileIdExists(drive: drive_v3.Drive, fileId: string): Promise<boolean> {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        await drive.files.get({ fileId, fields: 'id' })
+        await drive.files.get({ fileId, fields: 'id' }, { timeout: 30000 })
         return true
       } catch (err) {
         if (this.isDriveProcessingError(err)) return true

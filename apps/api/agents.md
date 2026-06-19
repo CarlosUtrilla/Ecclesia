@@ -4,18 +4,25 @@
 
 ## Descripcion
 
-Capa de backend que conecta el frontend React con la base de datos SQLite via IPC de Electron. Sigue un patron Controller/Service con DTOs para tipado seguro.
+Capa de backend que conecta el frontend React con la base de datos SQLite. Soporta dos modos de operación: IPC (Electron) y HTTP Express (para sidecar Tauri o frontend remoto). También ejecuta servicios autónomos (sync scheduler, UDP discovery, crash logging).
 
 ## Arquitectura
 
 ```text
 Frontend (React)
-  -> window.api.namespace.method(args)     // api.ts wraps ipcRenderer
-    -> ipcRenderer.invoke('namespace.method', args)
-      -> ipcMain.handle()                  // index.ts registerRoutes()
-        -> Controller.method(args)         // Instancia nueva por llamada
-          -> Service (Prisma ORM)
-            -> SQLite
+  ├── IPC (Electron):
+  │     window.api.namespace.method(args)
+  │       -> ipcRenderer.invoke('namespace.method', args)
+  │         -> ipcMain.handle()               // index.ts registerRoutes()
+  │           -> Controller.method(args)
+  │             -> Service (Prisma ORM)
+  │               -> SQLite
+  └── HTTP (Express):
+        Api.fetch.namespace.method(args)
+          -> POST /api/{namespace}/{method}
+            -> Controller.method(args)        // mismo controller
+              -> Service (Prisma ORM)
+                -> SQLite
 ```
 
 ## Archivos principales
@@ -29,6 +36,9 @@ src/
 │                      #   GET  /api/remote/events → SSE endpoint: broadcast de queryKeys a todos los renderers conectados
 │                      # broadcastToRemoteClients(event, data) empuja eventos SSE a todos los clientes conectados
 │                      # initializeHttpServer acepta onQueryKeys callback para broadcast local Electron
+│                      # Arranca sync-scheduler.service (setInterval 5min) y udp-discovery.service tras listen
+│                      # Nuevos endpoints HTTP:
+│                      #   GET  /api/remote/discover-lan → descubrimiento UDP LAN
 ├── prisma.ts          # setPrismaClient, getPrisma, injectables (bibles path)
 ├── prisma-init.ts     # initializeDatabase(), migraciones, backup, middleware outbox
 │                      # initializeDatabase flow:
@@ -103,6 +113,12 @@ src/
 │   │   ├── stageScreenConfig.controller.ts
 │   │   ├── stageScreenConfig.service.ts
 │   │   └── stageScreenConfig.dto.d.ts
+├── services/
+│   ├── sync-scheduler.service.ts  # Scheduler 5min, micro-push por outbox, notifica via Socket.IO
+│   └── udp-discovery.service.ts   # Listener UDP + discoverLanDevices() para descubrimiento LAN
+├── utils/
+│   ├── crashLogger.ts   # Crash logger sin Electron (sidecar-safe)
+│   └── loadEnv.ts       # Carga .env desde userDataPath opcional
 ├── middleware/
 │   └── decimal.ts     # Serializacion Decimal/Date para IPC
 ```
@@ -115,14 +131,14 @@ Definidos en `routes.ts`:
 | --------- | ---------- | ------------------- |
 | `songs` | SongsController | `createSong`, `getSongs`, `getSongById`, `getSongsByIds`, `updateSong`, `deleteSong` |
 | `themes` | ThemesController | `createTheme`, `getAllThemes`, `getThemeById`, `updateTheme`, `deleteTheme`, `exportThemeToZip`, `importThemeFromZip` |
-| `media` | MediaController | `importMedia`, `getAllMedia`, `getMediaByIds`, `deleteMedia`, `moveMedia`, `renameMedia`, `createFolder`, `renameFolder`, `deleteFolder`, `verifyFiles` (verifica que archivos de medios existan en disco), `cleanupOrphans` (elimina archivos huérfanos/obsoletos de disco) |
+| `media` | MediaController | `importMedia`, `getAllMedia`, `getMediaByIds`, `deleteMedia`, `moveMedia`, `renameMedia`, `createFolder`, `renameFolder`, `deleteFolder`, `verifyFiles`, `cleanupOrphans`, `extractZipMp4` (multipart HTTP, extrae ZIP Canva e importa MP4s) |
 | `tagSongs` | TagSongsController | `createTagSong`, `getAllTagSongs`, `updateTagSong`, `deleteTagSong` |
 | `bible` | BibleController | `getBibleSchema`, `getVerses`, `getCompleteChapter`, `getAvailableBibles`, `importBible`, `searchTextFragment`, `getDefaultBibleSettings`, `updateDefaultBibleSettings` |
 | `schedule` | ScheduleController | `createSchedule`, `getAllSchedules`, `getScheduleById`, `updateSchedule`, `deleteSchedule`, `getActualSchedule`, `addItemToSchedule`, `getAllGroupTemplates`, `createGroupTemplate`, `updateGroupTemplate`, `deleteGroupTemplate`, `getGroupTemplateById` |
 | `presentations` | PresentationsController | `createPresentation`, `getPresentations`, `getPresentationsByIds`, `getPresentationById`, `updatePresentation`, `deletePresentation` |
 | `setttings` | SettingsController | `getSettings`, `updateSettings` (usa `upsert` internamente) |
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
-| `fonts` | FontsController | `addFont`, `getAllFonts`, `uploadFont` (multipart HTTP), `deleteFont` |
+| `fonts` | FontsController | `addFont`, `getAllFonts`, `uploadFont` (multipart HTTP), `deleteFont`, `getSystemFonts` (vía `font-list`) |
 | `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
 | `sync` | SyncController | `getSyncState`, `upsertSyncState`, `appendOutboxChange`, `getPendingOutboxChanges`, `acknowledgeOutboxChanges`, `ingestRemoteChanges`, `getPendingInboxChanges`, `markInboxChangesApplied`, `applyPendingInboxBatch`, `applySnapshotRows`, `getStatus`, `configure`, `connect`, `disconnect`, `push`, `pull`, `reconcile`, `getRemoteData`, `diagnose`, `heal`, `cleanupMedia` |
 
@@ -196,7 +212,7 @@ export interface CreateSongDTO {
 - El módulo `sync` implementa sincronización basada en **instantáneas (snapshots)**: cada dispositivo exporta todos los registros de SNAPSHOT_MODELS a un JSON, lo sube a Drive, y al hacer pull descarga los snapshots de todos los demás dispositivos aplicando filas por `lastWriteWins` (updatedAt). Las tablas `SyncOutboxChange`/`SyncInboxChange` siguen en el schema pero ya no son el mecanismo principal de sync.
 - `applySnapshotRows(tables, workspaceId, remoteDeviceId)` en `SyncService` aplica las filas de un snapshot remoto a la BD local con `runWithoutSyncOutboxTracking` y `lastWriteWins` por `updatedAt`; preserva el `updatedAt` remoto en `create/update` via Prisma (sin SQL crudo) para evitar falsos `stale` por desfase de reloj entre PCs. Al finalizar, actualiza `SyncState.lastAppliedSnapshotAt` y `snapshotApplySequence` para rastrear aplicación de snapshots remotos.
 - El outbox middleware en `prisma.ts` sigue activo pero los datos que escribe en `SyncOutboxChange` no se usan en el flujo principal de sync (se conserva para posible tracking de deletes futuro).
-- **Nueva arquitectura modular**: Toda la lógica de sync con Drive se movió de `electron/main/googleDriveSyncManager/` (monolito de ~3,728 líneas) a servicios modulares en `apps/api/src/controllers/sync/`. Electron ahora solo maneja scheduler, OAuth UI, thin IPC handlers y wiring de callbacks — la lógica real (push, pull, media, bible, diagnóstico, limpieza) vive en los servicios del API.
+- **Arquitectura sync**: Toda la lógica de sync con Drive vive en `apps/api/src/controllers/sync/`. El **scheduler** (setInterval 5min) y el **micro-push** (debounce 1s por outbox/media changes) ahora se ejecutan en el API como `sync-scheduler.service.ts`, iniciados desde `initializeHttpServer`. Electron solo mantiene: OAuth BrowserWindow, `sync-init.ts` helpers (close flow, getIsSyncing, executeSyncCycle), y `syncBridge.ts` (HTTP helpers para que `windowManager.ts` haga sync al cerrar).
 - La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones.
 - **`sync.service.ts` NO usa `electron-log`**: Este archivo se bundlea en el preload (renderer). Usar `console.warn`/`console.error` únicamente. `electron-log` solo puede importarse en archivos bajo `electron/main/`.
 - El módulo `settings` acepta claves string públicas (`LOGO_FALLBACK_*`, `BIBLE_LIVE_CHUNK_MODE`, etc.) y las mapea a valores persistidos en DB (`logo.fallback.*`, `bible.live.chunkMode`) con SQL directo, evitando errores cuando una instalación tiene el cliente Prisma con enums desactualizados.

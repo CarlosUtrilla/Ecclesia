@@ -88,7 +88,7 @@ export class ThemesService {
       type: 'IMAGE' | 'VIDEO'
       format: string
     } | null
-  }): ThemeArchivePayload {
+  }): Promise<ThemeArchivePayload> {
     const payload: ThemeArchivePayload = {
       version: 1,
       exportedAt: new Date().toISOString(),

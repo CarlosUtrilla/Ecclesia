@@ -45,15 +45,9 @@ const windowAPI = {
   triggerClose: () => ipcRenderer.send('window:trigger-close')
 }
 
-// API para fuentes del sistema
-const systemAPI = {
-  getSystemFonts: (): Promise<string[]> => ipcRenderer.invoke('get-system-fonts')
-}
-
 export const HandleManagers = {
   electron: electronAPI,
   mediaAPI,
-  systemAPI,
   windowAPI,
   displayAPI,
   liveMediaAPI,
@@ -79,8 +73,6 @@ if (process.contextIsolated) {
   window.liveMediaAPI = liveMediaAPI
   // @ts-ignore (define in dts)
   window.windowAPI = windowAPI
-  // @ts-ignore (define in dts)
-  window.systemAPI = systemAPI
   // @ts-ignore (define in dts)
   window.mediaAPI = mediaAPI
   // @ts-ignore (define in dts)

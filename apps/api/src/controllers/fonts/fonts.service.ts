@@ -3,8 +3,19 @@ import path from 'path'
 import { getPrisma } from '../../prisma'
 import { resolveFontsRoot, resolveMediaRoot } from '../../config'
 import type { AddFontDTO, DeleteFontDTO } from './fonts.dto'
+import fontList from 'font-list'
 
 export default class FontsService {
+  async getSystemFonts(): Promise<string[]> {
+    try {
+      const fonts = await fontList.getFonts()
+      return fonts
+    } catch (error) {
+      console.error('Error al obtener fuentes del sistema:', error)
+      return []
+    }
+  }
+
   async addFont(data: AddFontDTO) {
     const prisma = getPrisma()
     return await prisma.font.create({ data })

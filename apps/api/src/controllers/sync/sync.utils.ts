@@ -31,6 +31,13 @@ export async function streamToString(readable: NodeJS.ReadableStream): Promise<s
   return Buffer.concat(chunks).toString('utf-8')
 }
 
+export function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms))
+  ])
+}
+
 export async function computeFileChecksum(filePath: string): Promise<string> {
   const hash = createHash('sha256')
   await new Promise<void>((resolve, reject) => {

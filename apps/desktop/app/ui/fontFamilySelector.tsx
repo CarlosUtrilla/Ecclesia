@@ -22,9 +22,9 @@ export default function FontFamilySelector({ onChange, value }: FontFamilyProps)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
 
   useEffect(() => {
-    window.systemAPI
+    Api.fetch.fonts
       .getSystemFonts()
-      .then((fonts) =>
+      .then((fonts: string[]) =>
         setSystemFontOptions(
           fonts.map((font) => ({ value: font, label: font.replace(/['"]/g, '') }))
         )
