@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use std::process::{Child, Command};
-use tauri::Manager;
+use std::time::Duration;
+use std::thread;
+use tauri::{AppHandle, Manager};
 
 /// Attempts to find the sidecar JS bundle at various locations.
 /// Returns the path if found.
@@ -39,13 +41,65 @@ fn find_sidecar(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     None
 }
 
+/// Attempts to find the sidecar source file (for hot reload in dev mode).
+/// Returns the path if found.
+fn find_sidecar_source() -> Option<std::path::PathBuf> {
+    // Try relative to CARGO_MANIFEST_DIR
+    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let source_path = PathBuf::from(manifest_dir)
+            .parent()?
+            .parent()?
+            .join("api/src/standalone.ts");
+        if source_path.exists() {
+            return Some(source_path);
+        }
+    }
+
+    // Try current working directory
+    if let Ok(cwd) = std::env::current_dir() {
+        let from_cwd = cwd.join("../api/src/standalone.ts");
+        if from_cwd.exists() {
+            return Some(from_cwd);
+        }
+        let from_cwd_root = cwd.join("apps/api/src/standalone.ts");
+        if from_cwd_root.exists() {
+            return Some(from_cwd_root);
+        }
+    }
+
+    None
+}
+
 const SIDECAR_PORT: u16 = 7777;
 
-pub fn spawn_sidecar(app: &tauri::AppHandle) -> Result<(), String> {
-    let user_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+fn wait_for_port(port: u16, timeout_secs: u64) -> Result<(), String> {
+    let start = std::time::Instant::now();
+    let addr: std::net::SocketAddr = format!("127.0.0.1:{}", port)
+        .parse()
+        .map_err(|e| format!("Invalid socket address: {}", e))?;
+
+    while start.elapsed().as_secs() < timeout_secs {
+        if std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    Err(format!("Timeout waiting for port {}", port))
+}
+
+pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
+    // Use ~/Library/Application Support/Ecclesia/ (matching Electron's app.setName('Ecclesia'))
+    // instead of the bundle-id-based path from Tauri
+    let user_data_dir = if cfg!(target_os = "macos") {
+        std::env::var("HOME")
+            .map(|h| PathBuf::from(h).join("Library/Application Support/Ecclesia"))
+            .unwrap_or_else(|_| {
+                app.path().app_data_dir().unwrap_or_default()
+            })
+    } else {
+        app.path().app_data_dir()
+            .map_err(|e| format!("Failed to get app data dir: {}", e))?
+    };
 
     std::fs::create_dir_all(&user_data_dir)
         .map_err(|e| format!("Failed to create user data dir: {}", e))?;
@@ -55,19 +109,33 @@ pub fn spawn_sidecar(app: &tauri::AppHandle) -> Result<(), String> {
         .resource_dir()
         .map_err(|e| format!("Failed to get resource dir: {}", e))?;
 
-    // Check if sidecar is already running (e.g. started externally in dev)
-    if is_port_in_use(SIDECAR_PORT) {
-        println!("[Sidecar] Port {} already in use, assuming external sidecar is running", SIDECAR_PORT);
-        return Ok(());
-    }
+    let is_dev = std::env::var("CARGO_MANIFEST_DIR").is_ok();
 
-    let sidecar_path = find_sidecar(app).ok_or_else(|| {
-        format!(
-            "Sidecar not found. Build it first: pnpm -C apps/api build:sidecar\n\
-             Searched in: {:?}",
-            resource_dir.join("sidecar.js")
-        )
-    })?;
+    // Check if sidecar is already running
+    if std::net::TcpStream::connect_timeout(
+        &format!("127.0.0.1:{}", SIDECAR_PORT)
+            .parse()
+            .unwrap(),
+        Duration::from_millis(100),
+    )
+    .is_ok()
+    {
+        if is_dev {
+            // In dev, kill stale process and restart fresh
+            eprintln!("[Sidecar] Stale process on port {}, killing and restarting", SIDECAR_PORT);
+            let _ = std::process::Command::new("lsof")
+                .args(["-t", "-i", &format!(":{}", SIDECAR_PORT)])
+                .output()
+                .and_then(|out| {
+                    let pid = String::from_utf8_lossy(&out.stdout);
+                    std::process::Command::new("kill").args(["-9", pid.trim()]).output()
+                });
+            std::thread::sleep(Duration::from_millis(200));
+        } else {
+            println!("[Sidecar] Port {} already in use, assuming external sidecar is running", SIDECAR_PORT);
+            return Ok(None);
+        }
+    }
 
     // Compute cwd and resources path:
     // - dev:  cwd=apps/tauri/  resources=apps/desktop/resources
@@ -86,27 +154,60 @@ pub fn spawn_sidecar(app: &tauri::AppHandle) -> Result<(), String> {
         (resource_dir.clone(), resource_dir.clone())
     };
 
-    let child: Child = Command::new("node")
-        .arg(sidecar_path.to_str().unwrap())
-        .arg(format!("--port={}", SIDECAR_PORT))
-        .arg(format!("--user-data-path={}", user_data_dir.to_str().unwrap()))
-        .arg(format!("--resources-path={}", resources_path.to_str().unwrap_or(".")))
-        .arg(format!("--cwd={}", cwd.to_str().unwrap_or(".")))
-        .spawn()
-        .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
+    // In dev mode, use tsx with source file for hot reload
+    // In release mode, use node with bundled js
+    let (sidecar_path, use_tsx) = if is_dev {
+        if let Some(source_path) = find_sidecar_source() {
+            (source_path.to_string_lossy().to_string(), true)
+        } else if let Some(bundle_path) = find_sidecar(app) {
+            println!("[Sidecar] Dev mode: source not found, using bundle at {}", bundle_path.display());
+            (bundle_path.to_string_lossy().to_string(), false)
+        } else {
+            return Err(format!(
+                "Sidecar not found. Build it first: pnpm -C apps/api build:sidecar"
+            ));
+        }
+    } else {
+        let sidecar_path = find_sidecar(app).ok_or_else(|| {
+            format!(
+                "Sidecar not found. Build it first: pnpm -C apps/api build:sidecar\n\
+                 Searched in: {:?}",
+                resource_dir.join("sidecar.js")
+            )
+        })?;
+        (sidecar_path.to_string_lossy().to_string(), false)
+    };
 
-    std::mem::drop(child);
-    println!("[Sidecar] Started on port {} via {}", SIDECAR_PORT, sidecar_path.display());
-    Ok(())
-}
+    let args = vec![
+        format!("--port={}", SIDECAR_PORT),
+        format!("--user-data-path={}", user_data_dir.to_str().unwrap()),
+        format!("--resources-path={}", resources_path.to_str().unwrap_or(".")),
+        format!("--cwd={}", cwd.to_str().unwrap_or(".")),
+    ];
 
-fn is_port_in_use(port: u16) -> bool {
-    let addr: std::net::SocketAddr = format!("127.0.0.1:{}", port)
-        .parse()
-        .expect("Invalid socket address");
-    std::net::TcpStream::connect_timeout(
-        &addr,
-        std::time::Duration::from_millis(100),
-    )
-    .is_ok()
+    let mut cmd = if use_tsx {
+        println!("[Sidecar] Dev mode: using tsx with source file for hot reload");
+        let mut c = Command::new("npx");
+        c.arg("tsx").arg(&sidecar_path);
+        for arg in &args {
+            c.arg(arg);
+        }
+        c
+    } else {
+        let mut c = Command::new("node");
+        c.arg(&sidecar_path);
+        for arg in &args {
+            c.arg(arg);
+        }
+        c
+    };
+
+    let child = cmd.spawn().map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
+
+    // Wait for sidecar to be ready (max 30 seconds)
+    println!("[Sidecar] Waiting for server on port {}...", SIDECAR_PORT);
+    wait_for_port(SIDECAR_PORT, 30)?;
+    println!("[Sidecar] Server ready on port {}", SIDECAR_PORT);
+
+    Ok(Some(child))
 }

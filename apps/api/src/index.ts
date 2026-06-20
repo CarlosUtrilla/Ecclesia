@@ -44,6 +44,20 @@ export async function initializeHttpServer(config?: DatabaseConfig, serverPort?:
   await initializeBibleData()
   app.use(express.json())
 
+  // Serializar BigInt en respuestas JSON
+  const bigIntReplacer = (_key: string, value: unknown): unknown => {
+    if (typeof value !== 'bigint') return value
+    const asNumber = Number(value)
+    return Number.isSafeInteger(asNumber) ? asNumber : value.toString()
+  }
+  app.use((_req, res, next) => {
+    const originalJson = res.json.bind(res)
+    res.json = (body: unknown) => {
+      return originalJson(JSON.parse(JSON.stringify(body, bigIntReplacer)))
+    }
+    next()
+  })
+
   app.use(
     cors({
       origin: true,
