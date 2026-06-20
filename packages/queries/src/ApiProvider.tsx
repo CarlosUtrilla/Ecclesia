@@ -5,7 +5,11 @@ import { QueryClient } from '@tanstack/react-query'
 
 const ApiProviderContext = createContext(
   {} as {
-    setApiConfiguration: (queryClient: QueryClient, serverUrl?: string, port?: number) => Promise<void>
+    setApiConfiguration: (
+      queryClient: QueryClient,
+      serverUrl?: string,
+      port?: number
+    ) => Promise<void>
   }
 )
 

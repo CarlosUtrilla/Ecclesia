@@ -1,4 +1,4 @@
-import { getSocket, getIO } from './socket.service'
+import { getSocket, getIO, ApiSocketShape } from './socket.service'
 import { log } from '../utils/logger'
 
 async function getSyncController() {
@@ -6,7 +6,7 @@ async function getSyncController() {
   return new SyncController()
 }
 
-export function registerSocketHandlers(): void {
+export function registerSocketHandlers(): ApiSocketShape {
   const io = getIO()
   if (!io) throw new Error('SocketIO no inicializado')
 
@@ -41,4 +41,5 @@ export function registerSocketHandlers(): void {
     const controller = await getSyncController()
     await controller.pull({ body: { reason: 'resync' } } as any)
   })
+  return socket
 }

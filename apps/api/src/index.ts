@@ -5,8 +5,7 @@ import os from 'os'
 import { Server as SocketIOServer } from 'socket.io'
 import {
   registerMediaServerRoutes,
-  MEDIA_SERVER_PORT,
-  LazyFetchHandler
+  MEDIA_SERVER_PORT
 } from './controllers/media/mediaServer.controller'
 import { registerRoutes } from './utils/routerUtilis'
 import {
@@ -31,16 +30,7 @@ export function broadcastToRemoteClients(event: string, data: unknown): void {
   }
 }
 
-export async function initializeHttpServer(
-  config?: DatabaseConfig,
-  serverPort?: number,
-  onQueryKeys?: (keys: string[][]) => void,
-  onLazyFetch?: LazyFetchHandler
-) {
-  if (!onLazyFetch) {
-    const { syncLazyFetchService } = await import('./controllers/sync/sync-lazy-fetch.service')
-    onLazyFetch = (relativePath: string) => syncLazyFetchService.lazyFetchMediaFromDrive(relativePath)
-  }
+export async function initializeHttpServer(config?: DatabaseConfig, serverPort?: number) {
   const app = express()
   const port = serverPort ?? MEDIA_SERVER_PORT
 
@@ -60,11 +50,30 @@ export async function initializeHttpServer(
       credentials: false
     })
   )
-  registerRoutes(app, (keys) => {
-    broadcastToRemoteClients('query-keys-invalidate', keys)
-    onQueryKeys?.(keys)
+
+  // Crear servidor HTTP con Socket.IO
+  const server = http.createServer(app)
+  const io = new SocketIOServer(server, {
+    cors: { origin: true, credentials: false }
   })
-  registerMediaServerRoutes(app, { lazyFetch: onLazyFetch })
+  setSocketIO(io)
+  const socket = registerSocketHandlers()
+
+  io.on('connection', (socket) => {
+    log.info(`[Socket.IO] Cliente conectado: ${socket.id}`)
+    socket.on('disconnect', () => {
+      log.info(`[Socket.IO] Cliente desconectado: ${socket.id}`)
+    })
+  })
+
+  server.listen(port, () => {
+    log.info(`Eclessia server running on port ${port} (Socket.IO disponible)`)
+  })
+
+  registerRoutes(app, (keys) => {
+    socket.emit.queryKeysInvalidate({ keys })
+  })
+  registerMediaServerRoutes(app)
 
   app.post('/api/getRoutes', (req, res) => {
     try {
@@ -134,29 +143,10 @@ export async function initializeHttpServer(
     }
   })
 
-  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  app.use((err: Error, _req: express.Request, res: express.Response) => {
     log.error('[Express] Error no capturado:', err.message, err.stack)
     const message = err?.message ?? err?.toString() ?? 'Error interno del servidor'
     res.status(500).json({ error: message })
-  })
-
-  // Crear servidor HTTP con Socket.IO
-  const server = http.createServer(app)
-  const io = new SocketIOServer(server, {
-    cors: { origin: true, credentials: false }
-  })
-  setSocketIO(io)
-  registerSocketHandlers()
-
-  io.on('connection', (socket) => {
-    log.info(`[Socket.IO] Cliente conectado: ${socket.id}`)
-    socket.on('disconnect', () => {
-      log.info(`[Socket.IO] Cliente desconectado: ${socket.id}`)
-    })
-  })
-
-  server.listen(port, () => {
-    log.info(`Eclessia server running on port ${port} (Socket.IO disponible)`)
   })
 
   // Start sync scheduler

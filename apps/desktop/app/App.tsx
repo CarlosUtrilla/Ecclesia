@@ -1,4 +1,4 @@
-import { lazy, Suspense, PropsWithChildren } from 'react'
+import { lazy, Suspense, PropsWithChildren, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { MediaServerProvider } from './contexts/MediaServerContext'
 import { ScreenSizeProvider } from './contexts/ScreenSizeContext'
@@ -7,8 +7,9 @@ import { FontsProvider } from './contexts/fontsContext'
 import { Spinner } from './ui/spinner'
 import { ClosingDialog } from './ui/closingDialog'
 import { UpdateNotification } from './ui/UpdateNotification'
-import { ApiProvider } from '@ecclesia/queries'
+import { Api, ApiProvider } from '@ecclesia/queries'
 import RemoteConnectionListener from './RemoteConnectionListener'
+import { queryClient } from './main'
 
 // Todas las rutas son lazy — cada ventana sólo parsea el código que su ruta necesita.
 // La ventana principal carga MainRoute (paneles, dnd-kit, zod, etc.).
@@ -26,6 +27,15 @@ const StageControlScreen = lazy(() => import('./screens/stage-control'))
 const StageLayoutScreen = lazy(() => import('./screens/stage-layout'))
 
 function App() {
+  useEffect(() => {
+    Api.socket.listen.queryKeysInvalidate(({ keys }) => {
+      if (keys && keys.length > 0) {
+        keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))
+      } else {
+        queryClient.invalidateQueries()
+      }
+    })
+  }, [])
   return (
     <MainApp>
       <Suspense

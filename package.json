@@ -27,9 +27,7 @@
   "scripts": {
     "release": "bash packages/scripts/release.sh",
     "dev": "pnpm --filter @ecclesia/tauri dev",
-    "dev:electron": "pnpm --filter @ecclesia/desktop dev",
-    "build": "pnpm --filter @ecclesia/desktop build",
-    "build:tauri": "pnpm --filter @ecclesia/tauri build",
+    "build": "pnpm --filter @ecclesia/tauri build",
     "build:ci": "pnpm --filter @ecclesia/desktop build:ci",
     "test": "pnpm --filter @ecclesia/desktop test",
     "test:watch": "pnpm --filter @ecclesia/desktop test:watch",
@@ -37,7 +35,6 @@
     "lint": "pnpm --filter @ecclesia/desktop lint",
     "typecheck": "pnpm --filter @ecclesia/desktop typecheck",
     "format": "prettier --write .",
-    "start": "pnpm --filter @ecclesia/desktop start",
     "postinstall": "pnpm --filter @ecclesia/api db:generate",
     "seed": "pnpm ts-node apps/api/prisma/seed.ts",
     "db:reset": "pnpm --filter @ecclesia/desktop db:reset",

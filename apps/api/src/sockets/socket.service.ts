@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 import { Server as SocketIOServer } from 'socket.io'
 
 let io: SocketIOServer | null = null
@@ -70,7 +71,7 @@ function createSocketProxy(io: SocketIOServer): ApiSocketShape {
   const emit = new Proxy({} as any, {
     get: (_, event) => (data?: any) => {
       io?.emit(event as string, data)
-    },
+    }
   }) as ApiEmitShape
 
   const on = new Proxy({} as any, {
@@ -91,7 +92,7 @@ function createSocketProxy(io: SocketIOServer): ApiSocketShape {
           socket.removeListener(eventName, cb as any)
         }
       }
-    },
+    }
   }) as ApiOnShape
 
   return { emit, on }

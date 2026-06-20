@@ -55,7 +55,7 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let _main = tauri::WebviewWindowBuilder::new(
         app,
         "main",
-        tauri::WebviewUrl::App("index-tauri.html".into()),
+        tauri::WebviewUrl::App("index.html".into()),
     )
     .title("Ecclesia")
     .inner_size(1280.0, 800.0)

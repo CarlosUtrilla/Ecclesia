@@ -7,10 +7,7 @@ export const exposeRoutes = async (queryClient: QueryClient, apiUrl: string, por
   const mutationMap = {} as any
   const fetchMap = {} as any
 
-  const routes = (await Fetcher({ apiUrl, port, path: '/api/getRoutes' })) as [
-    string,
-    string[]
-  ][]
+  const routes = (await Fetcher({ apiUrl, port, path: '/api/getRoutes' })) as [string, string[]][]
 
   for (const [namespace, Methods] of routes) {
     queryMap[namespace] = {}

@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
+fn tauri_url(route: &str) -> WebviewUrl {
+    WebviewUrl::App(format!("index.html#/{}", route).into())
+}
+
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayInfo {
@@ -67,7 +71,7 @@ pub async fn open_live_window(
     let window = WebviewWindowBuilder::new(
         &app,
         &label,
-        WebviewUrl::App(format!("live-screen/{}", display.id).into()),
+        WebviewUrl::App(format!("index.html#/live-screen/{}", display.id).into()),
     )
     .title(format!("Live - {}", display.name))
     .position(x as f64, y as f64)
@@ -96,7 +100,7 @@ pub async fn open_stage_window(
     let window = WebviewWindowBuilder::new(
         &app,
         &label,
-        WebviewUrl::App(format!("stage-screen/{}", display.id).into()),
+        WebviewUrl::App(format!("index.html#/stage-screen/{}", display.id).into()),
     )
     .title(format!("Stage - {}", display.name))
     .position(x as f64, y as f64)
@@ -127,7 +131,7 @@ pub async fn open_tag_songs_window(app: tauri::AppHandle) -> Result<(), String> 
     WebviewWindowBuilder::new(
         &app,
         label,
-        WebviewUrl::App("tagSongEditor".into()),
+        tauri_url("tagSongEditor"),
     )
     .title("Editor de etiquetas")
     .inner_size(700.0, 600.0)
@@ -150,7 +154,7 @@ pub async fn open_stage_control_window(app: tauri::AppHandle) -> Result<(), Stri
     WebviewWindowBuilder::new(
         &app,
         label,
-        WebviewUrl::App("stage-control".into()),
+        tauri_url("stage-control"),
     )
     .title("Control de escenario")
     .inner_size(700.0, 600.0)
@@ -176,7 +180,7 @@ pub async fn open_presentation_window(
     WebviewWindowBuilder::new(
         &app,
         &label,
-        WebviewUrl::App(format!("presentation/{}", presentation_id).into()),
+        WebviewUrl::App(format!("index.html#/presentation/{}", presentation_id).into()),
     )
     .title("Editor de presentación")
     .inner_size(1100.0, 750.0)
@@ -228,7 +232,7 @@ pub async fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
     WebviewWindowBuilder::new(
         &app,
         label,
-        WebviewUrl::App("settings".into()),
+        tauri_url("settings"),
     )
     .title("Configuración")
     .inner_size(900.0, 700.0)
@@ -255,7 +259,7 @@ pub async fn open_song_editor(
     WebviewWindowBuilder::new(
         &app,
         &label,
-        WebviewUrl::App(format!("song/{}", song_id).into()),
+        WebviewUrl::App(format!("index.html#/song/{}", song_id).into()),
     )
     .title("Editor de canción")
     .inner_size(900.0, 700.0)
@@ -281,7 +285,7 @@ pub async fn open_theme_editor(
     WebviewWindowBuilder::new(
         &app,
         &label,
-        WebviewUrl::App(format!("theme/{}", theme_id).into()),
+        WebviewUrl::App(format!("index.html#/theme/{}", theme_id).into()),
     )
     .title("Editor de tema")
     .inner_size(900.0, 700.0)

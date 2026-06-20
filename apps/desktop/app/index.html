@@ -3,19 +3,16 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Eclessia</title>
-  <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+  <title>Ecclesia</title>
   <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self' http://*:* https://*:*;
+    default-src 'self' http://*:* https://*:* ipc:;
     script-src 'self' http://*:* https://*:*;
     style-src 'self' 'unsafe-inline' http://*:* https://*:*;
     img-src 'self' data: http://*:* https://*:*;
     media-src 'self' http://*:* https://*:*;
     font-src 'self' data: http://*:* https://*:*;
-    connect-src 'self' http://*:* https://*:* ws://*:* wss://*:*;
+    connect-src 'self' http://*:* https://*:* ws://*:* wss://*:* ipc:;
   " />
-  <link href="./fonts/Inter-VariableFont_opsz,wght.ttf" rel="stylesheet">
-  <link href="./fonts/Inter-Italic-VariableFont_opsz,wght.ttf" rel="stylesheet">
 </head>
 
 <body id="root" class="bg-background text-foreground font-sans h-svh">

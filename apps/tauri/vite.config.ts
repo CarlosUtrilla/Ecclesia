@@ -30,7 +30,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        'index-tauri': resolve(appDir, 'index-tauri.html'),
+        main: resolve(appDir, 'index.html'),
         splash: resolve(appDir, 'splash.html')
       }
     }

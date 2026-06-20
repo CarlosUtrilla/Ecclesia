@@ -20,17 +20,16 @@ Ecclesia utiliza skills globales para mejorar la calidad, performance y diseño 
 
 ## Descripcion del proyecto
 
-Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para planificacion y presentacion de cultos religiosos. Gestiona canciones, versiculos biblicos, medios (imagenes/videos), temas de presentacion y cronogramas de servicio que se proyectan en pantallas en vivo.
+Ecclesia es una aplicacion de escritorio (Tauri + React + TypeScript) para planificacion y presentacion de cultos religiosos. Gestiona canciones, versiculos biblicos, medios (imagenes/videos), temas de presentacion y cronogramas de servicio que se proyectan en pantallas en vivo.
 
 **📖 Sistema de Chunks para Textos Bíblicos:** Documentación completa en [`packages/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md`](packages/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md) - explica cómo funciona la división inteligente de textos bíblicos largos, arquitectura de metadata objects, hidratación desde BD, navegación por chunks y preview de presentaciones.
 
 ## Stack tecnologico
 
 *   **Frontend:** React 19, TypeScript, Tailwind CSS, Shadcn UI, React Router v7, React Hook Form + Zod, TanStack React Query, TipTap, Framer Motion (LazyMotion), dnd-kit
-*   **Backend:** Electron/Tauri, Prisma ORM, SQLite (better-sqlite3)
+*   **Backend:** Tauri, Prisma ORM, SQLite (better-sqlite3)
 *   **Package Manager:** pnpm 11 (con `minimum-release-age=1440` y `onlyBuiltDependencies` para proteger contra ataques supply chain)
-*   **Build (Electron):** Vite + electron-vite
-*   **Build (Tauri):** Vite + @tauri-apps/cli + Rust (cargo)
+*   **Build:** Vite + @tauri-apps/cli + Rust (cargo)
 *   **Empaquetado macOS:** `dmg.artifactName` incluye `${arch}` para evitar colisiones cuando se generan arm64 y x64 en la misma ejecución.
 *   **Release CI:** workflow de tags usa pnpm (`pnpm-lock.yaml`) y build macOS arm64+x64 secuencial en un solo job (sin merge `universal` para evitar fallos de `_CodeSignature`). El workflow valida `GH_TOKEN` al inicio y define `timeout-minutes` por job para cortar fallos costosos. El script `packages/scripts/release.sh` permite elegir modo `github` (push + CI) o `local` (compila mac/win sin push ni consumo de CI), e incluye preflight de `sharp` con autoreparación (`pnpm install --frozen-lockfile` + `npm rebuild sharp` + `electron-builder install-app-deps`) y preparación explícita de módulos nativos para `win32-x64` antes del empaquetado de Windows local: `sharp` (`npm install --legacy-peer-deps --os=win32 --cpu=x64 sharp`) y `@ffmpeg-installer/win32-x64` (via `npm pack`). El script también fuerza `better-sqlite3` a binario Windows x64 (PE32+) usando `prebuild-install --runtime=electron --target=<version>` (con fallback a `--runtime=node --target=22.0.0`) y verifica con `file` antes de empaquetar. En modo local, el flujo limpia `dist/` antes de compilar para no mezclar artefactos viejos con los nuevos, compila primero con `electron-vite build` en macOS, ejecuta `prisma generate` con `binaryTargets` multi-plataforma (`native`, `windows`, `darwin-arm64`, `darwin`) y luego empaqueta con `electron-builder --win`, evitando errores de optional dependencies de Rollup y de Query Engine en Windows. Al finalizar, el script restaura dependencias del host con `pnpm install --frozen-lockfile` + `@electron/rebuild -f` + `ensure_sharp_ready` para restaurar módulos nativos macOS (sin esto, el pnpm store queda con binarios Windows, rompiendo `better-sqlite3` en desarrollo) y puede subir opcionalmente `dist/` a un GitHub Release vía `gh` (con advertencia porque crear el tag remoto `v*` puede disparar el workflow de tags). En esa subida local, el script ahora empuja automáticamente el tag si no existe en remoto y solo sube archivos regulares de `dist/` (evitando fallos por carpetas como `win-unpacked`).
 *   **Idioma principal del codigo:** Espanol (comentarios, nombres de variables UI), Ingles (nombres de modelos, controladores, tipos)
@@ -77,7 +76,7 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | Crear una migracion de base de datos | [`prisma`](prisma/agents.md) |
 | Agregar un campo a un modelo existente | [`prisma`](prisma/agents.md) + [`api`](apps/api/agents.md) |
 | Crear un nuevo controller o service | [`api`](apps/api/agents.md) |
-| Agregar un nuevo metodo IPC | [`api`](apps/api/agents.md) + [`electron`](apps/desktop/electron/agents.md) |
+| Agregar un nuevo metodo IPC | [`api`](apps/api/agents.md) + leer `commands.rs` |
 | Modificar DTOs de entrada/salida | [`api`](apps/api/agents.md) |
 | Consumir datos del backend desde React | [`contexts`](packages/desktop/app/contexts/agents.md) + [`api`](apps/api/agents.md) |
 | Agregar un componente a la biblioteca (songs/media/bible) | [`library`](packages/desktop/app/screens/panels/library/agents.md) |
@@ -85,19 +84,19 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | Modificar el cronograma o sus items | [`schedule`](packages/desktop/app/screens/panels/schedule/agents.md) |
 | Modificar la logica de pantallas en vivo | [`schedule`](packages/desktop/app/screens/panels/schedule/agents.md) + [`contexts`](packages/desktop/app/contexts/agents.md) |
 | Crear o modificar un editor (cancion/tema/tags) | [`editors`](packages/desktop/app/screens/editors/agents.md) |
-| Abrir una nueva ventana de Electron | [`electron`](packages/desktop/electron/agents.md) + [`editors`](packages/desktop/app/screens/editors/agents.md) |
+| Abrir una nueva ventana | Leer `commands.rs` + [`editors`](packages/desktop/app/screens/editors/agents.md) |
 | Modificar PresentationView o sus sub-componentes | [`ui`](packages/desktop/app/ui/agents.md) |
 | Usar animaciones con Framer Motion | [`ui`](packages/desktop/app/ui/agents.md) |
 | Agregar un componente Shadcn UI | [`ui`](packages/desktop/app/ui/agents.md) |
-| Trabajar con el media server o archivos de medios | [`electron`](packages/desktop/electron/agents.md) + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
-| Verificar integridad de archivos de medios en disco | [`electron`](packages/desktop/electron/agents.md) + [`api`](apps/api/agents.md) |
-| Modificar gestion de displays/pantallas | [`electron`](packages/desktop/electron/agents.md) + [`contexts`](packages/desktop/app/contexts/agents.md) |
-| Importar o gestionar biblias | [`electron`](packages/desktop/electron/agents.md) + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
-| Agregar una nueva ruta en React Router | Leer `packages/desktop/app/App.tsx` + [`electron`](packages/desktop/electron/agents.md) si requiere ventana nueva |
-| Crear o modificar ventana de ajustes | [`electron`](packages/desktop/electron/agents.md) + [`ui`](packages/desktop/app/ui/agents.md) |
+| Trabajar con el media server o archivos de medios | Leer `commands.rs` + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
+| Verificar integridad de archivos de medios en disco | Leer `commands.rs` + [`api`](apps/api/agents.md) |
+| Modificar gestion de displays/pantallas | Leer `commands.rs` + [`contexts`](packages/desktop/app/contexts/agents.md) |
+| Importar o gestionar biblias | Leer `commands.rs` + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
+| Agregar una nueva ruta en React Router | Leer `packages/desktop/app/App.tsx` + `commands.rs` si requiere ventana nueva |
+| Crear o modificar ventana de ajustes | Leer `commands.rs` + [`ui`](packages/desktop/app/ui/agents.md) |
 | Modificar estilos globales o temas CSS | Leer `packages/desktop/app/assets/globals.css` + [`ui`](packages/desktop/app/ui/agents.md) |
 | Agregar un nuevo evento Socket.IO | [`sockets`](apps/api/src/sockets/AGENTS.md) — definir en `SocketEventMap` + emitir desde service o registrar handler |
-| Modificar el sidecar Node.js (spawn, args, paths) | [`electron`](apps/desktop/electron/agents.md) + leer `sidecar.rs` |
+| Modificar el sidecar Node.js (spawn, args, paths) | Leer `sidecar.rs` |
 | Agregar un Rust command | [`electron`](apps/desktop/electron/agents.md) — registrar en `commands.rs` + `invoke_handler` en `lib.rs` |
 | Modificar config de Tauri (tauri.conf.json) | Leer `apps/tauri/src-tauri/tauri.conf.json` |
 | Trabajar con el shim Tauri | Leer `apps/desktop/app/tauri/shim.ts` — actualizar si se expone nueva API Electron |
@@ -165,7 +164,7 @@ packages/desktop/app/main.tsx (entry point React)
 │       │   ├── tauri.conf.json
 │       │   ├── capabilities/  # Permisos (window, shell, dialog, fs, shortcuts)
 │       │   └── icons/
-│       └── vite.config.ts     # Vite para Tauri (entry index-tauri.html)
+│       └── vite.config.ts     # Vite para Tauri (entry index.html)
 ├── .npmrc                     # minimum-release-age=1440 (seguridad supply chain)
 ├── pnpm-workspace.yaml        # Definicion de workspaces
 ├── package.json               # pnpm workspace root
@@ -174,14 +173,6 @@ packages/desktop/app/main.tsx (entry point React)
 
 ## Flujo de datos
 
-### Electron (IPC)
-```
-React Component
-  -> window.api.namespace.method(args)
-    -> ipcRenderer.invoke('namespace.method', args)
-      -> ipcMain.handle() en main process
-        -> Controller.method()
-```
 ### Tauri (HTTP + Rust commands)
 ```
 React Component
@@ -291,8 +282,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 
 ### IPC / API desde el renderer
 
-*   **Electron:** usar `window.api.namespace.method()` para llamar al backend. NUNCA importar `api from '@ecclesia/api'` directamente en el renderer — ese módulo asume `window.api` internamente pero su import directo no está disponible correctamente en todas las ventanas Electron.
-*   **Tauri (HTTP):** usar `Api.fetch.namespace.method()` del paquete `@ecclesia/queries` (conecta REST a sidecar). Para nativas (ventanas, dialogs, shortcuts), exponer via Rust commands y llamar desde `@tauri-apps/api`.
+*   **HTTP:** usar `Api.fetch.namespace.method()` del paquete `@ecclesia/queries` (conecta REST a sidecar). Para nativas (ventanas, dialogs, shortcuts), exponer via Rust commands y llamar desde `@tauri-apps/api`.
 *   Los imports de **tipos** (`.dto.d.ts`) sí están permitidos en el renderer.
 
 ### Antes de modificar codigo

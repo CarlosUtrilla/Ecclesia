@@ -10,7 +10,11 @@ import { UPDATE_QUERY_KEY } from '../decorators/UpdateQueryKey.decorator'
 import { log } from './logger'
 
 const routeHandler =
-  (handler: (params: any) => Promise<any>, queryKeys?: string[], onQueryKeys?: (keys: string[][]) => void) =>
+  (
+    handler: (params: any) => Promise<any>,
+    queryKeys?: string[],
+    onQueryKeys?: (keys: string[][]) => void
+  ) =>
   async (req: Request, res: express.Response) => {
     try {
       const requestData = req?.body ?? {}
@@ -42,7 +46,10 @@ const routeHandler =
     }
   }
 
-export function registerRoutes(app: ReturnType<typeof express>, onQueryKeys?: (keys: string[][]) => void) {
+export function registerRoutes(
+  app: ReturnType<typeof express>,
+  onQueryKeys?: (keys: string[][]) => void
+) {
   // REGISTRO DE RUTAS EXPRESS DESDE CONTROLLERS
   for (const [namespace, ControllerClass] of Object.entries(routes)) {
     const proto = ControllerClass.prototype
@@ -97,7 +104,10 @@ export function registerRoutes(app: ReturnType<typeof express>, onQueryKeys?: (k
       /**
        * Ruta normal
        */
-      app.post(`/api/${channel}`, routeHandler(instance[method].bind(instance), updateQueryKeys, onQueryKeys))
+      app.post(
+        `/api/${channel}`,
+        routeHandler(instance[method].bind(instance), updateQueryKeys, onQueryKeys)
+      )
     }
   }
 }

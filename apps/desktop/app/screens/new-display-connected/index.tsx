@@ -122,15 +122,15 @@ export default function NewDisplayConected({
     }
   }
 
-  useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('display-update', () => {
-      fetchDisplays()
-    })
-    fetchDisplays()
-    return () => {
-      unsubscribe()
-    }
-  }, [])
+  // useEffect(() => {
+  //   const unsubscribe = window.electron.ipcRenderer.on('display-update', () => {
+  //     fetchDisplays()
+  //   })
+  //   fetchDisplays()
+  //   return () => {
+  //     unsubscribe()
+  //   }
+  // }, [])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -42,8 +42,15 @@ function toElectronDisplay(d: DisplayInfoTauri): DisplayInfoElectron {
   }
 }
 
-if (typeof window !== 'undefined' && '__TAURI__' in window) {
-  const currentWindow = getCurrentWebviewWindow()
+const needsShim = typeof window !== 'undefined' && !('electron' in window)
+
+if (needsShim) {
+  let currentWindow: ReturnType<typeof getCurrentWebviewWindow> | null = null
+  try {
+    currentWindow = getCurrentWebviewWindow()
+  } catch (e) {
+    console.warn('[Tauri Shim] getCurrentWebviewWindow() failed:', e)
+  }
   const ipcListeners = new Map<string, Set<(...args: unknown[]) => void>>()
 
   const electronShim = {
@@ -123,23 +130,23 @@ if (typeof window !== 'undefined' && '__TAURI__' in window) {
     openSettingsWindow: () => invoke('open_settings_window'),
     openStageControlWindow: () => invoke('open_stage_control_window'),
     closeCurrentWindow: async () => {
-      await currentWindow.close()
+      await currentWindow?.close()
     },
     confirmClose: () => {
-      currentWindow.close()
+      currentWindow?.close()
     },
     cancelClose: () => {},
     skipSyncAndClose: () => {
-      currentWindow.close()
+      currentWindow?.close()
     },
     confirmThemeClose: () => {
-      currentWindow.close()
+      currentWindow?.close()
     },
     confirmPresentationClose: () => {
-      currentWindow.close()
+      currentWindow?.close()
     },
     triggerClose: () => {
-      currentWindow.close()
+      currentWindow?.close()
     },
   }
 
@@ -199,6 +206,11 @@ if (typeof window !== 'undefined' && '__TAURI__' in window) {
 
   const remoteControlAPIShim = {
     discoverLan: (): Promise<unknown[]> => Promise.resolve([]),
+    getConnectionState: (): Promise<{ url: string; port: number } | null> => Promise.resolve(null),
+    invalidateAllWindows: () => {},
+    onConnectionChanged: (_callback: (state: unknown) => void) => () => {},
+    notifyConnectionChanged: (_url: string, _port: number) => {},
+    notifyDisconnected: () => {},
   }
 
   Object.assign(window, {

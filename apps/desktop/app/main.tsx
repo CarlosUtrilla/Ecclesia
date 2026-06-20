@@ -1,4 +1,5 @@
 import './assets/globals.css'
+import './tauri/shim'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -48,14 +49,6 @@ mediaQuery.addEventListener('change', () => {
 
 export const queryClient = new QueryClient()
 
-// Cuando el sync pull aplica filas nuevas, invalidar queries relevantes
-window.electron.ipcRenderer.on('invalidate-queries', (_event: unknown, keys?: string[][]) => {
-  if (keys && keys.length > 0) {
-    keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))
-  } else {
-    queryClient.invalidateQueries()
-  }
-})
 // Pre-carga el chunk de la ruta activa antes de renderizar React.
 // Como Electron sirve desde el ASAR local, los imports resuelven en ~0ms y
 // el módulo queda en caché. Cuando React.lazy() lo pide, ya está listo y
