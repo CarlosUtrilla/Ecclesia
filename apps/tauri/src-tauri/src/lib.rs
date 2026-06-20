@@ -4,7 +4,6 @@ mod sidecar;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState};
 
 use commands::*;
@@ -73,14 +72,9 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if let RunEvent::ExitRequested { ref api, .. } = event {
-                // Si el usuario aún no confirmó, prevenir y mostrar diálogo
                 if let Some(state) = app_handle.try_state::<AppState>() {
                     if !state.close_confirmed.load(Ordering::SeqCst) {
                         api.prevent_exit();
-                        // Simular cierre de ventana para mostrar diálogo
-                        if let Some(window) = app_handle.get_webview_window("main") {
-                            let _ = window.close();
-                        }
                     }
                 }
             }
@@ -191,25 +185,6 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .maximized(true)
     .disable_drag_drop_handler()
     .build()?;
-
-    // Menú personalizado para interceptar Cmd+Q
-    let quit_item = MenuItemBuilder::with_id("quit", "Salir de Ecclesia")
-        .accelerator("CmdOrCtrl+Q")
-        .build(app)?;
-    let menu = MenuBuilder::new(app)
-        .item(&quit_item)
-        .build()?;
-    app.set_menu(menu)?;
-    let app_for_menu = app_handle.clone();
-    let quit_id = quit_item.id().clone();
-    app.on_menu_event(move |_app_handle, event| {
-        if event.id() == &quit_id {
-            if let Some(window) = app_for_menu.get_webview_window("main") {
-                let _ = window.close();
-            }
-        }
-    });
-
     let _ = app_handle.emit("sidecar-ready", true);
 
     // Diálogo de confirmación al cerrar la ventana principal (como Electron)
@@ -219,7 +194,6 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     main_window.on_window_event(move |event| {
         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
             if state_clone.load(Ordering::SeqCst) {
-                // Ya confirmado, permitir el cierre
                 return;
             }
             api.prevent_close();
@@ -244,6 +218,16 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         };
         shortcuts.on_shortcut(*key, handler)?;
     }
+
+    // Cmd+Q → cerrar ventana principal (mismo flujo que Cmd+W)
+    let app_for_q = app.handle().clone();
+    shortcuts.on_shortcut("CmdOrCtrl+Q", move |_h, _s, e| {
+        if e.state == ShortcutState::Pressed {
+            if let Some(window) = app_for_q.get_webview_window("main") {
+                let _ = window.close();
+            }
+        }
+    })?;
 
     Ok(())
 }

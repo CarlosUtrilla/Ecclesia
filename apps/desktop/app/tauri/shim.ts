@@ -59,9 +59,6 @@ if (needsShim) {
       on(channel: string, listener: IpcListener) {
         let cleanup: (() => void) | null = null
         listen(channel, (event) => {
-          if (channel.startsWith('app-close') || channel.startsWith('liveScreen')) {
-            console.log(`[shim:on] channel=${channel} payload=`, event.payload)
-          }
           listener(null, event.payload)
         }).then((unlisten) => {
           cleanup = unlisten

@@ -241,6 +241,7 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
         println!("[Sidecar] Dev mode: using tsx with source file for hot reload");
         let mut c = Command::new("npx");
         c.arg("tsx").arg(&sidecar_path);
+        c.current_dir(&env_path);
         for arg in &args {
             c.arg(arg);
         }
