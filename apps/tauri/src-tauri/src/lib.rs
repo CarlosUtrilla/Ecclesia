@@ -4,36 +4,36 @@ mod sidecar;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState};
 
 use commands::*;
 
-struct SidecarChild(std::process::Child);
+pub struct SidecarChild(std::process::Child);
 
 impl Drop for SidecarChild {
     fn drop(&mut self) {
         let pid = self.0.id();
-        let _ = self.0.kill();
-        // Also kill by port to catch all descendant processes (npx -> tsx -> node chain)
+        unsafe { libc::killpg(pid as i32, libc::SIGKILL) };
         let _ = std::process::Command::new("lsof")
             .args(["-t", "-i", ":7777"])
             .output()
-            .and_then(|out| {
-                let pids = String::from_utf8_lossy(&out.stdout);
-                for pid in pids.split_whitespace() {
-                    let _ = std::process::Command::new("kill")
-                        .args(["-9", pid])
-                        .output();
+            .map(|o| {
+                let s = String::from_utf8_lossy(&o.stdout);
+                for line in s.lines() {
+                    if let Ok(pid) = line.trim().parse::<u32>() {
+                        unsafe { libc::kill(pid as i32, libc::SIGKILL) };
+                    }
                 }
-                Ok::<(), std::io::Error>(())
             });
         println!("[Sidecar] Killed sidecar processes (main pid: {})", pid);
     }
 }
 
-struct AppState {
-    sidecar: std::sync::Mutex<Option<SidecarChild>>,
-    kill_flag: std::sync::Arc<AtomicBool>,
+pub struct AppState {
+    pub sidecar: std::sync::Mutex<Option<SidecarChild>>,
+    pub kill_flag: std::sync::Arc<AtomicBool>,
+    pub close_confirmed: std::sync::Arc<AtomicBool>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -41,6 +41,7 @@ pub fn run() {
     let app_state = AppState {
         sidecar: std::sync::Mutex::new(None),
         kill_flag: std::sync::Arc::new(AtomicBool::new(false)),
+        close_confirmed: std::sync::Arc::new(AtomicBool::new(false)),
     };
 
     tauri::Builder::default()
@@ -66,15 +67,28 @@ pub fn run() {
             open_tag_songs_window,
             close_screen_window,
             close_all_screens,
+            close_app_windows,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            if let RunEvent::ExitRequested { .. } = event {
+            if let RunEvent::ExitRequested { ref api, .. } = event {
+                // Si el usuario aún no confirmó, prevenir y mostrar diálogo
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    if !state.close_confirmed.load(Ordering::SeqCst) {
+                        api.prevent_exit();
+                        // Simular cierre de ventana para mostrar diálogo
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.close();
+                        }
+                    }
+                }
+            }
+            if let RunEvent::Exit = event {
                 if let Some(state) = app_handle.try_state::<AppState>() {
                     state.kill_flag.store(true, Ordering::SeqCst);
                     if let Ok(mut guard) = state.sidecar.lock() {
-                        guard.take(); // SidecarChild::drop calls kill()
+                        guard.take();
                     }
                 }
             }
@@ -90,10 +104,12 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         WebviewUrl::App("splash.html".into()),
     )
     .title("Ecclesia")
-    .inner_size(500.0, 400.0)
+    .inner_size(480.0, 300.0)
     .resizable(false)
-    .decorations(false)
     .center()
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
     .build()?;
     splash.show()?;
     println!("[Splash] Window shown, waiting for sidecar...");
@@ -170,11 +186,46 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         WebviewUrl::App("index.html".into()),
     )
     .title("Ecclesia")
-    .inner_size(1280.0, 800.0)
+    .inner_size(1200.0, 800.0)
     .min_inner_size(900.0, 600.0)
+    .maximized(true)
     .disable_drag_drop_handler()
     .build()?;
+
+    // Menú personalizado para interceptar Cmd+Q
+    let quit_item = MenuItemBuilder::with_id("quit", "Salir de Ecclesia")
+        .accelerator("CmdOrCtrl+Q")
+        .build(app)?;
+    let menu = MenuBuilder::new(app)
+        .item(&quit_item)
+        .build()?;
+    app.set_menu(menu)?;
+    let app_for_menu = app_handle.clone();
+    let quit_id = quit_item.id().clone();
+    app.on_menu_event(move |_app_handle, event| {
+        if event.id() == &quit_id {
+            if let Some(window) = app_for_menu.get_webview_window("main") {
+                let _ = window.close();
+            }
+        }
+    });
+
     let _ = app_handle.emit("sidecar-ready", true);
+
+    // Diálogo de confirmación al cerrar la ventana principal (como Electron)
+    let main_window = app_handle.get_webview_window("main").unwrap();
+    let app_clone = app_handle.clone();
+    let state_clone = app.state::<AppState>().close_confirmed.clone();
+    main_window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if state_clone.load(Ordering::SeqCst) {
+                // Ya confirmado, permitir el cierre
+                return;
+            }
+            api.prevent_close();
+            let _ = app_clone.emit("app-close-requested", ());
+        }
+    });
 
     let shortcuts = app.global_shortcut();
     for key in &["F7", "F9", "F10", "F11", "Escape"] {

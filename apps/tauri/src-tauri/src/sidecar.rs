@@ -189,17 +189,20 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
     // Compute cwd and resources path:
     // - dev:  cwd=apps/tauri/  resources=apps/desktop/resources
     // - release: cwd=resource_dir  resources=resource_dir
-    let (cwd, resources_path): (PathBuf, PathBuf) = if is_dev {
+    let (cwd, resources_path, env_path): (PathBuf, PathBuf, PathBuf) = if is_dev {
         let manifest = std::env::var("CARGO_MANIFEST_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| resource_dir.clone());
         let tauri_root = manifest.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| resource_dir.clone());
+        // env-path debe apuntar a la raíz del proyecto donde está .env
+        let project_root = tauri_root.parent().and_then(|p| p.parent()).map(|p| p.to_path_buf()).unwrap_or_else(|| resource_dir.clone());
         (
             tauri_root.clone(),
             tauri_root.parent().map(|p| p.join("desktop/resources")).unwrap_or_else(|| resource_dir.clone()),
+            project_root,
         )
     } else {
-        (resource_dir.clone(), resource_dir.clone())
+        (resource_dir.clone(), resource_dir.clone(), resource_dir.clone())
     };
 
     // In dev mode, use tsx with source file for hot reload
@@ -231,7 +234,7 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
         format!("--user-data-path={}", user_data_dir.to_str().unwrap()),
         format!("--resources-path={}", resources_path.to_str().unwrap_or(".")),
         format!("--cwd={}", cwd.to_str().unwrap_or(".")),
-        format!("--env-path={}", cwd.to_str().unwrap_or(".")),
+        format!("--env-path={}", env_path.to_str().unwrap_or(".")),
     ];
 
     let mut cmd = if use_tsx {

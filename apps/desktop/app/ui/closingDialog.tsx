@@ -9,6 +9,7 @@ import {
 } from './dialog'
 import { Button } from './button'
 import { Spinner } from './spinner'
+import { Api } from '@ecclesia/queries'
 
 type Phase = 'hidden' | 'confirming' | 'syncing'
 
@@ -26,7 +27,11 @@ export function ClosingDialog() {
 
   const handleConfirm = () => {
     setPhase('syncing')
-    window.windowAPI.confirmClose()
+    Api.fetch.sync.push({ body: { reason: 'close' } })
+      .catch(() => {})
+      .finally(() => {
+        window.windowAPI.confirmClose()
+      })
   }
 
   const handleCancel = () => {

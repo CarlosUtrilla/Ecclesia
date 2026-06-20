@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
+use crate::AppState;
+
 fn tauri_url(route: &str) -> WebviewUrl {
     WebviewUrl::App(format!("index.html#/{}", route).into())
 }
@@ -28,7 +30,6 @@ fn get_process_rss_kb(pid: u32) -> u64 {
 pub fn get_memory_usage() -> MemoryInfo {
     let app_pid = std::process::id();
 
-    // Sidecar PID from state (approximate — we read from lsof on port 7777)
     let sidecar_pid: u32 = std::process::Command::new("lsof")
         .args(["-t", "-i", ":7777"])
         .output()
@@ -128,11 +129,12 @@ pub async fn open_live_window(
     .fullscreen(true)
     .decorations(false)
     .always_on_top(true)
+    .resizable(false)
+    .skip_taskbar(true)
     .build()
     .map_err(|e| e.to_string())?;
 
     window.show().map_err(|e| e.to_string())?;
-    window.set_focus().ok();
 
     let _ = app.emit("live-window-opened", &display);
     Ok(())
@@ -156,12 +158,13 @@ pub async fn open_stage_window(
     .inner_size(width, height)
     .fullscreen(true)
     .decorations(false)
-    .always_on_top(false)
+    .always_on_top(true)
+    .resizable(false)
+    .skip_taskbar(true)
     .build()
     .map_err(|e| e.to_string())?;
 
     window.show().map_err(|e| e.to_string())?;
-    window.set_focus().ok();
 
     let _ = app.emit("stage-window-opened", &display);
     Ok(())
@@ -183,7 +186,7 @@ pub async fn open_tag_songs_window(app: tauri::AppHandle) -> Result<(), String> 
         tauri_url("tagSongEditor"),
     )
     .title("Editor de etiquetas")
-    .inner_size(700.0, 600.0)
+    .inner_size(950.0, 400.0)
     .build()
     .map_err(|e| e.to_string())?;
 
@@ -205,8 +208,9 @@ pub async fn open_stage_control_window(app: tauri::AppHandle) -> Result<(), Stri
         label,
         tauri_url("stage-control"),
     )
-    .title("Control de escenario")
-    .inner_size(700.0, 600.0)
+    .title("Control de Escenario")
+    .inner_size(900.0, 700.0)
+    .min_inner_size(900.0, 620.0)
     .build()
     .map_err(|e| e.to_string())?;
 
@@ -231,7 +235,7 @@ pub async fn open_presentation_window(
         &label,
         WebviewUrl::App(format!("index.html#/presentation/{}", presentation_id).into()),
     )
-    .title("Editor de presentación")
+    .title("Editor de presentaciones")
     .inner_size(1100.0, 750.0)
     .build()
     .map_err(|e| e.to_string())?;
@@ -283,8 +287,9 @@ pub async fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
         label,
         tauri_url("settings"),
     )
-    .title("Configuración")
+    .title("Ajustes")
     .inner_size(900.0, 700.0)
+    .min_inner_size(900.0, 620.0)
     .resizable(true)
     .build()
     .map_err(|e| e.to_string())?;
@@ -310,7 +315,7 @@ pub async fn open_song_editor(
         &label,
         WebviewUrl::App(format!("index.html#/song/{}", song_id).into()),
     )
-    .title("Editor de canción")
+    .title("Editor de canciones")
     .inner_size(900.0, 700.0)
     .build()
     .map_err(|e| e.to_string())?;
@@ -341,5 +346,23 @@ pub async fn open_theme_editor(
     .build()
     .map_err(|e| e.to_string())?;
 
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn close_app_windows(app: tauri::AppHandle) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+
+    if let Some(state) = app.try_state::<AppState>() {
+        state.close_confirmed.store(true, Ordering::SeqCst);
+        state.kill_flag.store(true, Ordering::SeqCst);
+        if let Ok(mut guard) = state.sidecar.lock() {
+            guard.take();
+        }
+    }
+
+    for (_, window) in app.webview_windows() {
+        let _ = window.close();
+    }
     Ok(())
 }

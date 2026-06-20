@@ -1,5 +1,5 @@
 import { Api } from '@ecclesia/queries'
-import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react'
+import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react'
 import { ContentScreen, ILiveContext } from '../types'
 import { useSchedule } from '..'
 import { DisplayWithUsage, useDisplays } from '../../displayContext'
@@ -38,6 +38,40 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const [hideTextOnLive, setHideTextOnLive] = useState(false)
   const [showLogoOnLive, setShowLogoOnLive] = useState(false)
   const [blackScreenOnLive, setBlackScreenOnLive] = useState(false)
+
+  // Ref para mantener la referencia más reciente del contenido a enviar
+  const latestContentRef = useRef<{
+    itemIndex: number
+    contentScreen: ContentScreen | null
+    presentationVerseBySlideKey: Record<string, number>
+    liveControls: { hideText: boolean; showLogo: boolean; blackScreen: boolean }
+    theme: ThemeWithMedia | null
+  }>({
+    itemIndex: 0,
+    contentScreen: null,
+    presentationVerseBySlideKey: {},
+    liveControls: { hideText: false, showLogo: false, blackScreen: false },
+    theme: null
+  })
+
+  // Escuchar renderer-ready desde las ventanas live/stage para reenviar contenido
+  useEffect(() => {
+    const unlisten = window.electron.ipcRenderer.on('renderer-ready', () => {
+      const latest = latestContentRef.current
+      window.displayAPI.updateLiveScreenContent({
+        itemIndex: latest.itemIndex,
+        contentScreen: latest.contentScreen,
+        presentationVerseBySlideKey: latest.presentationVerseBySlideKey
+      })
+      window.displayAPI.updateLiveScreenContent({
+        liveControls: latest.liveControls
+      })
+      if (latest.theme) {
+        window.displayAPI.updateLiveScreenTheme(latest.theme)
+      }
+    })
+    return () => { unlisten() }
+  }, [])
 
   useEffect(() => {
     if (!showLiveScreen && itemOnLive) {
@@ -159,14 +193,18 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     reconcileScreens()
   }, [showLiveScreen, liveScreens, stageScreens])
 
-  // Envia cambios de contenido/slide a live/stage.
   useEffect(() => {
     if (!liveScreensReady || windowsLiveScreenOpens.length + windowsStageScreenOpens.length === 0) {
       return
     }
 
-    console.log('Sending content update to live screens')
     const sendUpdateToLiveScreens = async () => {
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        itemIndex,
+        contentScreen,
+        presentationVerseBySlideKey
+      }
       await window.displayAPI.updateLiveScreenContent({
         itemIndex,
         contentScreen,
@@ -191,14 +229,18 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       return
     }
 
-    console.log('Sending live controls update to live screens')
     const sendLiveControlsUpdate = async () => {
+      const controls = {
+        hideText: hideTextOnLive,
+        showLogo: showLogoOnLive,
+        blackScreen: blackScreenOnLive
+      }
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        liveControls: controls
+      }
       await window.displayAPI.updateLiveScreenContent({
-        liveControls: {
-          hideText: hideTextOnLive,
-          showLogo: showLogoOnLive,
-          blackScreen: blackScreenOnLive
-        }
+        liveControls: controls
       })
     }
 
@@ -228,8 +270,12 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     if (!liveScreensReady || windowsLiveScreenOpens.length + windowsStageScreenOpens.length === 0) {
       return
     }
-    console.log('Sending theme update to live screens')
+
     const sendThemeToLiveScreens = async () => {
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        theme: appliedTheme
+      }
       await window.displayAPI.updateLiveScreenTheme(appliedTheme)
     }
     sendThemeToLiveScreens()

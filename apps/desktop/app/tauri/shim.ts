@@ -59,7 +59,10 @@ if (needsShim) {
       on(channel: string, listener: IpcListener) {
         let cleanup: (() => void) | null = null
         listen(channel, (event) => {
-          listener(event.payload)
+          if (channel.startsWith('app-close') || channel.startsWith('liveScreen')) {
+            console.log(`[shim:on] channel=${channel} payload=`, event.payload)
+          }
+          listener(null, event.payload)
         }).then((unlisten) => {
           cleanup = unlisten
         })
@@ -73,7 +76,7 @@ if (needsShim) {
         }
       },
       send(channel: string, ...args: unknown[]) {
-        emit(channel, args[0])
+        emit(channel, args.length > 1 ? args : args[0] ?? null)
       },
       invoke(channel: string, ...args: unknown[]) {
         return invoke(channel, args[0] as Record<string, unknown>)
@@ -135,11 +138,11 @@ if (needsShim) {
       await currentWindow?.close()
     },
     confirmClose: () => {
-      currentWindow?.close()
+      invoke('close_app_windows')
     },
     cancelClose: () => {},
     skipSyncAndClose: () => {
-      currentWindow?.close()
+      invoke('close_app_windows')
     },
     confirmThemeClose: () => {
       currentWindow?.close()

@@ -96,11 +96,9 @@ export default function LiveScreen({
 
   useEffect(() => {
     window.electron.ipcRenderer.send('renderer-ready')
-    console.log('LiveScreen mounted, setting up IPC listeners')
     const unsuscribeItems = window.electron.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
-        console.log('Received live screen update:', data)
         if (typeof data.itemIndex === 'number') {
           setItemIndex(data.itemIndex)
         }
@@ -125,7 +123,6 @@ export default function LiveScreen({
     const unsuscribeThemes = window.electron.ipcRenderer.on(
       'liveScreen-update-theme',
       (_, data: ThemeWithMedia) => {
-        console.log('Received live screen theme update:', data)
         setSelectedTheme(data)
 
         const nextSignature = getThemeTransitionSignature(data)
