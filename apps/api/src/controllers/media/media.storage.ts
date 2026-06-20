@@ -12,6 +12,7 @@ import {
   generateVideoThumbnail
 } from '../../mediaThumbnails'
 import { resolveFilesRoot, resolveMediaRoot, resolveThumbnailsRoot } from '../../config'
+import { log } from '../../utils/logger'
 
 export const SUPPORTED_IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 export const SUPPORTED_VIDEO_FORMATS = ['.mp4', '.webm', '.mov', '.avi']
@@ -82,12 +83,12 @@ export async function importMediaFromSourcePath(
     : filesRoot
   ensureDir(targetFolderPath)
 
-  const ext = (originalFileName ? path.extname(originalFileName) : path.extname(sourcePath)).toLowerCase()
+  const ext = (
+    originalFileName ? path.extname(originalFileName) : path.extname(sourcePath)
+  ).toLowerCase()
   const stats = fs.statSync(sourcePath)
   const originalName = sanitizeFileName(
-    originalFileName
-      ? path.basename(originalFileName, ext)
-      : path.basename(sourcePath, ext)
+    originalFileName ? path.basename(originalFileName, ext) : path.basename(sourcePath, ext)
   )
   const hash = crypto.randomBytes(8).toString('hex')
 
@@ -114,15 +115,40 @@ export async function importMediaFromSourcePath(
 
   const thumbnailFileName = buildThumbnailFileName(originalName, hash)
   const thumbnailPath = path.join(thumbnailsRoot, thumbnailFileName)
+  let thumbnail: string | undefined = `thumbnails/${thumbnailFileName}`
   let fallbackFileName: string | undefined
 
   if (type === MediaType.IMAGE) {
-    await generateImageThumbnail(sourcePath, thumbnailPath)
+    try {
+      await generateImageThumbnail(destPath, thumbnailPath)
+    } catch (err) {
+      log.warn(
+        `[MediaStorage] Failed to generate image thumbnail for ${originalName}:`,
+        err?.message
+      )
+      thumbnail = undefined
+    }
   } else {
-    await generateVideoThumbnail(destPath, thumbnailPath)
-    fallbackFileName = buildFallbackFileName(originalName, hash)
-    const fallbackPath = path.join(thumbnailsRoot, fallbackFileName)
-    await generateVideoFallback(destPath, fallbackPath)
+    try {
+      await generateVideoThumbnail(destPath, thumbnailPath)
+    } catch (err) {
+      log.warn(
+        `[MediaStorage] Failed to generate video thumbnail for ${originalName}:`,
+        err?.message
+      )
+      thumbnail = undefined
+    }
+    try {
+      fallbackFileName = buildFallbackFileName(originalName, hash)
+      const fallbackPath = path.join(thumbnailsRoot, fallbackFileName)
+      await generateVideoFallback(destPath, fallbackPath)
+    } catch (err) {
+      log.warn(
+        `[MediaStorage] Failed to generate video fallback for ${originalName}:`,
+        err?.message
+      )
+      fallbackFileName = undefined
+    }
   }
 
   const filePath = folderNormalized
@@ -135,7 +161,7 @@ export async function importMediaFromSourcePath(
     format: ext.slice(1),
     filePath,
     fileSize: stats.size,
-    thumbnail: `thumbnails/${thumbnailFileName}`,
+    thumbnail,
     fallback: fallbackFileName ? `thumbnails/${fallbackFileName}` : undefined,
     folder: folderNormalized || undefined
   }

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, emit } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
+import { readFile, stat } from '@tauri-apps/plugin-fs'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 type IpcListener = (...args: unknown[]) => void
@@ -78,6 +79,7 @@ if (needsShim) {
         return invoke(channel, args[0] as Record<string, unknown>)
       },
     },
+    getMemoryUsage: () => invoke<{ app_mb: number; sidecar_mb: number }>('get_memory_usage'),
   }
 
   const displayAPIShim = {
@@ -153,7 +155,7 @@ if (needsShim) {
   const mediaAPIShim = {
     selectFiles: async (
       type: string,
-    ): Promise<{ fileName: string; bytes: number[]; fileSize: number }[]> => {
+    ): Promise<{ fileName: string; bytes: Uint8Array; fileSize: number }[]> => {
       const filters: Record<string, string[]> = {
         image: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'],
         video: ['mp4', 'mov', 'avi', 'mkv', 'webm'],
@@ -167,17 +169,27 @@ if (needsShim) {
       })
       if (!selected) return []
       const paths = Array.isArray(selected) ? selected : [selected]
-      return paths.map((p) => ({
-        fileName: p.split('/').pop() ?? p,
-        bytes: [],
-        fileSize: 0,
-      }))
+      const results = []
+      for (const p of paths) {
+        try {
+          const fileStats = await stat(p)
+          const contents = await readFile(p)
+          results.push({
+            fileName: p.split('/').pop() ?? p,
+            bytes: contents,
+            fileSize: Number(fileStats.size),
+          })
+        } catch (err) {
+          console.error(`[shim] Failed to read file ${p}:`, err)
+        }
+      }
+      return results
     },
     getPathForFile: (_file: File): string => {
       return ''
     },
     selectBibleFiles: async (): Promise<
-      { fileName: string; bytes: number[]; fileSize: number }[]
+      { fileName: string; bytes: Uint8Array; fileSize: number }[]
     > => {
       const selected = await open({
         multiple: true,
@@ -185,11 +197,21 @@ if (needsShim) {
       })
       if (!selected) return []
       const paths = Array.isArray(selected) ? selected : [selected]
-      return paths.map((p) => ({
-        fileName: p.split('/').pop() ?? p,
-        bytes: [],
-        fileSize: 0,
-      }))
+      const results = []
+      for (const p of paths) {
+        try {
+          const fileStats = await stat(p)
+          const contents = await readFile(p)
+          results.push({
+            fileName: p.split('/').pop() ?? p,
+            bytes: contents,
+            fileSize: Number(fileStats.size),
+          })
+        } catch (err) {
+          console.error(`[shim] Failed to read bible file ${p}:`, err)
+        }
+      }
+      return results
     },
     getServerPort: (): Promise<number> => Promise.resolve(7777),
   }

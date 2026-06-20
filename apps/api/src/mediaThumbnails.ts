@@ -84,11 +84,15 @@ export async function generateImageThumbnail(sourcePath: string, destPath: strin
   const sharp = resolveSharp()
 
   if (sharp) {
-    await sharp(sourcePath)
-      .resize(400, 300, { fit: 'cover', position: 'center' })
-      .jpeg({ quality: 80 })
-      .toFile(destPath)
-    return
+    try {
+      await sharp(sourcePath)
+        .resize(400, 300, { fit: 'cover', position: 'center' })
+        .jpeg({ quality: 80 })
+        .toFile(destPath)
+      return
+    } catch (err: any) {
+      log.warn(`[Thumbnail] Sharp failed for ${sourcePath}, falling back to ffmpeg: ${err?.message}`)
+    }
   }
 
   await new Promise<void>((resolve, reject) => {

@@ -5,6 +5,55 @@ fn tauri_url(route: &str) -> WebviewUrl {
     WebviewUrl::App(format!("index.html#/{}", route).into())
 }
 
+#[derive(Serialize)]
+pub struct MemoryInfo {
+    pub app_mb: f64,
+    pub sidecar_mb: f64,
+}
+
+fn get_process_rss_kb(pid: u32) -> u64 {
+    let output = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &pid.to_string()])
+        .output();
+    match output {
+        Ok(out) => {
+            let s = String::from_utf8_lossy(&out.stdout);
+            s.trim().parse().unwrap_or(0)
+        }
+        Err(_) => 0,
+    }
+}
+
+#[tauri::command]
+pub fn get_memory_usage() -> MemoryInfo {
+    let app_pid = std::process::id();
+
+    // Sidecar PID from state (approximate — we read from lsof on port 7777)
+    let sidecar_pid: u32 = std::process::Command::new("lsof")
+        .args(["-t", "-i", ":7777"])
+        .output()
+        .ok()
+        .and_then(|out| {
+            String::from_utf8_lossy(&out.stdout)
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse().ok())
+        })
+        .unwrap_or(0);
+
+    let app_kb = get_process_rss_kb(app_pid);
+    let sidecar_kb = if sidecar_pid > 0 {
+        get_process_rss_kb(sidecar_pid)
+    } else {
+        0
+    };
+
+    MemoryInfo {
+        app_mb: app_kb as f64 / 1024.0,
+        sidecar_mb: sidecar_kb as f64 / 1024.0,
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DisplayInfo {
@@ -169,7 +218,7 @@ pub async fn open_presentation_window(
     app: tauri::AppHandle,
     presentation_id: String,
 ) -> Result<(), String> {
-    let label = format!("presentation-editor-{}", presentation_id);
+    let label = format!("editor-presentation-{}", presentation_id);
 
     if let Some(window) = app.get_webview_window(&label) {
         window.show().map_err(|e| e.to_string())?;
@@ -248,7 +297,7 @@ pub async fn open_song_editor(
     app: tauri::AppHandle,
     song_id: String,
 ) -> Result<(), String> {
-    let label = format!("song-editor-{}", song_id);
+    let label = format!("editor-song-{}", song_id);
 
     if let Some(window) = app.get_webview_window(&label) {
         window.show().map_err(|e| e.to_string())?;
@@ -274,7 +323,7 @@ pub async fn open_theme_editor(
     app: tauri::AppHandle,
     theme_id: String,
 ) -> Result<(), String> {
-    let label = format!("theme-editor-{}", theme_id);
+    let label = format!("editor-theme-{}", theme_id);
 
     if let Some(window) = app.get_webview_window(&label) {
         window.show().map_err(|e| e.to_string())?;

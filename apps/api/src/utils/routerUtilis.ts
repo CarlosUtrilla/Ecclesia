@@ -1,3 +1,5 @@
+import 'reflect-metadata'
+
 import { routes } from '../routes'
 import express, { Request } from 'express'
 import * as os from 'os'
@@ -5,14 +7,13 @@ import * as os from 'os'
 import { restoreDecimals } from '../middleware/decimal'
 import { USING_MULTER_KEY, UsingMulterOptions } from '../decorators/multerDecorator'
 import multer from 'multer'
-import 'reflect-metadata'
 import { UPDATE_QUERY_KEY } from '../decorators/UpdateQueryKey.decorator'
 import { log } from './logger'
 
 const routeHandler =
   (
     handler: (params: any) => Promise<any>,
-    queryKeys?: string[],
+    queryKeys?: string[] | string[][],
     onQueryKeys?: (keys: string[][]) => void
   ) =>
   async (req: Request, res: express.Response) => {
@@ -28,9 +29,8 @@ const routeHandler =
       })
 
       const normalizedKeys = (queryKeys ?? []).map((k) => (Array.isArray(k) ? k : [k]))
-
-      if (normalizedKeys.length > 0 && onQueryKeys) {
-        onQueryKeys(normalizedKeys)
+      if (normalizedKeys.length > 0) {
+        onQueryKeys?.(normalizedKeys)
       }
       return res.json({ response: result, queryKeys: normalizedKeys })
     } catch (err: any) {
@@ -60,14 +60,10 @@ export function registerRoutes(
     const instance = new ControllerClass() as any
     for (const method of methodNames) {
       const channel = `${namespace}/${method}`
+      const methodFn = (proto as any)[method]
 
-      /**
-       * Detectar metadata
-       */
-      const multerOptions = Reflect.getMetadata(USING_MULTER_KEY, proto, method) as
-        | UsingMulterOptions
-        | undefined
-
+      const multerOptions = (methodFn as any)?.[USING_MULTER_KEY] as UsingMulterOptions | undefined
+      const updateQueryKeysOnFn = (methodFn as any)?.[UPDATE_QUERY_KEY] as string[][] | undefined
       const updateQueryKeys = Reflect.getMetadata(UPDATE_QUERY_KEY, proto, method) as
         | string[]
         | undefined
@@ -75,10 +71,9 @@ export function registerRoutes(
       /**
        * Si usa multer
        */
+      const keys = updateQueryKeys ?? updateQueryKeysOnFn
       if (multerOptions) {
         const { maxFiles = 1, mode = 'single', path, fieldName } = multerOptions
-
-        console.info(`[UsingMulter] Registrando multer en ${channel}`, multerOptions)
 
         let multerMiddleware
 
@@ -95,7 +90,7 @@ export function registerRoutes(
         app.post(
           `/api/${channel}`,
           multerMiddleware,
-          routeHandler(instance[method].bind(instance), updateQueryKeys, onQueryKeys)
+          routeHandler(instance[method].bind(instance), keys, onQueryKeys)
         )
 
         continue
@@ -104,10 +99,7 @@ export function registerRoutes(
       /**
        * Ruta normal
        */
-      app.post(
-        `/api/${channel}`,
-        routeHandler(instance[method].bind(instance), updateQueryKeys, onQueryKeys)
-      )
+      app.post(`/api/${channel}`, routeHandler(instance[method].bind(instance), keys, onQueryKeys))
     }
   }
 }

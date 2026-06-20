@@ -55,6 +55,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_displays,
+            get_memory_usage,
             open_live_window,
             open_stage_window,
             open_settings_window,
@@ -171,6 +172,7 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .title("Ecclesia")
     .inner_size(1280.0, 800.0)
     .min_inner_size(900.0, 600.0)
+    .disable_drag_drop_handler()
     .build()?;
     let _ = app_handle.emit("sidecar-ready", true);
 

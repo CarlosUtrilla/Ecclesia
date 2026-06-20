@@ -19,6 +19,10 @@ export default defineConfig({
         __dirname,
         'node_modules/@tauri-apps/plugin-dialog',
       ),
+      '@tauri-apps/plugin-fs': resolve(
+        __dirname,
+        'node_modules/@tauri-apps/plugin-fs',
+      ),
     }
   },
   plugins: [

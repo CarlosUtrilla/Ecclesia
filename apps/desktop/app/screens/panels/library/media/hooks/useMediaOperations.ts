@@ -33,6 +33,7 @@ export function useMediaOperations(currentFolder: string | null) {
       const results: MediaDto[] = []
       for (const file of files) {
         const formData = new FormData()
+        // Use the Uint8Array directly so the Blob treats it as binary data
         const blob = new Blob([file.bytes])
         formData.append('file', blob, file.fileName)
         if (currentFolder) {
