@@ -1,26 +1,15 @@
 # Items-on-live Agent
 
-## Reglas para controladores IPC y preload
+## Canales en tiempo real con Socket.IO
 
-Todo nuevo canal/controlador IPC que se exponga a renderer DEBE agregarse en `electron/preload/index.ts`, siguiendo la estructura y patrón de seguridad/contextBridge de ese archivo. Documentar y mantener la API centralizada ahí.
-
-Ejemplo:
-
-```ts
-const liveMediaAPI = {
-  onMediaState: (callback) => { ... }
-}
-contextBridge.exposeInMainWorld('liveMediaAPI', liveMediaAPI)
-```
-
-No exponer funciones directas de ipcRenderer fuera de este archivo.
+Los eventos que antes requerían canales IPC dedicados (como `live-media-state`) ahora se manejan centralizadamente vía Socket.IO en `@ecclesia/api`. Ver `apps/api/src/sockets/AGENTS.md` para agregar nuevos eventos. No es necesario exponer handlers en preload para eventos en tiempo real.
 
 ## Soporte de items MEDIA (video/imágenes)
 
 Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 
 - Si el item es una imagen, se muestra centrada y adaptada.
-- Si el item es un video, se muestra un reproductor con controles (play, pausa, reinicio, seek) y sincronización multi-display usando IPC (`live-media-state`).
+- Si el item es un video, se muestra un reproductor con controles (play, pausa, reinicio, seek) y sincronización multi-display usando Socket.IO (`live-media-state`).
 - El componente principal es `RenderMedia.tsx`.
 - Los controles visuales se componen con `VideoLiveControls.tsx` para mantener consistencia de UI (volumen, progreso, play/pause, reinicio y autorewind opcional).
 
@@ -30,7 +19,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - `index.tsx` usa `liveContentVersion` (desde `useLive`) en la `queryKey` de contenido live para forzar refresh al reenviar el mismo item desde schedule.
 - Este controlador reutiliza internamente `RenderGridMode` para seleccionar la diapositiva activa en vivo.
 - Incluye barra inferior siempre visible con navegación `Anterior/Siguiente` e indicador de posición (`n/total`).
-- Si la diapositiva activa contiene video (media directo o layer de presentación), muestra controles de video a la derecha (`Play`, `Pausa`, `Reiniciar`) y emite comandos por `live-media-state`.
+- Si la diapositiva activa contiene video (media directo o layer de presentación), muestra controles de video a la derecha (`Play`, `Pausa`, `Reiniciar`) y emite comandos por `live-media-state` (Socket.IO).
 - El controlador de PRESENTATION reutiliza `VideoLiveControls.tsx` para igualar la experiencia visual con `RenderMedia` (misma barra de volumen/progreso y acciones principales).
 - El controlador respeta `slide.videoLiveBehavior`: `auto` inicia reproducción al entrar a la diapositiva, `manual` deja el video pausado hasta acción del usuario.
 - El controlador también respeta `slide.videoLoop`: el `<video>` oculto usado para tiempo/progreso replica el loop real de la diapositiva para mantener sincronía con las pantallas live.
@@ -69,7 +58,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 
 - El case `BIBLE` usa `RenderBibleLiveControls` (no `RenderBibleVerses` directamente) para envolver la lista de versos con una barra de controles inferior.
 - Cuando un versículo bíblico es demasiado largo para live, el contenido llega fragmentado en múltiples slides del mismo verso; `RenderBibleVerses` usa `id` único por fragmento para evitar colisiones de render y permitir navegación estable entre partes.
-- La barra inferior incluye un botón con `ImportIcon` y tooltip "Enviar a buscador de biblia" que envía el versículo actual (`version, bookId, chapter, verse`) al panel de biblia vía `window.bibleSearchAPI.sendBibleSearch()`. El versículo enviado es el que está actualmente seleccionado en la lista (`data[itemIndex]?.verse?.verse`).
+- La barra inferior incluye un botón con `ImportIcon` y tooltip "Enviar a buscador de biblia" que envía el versículo actual (`version, bookId, chapter, verse`) al panel de biblia vía `Api.socket.emit.bibleSearch()`. El versículo enviado es el que está actualmente seleccionado en la lista (`data[itemIndex]?.verse?.verse`).
 - La barra inferior muestra un selector bíblico reutilizable (`BibleVersionSelector`) para cambiar la versión en tiempo real y lo renderiza con `contentPlacement="top"` para que el listado no se recorte contra el borde inferior del panel.
 - El selector bíblico ahora usa más ancho para que la versión elegida se lea completa también cuando incluye nombre descriptivo.
 - En el desplegable de versiones, cada opción muestra un `Tooltip` con preview del texto bíblico en esa traducción (hasta 150 caracteres), útil para comparar rápidamente qué versión elegir.
@@ -84,10 +73,4 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 
 - Los controles operativos stage fueron movidos a ventanas dedicadas (`/stage-control` y `/stage-layout`) para no mezclar responsabilidades en este panel.
 
-Para sincronización avanzada multi-display, la lógica de `sendLiveMediaState` está implementada en el manager dedicado `liveMediaController` (Electron main), expuesto vía preload como `liveMediaAPI`. El canal `live-media-state` es modular y documentado en agents.md de Electron.
-
-**Patrón modular:**
-
-- Cada canal IPC debe tener su propio manager en Electron (`electron/main/liveMediaController/`).
-- Se expone en preload/index.ts como `liveMediaAPI`.
-- Documentar canal y propósito en agents.md.
+Para sincronización multi-display, `sendLiveMediaState` emite por Socket.IO (`Api.socket.emit.liveMediaState`) y es recibido por `Api.socket.listen.liveMediaState(cb)` en todas las ventanas conectadas. El viejo canal IPC `live-media-state` y el manager `liveMediaController` fueron eliminados.

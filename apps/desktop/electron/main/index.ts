@@ -1,4 +1,3 @@
-import { initializeLiveMediaManager } from './liveMediaController/liveMediaController'
 import { app, BrowserWindow, ipcMain, session } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
@@ -25,7 +24,6 @@ import { initializeMediaManager } from './mediaManager'
 import { initializeDisplayManager } from './displayManager'
 
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
-import { initializeBibleSearchManager } from './bibleSearchManager'
 import { initializeRemoteManager } from './remoteManager'
 
 let isQuittingAfterStageTimersCleanup = false
@@ -134,17 +132,11 @@ app.whenReady().then(async () => {
 
   //inicalizar gestor de pantallas
   initializeDisplayManager()
-  // Inicializar manager de media en vivo
-  initializeLiveMediaManager()
-
   // Inicializar manager de actualizaciones automáticas
   initializeUpdaterManager()
 
   // Inicializar manager de control remoto LAN
   initializeRemoteManager()
-
-  // Inicializar manager de busqueda de biblia
-  initializeBibleSearchManager()
 
   // Abrir ventana para crear/editar canción
   ipcMain.on('open-song-window', (_event, songId?: number) => {

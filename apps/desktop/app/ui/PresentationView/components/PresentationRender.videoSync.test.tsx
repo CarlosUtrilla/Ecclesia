@@ -3,8 +3,17 @@ import { render } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PresentationRender from './PresentationRender'
 
-const onMediaStateMock = vi.fn()
 let liveMediaCallback: ((state: { action: string; time: number }) => void) | null = null
+
+vi.mock('@ecclesia/queries', () => ({
+  Api: {
+    socket: {
+      listen: {
+        liveMediaState: vi.fn()
+      }
+    }
+  }
+}))
 
 vi.mock('@/contexts/MediaServerContext', () => ({
   useMediaServer: () => ({
@@ -13,17 +22,17 @@ vi.mock('@/contexts/MediaServerContext', () => ({
 }))
 
 describe('PresentationRender video sync', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     liveMediaCallback = null
-    onMediaStateMock.mockImplementation(
+
+    const { Api } = await import('@ecclesia/queries')
+    const mockFn = Api.socket.listen.liveMediaState as unknown as vi.Mock
+    mockFn.mockImplementation(
       (callback: (state: { action: string; time: number }) => void) => {
         liveMediaCallback = callback
         return vi.fn()
       }
     )
-    window.liveMediaAPI = {
-      onMediaState: onMediaStateMock
-    } as never
   })
 
   it('no deberia reproducir el video de un layer al montar sin comando play', () => {

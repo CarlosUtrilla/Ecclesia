@@ -21,6 +21,7 @@ Todos los eventos se declaran en `SocketEventMap` (`socket.service.ts`). Un solo
 |---|---|---|
 | API → Frontend | `Api.socket.listen.syncProgress(cb)` | `socket.emit.syncProgress(data)` |
 | Frontend → API | `Api.socket.emit.startSync(data)` | `socket.on.startSync(cb)` |
+| Bidireccional (relay) | `Api.socket.emit.bibleSearch(data)` / `Api.socket.listen.bibleSearch(cb)` | `socket.on.bibleSearch((data) => socket.emit.bibleSearch(data))` |
 
 Cuando el valor del mapa es `void`, el evento no transporta datos:
 
@@ -29,8 +30,11 @@ export interface SocketEventMap {
   syncProgress: { progress: number; message: string; error?: boolean }
   songCreated: void          // sin datos
   ping: void                 // sin datos
+  bibleSearch: { version: string; bookId: number; chapter: number; verse: number }
 }
 ```
+
+El evento `bibleSearch` es bidireccional: cualquier cliente lo emite y el servidor lo retransmite a todos los demás como relay. Esto reemplazó el antiguo canal IPC `bible-search` de Electron.
 
 ## Cómo agregar un nuevo evento
 

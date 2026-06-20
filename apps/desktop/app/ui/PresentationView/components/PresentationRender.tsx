@@ -4,6 +4,7 @@ import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSettings'
 import { BASE_PRESENTATION_HEIGHT, BASE_PRESENTATION_WIDTH } from '@/lib/themeConstants'
 import { PresentationLayerItem } from '../types'
+import { Api } from '@ecclesia/queries'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { AnimatedText } from './AnimatedText'
 import { BibleTextRender } from './BibleTextRender'
@@ -224,7 +225,7 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
 
   useLayoutEffect(() => {
     const video = videoRef.current
-    if (!video || !window.liveMediaAPI?.onMediaState) return
+    if (!video) return
 
     const shouldSyncTimeOnPlay = (requestedTime: number) => {
       if (requestedTime === 0 && video.currentTime > 0.08) {
@@ -239,11 +240,11 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
         video.currentTime = time
       }
       video.play().catch(() => {
-        // noop: puede fallar temporalmente por foco/autoplay policy
+        // noop
       })
     }
 
-    const unsubscribe = window.liveMediaAPI.onMediaState((state) => {
+    const unsubscribe = Api.socket.listen.liveMediaState((state) => {
       if (state.action === 'play') {
         tryPlay(state.time)
         return

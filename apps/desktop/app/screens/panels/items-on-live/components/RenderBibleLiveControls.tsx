@@ -8,6 +8,7 @@ import {
   parseBibleAccessData,
   parseBibleVerseRange
 } from '@/screens/panels/library/bible/accessData'
+import { Api } from '@ecclesia/queries'
 import { Button } from '@/ui/button'
 import { Tooltip } from '@/ui/tooltip'
 import { ImportIcon } from 'lucide-react'
@@ -72,7 +73,7 @@ export default function RenderBibleLiveControls({ data }: Props) {
     const currentVerse = data[itemIndex]?.verse?.verse
     if (currentVerse === undefined || currentVerse === null) return
 
-    window.bibleSearchAPI.sendBibleSearch({
+    Api.socket.emit.bibleSearch({
       version: parsed.version,
       bookId: parsed.bookId,
       chapter: parsed.chapter,

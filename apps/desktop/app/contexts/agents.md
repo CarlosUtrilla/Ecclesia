@@ -27,8 +27,8 @@ MediaServerProvider          (top-level, sin dependencias)
 
 | Export | Tipo | Descripcion |
 |--------|------|-------------|
-| `port` | `number \| null` | Puerto del servidor HTTP local |
-| `isReady` | `boolean` | Si el servidor esta listo |
+| `port` | `number` | Puerto del servidor Express (siempre 7777) |
+| `isReady` | `boolean` | Siempre `true` (el servidor Express arranca con la app) |
 | `buildMediaUrl(filePath)` | `(string) => string` | Construye URL completa para un archivo de medios |
 
 

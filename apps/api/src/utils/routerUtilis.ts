@@ -7,7 +7,7 @@ import { USING_MULTER_KEY, UsingMulterOptions } from '../decorators/multerDecora
 import multer from 'multer'
 import 'reflect-metadata'
 import { UPDATE_QUERY_KEY } from '../decorators/UpdateQueryKey.decorator'
-import Logger from 'electron-log'
+import { log } from './logger'
 
 const routeHandler =
   (handler: (params: any) => Promise<any>, queryKeys?: string[], onQueryKeys?: (keys: string[][]) => void) =>
@@ -34,7 +34,7 @@ const routeHandler =
 
       const cleanedMessage = rawMessage.replace(/^Error invoking remote method '.*?':\s*/, '')
 
-      Logger.error(`[API Error] ${req.originalUrl}: ${cleanedMessage}`, err?.stack)
+      log.error(`[API Error] ${req.originalUrl}: ${cleanedMessage}`, err?.stack)
 
       return res.status(500).json({
         error: cleanedMessage

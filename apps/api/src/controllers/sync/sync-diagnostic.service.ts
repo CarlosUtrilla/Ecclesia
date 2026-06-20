@@ -1,4 +1,4 @@
-import log from 'electron-log'
+import { log } from '../../utils/logger'
 import path from 'path'
 import fs from 'fs-extra'
 import { getMediaDir, PersistedSyncConfig, SyncDiagnostic, SyncDiagnosticEntry, MediaManifestEntry } from './sync.config'

@@ -49,10 +49,6 @@ export function registerMediaHandlers() {
     return files
   })
 
-  ipcMain.handle('get-media-server-port', () => {
-    return 7777
-  })
-
   // Diálogo para seleccionar archivos .ebbl (Biblia)
   ipcMain.handle('bible:select-bible-file', async () => {
     const result = await dialog.showOpenDialog({

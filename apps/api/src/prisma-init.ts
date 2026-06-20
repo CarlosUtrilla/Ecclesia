@@ -12,7 +12,7 @@ import {
   setGetBiblesResourcesPath,
   getBiblesResourcesPath
 } from './prisma'
-import log from 'electron-log'
+import { log } from './utils/logger'
 
 export type DatabaseConfig = {
   isDev: boolean

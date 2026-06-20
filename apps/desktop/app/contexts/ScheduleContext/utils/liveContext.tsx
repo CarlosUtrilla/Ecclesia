@@ -1,3 +1,4 @@
+import { Api } from '@ecclesia/queries'
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react'
 import { ContentScreen, ILiveContext } from '../types'
 import { useSchedule } from '..'
@@ -13,10 +14,9 @@ type LiveMediaState = { action: 'play' | 'pause' | 'seek' | 'restart'; time: num
 const LiveContext = createContext({} as ILiveContext)
 
 export const LiveProvider = ({ children }: PropsWithChildren) => {
-  // Stub para sincronización de media (debe implementarse con IPC)
+  // Envía comando de media vía Socket.IO para sincronizar todas las pantallas
   const sendLiveMediaState = (state: LiveMediaState) => {
-    // Aquí se debe emitir por IPC a la ventana de pantalla en vivo
-    window.electron?.ipcRenderer?.send?.('live-media-state', state)
+    Api.socket.emit.liveMediaState(state)
   }
   const { getScheduleItemContentScreen, itemOnLive, selectedTheme, setItemOnLive } = useSchedule()
   const { displays, mainDisplay } = useDisplays()

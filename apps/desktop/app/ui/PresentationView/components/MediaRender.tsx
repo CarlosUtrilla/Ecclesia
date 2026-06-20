@@ -1,5 +1,6 @@
 import { PresentationViewItems } from '../types'
 import type { Media } from '@ecclesia/api'
+import { Api } from '@ecclesia/queries'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { getMediaType } from '@/lib/utils'
 import { CSSProperties, memo, useId, useLayoutEffect, useMemo, useRef } from 'react'
@@ -97,7 +98,7 @@ function MediaRenderComponent({
       })
     }
 
-    const unsuscribe = window.liveMediaAPI.onMediaState((state) => {
+    const unsubscribe = Api.socket.listen.liveMediaState((state) => {
       const video = videoRef.current
       lastPlayStateRef.current = state
       if (!video) return
@@ -126,7 +127,7 @@ function MediaRenderComponent({
 
     window.addEventListener('focus', onFocus)
     return () => {
-      if (unsuscribe) unsuscribe()
+      unsubscribe()
       window.removeEventListener('focus', onFocus)
     }
   }, [live, type, currentItem.id])

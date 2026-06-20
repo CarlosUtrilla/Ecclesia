@@ -3,9 +3,18 @@ import { render } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MediaRender from './MediaRender'
 
-const onMediaStateMock = vi.fn()
 let liveMediaCallback: ((state: { action: string; time: number }) => void) | null = null
 let buildMediaUrlMock = (path: string) => path
+
+vi.mock('@ecclesia/queries', () => ({
+  Api: {
+    socket: {
+      listen: {
+        liveMediaState: vi.fn()
+      }
+    }
+  }
+}))
 
 vi.mock('@/contexts/MediaServerContext', () => ({
   useMediaServer: () => ({
@@ -14,18 +23,18 @@ vi.mock('@/contexts/MediaServerContext', () => ({
 }))
 
 describe('MediaRender', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     liveMediaCallback = null
     buildMediaUrlMock = (path: string) => path
-    onMediaStateMock.mockImplementation(
+
+    const { Api } = await import('@ecclesia/queries')
+    const mockFn = Api.socket.listen.liveMediaState as unknown as vi.Mock
+    mockFn.mockImplementation(
       (callback: (state: { action: string; time: number }) => void) => {
         liveMediaCallback = callback
         return vi.fn()
       }
     )
-    window.liveMediaAPI = {
-      onMediaState: onMediaStateMock
-    } as never
   })
 
   it('no deberia reproducir un video live al montar sin comando play', () => {
@@ -83,8 +92,6 @@ describe('MediaRender', () => {
     const video = container.querySelector('video') as HTMLVideoElement
     expect(video).toBeTruthy()
     expect(video?.src).toBe('http://localhost:7777/media/videos/demo.mp4')
-    // buildMediaUrl se llama para thumbnail (con ''), pero NO se usa su
-    // resultado para filePath porque mediaUrl tiene prioridad.
     expect(filePathSpy).not.toHaveBeenCalledWith('/videos/demo.mp4')
   })
 

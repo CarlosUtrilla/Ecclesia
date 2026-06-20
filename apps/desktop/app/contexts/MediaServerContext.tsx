@@ -2,14 +2,15 @@ import {
   createContext,
   useContext,
   useState,
-  useEffect,
   ReactNode,
   useCallback,
   useMemo
 } from 'react'
 
+const MEDIA_SERVER_PORT = 7777
+
 interface MediaServerContextType {
-  port: number | null
+  port: number
   isReady: boolean
   buildMediaUrl: (filePath: string) => string
   setMediaServerHost: (host: string) => void
@@ -18,39 +19,22 @@ interface MediaServerContextType {
 const MediaServerContext = createContext<MediaServerContextType | undefined>(undefined)
 
 export function MediaServerProvider({ children }: { children: ReactNode }) {
-  const [port, setPort] = useState<number | null>(null)
-  const [isReady, setIsReady] = useState(false)
   const [host, setHost] = useState('127.0.0.1')
-
-  useEffect(() => {
-    const initializeServer = async () => {
-      try {
-        const serverPort = await window.mediaAPI.getServerPort()
-        setPort(serverPort)
-        setIsReady(true)
-      } catch (error) {
-        console.error('Error initializing media server:', error)
-        setIsReady(true) // Continuar de todos modos
-      }
-    }
-
-    initializeServer()
-  }, [])
 
   const buildMediaUrl = useCallback(
     (filePath: string): string => {
-      if (!port || !filePath) return ''
+      if (!filePath) return ''
 
       const normalizedPath = filePath.replace(/^\/+/, '')
       const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/')
-      return `http://${host}:${port}/media/${encodedPath}`
+      return `http://${host}:${MEDIA_SERVER_PORT}/media/${encodedPath}`
     },
-    [port, host]
+    [host]
   )
 
   const contextValue = useMemo(
-    () => ({ port, isReady, buildMediaUrl, setMediaServerHost: setHost }),
-    [port, isReady, buildMediaUrl]
+    () => ({ port: MEDIA_SERVER_PORT, isReady: true, buildMediaUrl, setMediaServerHost: setHost }),
+    [buildMediaUrl]
   )
 
   return <MediaServerContext.Provider value={contextValue}>{children}</MediaServerContext.Provider>

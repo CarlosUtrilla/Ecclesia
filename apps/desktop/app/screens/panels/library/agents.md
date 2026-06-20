@@ -142,7 +142,7 @@ app/screens/panels/library/
 
 ### LibraryPanel (`library/index.tsx`)
 
-- Escucha `bible-search` IPC event para recibir versículos desde la vista live (`RenderBibleLiveControls`). Al recibir `BibleSearchParams { version, bookId, chapter, verse }`, cambia al tab `bible` y pasa los parámetros a `BiblePanel`.
+- Escucha evento Socket.IO `bibleSearch` para recibir versículos desde la vista live (`RenderBibleLiveControls`). Al recibir `BibleSearchParams { version, bookId, chapter, verse }`, cambia al tab `bible` y pasa los parámetros a `BiblePanel`.
 - `BibleSearchParams` se pasa como prop `searchParams` a `BiblePanel`.
 
 ### BiblePanel (`bible/index.tsx`)

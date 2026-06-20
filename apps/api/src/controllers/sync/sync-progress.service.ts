@@ -1,4 +1,4 @@
-import log from 'electron-log'
+import { log } from '../../utils/logger'
 import { getSocket } from '../../sockets/socket.service'
 
 class SyncProgressService {

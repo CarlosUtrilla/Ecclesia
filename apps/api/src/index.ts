@@ -17,7 +17,7 @@ import {
 } from './prisma-init'
 import { setUserDataPath } from './config'
 import { routes } from './routes'
-import Logger from 'electron-log'
+import { log } from './utils/logger'
 import { setSocketIO } from './sockets/socket.service'
 import { registerSocketHandlers } from './sockets/socket-handlers'
 
@@ -135,7 +135,7 @@ export async function initializeHttpServer(
   })
 
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    Logger.error('[Express] Error no capturado:', err.message, err.stack)
+    log.error('[Express] Error no capturado:', err.message, err.stack)
     const message = err?.message ?? err?.toString() ?? 'Error interno del servidor'
     res.status(500).json({ error: message })
   })
@@ -149,14 +149,14 @@ export async function initializeHttpServer(
   registerSocketHandlers()
 
   io.on('connection', (socket) => {
-    Logger.info(`[Socket.IO] Cliente conectado: ${socket.id}`)
+    log.info(`[Socket.IO] Cliente conectado: ${socket.id}`)
     socket.on('disconnect', () => {
-      Logger.info(`[Socket.IO] Cliente desconectado: ${socket.id}`)
+      log.info(`[Socket.IO] Cliente desconectado: ${socket.id}`)
     })
   })
 
   server.listen(port, () => {
-    Logger.info(`Eclessia server running on port ${port} (Socket.IO disponible)`)
+    log.info(`Eclessia server running on port ${port} (Socket.IO disponible)`)
   })
 
   // Start sync scheduler

@@ -4,7 +4,7 @@
 
 ## Descripcion
 
-Proceso principal de Electron. Gestiona ventanas, servidor de medios locales, manejo de pantallas/displays, importacion de biblias e inicializacion de la base de datos.
+Proceso principal de Electron. Gestiona ventanas, manejo de pantallas/displays, importacion de biblias e inicializacion de la base de datos. El servidor de medios funciona via Express sidecar (puerto 7777).
 
 ## Archivos
 
@@ -14,7 +14,6 @@ electron/
 │   ├── index.ts
 │   ├── windowManager.ts
 │   ├── prisma.ts
-│   ├── liveMediaController.ts
 │   ├── updaterManager/
 │   │   ├── updaterManager.ts    # Auto-update con electron-updater (canal beta)
 │   │   └── updaterAPI.ts        # IPC API expuesta al renderer
@@ -22,8 +21,6 @@ electron/
 │   │   ├── sync-init.ts          # OAuth BrowserWindow, close flow helpers (scheduler migrado a API)
 │   │   └── outboxPayload.test.ts
 │   ├── bibleManager/
-│   ├── bibleSearchManager.ts
-│   ├── bibleSearchAPI.ts
 │   ├── displayManager/
 │   └── mediaManager/
 └── preload/
@@ -35,22 +32,9 @@ electron/
 Cada canal IPC debe tener su propio archivo controlador en `electron/main/`, siguiendo el patron:
 
 ```ts
-// electron/main/liveMediaController.ts
-export function initializeLiveMediaManager() {
-  ipcMain.on('live-media-state', () => {
-    // handler
-  })
+export function initializeXManager() {
+  ipcMain.handle('channel', handler)
 }
-```
-
-Luego se importa y se inicializa en `main/index.ts`:
-
-```ts
-import { initializeLiveMediaManager } from './liveMediaController'
-
-app.whenReady().then(() => {
-  initializeLiveMediaManager()
-})
 ```
 
 Patron obligatorio para managers:
@@ -71,11 +55,10 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 3. registerRoutes()               -> Registra IPC handlers de @ecclesia/api
 4. initializeBibleManager()       -> Registra IPC handlers de biblia
 5. initializeDisplayManager()     -> Registra IPC handlers de pantallas
-6. initializeLiveMediaManager()   -> Registra canal IPC de media en vivo
-7. initializeRemoteManager()      -> Inicia listener UDP + registra IPC handlers de descubrimiento LAN
-8. initializeUpdaterManager()     -> Registra auto-updater (canal beta, check a los 10s)
-9. Registra IPC locales           -> Fuentes, ventanas, notificaciones
-10. createMainWindow()            -> Crea ventana principal
+6. initializeRemoteManager()      -> Inicia listener UDP + registra IPC handlers de descubrimiento LAN
+7. initializeUpdaterManager()     -> Registra auto-updater (canal beta, check a los 10s)
+8. Registra IPC locales           -> Fuentes, ventanas, notificaciones
+9. createMainWindow()            -> Crea ventana principal
 ```
 
 ## Flujo de cierre
@@ -168,12 +151,9 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - `settings` y `stage-control`: son singleton — el warm ref se asigna al singleton ref en el momento de mostrar; `focusExistingWindow` sigue funcionando correctamente.
 - `loadRoute(win, route)` y `showWarmWindow(win, route)` son helpers internos del módulo.
 
-### LiveMediaController (`liveMediaController.ts`)
+### Live Media State — reemplazado por Socket.IO
 
-- Manager dedicado para media en vivo.
-- Canal IPC: `live-media-state`.
-- Expone API en preload como `liveMediaAPI`.
-- `liveMediaAPI.onMediaState` desuscribe con `ipcRenderer.removeListener` del handler registrado (no usar `removeAllListeners`) para no romper otros suscriptores del mismo canal dentro de una misma ventana.
+El broadcast de estado de media en vivo se maneja via Socket.IO en `@ecclesia/api`. `Api.socket.emit.liveMediaState(state)` desde cualquier ventana es recibido por `Api.socket.listen.liveMediaState(cb)` en todas las ventanas conectadas. Los archivos `liveMediaController.ts` y `liveMediaAPI.ts` fueron eliminados.
 
 ### Updater Manager (`updaterManager/`)
 
@@ -197,33 +177,17 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 
 ### Media Manager (`mediaManager/`)
 
-- `mediaServer.ts`: servidor HTTP local para servir archivos de medios.
-  - **Logging detallado**: registra todas las peticiones de videos y errores específicos para facilitar debugging en Windows.
-  - **Normalización de rutas**: usa `path.normalize()` para manejar correctamente separadores de Windows.
-  - **Validación de permisos**: verifica `fs.constants.R_OK` antes de servir archivos (detecta archivos bloqueados).
-  - **Manejo de errores en streams**: captura y loguea errores de `fs.createReadStream()` para detectar problemas de lectura.
+- Servicio de archivos de medios delegado al Express sidecar (puerto 7777) en `@ecclesia/api`. `registerMediaServerRoutes()` monta `express.static` en `/media/*`.
+- `mediaHandlers.ts`: importacion de medios (diálogos nativos).
+  - `media:select-files`: diálogo nativo de selección de archivos multimedia.
+  - `bible:select-bible-file`: diálogo nativo de selección de archivos `.ebbl`.
 - `mediaThumbnails.ts`: **módulo compartido** con funciones de generación de thumbnails/fallbacks (`generateImageThumbnail`, `generateVideoThumbnail`, `generateVideoFallback`) y helpers de naming (`buildThumbnailFileName`, `buildFallbackFileName`, `getThumbnailsPath`). Importado tanto por `mediaHandlers.ts` como por `themes.service.ts` para evitar duplicación.
-- `mediaHandlers.ts`: importacion de medios.
-  - Copia archivos al directorio de datos.
-  - **Permisos en Windows**: establece `chmod 0o644` (rw-r--r--) después de copiar para asegurar lectura.
-  - Soporta importación de imágenes pegadas desde portapapeles sin ruta de archivo (`media:import-clipboard-image`) escribiendo temporal local y reutilizando el flujo normal de importación.
-  - Genera thumbnails para imagenes/videos (delegando a `mediaThumbnails.ts`).
-  - Para imágenes, intenta `sharp` con carga diferida; si `sharp` no está disponible para el runtime actual, hace fallback a `ffmpeg` para evitar crash del proceso principal.
-  - Extrae metadatos (dimensiones, duracion).
-  - Registra en DB via `MediaService`.
-  - El borrado de carpetas (`media:delete-folder`) es recursivo en filesystem para permitir eliminar carpetas con subcarpetas y contenido completo desde Library.
-  - Expone extracción de ZIP para flujo Canva (`media:extract-zip-mp4`) que extrae `.mp4` a temporales seguros.
-  - Expone limpieza de temporales (`media:cleanup-temp-path`) restringida al root temporal de importaciones Canva.
-- El renderer construye URLs `http://localhost:{port}/{filePath}` con `useMediaServer()`.
+- El renderer construye URLs `http://localhost:7777/media/{filePath}` con `useMediaServer()`.
+- Ya no hay servidor HTTP de medios en Electron — el middleware Express en el sidecar lo reemplaza.
 
-### Bible Search Manager (`bibleSearchManager.ts`)
+### Bible Search — reemplazado por Socket.IO
 
-- Manager dedicado para enviar un versículo desde la vista live al buscador de biblia.
-- Canal IPC:
-  - `bible-search` (on): Recibe `BibleSearchData { version, bookId, chapter, verse }` y lo retransmite a todas las ventanas.
-- API preload (`bibleSearchAPI.ts`):
-  - `sendBibleSearch(data)`: Envía versículo al buscador.
-  - `onBibleSearch(callback)`: Escucha eventos de búsqueda; retorna función de cleanup.
+El broadcast de búsqueda bíblica se maneja via Socket.IO en `@ecclesia/api`. `Api.socket.emit.bibleSearch(data)` desde cualquier ventana es recibido por `Api.socket.listen.bibleSearch(cb)` en todas las ventanas conectadas. Archivos `bibleSearchManager.ts` y `bibleSearchAPI.ts` fueron eliminados.
 
 ### Remote Manager (`remoteManager.ts`)
 
@@ -294,14 +258,13 @@ Definidas en `electron/preload/index.ts`:
 | API global | Metodos principales |
 | --- | --- |
 | `window.api` | Namespaces de `@ecclesia/api` (routes.ts) |
-| `window.mediaAPI` | `getMediaServerPort()`, `importMedia()`, `cleanupTempPath()` |
+| `window.mediaAPI` | `selectFiles()`, `getPathForFile()`, `selectBibleFiles()` |
 | `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `showStageScreen()`, `closeStageScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()`, `updateStageScreenConfig()` |
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wrappers del bible manager |
-El renderer ahora usa `Api.fetch.sync.*` (HTTP directo) en lugar de canales IPC. `window.googleDriveSyncAPI` fue eliminado.
+El renderer ahora usa `Api.fetch.sync.*` (HTTP directo) en lugar de canales IPC. `window.googleDriveSyncAPI` y `window.liveMediaAPI` fueron eliminados — ambos reemplazados por Socket.IO.
 | `window.updaterAPI` | `checkForUpdates()`, `downloadUpdate()`, `installUpdate()`, `getVersion()`, `onUpdateAvailable()`, `onUpdateDownloaded()`, `onDownloadProgress()` |
 | `window.remoteControlAPI` | `discoverLan()` |
-| `window.bibleSearchAPI` | `sendBibleSearch()`, `onBibleSearch()` |
 
 ## Convenciones
 

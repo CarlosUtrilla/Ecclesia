@@ -1,7 +1,7 @@
 import { spawn } from 'child_process'
 import path from 'path'
 import fs from 'fs'
-import Logger from 'electron-log'
+import { log } from './utils/logger'
 
 type SharpFn = (input: string) => {
   resize: (
@@ -32,7 +32,7 @@ function resolveFfmpegPath(): string {
       if (found) return found
     }
   } catch {
-    Logger.warn('[Thumbnail] @ffmpeg-installer/ffmpeg require failed')
+    log.warn('[Thumbnail] @ffmpeg-installer/ffmpeg require failed')
   }
 
   // 2. Try resourcesPath (production, app.asar.unpacked)
@@ -50,7 +50,7 @@ function resolveFfmpegPath(): string {
       }
     }
   } catch {
-    Logger.warn('[Thumbnail] resourcesPath resolution failed')
+    log.warn('[Thumbnail] resourcesPath resolution failed')
   }
 
   // 3. Search node_modules via require.resolve paths (dev mode fallback, cross-platform builds)
@@ -65,7 +65,7 @@ function resolveFfmpegPath(): string {
     // require.resolve.paths not available
   }
 
-  Logger.warn('[Thumbnail] ffmpeg not found anywhere, returning "ffmpeg" as last resort')
+  log.warn('[Thumbnail] ffmpeg not found anywhere, returning "ffmpeg" as last resort')
   return 'ffmpeg'
 }
 
@@ -75,7 +75,7 @@ function resolveSharp(): SharpFn | null {
     const loaded = require('sharp') as { default?: SharpFn } | SharpFn
     return (loaded as { default?: SharpFn }).default ?? (loaded as SharpFn)
   } catch (err) {
-    Logger.error('[Thumbnail] sharp failed to load, falling back to ffmpeg:', err)
+    log.error('[Thumbnail] sharp failed to load, falling back to ffmpeg:', err)
     return null
   }
 }
@@ -108,12 +108,12 @@ export async function generateImageThumbnail(sourcePath: string, destPath: strin
     proc.on('close', (code) => {
       if (code === 0) resolve()
       else {
-        Logger.error(`[Thumbnail] FFmpeg image thumbnail exited with code ${code} for:`, sourcePath)
+        log.error(`[Thumbnail] FFmpeg image thumbnail exited with code ${code} for:`, sourcePath)
         reject(new Error(`FFmpeg exited with code ${code}`))
       }
     })
     proc.on('error', (err) => {
-      Logger.error(`[Thumbnail] FFmpeg image thumbnail error for ${sourcePath}:`, err)
+      log.error(`[Thumbnail] FFmpeg image thumbnail error for ${sourcePath}:`, err)
       reject(err)
     })
   })
@@ -139,12 +139,12 @@ export function generateVideoThumbnail(sourcePath: string, destPath: string): Pr
     proc.on('close', (code) => {
       if (code === 0) resolve()
       else {
-        Logger.error(`[Thumbnail] FFmpeg video thumbnail exited with code ${code} for:`, sourcePath)
+        log.error(`[Thumbnail] FFmpeg video thumbnail exited with code ${code} for:`, sourcePath)
         reject(new Error(`FFmpeg exited with code ${code}`))
       }
     })
     proc.on('error', (err) => {
-      Logger.error(`[Thumbnail] FFmpeg video thumbnail error for ${sourcePath}:`, err)
+      log.error(`[Thumbnail] FFmpeg video thumbnail error for ${sourcePath}:`, err)
       reject(err)
     })
   })
@@ -170,12 +170,12 @@ export function generateVideoFallback(sourcePath: string, destPath: string): Pro
     proc.on('close', (code) => {
       if (code === 0) resolve()
       else {
-        Logger.error(`[Thumbnail] FFmpeg video fallback exited with code ${code} for:`, sourcePath)
+        log.error(`[Thumbnail] FFmpeg video fallback exited with code ${code} for:`, sourcePath)
         reject(new Error(`FFmpeg exited with code ${code}`))
       }
     })
     proc.on('error', (err) => {
-      Logger.error(`[Thumbnail] FFmpeg video fallback error for ${sourcePath}:`, err)
+      log.error(`[Thumbnail] FFmpeg video fallback error for ${sourcePath}:`, err)
       reject(err)
     })
   })

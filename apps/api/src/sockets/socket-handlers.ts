@@ -1,4 +1,5 @@
-import { getSocket } from './socket.service'
+import { getSocket, getIO } from './socket.service'
+import { log } from '../utils/logger'
 
 async function getSyncController() {
   const SyncController = (await import('../controllers/sync/sync.controller')).default
@@ -6,6 +7,25 @@ async function getSyncController() {
 }
 
 export function registerSocketHandlers(): void {
+  const io = getIO()
+  if (!io) throw new Error('SocketIO no inicializado')
+
+  // bibleSearch: relay solo al socket que emitió (no broadcast)
+  io.on('connection', (socket) => {
+    socket.on('bibleSearch', (data) => {
+      log.info(
+        `[Socket] bibleSearch relay: ${data.version} ${data.bookId}:${data.chapter}:${data.verse}`
+      )
+      socket.emit('bibleSearch', data)
+    })
+
+    // liveMediaState: broadcast a todos los clientes conectados
+    socket.on('liveMediaState', (data) => {
+      log.info(`[Socket] liveMediaState broadcast: ${data.action} @ ${data.time}`)
+      io.emit('liveMediaState', data)
+    })
+  })
+
   const socket = getSocket()
 
   socket.on.startSync(async ({ reason }) => {
@@ -14,7 +34,6 @@ export function registerSocketHandlers(): void {
   })
 
   socket.on.ping(() => {
-    const log = require('electron-log')
     log.info('[Socket] ping recibido del frontend')
   })
 

@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import Logger from 'electron-log'
+import { log } from '../utils/logger'
 import e from 'express'
 
 // Este bloque evita que truene en el frontend puro
@@ -41,6 +41,6 @@ export function restoreDecimals(obj: any): any {
 
     return obj
   } catch (e) {
-    Logger.error('Error restoring decimals', e)
+    log.error('Error restoring decimals', e)
   }
 }

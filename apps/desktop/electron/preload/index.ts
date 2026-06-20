@@ -9,11 +9,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { mediaAPI } from '../main/mediaManager'
 import { displayAPI } from '../main/displayManager/displaysMethods'
-import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
 
 import { updaterAPI } from '../main/updaterManager/updaterAPI'
 import { remoteControlAPI } from '../main/remoteAPI'
-import { bibleSearchAPI } from '../main/bibleSearchAPI'
 import log from 'electron-log'
 
 // Silenciar el transporte de consola de `electron-log` en el renderer para
@@ -50,10 +48,8 @@ export const HandleManagers = {
   mediaAPI,
   windowAPI,
   displayAPI,
-  liveMediaAPI,
   updaterAPI,
-  remoteControlAPI,
-  bibleSearchAPI
+  remoteControlAPI
 }
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -70,8 +66,6 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.electron = electronAPI
   // @ts-ignore (define in dts)
-  window.liveMediaAPI = liveMediaAPI
-  // @ts-ignore (define in dts)
   window.windowAPI = windowAPI
   // @ts-ignore (define in dts)
   window.mediaAPI = mediaAPI
@@ -79,6 +73,4 @@ if (process.contextIsolated) {
   window.displayAPI = displayAPI
   // @ts-ignore (define in dts)
   window.remoteControlAPI = remoteControlAPI
-  // @ts-ignore (define in dts)
-  window.bibleSearchAPI = bibleSearchAPI
 }

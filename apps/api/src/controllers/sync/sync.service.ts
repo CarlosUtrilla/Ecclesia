@@ -1,4 +1,4 @@
-import log from 'electron-log'
+import { log } from '../../utils/logger'
 import { Prisma, SyncOperation } from '@prisma/client'
 import { getPrisma, runWithoutSyncOutboxTracking } from '../../prisma'
 import {

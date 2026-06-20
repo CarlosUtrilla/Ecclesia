@@ -1,4 +1,4 @@
-import log from 'electron-log'
+import { log } from '../../utils/logger'
 import { drive_v3 } from 'googleapis'
 import fs from 'fs-extra'
 import path from 'path'

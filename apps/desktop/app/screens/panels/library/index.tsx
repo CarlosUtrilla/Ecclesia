@@ -1,3 +1,4 @@
+import { Api } from '@ecclesia/queries'
 import { Tabs, TabsList, TabsTrigger } from '@/ui/tabs'
 import { t } from '@locales'
 import SongsPanelLibrary from './songs'
@@ -23,7 +24,7 @@ export default function LibraryPanel() {
   bibleSearchParamsRef.current = bibleSearchParams
 
   useEffect(() => {
-    const unsubscribe = window.bibleSearchAPI.onBibleSearch((data) => {
+    const unsubscribe = Api.socket.listen.bibleSearch((data) => {
       setBibleSearchParams(data)
       setActiveTab('bible')
     })
