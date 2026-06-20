@@ -170,4 +170,5 @@ export async function initializeHttpServer(
 
 export type { RoutesTypes } from './routeTypes'
 export type { SocketEventMap } from './sockets/socket.service'
+export type { DatabaseConfig } from './prisma-init'
 export * from '@prisma/client'

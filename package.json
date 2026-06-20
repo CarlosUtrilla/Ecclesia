@@ -26,8 +26,10 @@
   },
   "scripts": {
     "release": "bash packages/scripts/release.sh",
-    "dev": "pnpm --filter @ecclesia/desktop dev",
+    "dev": "pnpm --filter @ecclesia/tauri dev",
+    "dev:electron": "pnpm --filter @ecclesia/desktop dev",
     "build": "pnpm --filter @ecclesia/desktop build",
+    "build:tauri": "pnpm --filter @ecclesia/tauri build",
     "build:ci": "pnpm --filter @ecclesia/desktop build:ci",
     "test": "pnpm --filter @ecclesia/desktop test",
     "test:watch": "pnpm --filter @ecclesia/desktop test:watch",

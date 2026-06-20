@@ -7,7 +7,13 @@
   "types": "./src/index.ts",
   "scripts": {
     "db:generate": "prisma generate --schema=prisma/schema.prisma",
-    "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma"
+    "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
+    "build:sidecar": "node scripts/build-sidecar.mjs",
+    "start:sidecar": "node dist/sidecar.js",
+    "dev:sidecar": "NODE_ENV=development npx tsx src/standalone.ts"
+  },
+  "bin": {
+    "ecclesia-sidecar": "./dist/sidecar.js"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -32,6 +38,8 @@
     "@types/express": "^5.0.6",
     "@types/fs-extra": "^11.0.4",
     "@types/multer": "^2.1.0",
+    "esbuild": "^0.25.12",
+    "tsx": "^4.19.0",
     "typescript": "^5.8.3"
   }
 }

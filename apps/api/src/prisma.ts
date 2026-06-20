@@ -1,12 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 import { AsyncLocalStorage } from 'async_hooks'
 import path from 'path'
+import { getResourcesPath } from './config'
 
 let prisma: PrismaClient | null = null
 export const outboxContext = new AsyncLocalStorage<{ skipOutbox: boolean }>()
 
 let getBiblesResourcesPathImpl: () => string = () =>
-  path.join(process.cwd(), 'bibles')
+  path.join(getResourcesPath(), 'bibles')
 
 export function setGetBiblesResourcesPath(fn: () => string): void {
   getBiblesResourcesPathImpl = fn

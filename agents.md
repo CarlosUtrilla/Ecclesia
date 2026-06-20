@@ -1,4 +1,4 @@
-sd# Ecclesia - Agent Router Principal
+# Ecclesia - Agent Router Principal
 
 ## Skills globales instaladas
 
@@ -27,9 +27,10 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 ## Stack tecnologico
 
 *   **Frontend:** React 19, TypeScript, Tailwind CSS, Shadcn UI, React Router v7, React Hook Form + Zod, TanStack React Query, TipTap, Framer Motion (LazyMotion), dnd-kit
-*   **Backend:** Electron, Prisma ORM, SQLite (better-sqlite3)
+*   **Backend:** Electron/Tauri, Prisma ORM, SQLite (better-sqlite3)
 *   **Package Manager:** pnpm 11 (con `minimum-release-age=1440` y `onlyBuiltDependencies` para proteger contra ataques supply chain)
-*   **Build:** Vite + electron-vite
+*   **Build (Electron):** Vite + electron-vite
+*   **Build (Tauri):** Vite + @tauri-apps/cli + Rust (cargo)
 *   **Empaquetado macOS:** `dmg.artifactName` incluye `${arch}` para evitar colisiones cuando se generan arm64 y x64 en la misma ejecución.
 *   **Release CI:** workflow de tags usa pnpm (`pnpm-lock.yaml`) y build macOS arm64+x64 secuencial en un solo job (sin merge `universal` para evitar fallos de `_CodeSignature`). El workflow valida `GH_TOKEN` al inicio y define `timeout-minutes` por job para cortar fallos costosos. El script `packages/scripts/release.sh` permite elegir modo `github` (push + CI) o `local` (compila mac/win sin push ni consumo de CI), e incluye preflight de `sharp` con autoreparación (`pnpm install --frozen-lockfile` + `npm rebuild sharp` + `electron-builder install-app-deps`) y preparación explícita de módulos nativos para `win32-x64` antes del empaquetado de Windows local: `sharp` (`npm install --legacy-peer-deps --os=win32 --cpu=x64 sharp`) y `@ffmpeg-installer/win32-x64` (via `npm pack`). El script también fuerza `better-sqlite3` a binario Windows x64 (PE32+) usando `prebuild-install --runtime=electron --target=<version>` (con fallback a `--runtime=node --target=22.0.0`) y verifica con `file` antes de empaquetar. En modo local, el flujo limpia `dist/` antes de compilar para no mezclar artefactos viejos con los nuevos, compila primero con `electron-vite build` en macOS, ejecuta `prisma generate` con `binaryTargets` multi-plataforma (`native`, `windows`, `darwin-arm64`, `darwin`) y luego empaqueta con `electron-builder --win`, evitando errores de optional dependencies de Rollup y de Query Engine en Windows. Al finalizar, el script restaura dependencias del host con `pnpm install --frozen-lockfile` + `@electron/rebuild -f` + `ensure_sharp_ready` para restaurar módulos nativos macOS (sin esto, el pnpm store queda con binarios Windows, rompiendo `better-sqlite3` en desarrollo) y puede subir opcionalmente `dist/` a un GitHub Release vía `gh` (con advertencia porque crear el tag remoto `v*` puede disparar el workflow de tags). En esa subida local, el script ahora empuja automáticamente el tag si no existe en remoto y solo sube archivos regulares de `dist/` (evitando fallos por carpetas como `win-unpacked`).
 *   **Idioma principal del codigo:** Espanol (comentarios, nombres de variables UI), Ingles (nombres de modelos, controladores, tipos)
@@ -76,7 +77,7 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | Crear una migracion de base de datos | [`prisma`](prisma/agents.md) |
 | Agregar un campo a un modelo existente | [`prisma`](prisma/agents.md) + [`api`](apps/api/agents.md) |
 | Crear un nuevo controller o service | [`api`](apps/api/agents.md) |
-| Agregar un nuevo metodo IPC | [`api`](apps/api/agents.md) + [`electron`](packages/desktop/electron/agents.md) |
+| Agregar un nuevo metodo IPC | [`api`](apps/api/agents.md) + [`electron`](apps/desktop/electron/agents.md) |
 | Modificar DTOs de entrada/salida | [`api`](apps/api/agents.md) |
 | Consumir datos del backend desde React | [`contexts`](packages/desktop/app/contexts/agents.md) + [`api`](apps/api/agents.md) |
 | Agregar un componente a la biblioteca (songs/media/bible) | [`library`](packages/desktop/app/screens/panels/library/agents.md) |
@@ -96,6 +97,10 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | Crear o modificar ventana de ajustes | [`electron`](packages/desktop/electron/agents.md) + [`ui`](packages/desktop/app/ui/agents.md) |
 | Modificar estilos globales o temas CSS | Leer `packages/desktop/app/assets/globals.css` + [`ui`](packages/desktop/app/ui/agents.md) |
 | Agregar un nuevo evento Socket.IO | [`sockets`](apps/api/src/sockets/AGENTS.md) — definir en `SocketEventMap` + emitir desde service o registrar handler |
+| Modificar el sidecar Node.js (spawn, args, paths) | [`electron`](apps/desktop/electron/agents.md) + leer `sidecar.rs` |
+| Agregar un Rust command | [`electron`](apps/desktop/electron/agents.md) — registrar en `commands.rs` + `invoke_handler` en `lib.rs` |
+| Modificar config de Tauri (tauri.conf.json) | Leer `apps/tauri/src-tauri/tauri.conf.json` |
+| Trabajar con el shim Tauri | Leer `apps/desktop/app/tauri/shim.ts` — actualizar si se expone nueva API Electron |
 
 ## Arquitectura general
 
@@ -140,30 +145,58 @@ packages/desktop/app/main.tsx (entry point React)
 │   │   └── package.json
 │   └── desktop/               # @ecclesia/desktop — app Electron + React
 │       ├── app/               # Frontend React (main, screens, UI)
+│       │   └── tauri/
+│       │       └── shim.ts    # Shim Tauri: electron API compat via @tauri-apps/api
 │       ├── electron/          # Electron main process + preload
 │       ├── tests/
 │       ├── scripts/
-│       ├── resources/
+│       ├── resources/         # Bibles, fonts, etc. para ambos runtime
 │       ├── locales/
 │       ├── electron.vite.config.ts
 │       ├── vitest.config.ts
 │       └── package.json
+│   └── tauri/                 # @ecclesia/tauri — app Tauri v2
+│       ├── src-tauri/
+│       │   ├── src/
+│       │   │   ├── main.rs    # Entry point Rust
+│       │   │   ├── lib.rs     # Setup: plugins, shortcuts, ventana principal
+│       │   │   ├── commands.rs # Rust commands: displays, windows, screens
+│       │   │   └── sidecar.rs # Spawn Node.js API sidecar
+│       │   ├── tauri.conf.json
+│       │   ├── capabilities/  # Permisos (window, shell, dialog, fs, shortcuts)
+│       │   └── icons/
+│       └── vite.config.ts     # Vite para Tauri (entry index-tauri.html)
 ├── .npmrc                     # minimum-release-age=1440 (seguridad supply chain)
 ├── pnpm-workspace.yaml        # Definicion de workspaces
 ├── package.json               # pnpm workspace root
 └── AGENTS.md                  # Este archivo (router principal)
 ```
 
-## Flujo de datos (IPC)
+## Flujo de datos
 
+### Electron (IPC)
 ```
 React Component
   -> window.api.namespace.method(args)
     -> ipcRenderer.invoke('namespace.method', args)
       -> ipcMain.handle() en main process
         -> Controller.method()
-              - Todos los fetches de datos deben hacerse con `useQuery`.
-              - Si se repite el uso de la misma `queryKey` en varios componentes, crear un hook en la carpeta `app/hooks/` para centralizar la lógica.
+```
+### Tauri (HTTP + Rust commands)
+```
+React Component
+  -> @ecclesia/queries (Api.fetch/Api.query/Api.mutation)
+    -> fetch() POST http://localhost:7777/api/{namespace}/{method}
+      -> Express server (sidecar node)
+        -> Controller.method()
+  -> window.windowAPI.* / window.displayAPI.*
+    -> @tauri-apps/api invoke('rust_command')
+      -> Rust command handler en commands.rs
+```
+- Todos los fetches de datos deben hacerse con `useQuery`.
+- Si se repite el uso de la misma `queryKey` en varios componentes, crear un hook en la carpeta `app/hooks/` para centralizar la lógica.
+- El sidecar Node.js (API) corre como proceso hijo de Tauri, sirve HTTP + Socket.IO en puerto 7777.
+- El shim Tauri (`apps/desktop/app/tauri/shim.ts`) auto-ejectura APIs Electron-compatibles usando `@tauri-apps/api` cuando `window.__TAURI__` está presente.
 
 ### Idioma
 
@@ -258,7 +291,8 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 
 ### IPC / API desde el renderer
 
-*   En componentes React (renderer), SIEMPRE usar `window.api.namespace.method()` para llamar al backend. NUNCA importar `api from '@ecclesia/api'` directamente en el renderer — ese módulo asume `window.api` internamente pero su import directo no está disponible correctamente en todas las ventanas Electron.
+*   **Electron:** usar `window.api.namespace.method()` para llamar al backend. NUNCA importar `api from '@ecclesia/api'` directamente en el renderer — ese módulo asume `window.api` internamente pero su import directo no está disponible correctamente en todas las ventanas Electron.
+*   **Tauri (HTTP):** usar `Api.fetch.namespace.method()` del paquete `@ecclesia/queries` (conecta REST a sidecar). Para nativas (ventanas, dialogs, shortcuts), exponer via Rust commands y llamar desde `@tauri-apps/api`.
 *   Los imports de **tipos** (`.dto.d.ts`) sí están permitidos en el renderer.
 
 ### Antes de modificar codigo
@@ -346,6 +380,21 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 │       ├── package.json
 │       ├── electron.vite.config.ts
 │       └── vitest.config.ts
+│   └── tauri/                     <- Tauri v2 (migración desde Electron)
+│       ├── package.json           <- Scripts: tauri dev/build
+│       ├── vite.config.ts         <- Vite apunta a apps/desktop/app
+│       └── src-tauri/
+│           ├── Cargo.toml         <- Rust dependencies
+│           ├── build.rs
+│           ├── tauri.conf.json    <- Config: sidecar, ventanas, plugins
+│           ├── capabilities/
+│           │   └── default.json   <- Permisos (window, shell, dialog, fs, shortcuts)
+│           ├── icons/             <- Iconos en todos los formatos
+│           └── src/
+│               ├── main.rs        <- Entry point
+│               ├── lib.rs         <- App setup: plugins, shortcuts, commands
+│               ├── commands.rs    <- get_displays, open_live_window, etc.
+│               └── sidecar.rs     <- Node.js sidecar spawner
 ├── .npmrc                     <- minimum-release-age=1440 (seguridad supply chain)
 ├── pnpm-workspace.yaml        <- Definicion de workspaces
 ├── package.json               <- pnpm workspace root

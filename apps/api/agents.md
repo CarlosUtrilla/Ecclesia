@@ -39,7 +39,11 @@ src/
 │                      # Arranca sync-scheduler.service (setInterval 5min) y udp-discovery.service tras listen
 │                      # Nuevos endpoints HTTP:
 │                      #   GET  /api/remote/discover-lan → descubrimiento UDP LAN
-├── prisma.ts          # setPrismaClient, getPrisma, injectables (bibles path)
+├── config.ts          # Config global (userDataPath, downloadsPath, resourcesPath)
+│                      # setResourcesPath/getResourcesPath — con fallback a ECCLESIA_RESOURCES_PATH
+│                      # resolveMediaRoot, resolveFilesRoot, resolveThumbnailsRoot, resolveFontsRoot
+│                      # Callbacks: onFontAdded, onMediaChange, onOutboxWrite (hooks para electron/main)
+├── prisma.ts          # setPrismaClient, getPrisma, injectables (bibles path via getResourcesPath())
 ├── prisma-init.ts     # initializeDatabase(), migraciones, backup, middleware outbox
 │                      # initializeDatabase flow:
 │                      #   1. DB doesn't exist → copy template or runMigrations → wasJustCreated
@@ -119,11 +123,53 @@ src/
 ├── utils/
 │   ├── crashLogger.ts   # Crash logger sin Electron (sidecar-safe)
 │   └── loadEnv.ts       # Carga .env desde userDataPath opcional
+├── standalone.ts      # Punto de entrada para sidecar independiente (Tauri)
+│                      # Acepta CLI args: --port, --user-data-path, --resources-path, --cwd
+│                      # Arranca Express + Socket.IO + sync scheduler + UDP discovery
+│                      # Maneja SIGTERM/SIGINT para shutdown graceful
+├── scripts/
+│   └── build-sidecar.mjs  # esbuild script que bundlea standalone.ts a dist/sidecar.js
 ├── middleware/
 │   └── decimal.ts     # Serializacion Decimal/Date para IPC
 ```
 
+## Standalone sidecar
+
+La API puede ejecutarse como un proceso Node.js independiente (sidecar), consumido via HTTP + Socket.IO. Esta modalidad reemplaza el IPC de Electron y es la base para la migración a Tauri.
+
+### Modos de ejecución
+
+| Modo | Comando | Uso |
+| --- | --- | --- |
+| Desarrollo | `pnpm dev:sidecar` | Ejecuta con `tsx`, hot-reload del codigo |
+| Producción | `pnpm build:sidecar && pnpm start:sidecar` | Bundlea con esbuild y ejecuta |
+| Tauri (dev) | Tauri ejecuta `npx tsx apps/api/src/standalone.ts` como sidecar | Arranque automatico |
+
+### CLI args
+
+| Arg | Default | Descripcion |
+| --- | --- | --- |
+| `--port` | `7777` | Puerto del servidor Express + Socket.IO |
+| `--user-data-path` | `~/.ecclesia` | Directorio de datos de usuario (DB, media, logs) |
+| `--resources-path` | (desde `config.ts`) | Directorio de recursos empaquetados (biblias, fuentes) |
+| `--cwd` | `process.cwd()` | Directorio de trabajo para resolucion de rutas |
+
+### Variables de entorno
+
+- `ECCLESIA_RESOURCES_PATH` — sobreescribe la ruta de recursos por defecto
+- `NODE_ENV=development` — activa modo dev (driver SQLite en `api/prisma/dev.db`)
+
+### Build de produccion
+
+```bash
+pnpm build:sidecar   # Genera dist/sidecar.js (~33MB con dependencias puras JS inline)
+```
+
+Native modules (`better-sqlite3`, `sharp`, `@prisma/client`, `@ffmpeg-installer/ffmpeg`) quedan externalizados y deben resolverse desde `node_modules` en runtime.
+
 ## Namespaces IPC registrados
+
+(Nota: Estos namespaces también están disponibles como rutas HTTP POST `/api/{namespace}/{method}` para uso desde sidecar.)
 
 Definidos en `routes.ts`:
 
@@ -237,7 +283,9 @@ En `middleware/decimal.ts`:
 1. Crear directorio en `controllers/nuevoRecurso/`
 2. Crear `nuevoRecurso.controller.ts`, `nuevoRecurso.service.ts`, `nuevoRecurso.dto.d.ts`
 3. Registrar en `routes.ts`: `nuevoRecurso: NuevoRecursoController`
-4. El namespace queda disponible automaticamente como `window.api.nuevoRecurso.metodo()`
+4. El namespace queda disponible automaticamente como:
+   - IPC: `window.api.nuevoRecurso.metodo()` (Electron)
+   - HTTP: `Api.fetch.nuevoRecurso.metodo()` (via `@ecclesia/queries`, Electron o Tauri)
 5. Actualizar este agent y `/prisma/agents.md` si se creo un nuevo modelo
 
 ## Agents relacionados

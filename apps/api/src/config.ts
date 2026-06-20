@@ -1,8 +1,10 @@
 import path from 'path'
 import os from 'os'
+import fs from 'fs'
 
 let userDataPath = path.join(os.homedir(), '.ecclesia')
 let downloadsPath = path.join(os.homedir(), 'Downloads')
+let resourcesPath: string | null = null
 
 export function setUserDataPath(p: string): void {
   userDataPath = p
@@ -18,6 +20,25 @@ export function setDownloadsPath(p: string): void {
 
 export function getDownloadsPath(): string {
   return downloadsPath
+}
+
+export function setResourcesPath(p: string): void {
+  resourcesPath = p
+}
+
+export function getResourcesPath(): string {
+  if (resourcesPath) return resourcesPath
+  const envPath = process.env.ECCLESIA_RESOURCES_PATH
+  if (envPath && fs.existsSync(envPath)) {
+    resourcesPath = envPath
+    return resourcesPath
+  }
+  const devFallback = path.resolve(process.cwd(), '..', 'desktop', 'resources')
+  if (fs.existsSync(devFallback)) {
+    resourcesPath = devFallback
+    return resourcesPath
+  }
+  return process.cwd()
 }
 
 export function resolveMediaRoot(): string {
