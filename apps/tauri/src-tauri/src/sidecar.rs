@@ -1,3 +1,4 @@
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::time::Duration;
@@ -72,19 +73,36 @@ fn find_sidecar_source() -> Option<std::path::PathBuf> {
 
 const SIDECAR_PORT: u16 = 7777;
 
-fn wait_for_port(port: u16, timeout_secs: u64) -> Result<(), String> {
+fn wait_for_http(timeout_secs: u64) -> Result<(), String> {
     let start = std::time::Instant::now();
-    let addr: std::net::SocketAddr = format!("127.0.0.1:{}", port)
+    let addr: std::net::SocketAddr = format!("127.0.0.1:{}", SIDECAR_PORT)
         .parse()
         .map_err(|e| format!("Invalid socket address: {}", e))?;
 
     while start.elapsed().as_secs() < timeout_secs {
-        if std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
-            return Ok(());
+        if let Ok(mut stream) = std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(200)) {
+            stream.set_read_timeout(Some(Duration::from_secs(3))).ok();
+            stream.set_write_timeout(Some(Duration::from_secs(3))).ok();
+            let req = b"GET /api/remote/info HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+            if stream.write_all(req).is_ok() {
+                let mut body = Vec::new();
+                let mut buf = [0u8; 256];
+                loop {
+                    match stream.read(&mut buf) {
+                        Ok(0) => break,
+                        Ok(n) => body.extend_from_slice(&buf[..n]),
+                        Err(_) => break,
+                    }
+                }
+                let body_str = String::from_utf8_lossy(&body);
+                if body_str.contains("\"name\"") {
+                    return Ok(());
+                }
+            }
         }
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(200));
     }
-    Err(format!("Timeout waiting for port {}", port))
+    Err(format!("Timeout waiting for API on port {}", SIDECAR_PORT))
 }
 
 pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
@@ -111,17 +129,16 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
 
     let is_dev = std::env::var("CARGO_MANIFEST_DIR").is_ok();
 
-    // Check if sidecar is already running
-    if std::net::TcpStream::connect_timeout(
-        &format!("127.0.0.1:{}", SIDECAR_PORT)
-            .parse()
-            .unwrap(),
-        Duration::from_millis(100),
-    )
-    .is_ok()
-    {
-        if is_dev {
-            // In dev, kill stale process and restart fresh
+    // In dev, always kill any stale process and restart fresh
+    if is_dev {
+        if std::net::TcpStream::connect_timeout(
+            &format!("127.0.0.1:{}", SIDECAR_PORT)
+                .parse()
+                .unwrap(),
+            Duration::from_millis(100),
+        )
+        .is_ok()
+        {
             eprintln!("[Sidecar] Stale process on port {}, killing and restarting", SIDECAR_PORT);
             let _ = std::process::Command::new("lsof")
                 .args(["-t", "-i", &format!(":{}", SIDECAR_PORT)])
@@ -130,17 +147,48 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
                     let pid = String::from_utf8_lossy(&out.stdout);
                     std::process::Command::new("kill").args(["-9", pid.trim()]).output()
                 });
-            std::thread::sleep(Duration::from_millis(200));
-        } else {
-            println!("[Sidecar] Port {} already in use, assuming external sidecar is running", SIDECAR_PORT);
-            return Ok(None);
+            std::thread::sleep(Duration::from_millis(300));
+        }
+    } else {
+        // In production, check if a healthy server is already running
+        if std::net::TcpStream::connect_timeout(
+            &format!("127.0.0.1:{}", SIDECAR_PORT)
+                .parse()
+                .unwrap(),
+            Duration::from_millis(500),
+        )
+        .is_ok()
+        {
+            // Try HTTP check - if healthy, use existing
+            let addr: std::net::SocketAddr = format!("127.0.0.1:{}", SIDECAR_PORT)
+                .parse().unwrap();
+            if let Ok(mut stream) = std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(2)) {
+                stream.set_read_timeout(Some(Duration::from_secs(3))).ok();
+                stream.set_write_timeout(Some(Duration::from_secs(3))).ok();
+                let req = b"GET /api/remote/info HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+                if stream.write_all(req).is_ok() {
+                    let mut body = Vec::new();
+                    let mut buf = [0u8; 256];
+                    loop {
+                        match stream.read(&mut buf) {
+                            Ok(0) => break,
+                            Ok(n) => body.extend_from_slice(&buf[..n]),
+                            Err(_) => break,
+                        }
+                    }
+                    let body_str = String::from_utf8_lossy(&body);
+                    if body_str.contains("\"name\"") {
+                        println!("[Sidecar] Healthy server already running on port {}", SIDECAR_PORT);
+                        return Ok(None);
+                    }
+                }
+            }
         }
     }
 
     // Compute cwd and resources path:
     // - dev:  cwd=apps/tauri/  resources=apps/desktop/resources
     // - release: cwd=resource_dir  resources=resource_dir
-    let is_dev = std::env::var("CARGO_MANIFEST_DIR").is_ok();
     let (cwd, resources_path): (PathBuf, PathBuf) = if is_dev {
         let manifest = std::env::var("CARGO_MANIFEST_DIR")
             .map(PathBuf::from)
@@ -183,6 +231,7 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
         format!("--user-data-path={}", user_data_dir.to_str().unwrap()),
         format!("--resources-path={}", resources_path.to_str().unwrap_or(".")),
         format!("--cwd={}", cwd.to_str().unwrap_or(".")),
+        format!("--env-path={}", cwd.to_str().unwrap_or(".")),
     ];
 
     let mut cmd = if use_tsx {
@@ -204,9 +253,8 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
 
     let child = cmd.spawn().map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
 
-    // Wait for sidecar to be ready (max 30 seconds)
     println!("[Sidecar] Waiting for server on port {}...", SIDECAR_PORT);
-    wait_for_port(SIDECAR_PORT, 30)?;
+    wait_for_http(30)?;
     println!("[Sidecar] Server ready on port {}", SIDECAR_PORT);
 
     Ok(Some(child))

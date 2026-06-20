@@ -1,19 +1,46 @@
 mod commands;
 mod sidecar;
 
+use std::io::{Read, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState};
 
 use commands::*;
 
+struct SidecarChild(std::process::Child);
+
+impl Drop for SidecarChild {
+    fn drop(&mut self) {
+        let pid = self.0.id();
+        let _ = self.0.kill();
+        // Also kill by port to catch all descendant processes (npx -> tsx -> node chain)
+        let _ = std::process::Command::new("lsof")
+            .args(["-t", "-i", ":7777"])
+            .output()
+            .and_then(|out| {
+                let pids = String::from_utf8_lossy(&out.stdout);
+                for pid in pids.split_whitespace() {
+                    let _ = std::process::Command::new("kill")
+                        .args(["-9", pid])
+                        .output();
+                }
+                Ok::<(), std::io::Error>(())
+            });
+        println!("[Sidecar] Killed sidecar processes (main pid: {})", pid);
+    }
+}
+
 struct AppState {
-    sidecar: std::sync::Mutex<Option<std::process::Child>>,
+    sidecar: std::sync::Mutex<Option<SidecarChild>>,
+    kill_flag: std::sync::Arc<AtomicBool>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = AppState {
         sidecar: std::sync::Mutex::new(None),
+        kill_flag: std::sync::Arc::new(AtomicBool::new(false)),
     };
 
     tauri::Builder::default()
@@ -44,10 +71,9 @@ pub fn run() {
         .run(|app_handle, event| {
             if let RunEvent::ExitRequested { .. } = event {
                 if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.kill_flag.store(true, Ordering::SeqCst);
                     if let Ok(mut guard) = state.sidecar.lock() {
-                        if let Some(mut child) = guard.take() {
-                            let _ = child.kill();
-                        }
+                        guard.take(); // SidecarChild::drop calls kill()
                     }
                 }
             }
@@ -60,7 +86,7 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let splash = WebviewWindowBuilder::new(
         &app_handle,
         "splash",
-        WebviewUrl::External("http://localhost:5173/splash.html".parse()?),
+        WebviewUrl::App("splash.html".into()),
     )
     .title("Ecclesia")
     .inner_size(500.0, 400.0)
@@ -68,58 +94,85 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .decorations(false)
     .center()
     .build()?;
+    splash.show()?;
+    println!("[Splash] Window shown, waiting for sidecar...");
 
-    // Spawn sidecar in background thread, store handle in app state
+    // Spawn sidecar in background thread
     let sidecar_app = app.handle().clone();
+    let kill_flag = app.state::<AppState>().kill_flag.clone();
     std::thread::spawn(move || {
         match sidecar::spawn_sidecar(&sidecar_app) {
-            Ok(Some(child)) => {
+            Ok(Some(c)) => {
                 let state = sidecar_app.state::<AppState>();
                 if let Ok(mut guard) = state.sidecar.lock() {
-                    *guard = Some(child);
+                    *guard = Some(SidecarChild(c));
                 }
-                loop { std::thread::sleep(std::time::Duration::from_secs(u64::MAX)) }
+                // Wait for kill signal
+                while !kill_flag.load(Ordering::SeqCst) {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                // guard dropped here -> SidecarChild::drop calls kill()
+                println!("[Sidecar] Kill flag set, dropping SidecarChild");
             }
-            Ok(None) => println!("[Sidecar] Using existing sidecar on port 7777"),
-            Err(e) => eprintln!("[Sidecar] Failed to start: {}", e),
+            Ok(None) => {
+                println!("[Sidecar] Using existing sidecar on port 7777");
+            }
+            Err(e) => {
+                eprintln!("[Sidecar] Failed to start: {}", e);
+            }
         }
     });
 
-    // Wait for sidecar to be ready, then close splash and create main window
-    let splash_for_main = splash.clone();
-    tauri::async_runtime::spawn(async move {
-        loop {
-            if std::net::TcpStream::connect_timeout(
-                &"127.0.0.1:7777".parse().unwrap(),
-                std::time::Duration::from_millis(100),
-            )
-            .is_ok()
-            {
-                break;
+    // Block init until API is fully ready (HTTP check)
+    println!("[Init] Waiting for API to be ready...");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    let mut api_ready = false;
+    while !api_ready && std::time::Instant::now() < deadline {
+        if let Ok(mut stream) = std::net::TcpStream::connect_timeout(
+            &"127.0.0.1:7777".parse().unwrap(),
+            std::time::Duration::from_secs(2),
+        ) {
+            stream.set_read_timeout(Some(std::time::Duration::from_secs(5))).ok();
+            stream.set_write_timeout(Some(std::time::Duration::from_secs(5))).ok();
+            let req = b"GET /api/remote/info HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
+            if stream.write_all(req).is_ok() {
+                let mut body = Vec::new();
+                let mut buf = [0u8; 256];
+                loop {
+                    match stream.read(&mut buf) {
+                        Ok(0) => break,
+                        Ok(n) => body.extend_from_slice(&buf[..n]),
+                        Err(_) => break,
+                    }
+                }
+                let body_str = String::from_utf8_lossy(&body);
+                if body_str.contains("\"name\"") {
+                    println!("[Init] API fully ready!");
+                    api_ready = true;
+                    break;
+                }
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
         }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
 
-        let _ = splash_for_main.close();
-        println!("[Sidecar] Ready, creating main window");
+    if !api_ready {
+        eprintln!("[Init] Timeout waiting for API!");
+    }
 
-        let main = WebviewWindowBuilder::new(
-            &app_handle,
-            "main",
-            WebviewUrl::External("http://localhost:5173/index.html".parse().unwrap()),
-        )
-        .title("Ecclesia")
-        .inner_size(1280.0, 800.0)
-        .min_inner_size(900.0, 600.0)
-        .build();
+    let _ = splash.close();
+    println!("[Init] Creating main window...");
 
-        match main {
-            Ok(_) => {
-                let _ = app_handle.emit("sidecar-ready", true);
-            }
-            Err(e) => eprintln!("[Main] Failed to create window: {}", e),
-        }
-    });
+    let _main = WebviewWindowBuilder::new(
+        &app_handle,
+        "main",
+        WebviewUrl::App("index.html".into()),
+    )
+    .title("Ecclesia")
+    .inner_size(1280.0, 800.0)
+    .min_inner_size(900.0, 600.0)
+    .build()?;
+    let _ = app_handle.emit("sidecar-ready", true);
 
     let shortcuts = app.global_shortcut();
     for key in &["F7", "F9", "F10", "F11", "Escape"] {

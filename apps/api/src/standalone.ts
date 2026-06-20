@@ -19,6 +19,7 @@ const port = parseInt(getArg('--port', '7777'), 10)
 const userDataPathArg = getArg('--user-data-path', '')
 const resourcesPathArg = getArg('--resources-path', '')
 const cwd = getArg('--cwd', process.cwd())
+const envPath = getArg('--env-path', process.cwd())
 
 const resolvedUserDataPath = userDataPathArg || path.join(os.homedir(), '.ecclesia')
 
@@ -26,7 +27,7 @@ setUserDataPath(resolvedUserDataPath)
 if (resourcesPathArg) {
   setResourcesPath(resourcesPathArg)
 }
-loadAppEnv(resolvedUserDataPath)
+loadAppEnv(envPath)
 
 const config: DatabaseConfig = {
   isDev: !process.env.NODE_ENV || process.env.NODE_ENV === 'development',

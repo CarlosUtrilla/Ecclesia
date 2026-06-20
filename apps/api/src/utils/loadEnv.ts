@@ -33,10 +33,11 @@ function parseEnv(content: string): Record<string, string> {
   return entries
 }
 
-export function loadAppEnv(userDataPath?: string) {
+export function loadAppEnv(basePath?: string, userDataPath?: string) {
+  const base = basePath ?? process.cwd()
   const envPaths = [
-    path.join(process.cwd(), '.env'),
-    path.join(process.cwd(), '.env.local'),
+    path.join(base, '.env'),
+    path.join(base, '.env.local'),
     ...(userDataPath ? [path.join(userDataPath, '.env')] : [])
   ]
 
