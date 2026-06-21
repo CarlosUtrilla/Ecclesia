@@ -114,6 +114,12 @@ echo -e "  -> Build del sidecar API"
 pnpm --filter @ecclesia/api build:sidecar
 echo -e "  ${GREEN}✓ Sidecar compilado${RESET}"
 
+# Clave privada para firma de updates (opcional)
+if [[ -z "$TAURI_SIGNING_PRIVATE_KEY" ]]; then
+  echo -e "  ${YELLOW}⚠ TAURI_SIGNING_PRIVATE_KEY no definida. Updates no se firmarán.${RESET}"
+  echo -e "  ${YELLOW}  Define la variable de entorno para firmar actualizaciones.${RESET}"
+fi
+
 ensure_target() {
   local target=$1
   if ! rustup target list --installed | grep -q "$target"; then
@@ -231,6 +237,11 @@ if [[ "$UPLOAD" == "s" || "$UPLOAD" == "S" ]]; then
   # Windows .exe/.msi
   for exe in "$BUNDLE_DIR"/nsis/*.exe; do
     [[ -f "$exe" ]] && RELEASE_FILES+=("$exe")
+  done
+
+  # Update manifests (latest.json)
+  for manifest in "$BUNDLE_DIR"/**/latest.json; do
+    [[ -f "$manifest" ]] && RELEASE_FILES+=("$manifest")
   done
 
   if [[ ${#RELEASE_FILES[@]} -eq 0 ]]; then

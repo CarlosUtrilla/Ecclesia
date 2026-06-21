@@ -217,13 +217,71 @@ if (needsShim) {
   }
 
   const updaterAPIShim = {
-    getVersion: (): Promise<string> => Promise.resolve('0.14.2'),
-    checkForUpdates: () => {},
-    downloadUpdate: () => {},
-    installUpdate: () => {},
-    onUpdateAvailable: () => () => {},
-    onUpdateDownloaded: () => () => {},
-    onDownloadProgress: () => () => {},
+    getVersion: async (): Promise<string> => {
+      try {
+        const { getVersion } = await import('@tauri-apps/api/app')
+        return await getVersion()
+      } catch {
+        return '0.0.0'
+      }
+    },
+    checkForUpdates: async () => {
+      updateListeners.checking.forEach((cb) => cb())
+      try {
+        const { check } = await import('@tauri-apps/plugin-updater')
+        const update = await check()
+        if (update) {
+          updateListeners.available.forEach((cb) => cb({ version: update.version }))
+          updaterCurrentUpdate = update
+        } else {
+          updateListeners.notAvailable.forEach((cb) => cb())
+        }
+      } catch (err: any) {
+        updateListeners.error.forEach((cb) => cb(String(err?.message ?? 'Error desconocido')))
+      }
+    },
+    downloadUpdate: async () => {
+      if (!updaterCurrentUpdate) return
+      try {
+        await updaterCurrentUpdate.download((event) => {
+          if (event.event === 'Progress') {
+            const pct = event.data?.chunkLength ? Math.min(99, Math.round((event.data.chunkLength / (event.data.contentLength || 1)) * 100)) : 0
+            updateListeners.progress.forEach((cb) => cb({ percent: pct }))
+          }
+        })
+        updateListeners.downloaded.forEach((cb) => cb())
+      } catch (err: any) {
+        updateListeners.error.forEach((cb) => cb(String(err?.message ?? 'Error descargando')))
+      }
+    },
+    installUpdate: async () => {
+      if (!updaterCurrentUpdate) return
+      try {
+        await updaterCurrentUpdate.install()
+      } catch { /* se reinicia la app */ }
+    },
+    onCheckingForUpdate: (cb: () => void) => addListener(updateListeners.checking, cb),
+    onUpdateAvailable: (cb: (info: { version: string }) => void) => addListener(updateListeners.available, cb),
+    onUpdateNotAvailable: (cb: () => void) => addListener(updateListeners.notAvailable, cb),
+    onError: (cb: (msg: string) => void) => addListener(updateListeners.error, cb),
+    onUpdateDownloaded: (cb: () => void) => addListener(updateListeners.downloaded, cb),
+    onDownloadProgress: (cb: (progress: { percent: number }) => void) => addListener(updateListeners.progress, cb),
+  }
+
+  let updaterCurrentUpdate: { version: string; download: (cb: any) => Promise<void>; install: () => Promise<void> } | null = null
+
+  const updateListeners: {
+    checking: (() => void)[]
+    available: ((info: { version: string }) => void)[]
+    notAvailable: (() => void)[]
+    error: ((msg: string) => void)[]
+    downloaded: (() => void)[]
+    progress: ((progress: { percent: number }) => void)[]
+  } = { checking: [], available: [], notAvailable: [], error: [], downloaded: [], progress: [] }
+
+  function addListener<T>(arr: T[], cb: T): () => void {
+    arr.push(cb)
+    return () => { const idx = arr.indexOf(cb); if (idx >= 0) arr.splice(idx, 1) }
   }
 
   const remoteControlAPIShim = {

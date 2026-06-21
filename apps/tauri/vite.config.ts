@@ -23,6 +23,14 @@ export default defineConfig({
         __dirname,
         'node_modules/@tauri-apps/plugin-fs',
       ),
+      '@tauri-apps/plugin-updater': resolve(
+        __dirname,
+        '../../node_modules/@tauri-apps/plugin-updater',
+      ),
+      '@tauri-apps/api/app': resolve(
+        __dirname,
+        'node_modules/@tauri-apps/api',
+      ),
     }
   },
   plugins: [
