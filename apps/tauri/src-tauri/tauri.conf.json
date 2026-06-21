@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicktomlin/tauri-v2-schema/main/tauri.conf.json",
   "productName": "Ecclesia",
-  "version": "0.14.2",
+  "version": "0.14.3",
   "identifier": "com.ecclesia.app",
   "build": {
     "frontendDist": "../dist",
@@ -27,7 +27,15 @@
     ],
     "resources": [
       "../../api/dist/sidecar.js"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "wix": {
+        "language": "es-ES"
+      }
+    }
   },
   "plugins": {}
 }
