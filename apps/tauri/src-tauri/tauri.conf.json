@@ -1,13 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicktomlin/tauri-v2-schema/main/tauri.conf.json",
   "productName": "Ecclesia",
-  "version": "0.14.11",
+  "version": "0.15.0",
   "identifier": "com.ecclesia.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm dev:frontend",
-    "beforeBuildCommand": "pnpm build:frontend"
+    "beforeBuildCommand": "pnpm build:frontend && bash scripts/bundle-sidecar-deps.sh"
   },
   "app": {
     "windows": [],
@@ -26,7 +26,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../../api/dist/sidecar.js"
+      "sidecar-deps/*"
     ],
     "macOS": {
       "minimumSystemVersion": "11.0"
