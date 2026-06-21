@@ -10,7 +10,7 @@ import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { resolveAppliedLiveTheme } from './resolveAppliedLiveTheme'
 
 // Extensión: stub para sincronización de media
-type LiveMediaState = { action: 'play' | 'pause' | 'seek' | 'restart'; time: number }
+type LiveMediaState = { action: 'play' | 'pause' | 'seek' | 'restart'; time: number; volume?: number }
 const LiveContext = createContext({} as ILiveContext)
 
 export const LiveProvider = ({ children }: PropsWithChildren) => {

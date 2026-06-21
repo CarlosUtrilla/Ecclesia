@@ -227,6 +227,8 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
     const video = videoRef.current
     if (!video) return
 
+    video.volume = 1
+
     const shouldSyncTimeOnPlay = (requestedTime: number) => {
       if (requestedTime === 0 && video.currentTime > 0.08) {
         return false
@@ -239,12 +241,15 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
       if (shouldSyncTimeOnPlay(time)) {
         video.currentTime = time
       }
-      video.play().catch(() => {
-        // noop
-      })
+      video.play().catch(() => {})
     }
 
     const unsubscribe = Api.socket.listen.liveMediaState((state) => {
+      if (state.volume !== undefined) {
+        video.volume = state.volume
+        return
+      }
+
       if (state.action === 'play') {
         tryPlay(state.time)
         return
@@ -277,7 +282,6 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
       src={src}
       className="w-full h-full object-contain"
       loop={shouldLoop}
-      muted
       playsInline
       preload="metadata"
     />

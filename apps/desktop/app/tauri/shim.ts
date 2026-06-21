@@ -285,12 +285,46 @@ if (needsShim) {
   }
 
   const remoteControlAPIShim = {
-    discoverLan: (): Promise<unknown[]> => Promise.resolve([]),
-    getConnectionState: (): Promise<{ url: string; port: number } | null> => Promise.resolve(null),
-    invalidateAllWindows: () => {},
-    onConnectionChanged: (_callback: (state: unknown) => void) => () => {},
-    notifyConnectionChanged: (_url: string, _port: number) => {},
-    notifyDisconnected: () => {},
+    _connectionState: null as { url: string; port: number } | null,
+    _callbacks: new Set<(state: { url: string; port: number } | null) => void>(),
+    _init: false,
+    _ensureInit() {
+      if (this._init) return
+      this._init = true
+      listen<{ url: string; port: number } | null>('remote-connection-changed', (event) => {
+        this._connectionState = event.payload
+        this._callbacks.forEach((cb) => cb(event.payload))
+      })
+    },
+    discoverLan: async (): Promise<unknown[]> => {
+      try {
+        const resp = await fetch('http://127.0.0.1:7777/api/remote/discover-lan')
+        const data = await resp.json()
+        return data?.response ?? []
+      } catch {
+        return []
+      }
+    },
+    getConnectionState: (): Promise<{ url: string; port: number } | null> =>
+      Promise.resolve(remoteControlAPIShim._connectionState),
+    invalidateAllWindows: () => {
+      emit('remote-connection-invalidate', true)
+    },
+    notifyConnectionChanged: (url: string, port: number) => {
+      remoteControlAPIShim._connectionState = { url, port }
+      emit('remote-connection-changed', { url, port })
+    },
+    notifyDisconnected: () => {
+      remoteControlAPIShim._connectionState = null
+      emit('remote-connection-changed', null)
+    },
+    onConnectionChanged: (callback: (state: { url: string; port: number } | null) => void) => {
+      remoteControlAPIShim._ensureInit()
+      remoteControlAPIShim._callbacks.add(callback)
+      return () => {
+        remoteControlAPIShim._callbacks.delete(callback)
+      }
+    },
   }
 
   Object.assign(window, {

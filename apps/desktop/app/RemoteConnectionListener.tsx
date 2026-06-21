@@ -8,29 +8,35 @@ export default function RemoteConnectionListener() {
   const { setMediaServerHost } = useMediaServer()
   const queryClient = useQueryClient()
 
+  const applyConnection = async (url: string, port: number) => {
+    await setApiConfiguration(queryClient, url, port)
+    setMediaServerHost(new URL(url).hostname)
+    queryClient.clear()
+  }
+
+  const resetConnection = async () => {
+    await setApiConfiguration(queryClient, 'http://localhost', 7777)
+    setMediaServerHost('127.0.0.1')
+    queryClient.clear()
+  }
+
   useEffect(() => {
     window.remoteControlAPI.getConnectionState().then((state) => {
       if (state) {
-        setApiConfiguration(queryClient, state.url, state.port)
-        setMediaServerHost(new URL(state.url).hostname)
-        window.remoteControlAPI.invalidateAllWindows()
+        applyConnection(state.url, state.port)
       }
     })
 
     const cleanup = window.remoteControlAPI.onConnectionChanged((state) => {
       if (state) {
-        setApiConfiguration(queryClient, state.url, state.port)
-        setMediaServerHost(new URL(state.url).hostname)
-        window.remoteControlAPI.invalidateAllWindows()
+        applyConnection(state.url, state.port)
       } else {
-        setApiConfiguration(queryClient, 'http://localhost', 7777)
-        setMediaServerHost('127.0.0.1')
-        window.remoteControlAPI.invalidateAllWindows()
+        resetConnection()
       }
     })
 
     return cleanup
-  }, [])
+  }, [queryClient, setApiConfiguration, setMediaServerHost])
 
   return null
 }

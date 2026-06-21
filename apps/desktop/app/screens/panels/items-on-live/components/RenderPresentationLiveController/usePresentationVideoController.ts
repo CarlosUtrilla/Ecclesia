@@ -156,6 +156,7 @@ export default function usePresentationVideoController({
       controllerVideoRef.current.volume = nextVolume
     }
     setVolume(nextVolume)
+    sendLiveMediaStateRef.current({ action: 'play', time: controllerVideoRef.current?.currentTime || 0, volume: nextVolume })
   }
 
   const handleControllerTimeUpdate = () => {

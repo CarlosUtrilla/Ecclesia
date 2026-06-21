@@ -32,6 +32,7 @@ export const RenderMedia = () => {
     if (videoRef.current) {
       videoRef.current.volume = val
     }
+    sendLiveMediaState({ action: 'play', time: videoRef.current?.currentTime || 0, volume: val })
   }
 
   const handlePlay = () => {

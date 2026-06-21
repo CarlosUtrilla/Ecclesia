@@ -103,6 +103,11 @@ function MediaRenderComponent({
       lastPlayStateRef.current = state
       if (!video) return
 
+      if (state.volume !== undefined) {
+        video.volume = state.volume
+        return
+      }
+
       if (state.action === 'play') {
         tryPlay(state.time)
       } else if (state.action === 'pause') {
@@ -167,7 +172,6 @@ function MediaRenderComponent({
             className="object-contain"
             style={mediaElementStyle}
             loop={shouldLoop}
-            muted
             playsInline
             preload="auto"
           />

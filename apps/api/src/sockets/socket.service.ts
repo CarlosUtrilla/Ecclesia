@@ -21,7 +21,7 @@ export interface SocketEventMap {
   bibleSearch: { version: string; bookId: number; chapter: number; verse: number }
 
   // Bidireccional (broadcast a todos los clientes conectados)
-  liveMediaState: { action: 'play' | 'pause' | 'seek' | 'restart'; time: number }
+      liveMediaState: { action: 'play' | 'pause' | 'seek' | 'restart'; time: number; volume?: number }
 }
 
 type ApiEmitShape = {

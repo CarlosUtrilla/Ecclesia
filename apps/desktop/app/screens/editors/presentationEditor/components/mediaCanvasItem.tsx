@@ -1,4 +1,5 @@
 import type { Media } from '@ecclesia/api'
+import { useEffect, useRef } from 'react'
 import CanvasItemShell from './canvasItemShell'
 import CanvasTransformHandles, { ResizeHandle } from './canvasTransformHandles'
 import { CanvasItemStyle, PresentationSlideItem } from '../utils/slideUtils'
@@ -30,6 +31,22 @@ export default function MediaCanvasItem({
   onStartResize
 }: Props) {
   const { buildMediaUrl } = useMediaServer()
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el || mediaItem?.type !== 'VIDEO') return
+    const tryLoad = () => {
+      el.load()
+      el.currentTime = 0
+    }
+    const onLoadedData = () => {}
+    el.addEventListener('loadeddata', onLoadedData)
+    tryLoad()
+    return () => {
+      el.removeEventListener('loadeddata', onLoadedData)
+    }
+  }, [mediaItem?.filePath])
 
   return (
     <CanvasItemShell
@@ -63,16 +80,26 @@ export default function MediaCanvasItem({
         ) : null
       }
     >
-      <div className="w-full h-full overflow-hidden">
+      <div className="w-full h-full overflow-hidden" style={{ pointerEvents: 'auto' }}>
         {mediaItem ? (
           mediaItem.type === 'VIDEO' ? (
             <video
+              ref={videoRef}
               src={buildMediaUrl(mediaItem.filePath)}
               className="w-full h-full object-contain"
               muted
               controls
               playsInline
-              preload="metadata"
+              crossOrigin="anonymous"
+              preload="auto"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                const controlsZoneHeight = 40
+                if (e.clientY >= rect.bottom - controlsZoneHeight) {
+                  e.stopPropagation()
+                }
+              }}
             />
           ) : (
             <img
