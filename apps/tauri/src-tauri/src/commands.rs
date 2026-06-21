@@ -76,12 +76,21 @@ pub async fn get_displays(app: tauri::AppHandle) -> Result<Vec<DisplayInfo>, Str
 
     let displays: Vec<DisplayInfo> = monitors
         .into_iter()
-        .map(|m| {
+        .enumerate()
+        .map(|(i, m)| {
             let pos = m.position();
             let size = m.size();
             let name = m.name().map(|s| s.to_string()).unwrap_or_default();
+            let id: u32 = name
+                .rsplit('#')
+                .next()
+                .and_then(|s| s.trim().parse().ok())
+                .unwrap_or_else(|| {
+                    let hash = name.len() as u32 * 1000 + pos.x as u32 + pos.y as u32 + i as u32;
+                    if hash == 0 { 1 } else { hash }
+                });
             DisplayInfo {
-                id: name.parse().unwrap_or(0),
+                id,
                 name: name.clone(),
                 width: size.width as i32,
                 height: size.height as i32,
