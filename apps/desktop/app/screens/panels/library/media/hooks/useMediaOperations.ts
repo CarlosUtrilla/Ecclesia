@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Media } from '../types'
 import type { MediaType } from '@ecclesia/api'
 import { Api } from '@ecclesia/queries'
@@ -28,6 +28,7 @@ const buildFolderPath = (currentFolder: string | null, folderName: string) =>
 const normalizeFolder = (folder: string | null | undefined): string | null => folder ?? null
 
 export function useMediaOperations(currentFolder: string | null) {
+  const queryClient = useQueryClient()
   const importMutation = useMutation({
     mutationFn: async (files: { fileName: string; bytes: Uint8Array; fileSize: number }[]) => {
       const results: MediaDto[] = []
@@ -111,6 +112,10 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
     }
   })
 
@@ -143,6 +148,10 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
     }
   })
 
@@ -180,6 +189,10 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
     }
   })
 

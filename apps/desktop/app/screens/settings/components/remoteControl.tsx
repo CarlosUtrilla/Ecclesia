@@ -10,7 +10,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { Search, Monitor, Wifi, WifiOff, Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
-import { switchSSEConnection } from '@/lib/sseEvents'
 
 type LanResults = {
   ip: string
@@ -88,7 +87,6 @@ export default function RemoteControl() {
     setConnecting(true)
     try {
       await setApiConfiguration(queryClient, `http://${targetIp}`, 7777)
-      switchSSEConnection(`http://${targetIp}`)
       window.remoteControlAPI.notifyConnectionChanged(`http://${targetIp}`, 7777)
       setConnectedIp(targetIp)
       setRemoteControlIp(targetIp)
@@ -108,7 +106,6 @@ export default function RemoteControl() {
     setConnecting(true)
     try {
       await setApiConfiguration(queryClient, 'http://localhost', 7777)
-      switchSSEConnection(null)
       window.remoteControlAPI.notifyDisconnected()
       setConnectedIp(null)
       window.remoteControlAPI.invalidateAllWindows()

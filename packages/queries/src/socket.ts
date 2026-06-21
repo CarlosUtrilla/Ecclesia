@@ -5,6 +5,17 @@ let socketInstance: Socket | null = null
 let currentUrl = ''
 let currentPort = 0
 
+type ListenerMap = Map<string, Set<(...args: unknown[]) => void>>
+const pendingListeners: ListenerMap = new Map()
+
+function reattachListeners(socket: Socket, listeners: ListenerMap): void {
+  for (const [event, cbs] of listeners) {
+    for (const cb of cbs) {
+      socket.on(event, cb as any)
+    }
+  }
+}
+
 type SocketListenShape = {
   [K in keyof SocketEventMap]: SocketEventMap[K] extends void
     ? (cb: () => void) => () => void
@@ -31,6 +42,7 @@ function getOrCreateSocket(apiUrl: string, port: number): Socket {
       transports: ['websocket', 'polling'],
       reconnection: true,
     })
+    reattachListeners(socketInstance, pendingListeners)
   }
   return socketInstance
 }
@@ -40,8 +52,16 @@ export function createSocketProxy(apiUrl: string, port: number): SocketShape {
 
   const listen = new Proxy({} as any, {
     get: (_, eventName) => (callback: any) => {
-      socket.on(eventName as string, callback)
-      return () => socket.off(eventName as string, callback)
+      const event = eventName as string
+      socket.on(event, callback)
+      if (!pendingListeners.has(event)) {
+        pendingListeners.set(event, new Set())
+      }
+      pendingListeners.get(event)!.add(callback)
+      return () => {
+        socket.off(event, callback)
+        pendingListeners.get(event)?.delete(callback)
+      }
     },
   }) as SocketListenShape
 
@@ -59,6 +79,7 @@ export function disconnectSocket(): void {
   socketInstance = null
   currentUrl = ''
   currentPort = 0
+  pendingListeners.clear()
 }
 
 export function getSocketInstance(): Socket | null {

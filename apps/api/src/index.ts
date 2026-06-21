@@ -20,16 +20,6 @@ import { log } from './utils/logger'
 import { setSocketIO } from './sockets/socket.service'
 import { registerSocketHandlers } from './sockets/socket-handlers'
 
-const sseClients = new Set<express.Response>()
-let heartbeatTimer: ReturnType<typeof setInterval> | null = null
-
-export function broadcastToRemoteClients(event: string, data: unknown): void {
-  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-  for (const client of sseClients) {
-    client.write(message)
-  }
-}
-
 export async function initializeHttpServer(config?: DatabaseConfig, serverPort?: number) {
   const app = express()
   const port = serverPort ?? MEDIA_SERVER_PORT
@@ -128,46 +118,15 @@ export async function initializeHttpServer(config?: DatabaseConfig, serverPort?:
     }
   })
 
-  // SSE endpoint para broadcasting de eventos a todos los renderers conectados (host + remotos)
-  app.get('/api/remote/events', (req, res) => {
-    res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
-    res.setHeader('Connection', 'keep-alive')
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.flushHeaders()
-
-    res.write(`event: connected\ndata: ${JSON.stringify({ status: 'ok' })}\n\n`)
-
-    sseClients.add(res)
-
-    req.on('close', () => {
-      sseClients.delete(res)
-      if (sseClients.size === 0 && heartbeatTimer) {
-        clearInterval(heartbeatTimer)
-        heartbeatTimer = null
-      }
-    })
-
-    if (sseClients.size === 1) {
-      heartbeatTimer = setInterval(() => {
-        for (const client of sseClients) {
-          client.write(': keepalive\n\n')
-        }
-      }, 30000)
-    }
-  })
-
   app.use((err: Error, _req: express.Request, res: express.Response) => {
     log.error('[Express] Error no capturado:', err.message, err.stack)
     const message = err?.message ?? err?.toString() ?? 'Error interno del servidor'
     res.status(500).json({ error: message })
   })
 
-  // Start sync scheduler
   const { startSyncScheduler } = await import('./controllers/sync/sync-scheduler.service')
   startSyncScheduler()
 
-  // Initialize UDP discovery
   const { initializeUdpDiscovery } = await import('./services/udp-discovery.service')
   initializeUdpDiscovery()
 }

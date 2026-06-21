@@ -169,6 +169,9 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     if !api_ready {
         eprintln!("[Init] Timeout waiting for API!");
+    } else {
+        // Pequeña pausa para asegurar que migraciones y datos estén listos
+        std::thread::sleep(std::time::Duration::from_millis(500));
     }
 
     let _ = splash.close();

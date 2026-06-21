@@ -34,6 +34,14 @@ import { formatFileSize, stripFilesPrefix, buildFolderPath, normalizeFolder } fr
 import { toast } from 'sonner'
 import { Api } from '@ecclesia/queries'
 import { ScrollArea } from '@/ui/scroll-area'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/ui/dialog'
 
 export default function MediaLibrary() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -145,15 +153,14 @@ export default function MediaLibrary() {
     const folderPath = buildFolderPath(currentFolder, folderName)
     const nestedFolders = await Api.fetch.media.listFolders({ body: { parentFolder: folderPath } })
 
-    if (nestedFolders.length === 0) {
-      return confirm(`¿Eliminar la carpeta "${folderName}" y todo su contenido?`)
+    if (nestedFolders.length > 0) {
+      const typedConfirmation = prompt(
+        `La carpeta "${folderName}" contiene subcarpetas. Para eliminar todo de forma recursiva escribe "eliminar".`
+      )
+      return typedConfirmation?.trim().toLowerCase() === 'eliminar'
     }
 
-    const typedConfirmation = prompt(
-      `La carpeta "${folderName}" contiene subcarpetas. Para eliminar todo de forma recursiva escribe "eliminar".`
-    )
-
-    return typedConfirmation?.trim().toLowerCase() === 'eliminar'
+    return true
   }
 
   // Handlers
@@ -170,15 +177,6 @@ export default function MediaLibrary() {
     }
   }
 
-  const handleDelete = async (media: Media) => {
-    if (!confirm(`¿Eliminar "${media.name}"?`)) return
-    try {
-      await operations.deleteMutation.mutateAsync({ body: { id: media.id } })
-    } catch (error) {
-      console.error('Error al eliminar medio:', error)
-    }
-  }
-
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return
     try {
@@ -190,14 +188,36 @@ export default function MediaLibrary() {
     }
   }
 
-  const handleDeleteFolder = async (folderName: string) => {
-    const canDeleteFolder = await confirmFolderDeletion(folderName)
-    if (!canDeleteFolder) return
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<Media | null>(null)
+  const [deleteConfirmFolder, setDeleteConfirmFolder] = useState<string | null>(null)
 
-    try {
-      await operations.deleteFolderMutation.mutateAsync(folderName)
-    } catch (error: any) {
-      alert(error.message || 'Error al eliminar carpeta')
+  const handleDeleteRequest = (media: Media) => {
+    setDeleteConfirmItem(media)
+  }
+
+  const handleDeleteFolderRequest = (folderName: string) => {
+    setDeleteConfirmFolder(folderName)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (deleteConfirmItem) {
+      const media = deleteConfirmItem
+      setDeleteConfirmItem(null)
+      try {
+        await operations.deleteMutation.mutateAsync({ body: { id: media.id } })
+      } catch (error) {
+        console.error('Error al eliminar medio:', error)
+      }
+    } else if (deleteConfirmFolder) {
+      const folderName = deleteConfirmFolder
+      setDeleteConfirmFolder(null)
+      const canDeleteFolder = await confirmFolderDeletion(folderName)
+      if (!canDeleteFolder) return
+      try {
+        await operations.deleteFolderMutation.mutateAsync(folderName)
+      } catch (error: any) {
+        alert(error.message || 'Error al eliminar carpeta')
+      }
     }
   }
 
@@ -530,13 +550,12 @@ export default function MediaLibrary() {
                       items={mediaItems}
                       folders={folders}
                       currentFolder={currentFolder}
-                      onDelete={handleDelete}
-                      onDeleteFolder={handleDeleteFolder}
+                      onDelete={handleDeleteRequest}
+                      onDeleteFolder={handleDeleteFolderRequest}
                       onNavigateToFolder={navigateToFolder}
                       onCopy={handleCopySingle}
                       onCut={handleCutSingle}
                       onPaste={handlePaste}
-                      onDrop={handleDrop}
                       onCreateFolder={() => setShowNewFolderDialog(true)}
                       onRename={(item, isFolder, currentName) => {
                         setRenameTarget({ item, isFolder, currentName })
@@ -551,8 +570,8 @@ export default function MediaLibrary() {
                     <MediaList
                       items={mediaItems}
                       folders={folders}
-                      onDelete={handleDelete}
-                      onDeleteFolder={handleDeleteFolder}
+                      onDelete={handleDeleteRequest}
+                      onDeleteFolder={handleDeleteFolderRequest}
                       onNavigateToFolder={navigateToFolder}
                       onCopy={handleCopySingle}
                       onCut={handleCutSingle}
@@ -612,6 +631,21 @@ export default function MediaLibrary() {
         }}
         onRename={handleRename}
       />
+
+      <Dialog open={!!(deleteConfirmItem || deleteConfirmFolder)} onOpenChange={(open) => { if (!open) { setDeleteConfirmItem(null); setDeleteConfirmFolder(null) } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar {deleteConfirmItem ? 'archivo' : 'carpeta'}</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de eliminar "{deleteConfirmItem?.name ?? deleteConfirmFolder ?? ''}"? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteConfirmItem(null); setDeleteConfirmFolder(null) }}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

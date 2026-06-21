@@ -33,7 +33,7 @@ src/
 │                      # Re-exporta tipos/enums de Prisma (Media, ScheduleItem, etc.)
 │                      # Rutas HTTP adicionales:
 │                      #   GET  /api/remote/info   → info de instancia (hostname, version) para descubrimiento LAN
-│                      #   GET  /api/remote/events → SSE endpoint: broadcast de queryKeys a todos los renderers conectados
+│                      # broadcastToRemoteClients: eliminado, reemplazado por Socket.IO
 │                      # broadcastToRemoteClients(event, data) empuja eventos SSE a todos los clientes conectados
 │                      # initializeHttpServer acepta onQueryKeys callback para broadcast local Electron
 │                      # Arranca sync-scheduler.service (setInterval 5min) y udp-discovery.service tras listen
