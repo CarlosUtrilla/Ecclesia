@@ -1,7 +1,7 @@
 {
   "name": "@ecclesia/desktop",
   "productName": "Ecclesia",
-  "version": "0.14.7",
+  "version": "0.14.8",
   "description": "Eclesia - Desktop application",
   "main": "./out/main/index.js",
   "author": "Carlos Utrilla",
