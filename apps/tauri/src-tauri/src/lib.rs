@@ -11,6 +11,7 @@ use commands::*;
 pub struct SidecarChild(std::process::Child);
 
 impl Drop for SidecarChild {
+    #[cfg(unix)]
     fn drop(&mut self) {
         let pid = self.0.id();
         unsafe { libc::killpg(pid as i32, libc::SIGKILL) };
@@ -26,6 +27,12 @@ impl Drop for SidecarChild {
                 }
             });
         println!("[Sidecar] Killed sidecar processes (main pid: {})", pid);
+    }
+
+    #[cfg(not(unix))]
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        println!("[Sidecar] Killed sidecar process");
     }
 }
 
