@@ -1,6 +1,6 @@
 [package]
 name = "ecclesia"
-version = "0.15.10"
+version = "0.15.11"
 description = "Ecclesia - Planificación y presentación de cultos religiosos"
 authors = ["Ecclesia Team"]
 edition = "2021"
