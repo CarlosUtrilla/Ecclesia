@@ -41,7 +41,7 @@ jobs:
       - name: Generate Prisma client
         env:
           PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
-        run: pnpm exec prisma generate --schema=apps/api/prisma/schema.prisma
+        run: pnpm --filter @ecclesia/api db:generate
 
       - name: Build sidecar
         run: pnpm build:sidecar
