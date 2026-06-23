@@ -9,6 +9,8 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 45
+    env:
+      SKIP_PRISMA_GENERATE: 'true'
     strategy:
       matrix:
         target: [x86_64-pc-windows-msvc]
