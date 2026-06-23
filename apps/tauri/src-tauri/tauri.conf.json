@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm dev:frontend",
-    "beforeBuildCommand": "pnpm build:frontend && bash scripts/bundle-sidecar-deps.sh"
+    "beforeBuildCommand": "pnpm build:frontend && node scripts/bundle-sidecar-deps.mjs"
   },
   "app": {
     "windows": [],
