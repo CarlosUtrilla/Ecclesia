@@ -37,6 +37,8 @@ jobs:
         run: pnpm add -w @prisma/client
 
       - name: Generate Prisma client
+        env:
+          PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
         run: npx prisma generate --schema=apps/api/prisma/schema.prisma
 
       - name: Build sidecar
