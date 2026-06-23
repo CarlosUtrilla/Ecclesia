@@ -29,7 +29,14 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install dependencies
+        env:
+          PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
         run: pnpm install --no-frozen-lockfile
+
+      - name: Generate Prisma client
+        env:
+          PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
+        run: pnpm --filter @ecclesia/api db:generate
 
       - name: Build sidecar
         run: pnpm build:sidecar
