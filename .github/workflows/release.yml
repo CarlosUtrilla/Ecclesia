@@ -33,9 +33,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Copy @prisma/client to root node_modules
+        run: node -e "const fs=require('fs');const path=require('path');const src='apps/api/node_modules/@prisma/client';const dest='node_modules/@prisma/client';fs.mkdirSync(path.dirname(dest),{recursive:true});fs.cpSync(src,dest,{recursive:true,dereference:true});console.log('Copied @prisma/client to root node_modules')"
+
       - name: Generate Prisma client
         env:
-          NODE_PATH: ${{ github.workspace }}\node_modules
           PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
         run: npx prisma generate --schema=apps/api/prisma/schema.prisma
 
