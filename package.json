@@ -32,7 +32,7 @@
     "lint": "pnpm --filter @ecclesia/desktop lint",
     "typecheck": "pnpm --filter @ecclesia/desktop typecheck",
     "format": "prettier --write .",
-    "postinstall": "pnpm --filter @ecclesia/api db:generate",
+    "postinstall": "node -e \"if(!process.env.CI)require('child_process').execSync('pnpm --filter @ecclesia/api db:generate',{stdio:'inherit'})\"",
     "seed": "pnpm ts-node apps/api/prisma/seed.ts",
     "db:reset": "pnpm --filter @ecclesia/desktop db:reset",
     "db:backup": "pnpm --filter @ecclesia/desktop db:backup",
