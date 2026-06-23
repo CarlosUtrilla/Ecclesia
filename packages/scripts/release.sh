@@ -77,8 +77,17 @@ node -e "
 "
 echo -e "  ${GREEN}Sincronizado tauri.conf.json${RESET}"
 
+# Sincronizar en Cargo.toml
+node -e "
+  const fs = require('fs');
+  let cargo = fs.readFileSync('./apps/tauri/src-tauri/Cargo.toml', 'utf8');
+  cargo = cargo.replace(/^version = \".*?\"/m, 'version = \"' + '$NEW' + '\"');
+  fs.writeFileSync('./apps/tauri/src-tauri/Cargo.toml', cargo);
+"
+echo -e "  ${GREEN}Sincronizado Cargo.toml${RESET}"
+
 # Commit y tag
-git add package.json apps/desktop/package.json apps/tauri/package.json apps/tauri/src-tauri/tauri.conf.json
+git add package.json apps/desktop/package.json apps/tauri/package.json apps/tauri/src-tauri/tauri.conf.json apps/tauri/src-tauri/Cargo.toml
 git commit -m "chore: release v$NEW"
 
 TAG="v$NEW"
@@ -113,6 +122,15 @@ echo ""
 echo -e "  -> Build del sidecar API"
 pnpm --filter @ecclesia/api build:sidecar
 echo -e "  ${GREEN}✓ Sidecar compilado${RESET}"
+
+# Limpiar builds anteriores
+echo ""
+echo -e "  -> Limpiando builds anteriores..."
+rm -rf apps/tauri/src-tauri/target/release/bundle
+rm -rf apps/tauri/src-tauri/sidecar-deps
+mkdir -p apps/tauri/src-tauri/sidecar-deps
+touch apps/tauri/src-tauri/sidecar-deps/.gitkeep
+echo -e "  ${GREEN}✓ Build anterior limpiado${RESET}"
 
 # Clave privada para firma de updates (opcional)
 if [[ -z "$TAURI_SIGNING_PRIVATE_KEY" ]]; then
@@ -213,8 +231,12 @@ echo ""
 
 # ─── Subir a GitHub Release ───────────────────────────────────────────────────
 read -p "  ¿Subir artefactos a GitHub Release? (s/N): " UPLOAD
+UPLOAD=$(echo "$UPLOAD" | tr '[:upper:]' '[:lower:]')
+echo ""
 
-if [[ "$UPLOAD" == "s" || "$UPLOAD" == "S" ]]; then
+if [[ "$UPLOAD" = "s" || "$UPLOAD" = "si" || "$UPLOAD" = "sí" ]]; then
+  echo -e "  Iniciando subida a GitHub Release..."
+
   if ! command -v gh >/dev/null 2>&1; then
     echo -e "${RED}✗ GitHub CLI (gh) no instalado. 'brew install gh'${RESET}"
     exit 1
@@ -225,27 +247,25 @@ if [[ "$UPLOAD" == "s" || "$UPLOAD" == "S" ]]; then
     exit 1
   fi
 
-  # Buscar artefactos en el bundle de Tauri
-  BUNDLE_DIR="apps/tauri/src-tauri/target/release/bundle"
+  echo -e "  gh autenticado correctamente"
+
+  # Buscar artefactos en el bundle de Tauri (cada target tiene su subdirectorio)
+  BUNDLE_BASE="apps/tauri/src-tauri/target"
   RELEASE_FILES=()
 
-  # macOS .dmg
-  for dmg in "$BUNDLE_DIR"/dmg/*.dmg; do
-    [[ -f "$dmg" ]] && RELEASE_FILES+=("$dmg")
+  for f in "$BUNDLE_BASE"/*/release/bundle/dmg/*_${NEW#v}_*.dmg; do
+    [[ -f "$f" ]] && RELEASE_FILES+=("$f")
   done
-
-  # Windows .exe/.msi
-  for exe in "$BUNDLE_DIR"/nsis/*.exe; do
-    [[ -f "$exe" ]] && RELEASE_FILES+=("$exe")
+  for f in "$BUNDLE_BASE"/*/release/bundle/nsis/*_${NEW#v}_*.exe; do
+    [[ -f "$f" ]] && RELEASE_FILES+=("$f")
   done
-
-  # Update manifests (latest.json)
-  for manifest in "$BUNDLE_DIR"/**/latest.json; do
-    [[ -f "$manifest" ]] && RELEASE_FILES+=("$manifest")
+  for f in "$BUNDLE_BASE"/*/release/bundle/**/latest.json; do
+    [[ -f "$f" ]] && RELEASE_FILES+=("$f")
   done
 
   if [[ ${#RELEASE_FILES[@]} -eq 0 ]]; then
-    echo -e "${RED}✗ No se encontraron artefactos en $BUNDLE_DIR${RESET}"
+    echo -e "${RED}✗ No se encontraron artefactos en $BUNDLE_BASE${RESET}"
+    echo -e "  Busca manualmente con: find apps/tauri/src-tauri/target -name '*.dmg' -o -name '*.exe'"
     exit 1
   fi
 
@@ -259,6 +279,7 @@ if [[ "$UPLOAD" == "s" || "$UPLOAD" == "S" ]]; then
     git push origin "$TAG"
   fi
 
+  echo -e "  Subiendo ${#RELEASE_FILES[@]} artefactos..."
   if gh release view "$TAG" >/dev/null 2>&1; then
     gh release upload "$TAG" "${RELEASE_FILES[@]}" --clobber
   else

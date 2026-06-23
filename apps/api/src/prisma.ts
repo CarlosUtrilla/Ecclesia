@@ -6,8 +6,13 @@ import { getResourcesPath } from './config'
 let prisma: PrismaClient | null = null
 export const outboxContext = new AsyncLocalStorage<{ skipOutbox: boolean }>()
 
-let getBiblesResourcesPathImpl: () => string = () =>
-  path.join(getResourcesPath(), 'bibles')
+let getBiblesResourcesPathImpl: () => string = () => {
+  const resourcesPath = getResourcesPath()
+  const sidecarPath = path.join(resourcesPath, 'sidecar-deps', 'bibles')
+  const fs = require('fs')
+  if (fs.existsSync(sidecarPath)) return sidecarPath
+  return path.join(resourcesPath, 'bibles')
+}
 
 export function setGetBiblesResourcesPath(fn: () => string): void {
   getBiblesResourcesPathImpl = fn

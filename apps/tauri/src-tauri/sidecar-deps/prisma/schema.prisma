@@ -1,0 +1,301 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows", "darwin-arm64", "darwin"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Song {
+  id        Int       @id @default(autoincrement())
+  title     String
+  author    String?
+  copyright String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  lyrics    String    @default("[]")
+  fullText  String    @default("") // Campo para búsqueda de texto completo
+}
+
+model TagSongs {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  shortName String    @unique
+  shortCut  String    @unique
+  color     String // Color en formato HEX o nombre de color CSS
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model Font {
+  id        Int       @id @default(autoincrement())
+  name      String
+  fileName  String
+  filePath  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+}
+
+model Themes {
+  id                          Int                        @id @default(autoincrement())
+  name                        String                     @unique
+  background                  String // Color, gradient, o "media" si usa backgroundMedia
+  backgroundVideoLoop         Boolean                    @default(true) // Si el fondo de video se repite al finalizar
+  backgroundMediaId           Int? // ID del medio (imagen/video) usado como fondo
+  backgroundMedia             Media?                     @relation(fields: [backgroundMediaId], references: [id])
+  textStyle                   String // JSON con StyleSheet para el texto
+  animationSettings           String                     @default("{\"type\":\"fade\",\"duration\":0.4,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con configuración completa
+  transitionSettings          String                     @default("{\"type\":\"fade\",\"duration\":0.4,\"delay\":0,\"easing\":\"easeInOut\"}") // JSON string con transición al cambiar de tema
+  previewImage                String
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  deletedAt                   DateTime?
+  biblePresentationSettings   BiblePresentationSettings? @relation(fields: [biblePresentationSettingsId], references: [id])
+  useDefaultBibleSettings     Boolean                    @default(true)
+  biblePresentationSettingsId Int?
+  stageScreenConfigs          StageScreenConfig[]        @relation("StageScreenTheme")
+}
+
+enum SettingOptions {
+  SALES_DAILY            @map("goals.daily")
+  SALES_MONTHLY          @map("goals.monthly")
+  LOGO_FALLBACK_MEDIA_ID @map("logo.fallback.mediaId")
+  LOGO_FALLBACK_COLOR    @map("logo.fallback.color")
+  BIBLE_LIVE_CHUNK_MODE  @map("bible.live.chunkMode")
+}
+
+model Setting {
+  id        Int            @id @default(autoincrement())
+  key       SettingOptions @unique
+  value     String // lo guardas como JSON string si necesitas objetos
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Media {
+  id        Int       @id @default(autoincrement())
+  name      String
+  type      MediaType // 'image' o 'video'
+  format    String // webp, png, jpg, gif, mp4, webm, etc.
+  filePath  String    @unique // Ruta relativa al directorio de datos de la app
+  fileSize  Int // Tamaño en bytes
+  width     Int? // Ancho en píxeles (opcional)
+  height    Int? // Alto en píxeles (opcional)
+  duration  Float? // Duración en segundos (solo para videos)
+  thumbnail String? // Ruta a miniatura generada (segundo 1.5 para videos)
+  fallback  String? // Ruta a imagen de fallback (frame inicial para videos)
+  folder    String? // Ruta de carpeta para organizar medios (ej: "Navidad/2025" o null para raíz)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relación inversa con Themes
+  themesUsingAsBackground Themes[]
+}
+
+model Presentation {
+  id        Int       @id @default(autoincrement())
+  title     String
+  slides    String    @default("[]")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+enum TestamentEnum {
+  Old
+  New
+}
+
+model BibleSchema {
+  id         Int           @id @default(autoincrement())
+  book       String
+  book_id    Int
+  book_short String
+  testament  TestamentEnum
+  chapter    BibleVerses[]
+  updatedAt  DateTime      @default(now()) @updatedAt
+}
+
+model BibleVerses {
+  id            Int          @id @default(autoincrement())
+  chapter       Int
+  verses        Int
+  bibleSchema   BibleSchema? @relation(fields: [bibleSchemaId], references: [id])
+  bibleSchemaId Int?
+  updatedAt     DateTime     @default(now()) @updatedAt
+}
+
+enum BibleDescriptionMode {
+  short
+  complete
+}
+
+enum BibleDescriptionPosition {
+  beforeText
+  afterText
+  underText
+  overText
+  upScreen
+  downScreen
+}
+
+model BiblePresentationSettings {
+  id              Int                      @id @default(autoincrement())
+  description     BibleDescriptionMode     @default(complete)
+  position        BibleDescriptionPosition @default(underText)
+  showVersion     Boolean                  @default(true)
+  showVerseNumber Boolean                  @default(false)
+  isGlobal        Boolean                  @default(false)
+  positionStyle   Float?
+  chunkMaxLength  String                   @default("auto")
+  defaultTheme    Int?
+  themes          Themes[]
+  updatedAt       DateTime                 @default(now()) @updatedAt
+}
+
+model Schedule {
+  id        Int            @id @default(autoincrement())
+  title     String
+  dateFrom  DateTime?
+  dateTo    DateTime?
+  items     ScheduleItem[]
+  updatedAt DateTime       @default(now()) @updatedAt
+  deletedAt DateTime?
+}
+
+model ScheduleGroupTemplate {
+  id        Int       @id @default(autoincrement())
+  name      String
+  color     String
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+}
+
+enum ScheduleItemType {
+  BIBLE
+  SONG
+  MEDIA
+  PRESENTATION
+  GROUP
+}
+
+model ScheduleItem {
+  id         String           @unique
+  /**
+   * El campo order es global dentro del schedule.
+   */
+  order      Int
+  type       ScheduleItemType
+  /**
+   * accessData almacena el id del recurso:
+   * - Para BIBLE, SONG, MEDIA, PRESENTATION: el id del recurso correspondiente.
+   * - Para GROUP: el id del ScheduleGroupTemplate.
+   */
+  accessData String
+  scheduleId Int
+  schedule   Schedule         @relation(fields: [scheduleId], references: [id])
+  updatedAt  DateTime         @default(now()) @updatedAt
+  deletedAt  DateTime?
+}
+
+enum ScreenRol {
+  LIVE_SCREEN
+  STAGE_SCREEN
+}
+
+model SelectedScreens {
+  id          Int                @id @default(autoincrement())
+  screenId    BigInt             @unique
+  screenName  String
+  rol         ScreenRol?
+  stageConfig StageScreenConfig?
+  updatedAt   DateTime           @default(now()) @updatedAt
+}
+
+model StageScreenConfig {
+  id               Int             @id @default(autoincrement())
+  selectedScreenId Int             @unique
+  selectedScreen   SelectedScreens @relation(fields: [selectedScreenId], references: [id], onDelete: Cascade)
+  themeId          Int?
+  theme            Themes?         @relation("StageScreenTheme", fields: [themeId], references: [id], onDelete: SetNull)
+  layout           String          @default("{\"version\":1,\"items\":[]}")
+  state            String          @default("{\"message\":null,\"timers\":[]}")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([themeId])
+}
+
+enum SyncOperation {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model SyncState {
+  id                    Int       @id @default(autoincrement())
+  workspaceId           String
+  deviceId              String
+  lastPulledAt          DateTime?
+  lastPushedAt          DateTime?
+  lastAckedChangeId     Int?
+  lastAppliedSnapshotAt DateTime? // Rastreo de cuándo se aplicó el último snapshot remoto
+  snapshotApplySequence Int       @default(0) // Contador para evitar race conditions
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([workspaceId, deviceId])
+}
+
+model SyncOutboxChange {
+  id              Int           @id @default(autoincrement())
+  workspaceId     String
+  deviceId        String
+  tableName       String
+  recordId        String
+  operation       SyncOperation
+  payload         String
+  entityUpdatedAt DateTime?
+  deletedAt       DateTime?
+  ackedAt         DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @default(now()) @updatedAt
+
+  @@index([workspaceId, deviceId, ackedAt, id])
+  @@index([workspaceId, id])
+}
+
+model SyncInboxChange {
+  id              Int           @id @default(autoincrement())
+  workspaceId     String
+  sourceDeviceId  String
+  remoteChangeId  String
+  tableName       String
+  recordId        String
+  operation       SyncOperation
+  payload         String
+  entityUpdatedAt DateTime?
+  deletedAt       DateTime?
+  appliedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @default(now()) @updatedAt
+
+  @@unique([workspaceId, sourceDeviceId, remoteChangeId])
+  @@index([workspaceId, appliedAt, id])
+}

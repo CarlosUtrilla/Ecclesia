@@ -106,11 +106,15 @@ fn wait_for_http(timeout_secs: u64) -> Result<(), String> {
 }
 
 pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
-    // Use ~/Library/Application Support/Ecclesia/ (matching Electron's app.setName('Ecclesia'))
-    // instead of the bundle-id-based path from Tauri
     let user_data_dir = if cfg!(target_os = "macos") {
         std::env::var("HOME")
             .map(|h| PathBuf::from(h).join("Library/Application Support/Ecclesia"))
+            .unwrap_or_else(|_| {
+                app.path().app_data_dir().unwrap_or_default()
+            })
+    } else if cfg!(target_os = "windows") {
+        std::env::var("APPDATA")
+            .map(|h| PathBuf::from(h).join("Ecclesia"))
             .unwrap_or_else(|_| {
                 app.path().app_data_dir().unwrap_or_default()
             })
@@ -249,6 +253,7 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
     } else {
         let mut c = Command::new("node");
         c.arg(&sidecar_path);
+        c.env("NODE_ENV", "production");
         for arg in &args {
             c.arg(arg);
         }

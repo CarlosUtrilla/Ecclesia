@@ -34,9 +34,12 @@ let prisma: PrismaClient | null = null
 const PACKAGED_DB_TEMPLATE_NAME = 'empty-prod.db'
 
 function getTemplateDbPath(isDev: boolean, cwd: string, resourcesPath: string): string {
-  return isDev
-    ? path.resolve(cwd, '..', 'api', 'prisma', PACKAGED_DB_TEMPLATE_NAME)
-    : path.join(resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+  if (isDev) {
+    return path.resolve(cwd, '..', 'api', 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+  }
+  const sidecarPath = path.join(resourcesPath, 'sidecar-deps', 'prisma', PACKAGED_DB_TEMPLATE_NAME)
+  if (fs.existsSync(sidecarPath)) return sidecarPath
+  return path.join(resourcesPath, 'prisma', PACKAGED_DB_TEMPLATE_NAME)
 }
 
 async function withTempDb<T>(dbPath: string, fn: (prisma: PrismaClient) => Promise<T>): Promise<T> {
@@ -562,17 +565,17 @@ async function runMigrations(
       prismaPath = path.resolve(cwd, '..', 'node_modules', '.bin', prismaBin)
       migrationsPath = path.resolve(cwd, '..', 'api', 'prisma', 'migrations')
     } else {
-      prismaPath = path.join(resourcesPath, 'node_modules', '.bin', prismaBin)
-      migrationsPath = path.join(resourcesPath, 'prisma', 'migrations')
+      prismaPath = path.join(resourcesPath, 'sidecar-deps', 'node_modules', '.bin', prismaBin)
+      migrationsPath = path.join(resourcesPath, 'sidecar-deps', 'prisma', 'migrations')
 
       if (!fs.existsSync(prismaPath)) {
-        prismaPath = path.join(
-          resourcesPath,
-          'app.asar.unpacked',
-          'node_modules',
-          '.bin',
-          prismaBin
-        )
+        prismaPath = path.join(resourcesPath, 'node_modules', '.bin', prismaBin)
+      }
+      if (!fs.existsSync(migrationsPath)) {
+        migrationsPath = path.join(resourcesPath, 'api', 'prisma', 'migrations')
+      }
+      if (!fs.existsSync(migrationsPath)) {
+        migrationsPath = path.join(resourcesPath, 'prisma', 'migrations')
       }
       if (!fs.existsSync(migrationsPath)) {
         migrationsPath = path.join(resourcesPath, 'app.asar.unpacked', 'prisma', 'migrations')

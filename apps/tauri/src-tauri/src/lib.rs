@@ -4,6 +4,7 @@ mod sidecar;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri_utils::config::Color;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState};
 
 use commands::*;
@@ -112,6 +113,7 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .decorations(false)
     .always_on_top(true)
     .skip_taskbar(true)
+    .background_color(Color(9, 9, 11, 255))
     .build()?;
     splash.show()?;
     println!("[Splash] Window shown, waiting for sidecar...");
@@ -194,6 +196,7 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     .inner_size(1200.0, 800.0)
     .min_inner_size(900.0, 600.0)
     .maximized(true)
+    .background_color(Color(9, 9, 11, 255))
     .disable_drag_drop_handler()
     .build()?;
     let _ = app_handle.emit("sidecar-ready", true);
