@@ -10,6 +10,12 @@ use tauri::{AppHandle, Manager};
 fn find_sidecar(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     // 1. Sidecar bundled as Tauri resource
     let resource_dir = app.path().resource_dir().ok()?;
+    // Production: sidecar lives inside sidecar-deps/ subdirectory (tauri.conf.json resource mapping)
+    let bundled_path = resource_dir.join("sidecar-deps").join("sidecar.js");
+    if bundled_path.exists() {
+        return Some(bundled_path);
+    }
+    // Legacy: sidecar directly at resource root
     let resource_path = resource_dir.join("sidecar.js");
     if resource_path.exists() {
         return Some(resource_path);
@@ -144,14 +150,24 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
         .is_ok()
         {
             eprintln!("[Sidecar] Stale process on port {}, killing and restarting", SIDECAR_PORT);
-            let _ = std::process::Command::new("lsof")
-                .args(["-t", "-i", &format!(":{}", SIDECAR_PORT)])
-                .output()
-                .and_then(|out| {
-                    let pid = String::from_utf8_lossy(&out.stdout);
-                    std::process::Command::new("kill").args(["-9", pid.trim()]).output()
-                });
-            std::thread::sleep(Duration::from_millis(300));
+            #[cfg(unix)]
+            {
+                let _ = std::process::Command::new("lsof")
+                    .args(["-t", "-i", &format!(":{}", SIDECAR_PORT)])
+                    .output()
+                    .and_then(|out| {
+                        let pid = String::from_utf8_lossy(&out.stdout);
+                        std::process::Command::new("kill").args(["-9", pid.trim()]).output()
+                    });
+                std::thread::sleep(Duration::from_millis(300));
+            }
+            #[cfg(target_os = "windows")]
+            {
+                let _ = std::process::Command::new("netstat")
+                    .args(["-ano",])
+                    .output();
+                std::thread::sleep(Duration::from_millis(1000));
+            }
         }
     } else {
         // In production, check if a healthy server is already running
@@ -226,8 +242,9 @@ pub fn spawn_sidecar(app: &AppHandle) -> Result<Option<Child>, String> {
         let sidecar_path = find_sidecar(app).ok_or_else(|| {
             format!(
                 "Sidecar not found. Build it first: pnpm -C apps/api build:sidecar\n\
-                 Searched in: {:?}",
-                resource_dir.join("sidecar.js")
+                 Searched in: {:?} and {:?}",
+                resource_dir.join("sidecar.js"),
+                resource_dir.join("sidecar-deps").join("sidecar.js")
             )
         })?;
         (sidecar_path.to_string_lossy().to_string(), false)

@@ -14,15 +14,23 @@ pub struct MemoryInfo {
 }
 
 fn get_process_rss_kb(pid: u32) -> u64 {
-    let output = std::process::Command::new("ps")
-        .args(["-o", "rss=", "-p", &pid.to_string()])
-        .output();
-    match output {
-        Ok(out) => {
-            let s = String::from_utf8_lossy(&out.stdout);
-            s.trim().parse().unwrap_or(0)
+    #[cfg(unix)]
+    {
+        let output = std::process::Command::new("ps")
+            .args(["-o", "rss=", "-p", &pid.to_string()])
+            .output();
+        match output {
+            Ok(out) => {
+                let s = String::from_utf8_lossy(&out.stdout);
+                s.trim().parse().unwrap_or(0)
+            }
+            Err(_) => 0,
         }
-        Err(_) => 0,
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        0
     }
 }
 
@@ -30,6 +38,7 @@ fn get_process_rss_kb(pid: u32) -> u64 {
 pub fn get_memory_usage() -> MemoryInfo {
     let app_pid = std::process::id();
 
+    #[cfg(unix)]
     let sidecar_pid: u32 = std::process::Command::new("lsof")
         .args(["-t", "-i", ":7777"])
         .output()
@@ -41,6 +50,9 @@ pub fn get_memory_usage() -> MemoryInfo {
                 .and_then(|s| s.parse().ok())
         })
         .unwrap_or(0);
+
+    #[cfg(not(unix))]
+    let sidecar_pid: u32 = 0;
 
     let app_kb = get_process_rss_kb(app_pid);
     let sidecar_kb = if sidecar_pid > 0 {
