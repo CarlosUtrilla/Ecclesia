@@ -7,14 +7,6 @@
   "homepage": "https://github.com/CarlosUtrilla/Ecclesia",
   "license": "UNLICENSED",
   "packageManager": "pnpm@11.3.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "sharp",
-      "@prisma/client",
-      "prisma"
-    ]
-  },
   "workspaces": {
     "packages": [
       "packages/*",
