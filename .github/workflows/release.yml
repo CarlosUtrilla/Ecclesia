@@ -38,13 +38,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Install @prisma/client at root
-        run: pnpm add -w @prisma/client
-
       - name: Generate Prisma client
         env:
           PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
-        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
+        working-directory: apps/api
+        run: npx prisma generate --schema=prisma/schema.prisma
 
       - name: Build sidecar
         run: pnpm build:sidecar
