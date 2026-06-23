@@ -35,6 +35,7 @@ jobs:
 
       - name: Generate Prisma client
         env:
+          NODE_PATH: ${{ github.workspace }}\node_modules
           PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
         run: npx prisma generate --schema=apps/api/prisma/schema.prisma
 
