@@ -32,9 +32,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Generate Prisma client
-        env:
-          PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
-        run: pnpm --filter @ecclesia/api db:generate
+        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
 
       - name: Build sidecar
         run: pnpm build:sidecar

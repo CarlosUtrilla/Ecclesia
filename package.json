@@ -34,6 +34,7 @@
     "bible:reset-schema": "sqlite3 apps/api/prisma/dev.db \"DELETE FROM BibleVerses; DELETE FROM BibleSchema; DELETE FROM sqlite_sequence WHERE name='BibleVerses' OR name='BibleSchema';\" && rm -f ~/Library/Application\\ Support/ecclesia/bibles/.schema-initialized && echo '✅ Tablas de biblia vaciadas, IDs reiniciados y marcador eliminado'"
   },
   "devDependencies": {
+    "@prisma/client": "^6.19.3",
     "prettier": "^3.6.2",
     "prisma": "^6.12.0",
     "tsx": "^4.22.4",
