@@ -38,6 +38,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Install @prisma/client at root
+        run: pnpm add -w @prisma/client
+
       - name: Generate Prisma client
         env:
           PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'
