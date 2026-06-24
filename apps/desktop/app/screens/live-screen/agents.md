@@ -38,6 +38,11 @@ Modulo encargado de la ventana de proyeccion en vivo y su sincronizacion por IPC
 - Salida UI:
   - `PresentationView` con `themeTransitionKey` para controlar transiciones.
 
+## Visibilidad de la página en Tauri
+
+- En la ventana live real (`isPreview = false`) se sobreescriben `document.hidden` y `document.visibilityState` para que siempre reporten `visible`, y se bloquea el evento `visibilitychange`.
+- Esto evita que WKWebView (Tauri) pause la reproducción de video cuando la ventana live pierde el foco y el sistema la trata como "fondo".
+
 ## Logo / Pantalla de fondo (fallback)
 
 - Solo se aplica en la ventana de proyeccion live real (`isPreview = false`). En previews dentro de la app no se renderiza.

@@ -399,6 +399,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 * Los items de biblioteca (songs, media, bible) se agregan al cronograma por drag & drop o acciones directas (click/context menu), usando los métodos del contexto (`addItemToSchedule`, etc.).
 * Ver detalles y flujos completos en los agents de cada módulo.
 * Controles de emergencia en live desde teclado del operador: `F7` (activar live), `F9` (ocultar texto solo en live), `F10` (mostrar logo/fallback sin quitar item), `F11` (pantalla negra). `Escape` limpia el item live localmente sin capturar la tecla a nivel del sistema.
+* Las ventanas `live-screen` y `stage-screen` de Tauri deshabilitan `background_throttling` (`BackgroundThrottlingPolicy::Disabled`), se configuran `minimizable=false`, `maximizable=false`, `visible_on_all_workspaces=true`, `accept_first_mouse=true` y, en macOS, usan fullscreen nativo (`set_fullscreen(true)`) en lugar de emular `simpleFullscreen`. Esto crea un Space propio en el monitor externo, evitando que WKWebView suspenda la reproducción cuando la ventana principal tiene el foco. Se devuelve el foco a la ventana principal después de abrir, igual que hace Electron.
 * Las diapositivas de PresentationEditor pueden persistir `backgroundColor` opcional para sobrescribir el fondo por slide sin romper el tema global ni el render de `PresentationView`.
 
 ```tsx

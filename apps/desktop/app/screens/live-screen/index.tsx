@@ -64,6 +64,42 @@ export default function LiveScreen({
   const hadLiveItemRef = useRef(false)
   const fallbackDelayTimeoutRef = useRef<number | null>(null)
 
+  // En Tauri/WKWebView la ventana live puede perder el foco y el sistema tratarla
+  // como "fondo", lo que pausa la reproducción de video. Forzamos a que la página
+  // se vea siempre visible para evitar ese pausado automático.
+  useEffect(() => {
+    if (isPreview) return
+
+    const overrideVisibility = () => {
+      try {
+        Object.defineProperty(document, 'hidden', {
+          get: () => false,
+          configurable: true
+        })
+        Object.defineProperty(document, 'visibilityState', {
+          get: () => 'visible',
+          configurable: true
+        })
+      } catch {
+        // ignore
+      }
+    }
+    overrideVisibility()
+    console.log('[LiveScreen] visibility override hidden=', document.hidden, 'state=', document.visibilityState)
+
+    const blockVisibilityChange = (e: Event) => {
+      console.log('[LiveScreen] blocked visibilitychange')
+      e.stopImmediatePropagation()
+    }
+    window.addEventListener('visibilitychange', blockVisibilityChange, true)
+    document.addEventListener('visibilitychange', blockVisibilityChange, true)
+
+    return () => {
+      window.removeEventListener('visibilitychange', blockVisibilityChange, true)
+      document.removeEventListener('visibilitychange', blockVisibilityChange, true)
+    }
+  }, [isPreview])
+
   // Carga la configuración de logo/fallback al montar
   useEffect(() => {
     if (!shouldApplyFallback) return
@@ -141,7 +177,7 @@ export default function LiveScreen({
       }
     }
     // Evitar que Escape saque la ventana live de fullscreen (comportamiento por
-    // defecto del navegador/Tauri). El control de Escape vive en la ventana principal.
+    // defecto del navegador/Tauri).
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()

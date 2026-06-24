@@ -3,7 +3,7 @@ import type { Media } from '@ecclesia/api'
 import { Api } from '@ecclesia/queries'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { getMediaType } from '@/lib/utils'
-import { CSSProperties, memo, useId, useLayoutEffect, useMemo, useRef } from 'react'
+import { CSSProperties, memo, useEffect, useId, useLayoutEffect, useMemo, useRef } from 'react'
 
 type MediaRenderProps = {
   currentItem: PresentationViewItems
@@ -66,6 +66,19 @@ function MediaRenderComponent({
       }
     }
   }, [currentItem.customStyle])
+  // Log periódico para diagnosticar si el video avanza o se congela.
+  useEffect(() => {
+    if (!live || type !== 'video') return
+    const intervalId = window.setInterval(() => {
+      const video = videoRef.current
+      if (!video) return
+      console.log(
+        `[MediaRender tick] paused=${video.paused} ended=${video.ended} currentTime=${video.currentTime.toFixed(2)} readyState=${video.readyState}`
+      )
+    }, 1000)
+    return () => window.clearInterval(intervalId)
+  }, [live, type, currentItem.id])
+
   // Sincronización de media: escuchar eventos desde el controlador
   useLayoutEffect(() => {
     if (!live || type !== 'video') return
@@ -101,6 +114,7 @@ function MediaRenderComponent({
     const unsubscribe = Api.socket.listen.liveMediaState((state) => {
       const video = videoRef.current
       lastPlayStateRef.current = state
+      console.log('[MediaRender liveMediaState]', state)
       if (!video) return
 
       if (state.volume !== undefined) {
@@ -163,6 +177,29 @@ function MediaRenderComponent({
           }
           return null
         }
+        const logVideo = (label: string, extra?: unknown) => {
+          const video = videoRef.current
+          if (!video) return
+          console.log(
+            `[MediaRender ${label}] paused=${video.paused} ended=${video.ended} currentTime=${video.currentTime.toFixed(2)} readyState=${video.readyState}`,
+            extra
+          )
+        }
+
+        const handleNativePause = () => {
+          const video = videoRef.current
+          if (!video || !live) return
+          const last = lastPlayStateRef.current
+          logVideo('native pause', { lastAction: last?.action, loop: shouldLoop })
+          // Si el sistema pausa el video sin que hayamos recibido un comando de
+          // pausa (por ejemplo, al perder foco en WKWebView), lo reanudamos.
+          // Si el video llegó al final y no hace loop, no lo reanudamos.
+          if (!video.ended && (!last || last.action !== 'pause')) {
+            logVideo('auto-resume')
+            video.play().catch((err) => logVideo('auto-resume failed', err))
+          }
+        }
+
         return (
           <video
             ref={videoRef}
@@ -174,6 +211,9 @@ function MediaRenderComponent({
             loop={shouldLoop}
             playsInline
             preload="auto"
+            onPlay={() => logVideo('native play')}
+            onPause={handleNativePause}
+            onEnded={() => logVideo('native ended')}
           />
         )
       } else {

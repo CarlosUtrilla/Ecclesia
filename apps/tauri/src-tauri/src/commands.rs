@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_utils::config::BackgroundThrottlingPolicy;
 
 use crate::AppState;
 
@@ -136,8 +137,8 @@ fn build_label(prefix: &str, display_id: u32) -> String {
 
 // Aplica la configuración final de una ventana de presentación (live/stage).
 // En macOS usamos un "simple fullscreen" simulado: ventana sin decoraciones,
-// del tamaño del monitor y siempre visible, con nivel por encima de la menu bar,
-// para no crear un Space nuevo como hace el fullscreen nativo de macOS.
+// del tamaño del monitor y siempre visible, con nivel por encima de la menu bar
+// para cubrir el Dock y la menu bar sin crear un Space nuevo.
 // En otras plataformas usamos fullscreen nativo.
 #[cfg(target_os = "macos")]
 fn finish_presentation_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> Result<(), String> {
@@ -200,11 +201,17 @@ pub async fn open_live_window(
     .always_on_top(true)
     .resizable(false)
     .skip_taskbar(true)
+    .minimizable(false)
+    .maximizable(false)
+    .visible_on_all_workspaces(true)
+    .accept_first_mouse(true)
+    .background_throttling(BackgroundThrottlingPolicy::Disabled)
     .build()
     .map_err(|e| e.to_string())?;
 
-    window.show().map_err(|e| e.to_string())?;
     finish_presentation_window(&window)?;
+    window.show().map_err(|e| e.to_string())?;
+    let _ = window.set_focus();
 
     // Devolver el foco a la ventana principal, como hace Electron.
     let app_clone = app.clone();
@@ -258,12 +265,19 @@ pub async fn open_stage_window(
     .always_on_top(true)
     .resizable(false)
     .skip_taskbar(true)
+    .minimizable(false)
+    .maximizable(false)
+    .visible_on_all_workspaces(true)
+    .accept_first_mouse(true)
+    .background_throttling(BackgroundThrottlingPolicy::Disabled)
     .build()
     .map_err(|e| e.to_string())?;
 
-    window.show().map_err(|e| e.to_string())?;
     finish_presentation_window(&window)?;
+    window.show().map_err(|e| e.to_string())?;
+    let _ = window.set_focus();
 
+    // Devolver el foco a la ventana principal, como hace Electron.
     let app_clone = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(250));
