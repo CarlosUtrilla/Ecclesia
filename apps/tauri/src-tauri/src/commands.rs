@@ -152,6 +152,15 @@ pub async fn open_live_window(
     let label = build_label("live", display.id);
     let (width, height, x, y) = display_bounds(&display);
 
+    // Si ya existe una ventana live para este display, reutilizarla en lugar de
+    // fallar con "label already exists".
+    if let Some(window) = app.get_webview_window(&label) {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_fullscreen(true).map_err(|e| e.to_string())?;
+        let _ = app.emit("live-window-opened", &display);
+        return Ok(());
+    }
+
     let window = WebviewWindowBuilder::new(
         &app,
         &label,
@@ -183,6 +192,13 @@ pub async fn open_stage_window(
 ) -> Result<(), String> {
     let label = build_label("stage", display.id);
     let (width, height, x, y) = display_bounds(&display);
+
+    if let Some(window) = app.get_webview_window(&label) {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_fullscreen(true).map_err(|e| e.to_string())?;
+        let _ = app.emit("stage-window-opened", &display);
+        return Ok(());
+    }
 
     let window = WebviewWindowBuilder::new(
         &app,
