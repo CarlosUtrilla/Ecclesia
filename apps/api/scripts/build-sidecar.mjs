@@ -20,7 +20,6 @@ await esbuild.build({
     'bufferutil',
     'utf-8-validate',
     'font-list',
-    'google-auth-library',
   ],
   format: 'cjs',
   sourcemap: true,
