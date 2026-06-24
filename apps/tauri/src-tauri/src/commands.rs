@@ -381,6 +381,10 @@ pub async fn close_all_screens(app: tauri::AppHandle) -> Result<(), String> {
         }
     }
 
+    // Notificar a la ventana principal para que actualice showLiveScreen, como
+    // hace el displayManager de Electron.
+    let _ = app.emit("all-screens-closed", ());
+
     Ok(())
 }
 
