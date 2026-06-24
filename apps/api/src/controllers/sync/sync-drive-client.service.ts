@@ -27,6 +27,14 @@ export class DriveClientService {
     )
   }
 
+  private getClientSecret(): string {
+    return (
+      process.env.GOOGLE_DRIVE_CLIENT_SECRET ||
+      process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_SECRET ||
+      ''
+    )
+  }
+
   private createOAuthClient(redirectUri?: string) {
     const clientId = this.getClientId()
     if (!clientId) {
@@ -34,14 +42,15 @@ export class DriveClientService {
         'Falta la variable de entorno GOOGLE_DRIVE_CLIENT_ID para OAuth de Google Drive'
       )
     }
-    // PKCE para apps de escritorio: no se requiere client_secret.
-    // Loopback redirects (http://127.0.0.1:PORT) no necesitan pre-registro en Google Cloud.
-    // El cliente de Google Cloud DEBE ser de tipo "Aplicación de escritorio" (Desktop app)
-    // para que Google acepte requests sin client_secret.
+    // PKCE para apps de escritorio. Si no hay client_secret, forzamos
+    // clientAuthentication: 'None' para evitar que google-auth-library envie
+    // un secret vacio que Google rechaza.
+    const clientSecret = this.getClientSecret()
     return new OAuth2Client({
       clientId,
+      clientSecret,
       redirectUri: redirectUri || 'urn:ietf:wg:oauth:2.0:oob',
-      clientAuthentication: 'None' as any
+      clientAuthentication: clientSecret ? undefined : ('None' as any)
     })
   }
 

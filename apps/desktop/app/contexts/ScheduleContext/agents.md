@@ -30,7 +30,7 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
     - Mantiene controles de emergencia de proyección (`hideTextOnLive`, `showLogoOnLive`, `blackScreenOnLive`) y los sincroniza por IPC en payload parcial de `liveScreen-update`.
     - Al ejecutar `showItemOnLiveScreen(item)` sin índice explícito, reinicia `itemIndex` a `0` para que todo nuevo recurso arranque desde la primera diapositiva/fragmento y no herede el índice del recurso anterior.
     - Se separa el envío de `liveScreen-update` en dos efectos: uno para `itemIndex/contentScreen/presentationVerseBySlideKey` y otro para `liveControls`, evitando reenviar contenido completo cuando solo cambian controles.
-    - Atajos globales del operador:
+    - Atajos del operador (F7/F9/F10/F11 globales; Escape local a la ventana):
       - `F7`: abre/activa ventanas live.
       - `F9`: alterna ocultar texto solo en live (no afecta preview).
       - `F10`: alterna mostrar logo/fallback sin quitar el item del cronograma.

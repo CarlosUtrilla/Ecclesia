@@ -398,7 +398,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 * La carpeta `packages/desktop/app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
 * Los items de biblioteca (songs, media, bible) se agregan al cronograma por drag & drop o acciones directas (click/context menu), usando los métodos del contexto (`addItemToSchedule`, etc.).
 * Ver detalles y flujos completos en los agents de cada módulo.
-* Controles de emergencia en live desde teclado del operador: `F7` (activar live), `F9` (ocultar texto solo en live), `F10` (mostrar logo/fallback sin quitar item), `F11` (pantalla negra), `Escape` (limpiar item live sin cerrar ventana).
+* Controles de emergencia en live desde teclado del operador: `F7` (activar live), `F9` (ocultar texto solo en live), `F10` (mostrar logo/fallback sin quitar item), `F11` (pantalla negra). `Escape` limpia el item live localmente sin capturar la tecla a nivel del sistema.
 * Las diapositivas de PresentationEditor pueden persistir `backgroundColor` opcional para sobrescribir el fondo por slide sin romper el tema global ni el render de `PresentationView`.
 
 ```tsx

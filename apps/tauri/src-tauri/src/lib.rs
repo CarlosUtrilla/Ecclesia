@@ -217,7 +217,9 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let shortcuts = app.global_shortcut();
-    for key in &["F7", "F9", "F10", "F11", "Escape"] {
+    // Escape se maneja localmente en el renderer para no capturar la tecla
+    // en todas las aplicaciones del sistema.
+    for key in &["F7", "F9", "F10", "F11"] {
         let handler = move |h: &tauri::AppHandle, s: &Shortcut, e: ShortcutEvent| {
             if e.state == ShortcutState::Pressed {
                 let msg = match s.to_string().as_str() {
