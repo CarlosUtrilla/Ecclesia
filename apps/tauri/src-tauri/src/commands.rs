@@ -134,6 +134,36 @@ fn build_label(prefix: &str, display_id: u32) -> String {
     format!("{}-{}", prefix, display_id)
 }
 
+// Aplica la configuración final de una ventana de presentación (live/stage).
+// En macOS usamos un "simple fullscreen" simulado: ventana sin decoraciones,
+// del tamaño del monitor, siempre visible y con nivel por encima de la menu bar,
+// para no crear un Space nuevo como hace el fullscreen nativo de macOS.
+// En otras plataformas usamos fullscreen nativo.
+#[cfg(target_os = "macos")]
+#[allow(unexpected_cfgs)]
+fn finish_presentation_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> Result<(), String> {
+    use objc::runtime::Object;
+    use objc::{msg_send, sel, sel_impl};
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    window.set_always_on_top(true).map_err(|e| e.to_string())?;
+    unsafe {
+        if let Ok(handle) = window.window_handle() {
+            if let RawWindowHandle::AppKit(appkit) = handle.as_raw() {
+                let ns_view = appkit.ns_view.as_ptr() as *mut Object;
+                let ns_window: *mut Object = msg_send![ns_view, window];
+                let () = msg_send![ns_window, setLevel: 1000isize];
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn finish_presentation_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> Result<(), String> {
+    window.set_fullscreen(true).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn open_live_window(
     app: tauri::AppHandle,
@@ -153,7 +183,7 @@ pub async fn open_live_window(
             ))
             .map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
-        window.set_fullscreen(true).map_err(|e| e.to_string())?;
+        finish_presentation_window(&window)?;
         let _ = app.emit("live-window-opened", &display);
         return Ok(display.id);
     }
@@ -172,8 +202,9 @@ pub async fn open_live_window(
     .build()
     .map_err(|e| e.to_string())?;
 
-    // Posicionar en píxeles físicos del monitor objetivo y luego fullscreen,
-    // replicando el flujo de Electron.
+    // Posicionar en píxeles físicos del monitor objetivo y aplicar fullscreen
+    // simple en macOS (sin crear un Space nuevo) o fullscreen nativo en otras
+    // plataformas, replicando el comportamiento de Electron.
     window
         .set_position(tauri::PhysicalPosition::new(display.x, display.y))
         .map_err(|e| e.to_string())?;
@@ -184,7 +215,7 @@ pub async fn open_live_window(
         ))
         .map_err(|e| e.to_string())?;
     window.show().map_err(|e| e.to_string())?;
-    window.set_fullscreen(true).map_err(|e| e.to_string())?;
+    finish_presentation_window(&window)?;
 
     // Devolver el foco a la ventana principal, como hace Electron.
     let app_clone = app.clone();
@@ -218,7 +249,7 @@ pub async fn open_stage_window(
             ))
             .map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
-        window.set_fullscreen(true).map_err(|e| e.to_string())?;
+        finish_presentation_window(&window)?;
         let _ = app.emit("stage-window-opened", &display);
         return Ok(display.id);
     }
@@ -247,7 +278,7 @@ pub async fn open_stage_window(
         ))
         .map_err(|e| e.to_string())?;
     window.show().map_err(|e| e.to_string())?;
-    window.set_fullscreen(true).map_err(|e| e.to_string())?;
+    finish_presentation_window(&window)?;
 
     let app_clone = app.clone();
     std::thread::spawn(move || {
