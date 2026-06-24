@@ -57,7 +57,8 @@ const getStoredSyncSettings = (): SyncSettingsForm => {
 const OAUTH_REDIRECT_URI = 'http://127.0.0.1:7777/oauth-redirect'
 
 function isTauri() {
-  return typeof window !== 'undefined' && '__TAURI__' in window
+  // En Tauri el shim expone openOAuthWindow; en Electron no existe.
+  return typeof window !== 'undefined' && !!window.electron?.openOAuthWindow
 }
 
 async function openOAuthWindow(url: string) {
