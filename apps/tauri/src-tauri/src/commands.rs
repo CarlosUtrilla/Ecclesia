@@ -130,16 +130,6 @@ pub async fn get_displays(app: tauri::AppHandle) -> Result<Vec<DisplayInfo>, Str
     Ok(displays)
 }
 
-fn display_bounds(
-    display: &DisplayInfo,
-) -> (f64, f64, f64, f64) {
-    let width = display.width as f64;
-    let height = display.height as f64;
-    let x = display.x as f64;
-    let y = display.y as f64;
-    (width, height, x, y)
-}
-
 fn build_label(prefix: &str, display_id: u32) -> String {
     format!("{}-{}", prefix, display_id)
 }
@@ -150,11 +140,18 @@ pub async fn open_live_window(
     display: DisplayInfo,
 ) -> Result<u32, String> {
     let label = build_label("live", display.id);
-    let (width, height, x, y) = display_bounds(&display);
 
-    // Si ya existe una ventana live para este display, reutilizarla en lugar de
-    // fallar con "label already exists".
+    // Si ya existe una ventana live para este display, reutilizarla y reposicionarla.
     if let Some(window) = app.get_webview_window(&label) {
+        window
+            .set_position(tauri::PhysicalPosition::new(display.x, display.y))
+            .map_err(|e| e.to_string())?;
+        window
+            .set_size(tauri::PhysicalSize::new(
+                display.width as u32,
+                display.height as u32,
+            ))
+            .map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
         window.set_fullscreen(true).map_err(|e| e.to_string())?;
         let _ = app.emit("live-window-opened", &display);
@@ -167,8 +164,7 @@ pub async fn open_live_window(
         WebviewUrl::App(format!("index.html#/live-screen/{}", display.id).into()),
     )
     .title(format!("Live - {}", display.name))
-    .position(x as f64, y as f64)
-    .inner_size(width, height)
+    .visible(false)
     .decorations(false)
     .always_on_top(true)
     .resizable(false)
@@ -176,10 +172,29 @@ pub async fn open_live_window(
     .build()
     .map_err(|e| e.to_string())?;
 
-    // Crear en la posición del display objetivo y luego poner fullscreen,
-    // para que macOS/Tauri abra la ventana en el monitor correcto.
+    // Posicionar en píxeles físicos del monitor objetivo y luego fullscreen,
+    // replicando el flujo de Electron.
+    window
+        .set_position(tauri::PhysicalPosition::new(display.x, display.y))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_size(tauri::PhysicalSize::new(
+            display.width as u32,
+            display.height as u32,
+        ))
+        .map_err(|e| e.to_string())?;
     window.show().map_err(|e| e.to_string())?;
     window.set_fullscreen(true).map_err(|e| e.to_string())?;
+
+    // Devolver el foco a la ventana principal, como hace Electron.
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        if let Some(main) = app_clone.get_webview_window("main") {
+            let _ = main.set_focus();
+            let _ = main.show();
+        }
+    });
 
     let _ = app.emit("live-window-opened", &display);
     Ok(display.id)
@@ -191,9 +206,17 @@ pub async fn open_stage_window(
     display: DisplayInfo,
 ) -> Result<u32, String> {
     let label = build_label("stage", display.id);
-    let (width, height, x, y) = display_bounds(&display);
 
     if let Some(window) = app.get_webview_window(&label) {
+        window
+            .set_position(tauri::PhysicalPosition::new(display.x, display.y))
+            .map_err(|e| e.to_string())?;
+        window
+            .set_size(tauri::PhysicalSize::new(
+                display.width as u32,
+                display.height as u32,
+            ))
+            .map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
         window.set_fullscreen(true).map_err(|e| e.to_string())?;
         let _ = app.emit("stage-window-opened", &display);
@@ -206,8 +229,7 @@ pub async fn open_stage_window(
         WebviewUrl::App(format!("index.html#/stage-screen/{}", display.id).into()),
     )
     .title(format!("Stage - {}", display.name))
-    .position(x as f64, y as f64)
-    .inner_size(width, height)
+    .visible(false)
     .decorations(false)
     .always_on_top(true)
     .resizable(false)
@@ -215,8 +237,26 @@ pub async fn open_stage_window(
     .build()
     .map_err(|e| e.to_string())?;
 
+    window
+        .set_position(tauri::PhysicalPosition::new(display.x, display.y))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_size(tauri::PhysicalSize::new(
+            display.width as u32,
+            display.height as u32,
+        ))
+        .map_err(|e| e.to_string())?;
     window.show().map_err(|e| e.to_string())?;
     window.set_fullscreen(true).map_err(|e| e.to_string())?;
+
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        if let Some(main) = app_clone.get_webview_window("main") {
+            let _ = main.set_focus();
+            let _ = main.show();
+        }
+    });
 
     let _ = app.emit("stage-window-opened", &display);
     Ok(display.id)
@@ -298,6 +338,10 @@ pub async fn open_presentation_window(
 #[tauri::command]
 pub async fn close_screen_window(app: tauri::AppHandle, label: String) -> Result<bool, String> {
     if let Some(window) = app.get_webview_window(&label) {
+        // Salir de fullscreen y quitar always-on-top antes de cerrar,
+        // como hace el displayManager de Electron.
+        let _ = window.set_fullscreen(false);
+        let _ = window.set_always_on_top(false);
         window.close().map_err(|e| e.to_string())?;
         Ok(true)
     } else {
@@ -316,6 +360,8 @@ pub async fn close_all_screens(app: tauri::AppHandle) -> Result<(), String> {
 
     for label in screen_labels {
         if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.set_fullscreen(false);
+            let _ = window.set_always_on_top(false);
             window.close().map_err(|e| e.to_string())?;
         }
     }
