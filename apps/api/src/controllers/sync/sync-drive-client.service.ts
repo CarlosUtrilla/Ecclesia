@@ -25,15 +25,16 @@ export class DriveClientService {
     )
   }
 
-  private createOAuthClient() {
+  private createOAuthClient(redirectUri?: string) {
     const clientId = this.getClientId()
     if (!clientId) {
       throw new Error(
         'Falta la variable de entorno GOOGLE_DRIVE_CLIENT_ID para OAuth de Google Drive'
       )
     }
-    // PKCE para apps de escritorio: no se requiere client_secret
-    return new google.auth.OAuth2(clientId, '', 'urn:ietf:wg:oauth:2.0:oob')
+    // PKCE para apps de escritorio: no se requiere client_secret.
+    // Loopback redirects (http://127.0.0.1:PORT) no necesitan pre-registro en Google Cloud.
+    return new google.auth.OAuth2(clientId, '', redirectUri || 'urn:ietf:wg:oauth:2.0:oob')
   }
 
   private generatePKCE() {
@@ -42,8 +43,8 @@ export class DriveClientService {
     return { verifier, challenge }
   }
 
-  getAuthUrl(): string {
-    this.pendingOAuthClient = this.createOAuthClient()
+  getAuthUrl(redirectUri?: string): string {
+    this.pendingOAuthClient = this.createOAuthClient(redirectUri)
     const { verifier, challenge } = this.generatePKCE()
     this.pendingCodeVerifier = verifier
 

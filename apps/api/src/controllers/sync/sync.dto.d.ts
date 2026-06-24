@@ -189,6 +189,10 @@ export type ExchangeOAuthCodeDTO = {
   code: string
 }
 
+export type SyncAuthUrlDTO = {
+  redirectUri?: string
+}
+
 export type SyncRemoteDriveDataDTO = {
   fetchedAt: string
   workspaceId: string

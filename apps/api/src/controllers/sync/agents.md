@@ -59,16 +59,19 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
 - Tests de integración ligera en `sync.service.integration.test.ts` validan flujos completos `ingest -> pending -> apply` y `append -> pending -> ack` con estado en memoria para detectar regresiones de orquestación entre inbox/outbox/syncState.
 - La suite integration-lite cubre además casos base multi-dispositivo: altas independientes (A canción / B tema), conflicto diferido sobre el mismo tema y eliminación remota idempotente sobre registro ya inexistente.
 
-## Autenticación OAuth (PKCE)
+## Autenticación OAuth (PKCE + loopback redirect)
 
 - `sync-drive-client.service.ts` usa **PKCE** (Proof Key for Code Exchange) para apps de escritorio, por lo que **no requiere `GOOGLE_DRIVE_CLIENT_SECRET`**.
 - Solo se necesita `GOOGLE_DRIVE_CLIENT_ID` (variable pública por diseño en OAuth 2.0).
-- Flujo:
-  1. `connect()` → genera URL de auth con `code_challenge` y retorna `{ authUrl }`.
-  2. El frontend abre la URL y captura el `code` de redirect.
-  3. `exchangeOAuthCode({ code })` canjea el código usando el `code_verifier` almacenado en memoria durante el paso 1.
-  4. Los tokens se persisten en `{userData}/sync/google-drive-token.json`.
-- El `code_verifier` se descarta tras el exchange. Si el sidecar se reinicia entre pasos 1 y 3, el usuario debe reiniciar el flujo.
+- El flujo usa **loopback redirect** aprovechando el propio sidecar:
+  1. El frontend guarda la configuración con `configure()` y pide la URL de auth con `getAuthUrl({ redirectUri: 'http://127.0.0.1:7777/oauth-redirect' })`.
+  2. El backend genera la URL con PKCE (`code_challenge` + `code_verifier` en memoria) y el `redirect_uri` loopback.
+  3. El frontend abre la URL en el navegador del sistema (Tauri vía `@tauri-apps/plugin-shell`, Electron vía `window.open` interceptado por el main process).
+  4. Tras autorizar, Google redirige a `GET http://127.0.0.1:7777/oauth-redirect?code=...`.
+  5. El sidecar captura el `code`, lo canjea con `driveClientService.exchangeAuthCode(code)` usando el `code_verifier` almacenado en memoria, persiste los tokens en `{userData}/sync/google-drive-token.json` y emite el evento Socket.IO `oauthComplete`.
+  6. El frontend recibe `oauthComplete`, refresca el estado con `getStatus()` y muestra la cuenta conectada.
+- El `code_verifier` se descarta tras el exchange. Si el sidecar se reinicia entre pasos 2 y 5, el usuario debe reiniciar el flujo.
+- El endpoint `GET /oauth-redirect` vive en `apps/api/src/index.ts` y responde HTML amigable (éxito o error) para que el usuario cierre la pestaña del navegador.
 
 ## Ubicación
 

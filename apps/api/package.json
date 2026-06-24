@@ -10,7 +10,10 @@
     "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
     "build:sidecar": "node scripts/build-sidecar.mjs",
     "start:sidecar": "node dist/sidecar.js",
-    "dev:sidecar": "NODE_ENV=development npx tsx src/standalone.ts"
+    "dev:sidecar": "NODE_ENV=development npx tsx src/standalone.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "bin": {
     "ecclesia-sidecar": "./dist/sidecar.js"
@@ -35,13 +38,15 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "@types/cors": "^2.8.19",
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
     "@types/fs-extra": "^11.0.4",
     "@types/multer": "^2.1.0",
-    "esbuild": "^0.25.12",
-    "prisma": "^6.12.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.8.3"
+    "@types/node": "^22.14.1",
+    "@vitest/coverage-v8": "^4.0.18",
+    "esbuild": "^0.25.3",
+    "prisma": "6.19.3",
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.18"
   }
 }

@@ -10,7 +10,8 @@ import {
   SyncStateDTO,
   UpsertSyncStateDTO,
   SyncConfigDTO,
-  ExchangeOAuthCodeDTO
+  ExchangeOAuthCodeDTO,
+  SyncAuthUrlDTO
 } from './sync.dto'
 import SyncService from './sync.service'
 import { driveClientService } from './sync-drive-client.service'
@@ -116,6 +117,11 @@ class SyncController {
     }
     await writeJson(getConfigFilePath(), config)
     const authUrl = driveClientService.getAuthUrl()
+    return { authUrl }
+  }
+
+  async getAuthUrl({ body }: RequestHandler<SyncAuthUrlDTO>): Promise<{ authUrl: string }> {
+    const authUrl = driveClientService.getAuthUrl(body.redirectUri)
     return { authUrl }
   }
 

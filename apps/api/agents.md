@@ -133,6 +133,20 @@ src/
 │   └── decimal.ts     # Serializacion Decimal/Date para IPC
 ```
 
+## Testing
+
+El paquete `@ecclesia/api` tiene su propia configuración de Vitest:
+
+- Config: `apps/api/vitest.config.ts`
+- Comandos: `pnpm --filter @ecclesia/api test` / `test:watch` / `test:coverage`
+- Incluye todos los archivos `src/**/*.test.ts`.
+
+### Convenciones
+
+- Tests unitarios junto al módulo: `service.ts` → `service.test.ts`.
+- Tests de controller validan delegación de payload/respuesta con mocks de servicios.
+- Tests de servicios usan Prisma en memoria o mocks según corresponda.
+
 ## Standalone sidecar
 
 La API puede ejecutarse como un proceso Node.js independiente (sidecar), consumido via HTTP + Socket.IO. Esta modalidad reemplaza el IPC de Electron y es la base para la migración a Tauri.

@@ -40,11 +40,12 @@ Ecclesia es una aplicacion de escritorio (Tauri + React + TypeScript) para plani
 > **REGLA CRÍTICA:** Toda nueva función de utilidad, hook, controller, servicio o componente con lógica no trivial DEBE incluir tests. No se acepta código sin tests cuando la lógica puede verificarse. Esto aplica tanto a código nuevo como a modificaciones significativas de código existente.
 
 - Comandos disponibles:
-  - `npm run test`
-  - `npm run test:watch`
-  - `npm run test:coverage`
-- Configuracion central: `packages/desktop/vitest.config.ts`.
-- Setup global de matchers: `tests/setup/vitest.setup.ts`.
+  - Desktop: `npm run test` / `npm run test:watch` / `npm run test:coverage`
+  - API: `pnpm --filter @ecclesia/api test` / `test:watch` / `test:coverage`
+- Configuraciones:
+  - Desktop: `apps/desktop/vitest.config.ts`
+  - API: `apps/api/vitest.config.ts`
+- Setup global de matchers desktop: `tests/setup/vitest.setup.ts`.
 - Para pruebas de componentes/DOM usar `// @vitest-environment jsdom` en el archivo de test.
 - Priorizar cobertura de seguridad en utilidades críticas (ej. sanitización HTML) y regresiones de lógica en módulos compartidos.
 

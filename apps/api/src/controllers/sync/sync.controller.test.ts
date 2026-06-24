@@ -36,6 +36,26 @@ vi.mock('./sync.service', () => ({
   default: SyncServiceCtorMock
 }))
 
+const { driveClientMethods, driveClientServiceMock } = vi.hoisted(() => {
+  const methods = {
+    getAuthUrl: vi.fn(),
+    exchangeAuthCode: vi.fn()
+  }
+  return {
+    driveClientMethods: methods,
+    driveClientServiceMock: { driveClientService: methods }
+  }
+})
+
+vi.mock('./sync-drive-client.service', () => ({
+  driveClientService: driveClientServiceMock.driveClientService
+}))
+
+vi.mock('./sync.utils', () => ({
+  readJsonSafe: vi.fn(),
+  writeJson: vi.fn()
+}))
+
 import SyncController from './sync.controller'
 
 describe('SyncController', () => {
@@ -125,10 +145,35 @@ describe('SyncController', () => {
       const expectedResponse = { ok: true, method: testCase.serviceMethod }
       serviceMethods[testCase.serviceMethod].mockResolvedValueOnce(expectedResponse)
 
-      const result = await (controller as any)[testCase.controllerMethod](testCase.payload)
+      const result = await (controller as any)[testCase.controllerMethod]({ body: testCase.payload })
 
       expect(serviceMethods[testCase.serviceMethod]).toHaveBeenCalledWith(testCase.payload)
       expect(result).toEqual(expectedResponse)
     }
+  })
+
+  describe('OAuth Drive', () => {
+    it('getAuthUrl delega en driveClientService.getAuthUrl con redirectUri', async () => {
+      const controller = new SyncController()
+      const expectedUrl = 'https://accounts.google.com/oauth?redirect=loopback'
+      driveClientMethods.getAuthUrl.mockReturnValueOnce(expectedUrl)
+
+      const result = await (controller as any).getAuthUrl({
+        body: { redirectUri: 'http://127.0.0.1:7777/oauth-redirect' }
+      })
+
+      expect(driveClientMethods.getAuthUrl).toHaveBeenCalledWith('http://127.0.0.1:7777/oauth-redirect')
+      expect(result).toEqual({ authUrl: expectedUrl })
+    })
+
+    it('exchangeOAuthCode delega en driveClientService.exchangeAuthCode y persiste tokens', async () => {
+      const controller = new SyncController()
+      driveClientMethods.exchangeAuthCode.mockResolvedValueOnce({ email: 'test@example.com' })
+
+      const result = await (controller as any).exchangeOAuthCode({ body: { code: 'abc123' } })
+
+      expect(driveClientMethods.exchangeAuthCode).toHaveBeenCalledWith('abc123')
+      expect(result).toEqual({ success: true, email: 'test@example.com' })
+    })
   })
 })

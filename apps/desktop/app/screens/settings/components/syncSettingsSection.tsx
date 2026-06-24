@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { AlertCircle, CheckCircle2, Download, Link2, Upload } from 'lucide-react'
@@ -54,10 +54,23 @@ const getStoredSyncSettings = (): SyncSettingsForm => {
   }
 }
 
+const OAUTH_REDIRECT_URI = 'http://127.0.0.1:7777/oauth-redirect'
+
+async function openBrowser(url: string) {
+  if (typeof window !== 'undefined' && '__TAURI__' in window) {
+    const { open } = await import('@tauri-apps/plugin-shell')
+    await open(url)
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
 export default function SyncSettingsSection() {
   const [status, setStatus] = useState<SyncStatus | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isAwaitingOAuth, setIsAwaitingOAuth] = useState(false)
+  const isAwaitingOAuthRef = useRef(false)
   const [syncProgress, setSyncProgress] = useState(0)
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
@@ -85,31 +98,31 @@ export default function SyncSettingsSection() {
   }
 
   const handleConnectGoogleDrive = syncForm.handleSubmit(async (values) => {
+    if (isAwaitingOAuth) return
     setIsProcessing(true)
+    setIsAwaitingOAuth(true)
     setStatusMessage('Abriendo autenticación de Google...')
     try {
-      persistSyncSettings(values)
-      await Api.fetch.sync.connect({ body: {
-        enabled: values.enabled,
-        workspaceId: values.workspaceId,
-        deviceName: values.deviceName,
-        conflictStrategy: values.conflictStrategy,
-        primaryDeviceName: values.primaryDeviceName,
-        autoOnStart: values.autoOnStart,
-        autoEvery5Min: values.autoEvery5Min,
-        autoOnSave: values.autoOnSave,
-        autoOnClose: values.autoOnClose
-      }})
-      await refreshStatus()
-      setStatusMessage('Google Drive conectado correctamente')
+      await persistSyncSettings(values)
+      const { authUrl } = await Api.fetch.sync.getAuthUrl({
+        body: { redirectUri: OAUTH_REDIRECT_URI }
+      })
+      await openBrowser(authUrl)
+      setStatusMessage('Se abrió una pestaña en tu navegador. Autorizá a Ecclesia para continuar.')
     } catch (error) {
+      setIsAwaitingOAuth(false)
+      setIsProcessing(false)
       setStatusMessage(
         error instanceof Error ? error.message : 'No se pudo conectar con Google Drive'
       )
-    } finally {
-      setIsProcessing(false)
     }
   })
+
+  const handleCancelOAuth = () => {
+    setIsAwaitingOAuth(false)
+    setIsProcessing(false)
+    setStatusMessage('Autenticación cancelada')
+  }
 
   const handleSyncNow = syncForm.handleSubmit(async (values) => {
     if (!status?.connected) {
@@ -214,6 +227,28 @@ export default function SyncSettingsSection() {
         setIsSyncing(true)
         setSyncProgress(data.progress)
         if (data.message) setSyncMessage(data.message)
+      }
+    })
+
+    return () => unsub()
+  }, [])
+
+  // Mantener ref actualizada para no perder eventos OAuth entre renders
+  useEffect(() => {
+    isAwaitingOAuthRef.current = isAwaitingOAuth
+  }, [isAwaitingOAuth])
+
+  // Escuchar finalización del OAuth enviada por el sidecar
+  useEffect(() => {
+    const unsub = Api.socket.listen.oauthComplete(async (data) => {
+      if (!isAwaitingOAuthRef.current) return
+      setIsAwaitingOAuth(false)
+      setIsProcessing(false)
+      if (data.success) {
+        await refreshStatus()
+        setStatusMessage(`Conectado con ${data.email || 'Google Drive'}`)
+      } else {
+        setStatusMessage(data.error || 'Error en autenticación de Google')
       }
     })
 
@@ -350,10 +385,11 @@ export default function SyncSettingsSection() {
       <CardFooter className="justify-end gap-2 mt-2">
         <Button
           variant="outline"
-          disabled={isProcessing || isSyncing || (!status?.connected && !isSyncEnabled)}
-          onClick={status?.connected ? handleDisconnect : handleConnectGoogleDrive}
+          disabled={isSyncing || (!status?.connected && !isSyncEnabled && !isAwaitingOAuth)}
+          onClick={status?.connected ? handleDisconnect : isAwaitingOAuth ? handleCancelOAuth : handleConnectGoogleDrive}
         >
-          <Link2 className="size-4" /> {status?.connected ? 'Desconectar' : 'Conectar Google'}
+          <Link2 className="size-4" />{' '}
+          {status?.connected ? 'Desconectar' : isAwaitingOAuth ? 'Cancelar' : 'Conectar Google'}
         </Button>
         <Button
           variant="outline"

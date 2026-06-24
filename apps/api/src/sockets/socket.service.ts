@@ -7,6 +7,7 @@ let _socket: ApiSocketShape | null = null
 export interface SocketEventMap {
   // API → Frontend
   syncProgress: { progress: number; message: string; error?: boolean }
+  oauthComplete: { success: boolean; email?: string; error?: string }
   songCreated: void
   bibleImported: void
   scheduleChanged: void

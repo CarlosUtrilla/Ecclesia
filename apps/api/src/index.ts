@@ -17,8 +17,11 @@ import {
 import { setUserDataPath } from './config'
 import { routes } from './routes'
 import { log } from './utils/logger'
-import { setSocketIO } from './sockets/socket.service'
+import { setSocketIO, getSocket } from './sockets/socket.service'
 import { registerSocketHandlers } from './sockets/socket-handlers'
+import { driveClientService } from './controllers/sync/sync-drive-client.service'
+import { getTokenFilePath } from './controllers/sync/sync.config'
+import { writeJson } from './controllers/sync/sync.utils'
 
 export async function initializeHttpServer(config?: DatabaseConfig, serverPort?: number) {
   const app = express()
@@ -68,6 +71,54 @@ export async function initializeHttpServer(config?: DatabaseConfig, serverPort?:
     socket.on('disconnect', () => {
       log.info(`[Socket.IO] Cliente desconectado: ${socket.id}`)
     })
+  })
+
+  // OAuth redirect handler para Google Drive loopback flow.
+  // El frontend abre el authUrl con redirect_uri=http://127.0.0.1:PORT/oauth-redirect;
+  // Google redirige aquí, el sidecar canjea el code y notifica a la UI por Socket.IO.
+  app.get('/oauth-redirect', async (req, res) => {
+    const code = req.query.code as string | undefined
+    const error = req.query.error as string | undefined
+
+    const sendHtml = (title: string, message: string, isError = false) => {
+      const color = isError ? '#dc2626' : '#16a34a'
+      res.send(`<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${title}</title>
+  </head>
+  <body style="font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;padding:40px 20px;">
+    <h1 style="color:${color};margin-bottom:12px;">${title}</h1>
+    <p style="margin-bottom:8px;max-width:480px;margin-left:auto;margin-right:auto;">${message}</p>
+    <p style="color:#6b7280;font-size:14px;">Podés cerrar esta pestaña.</p>
+  </body>
+</html>`)
+    }
+
+    if (error) {
+      getSocket().emit.oauthComplete({ success: false, error })
+      return sendHtml('Error de autorización', `Google respondió: ${error}`, true)
+    }
+
+    if (!code) {
+      getSocket().emit.oauthComplete({ success: false, error: 'No se recibió el código de autorización' })
+      return sendHtml('Error de autorización', 'No se recibió el código de autorización.', true)
+    }
+
+    try {
+      const tokens = await driveClientService.exchangeAuthCode(code)
+      await writeJson(getTokenFilePath(), tokens)
+      const email = tokens.email as string | undefined
+      getSocket().emit.oauthComplete({ success: true, email })
+      return sendHtml('Autenticación completada', `Ecclesia se conectó con ${email || 'Google Drive'}.`)
+    } catch (err: any) {
+      const message = err?.message || 'Error al canjear el código de autorización'
+      log.error('[OAuth] Error intercambiando code por tokens:', message)
+      getSocket().emit.oauthComplete({ success: false, error: message })
+      return sendHtml('Error de autorización', message, true)
+    }
   })
 
   server.listen(port, () => {
