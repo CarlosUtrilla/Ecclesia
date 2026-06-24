@@ -8,6 +8,7 @@ export interface SocketEventMap {
   // API → Frontend
   syncProgress: { progress: number; message: string; error?: boolean }
   oauthComplete: { success: boolean; email?: string; error?: string }
+  oauthCodeCaptured: { code?: string; error?: string }
   songCreated: void
   bibleImported: void
   scheduleChanged: void

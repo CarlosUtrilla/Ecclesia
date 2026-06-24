@@ -35,7 +35,7 @@ app/screens/settings/
 - La ventana se abre desde `window.windowAPI.openSettingsWindow()`.
 - Electron carga la ruta hash `/settings` usando `createSettingsWindow()`.
 - El modo de color guardado se aplica globalmente en `app/main.tsx` para todas las ventanas.
-- La sección de sincronización usa `Api.fetch.sync.*` (HTTP directo vía `@ecclesia/queries`) para conectarse y disparar `push/pull` del pipeline diferencial.
+- La sección de sincronización usa `Api.fetch.sync.*` (HTTP directo vía `@ecclesia/queries`) para conectarse y disparar `push/pull` del pipeline diferencial. En Tauri se invoca `window.electron.openOAuthWindow(authUrl)` para mostrar la autorización de Google en una ventana embebida; en Electron se abre el navegador del sistema y el sidecar recibe el redirect.
 - **El botón "Subir" hace reconcile automático** antes del push: ejecuta `Api.fetch.sync.reconcile()` y luego `Api.fetch.sync.push()`, para indexar estado actual (incluyendo cambios históricos) y subirlo a Google Drive sin pasos manuales adicionales.
 - **Diagnóstico y Reparación**: sección separada con dos botones:
   - **"Diagnosticar"** → llama `Api.fetch.sync.diagnose()` que ejecuta `diagnoseSyncIssues()` en la API. Compara archivos locales vs manifest remoto y muestra un resumen con conteos de archivos OK, por subir, por descargar, huérfanos y eliminados. Incluye un detalle colapsable con la lista de archivos con problemas.

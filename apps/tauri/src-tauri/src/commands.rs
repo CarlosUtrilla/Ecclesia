@@ -3,6 +3,12 @@ use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::AppState;
 
+#[derive(Serialize, Clone)]
+pub struct OAuthCallbackPayload {
+    pub code: Option<String>,
+    pub error: Option<String>,
+}
+
 fn tauri_url(route: &str) -> WebviewUrl {
     WebviewUrl::App(format!("index.html#/{}", route).into())
 }
@@ -385,5 +391,53 @@ pub async fn close_app_windows(app: tauri::AppHandle) -> Result<(), String> {
     for (_, window) in app.webview_windows() {
         let _ = window.close();
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_oauth_window(
+    app: tauri::AppHandle,
+    auth_url: String,
+) -> Result<(), String> {
+    let label = "oauth";
+
+    if let Some(window) = app.get_webview_window(label) {
+        let _ = window.close();
+    }
+
+    let url: tauri::Url = auth_url
+        .parse()
+        .map_err(|e| format!("URL de auth inválida: {}", e))?;
+
+    let app_clone = app.clone();
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::External(url))
+        .title("Autenticación de Google")
+        .inner_size(500.0, 700.0)
+        .center()
+        .on_navigation(move |url| {
+            let url_str = url.to_string();
+            if url_str.starts_with("http://127.0.0.1:7777/oauth-redirect") {
+                let code = url
+                    .query_pairs()
+                    .find(|(k, _)| k == "code")
+                    .map(|(_, v)| v.to_string());
+                let error = url
+                    .query_pairs()
+                    .find(|(k, _)| k == "error")
+                    .map(|(_, v)| v.to_string());
+
+                let payload = OAuthCallbackPayload { code, error };
+                let _ = app_clone.emit("oauthCodeCaptured", payload);
+
+                if let Some(window) = app_clone.get_webview_window("oauth") {
+                    let _ = window.close();
+                }
+                return false;
+            }
+            true
+        })
+        .build()
+        .map_err(|e| e.to_string())?;
+
     Ok(())
 }

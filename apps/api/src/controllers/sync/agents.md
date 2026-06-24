@@ -59,19 +59,35 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
 - Tests de integración ligera en `sync.service.integration.test.ts` validan flujos completos `ingest -> pending -> apply` y `append -> pending -> ack` con estado en memoria para detectar regresiones de orquestación entre inbox/outbox/syncState.
 - La suite integration-lite cubre además casos base multi-dispositivo: altas independientes (A canción / B tema), conflicto diferido sobre el mismo tema y eliminación remota idempotente sobre registro ya inexistente.
 
-## Autenticación OAuth (PKCE + loopback redirect)
+## Autenticación OAuth (PKCE)
 
 - `sync-drive-client.service.ts` usa **PKCE** (Proof Key for Code Exchange) para apps de escritorio, por lo que **no requiere `GOOGLE_DRIVE_CLIENT_SECRET`**.
 - Solo se necesita `GOOGLE_DRIVE_CLIENT_ID` (variable pública por diseño en OAuth 2.0).
-- El flujo usa **loopback redirect** aprovechando el propio sidecar:
-  1. El frontend guarda la configuración con `configure()` y pide la URL de auth con `getAuthUrl({ redirectUri: 'http://127.0.0.1:7777/oauth-redirect' })`.
-  2. El backend genera la URL con PKCE (`code_challenge` + `code_verifier` en memoria) y el `redirect_uri` loopback.
-  3. El frontend abre la URL en el navegador del sistema (Tauri vía `@tauri-apps/plugin-shell`, Electron vía `window.open` interceptado por el main process).
-  4. Tras autorizar, Google redirige a `GET http://127.0.0.1:7777/oauth-redirect?code=...`.
-  5. El sidecar captura el `code`, lo canjea con `driveClientService.exchangeAuthCode(code)` usando el `code_verifier` almacenado en memoria, persiste los tokens en `{userData}/sync/google-drive-token.json` y emite el evento Socket.IO `oauthComplete`.
-  6. El frontend recibe `oauthComplete`, refresca el estado con `getStatus()` y muestra la cuenta conectada.
-- El `code_verifier` se descarta tras el exchange. Si el sidecar se reinicia entre pasos 2 y 5, el usuario debe reiniciar el flujo.
-- El endpoint `GET /oauth-redirect` vive en `apps/api/src/index.ts` y responde HTML amigable (éxito o error) para que el usuario cierre la pestaña del navegador.
+
+### Tauri — ventana OAuth in-app
+
+1. El frontend guarda la configuración con `configure()` y pide la URL de auth con `getAuthUrl({ redirectUri: 'http://127.0.0.1:7777/oauth-redirect' })`.
+2. El backend genera la URL con PKCE (`code_challenge` + `code_verifier` en memoria) y el `redirect_uri` loopback.
+3. El frontend invoca el comando Rust `open_oauth_window(authUrl)` (`apps/tauri/src-tauri/src/commands.rs`).
+4. Tauri abre una `WebviewWindow` embebida con la URL de Google.
+5. Tras autorizar, Google redirige a `http://127.0.0.1:7777/oauth-redirect?code=...`.
+6. Rust intercepta la navegación con `WebviewWindowBuilder::on_navigation`, extrae el `code`, cierra la ventana y emite `oauthCodeCaptured`.
+7. El frontend recibe `oauthCodeCaptured`, llama a `exchangeOAuthCode({ code })`, el sidecar canjea el code y persiste los tokens.
+8. El frontend refresca el estado con `getStatus()` y muestra la cuenta conectada.
+
+### Electron — navegador del sistema + sidecar redirect
+
+1-2. Igual que en Tauri.
+3. El frontend abre el navegador del sistema con `window.open(authUrl)` (interceptado por el main process de Electron).
+4. Google redirige a `GET http://127.0.0.1:7777/oauth-redirect?code=...`.
+5. El sidecar captura el `code`, lo canjea con `driveClientService.exchangeAuthCode(code)`, persiste los tokens y emite `oauthComplete`.
+6. El frontend recibe `oauthComplete` y refresca el estado.
+
+### Consideraciones
+
+- El `code_verifier` se descarta tras el exchange. Si el sidecar se reinicia entre la generación del authUrl y el canje, el usuario debe reiniciar el flujo.
+- El endpoint `GET /oauth-redirect` vive en `apps/api/src/index.ts` y responde HTML amigable; es la ruta usada por Electron.
+- `disconnect()` elimina `{userData}/sync/google-drive-token.json`, cerrando realmente la sesión.
 
 ## Ubicación
 

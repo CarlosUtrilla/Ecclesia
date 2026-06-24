@@ -56,10 +56,13 @@ const getStoredSyncSettings = (): SyncSettingsForm => {
 
 const OAUTH_REDIRECT_URI = 'http://127.0.0.1:7777/oauth-redirect'
 
-async function openBrowser(url: string) {
-  if (typeof window !== 'undefined' && '__TAURI__' in window) {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(url)
+function isTauri() {
+  return typeof window !== 'undefined' && '__TAURI__' in window
+}
+
+async function openOAuthWindow(url: string) {
+  if (isTauri()) {
+    await window.electron.openOAuthWindow(url)
   } else {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
@@ -107,8 +110,12 @@ export default function SyncSettingsSection() {
       const { authUrl } = await Api.fetch.sync.getAuthUrl({
         body: { redirectUri: OAUTH_REDIRECT_URI }
       })
-      await openBrowser(authUrl)
-      setStatusMessage('Se abrió una pestaña en tu navegador. Autorizá a Ecclesia para continuar.')
+      await openOAuthWindow(authUrl)
+      setStatusMessage(
+        isTauri()
+          ? 'Se abrió una ventana de autenticación. Autorizá a Ecclesia para continuar.'
+          : 'Se abrió una pestaña en tu navegador. Autorizá a Ecclesia para continuar.'
+      )
     } catch (error) {
       setIsAwaitingOAuth(false)
       setIsProcessing(false)
@@ -238,7 +245,34 @@ export default function SyncSettingsSection() {
     isAwaitingOAuthRef.current = isAwaitingOAuth
   }, [isAwaitingOAuth])
 
-  // Escuchar finalización del OAuth enviada por el sidecar
+  // Tauri: la ventana OAuth capturó el code y lo emitió desde Rust.
+  // El frontend debe canjearlo llamando al sidecar.
+  useEffect(() => {
+    const unsub = Api.socket.listen.oauthCodeCaptured(async (data) => {
+      if (!isAwaitingOAuthRef.current) return
+      if (data.error || !data.code) {
+        setIsAwaitingOAuth(false)
+        setIsProcessing(false)
+        setStatusMessage(data.error || 'No se recibió el código de autorización')
+        return
+      }
+      try {
+        const result = await Api.fetch.sync.exchangeOAuthCode({ body: { code: data.code } })
+        await refreshStatus()
+        setIsAwaitingOAuth(false)
+        setIsProcessing(false)
+        setStatusMessage(`Conectado con ${result.email || 'Google Drive'}`)
+      } catch (error) {
+        setIsAwaitingOAuth(false)
+        setIsProcessing(false)
+        setStatusMessage(error instanceof Error ? error.message : 'Error al canjear el código')
+      }
+    })
+
+    return () => unsub()
+  }, [])
+
+  // Electron / fallback: el sidecar recibió el redirect, canjeó el code y notifica resultado.
   useEffect(() => {
     const unsub = Api.socket.listen.oauthComplete(async (data) => {
       if (!isAwaitingOAuthRef.current) return

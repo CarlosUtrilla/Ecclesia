@@ -17,10 +17,11 @@ apps/api/src/sockets/
 
 Todos los eventos se declaran en `SocketEventMap` (`socket.service.ts`). Un solo registro habilita ambos caminos automáticamente:
 
-| Camino | Frontend | API |
+| Camino | Frontend | Emisor |
 |---|---|---|
 | API → Frontend | `Api.socket.listen.syncProgress(cb)` | `socket.emit.syncProgress(data)` |
 | API → Frontend | `Api.socket.listen.oauthComplete(cb)` | `socket.emit.oauthComplete(data)` |
+| Frontend → Frontend | `Api.socket.listen.oauthCodeCaptured(cb)` | Rust (`app.emit("oauthCodeCaptured", ...)` from Tauri main process) |
 | Frontend → API | `Api.socket.emit.startSync(data)` | `socket.on.startSync(cb)` |
 | Bidireccional (relay) | `Api.socket.emit.bibleSearch(data)` / `Api.socket.listen.bibleSearch(cb)` | `socket.on.bibleSearch((data) => socket.emit.bibleSearch(data))` |
 
@@ -30,6 +31,7 @@ Cuando el valor del mapa es `void`, el evento no transporta datos:
 export interface SocketEventMap {
   syncProgress: { progress: number; message: string; error?: boolean }
   oauthComplete: { success: boolean; email?: string; error?: string }
+  oauthCodeCaptured: { code?: string; error?: string }
   songCreated: void          // sin datos
   ping: void                 // sin datos
   bibleSearch: { version: string; bookId: number; chapter: number; verse: number }

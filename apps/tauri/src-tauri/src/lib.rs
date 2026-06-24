@@ -76,6 +76,7 @@ pub fn run() {
             close_screen_window,
             close_all_screens,
             close_app_windows,
+            open_oauth_window,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

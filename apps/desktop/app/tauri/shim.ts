@@ -80,6 +80,7 @@ if (needsShim) {
       },
     },
     getMemoryUsage: () => invoke<{ app_mb: number; sidecar_mb: number }>('get_memory_usage'),
+    openOAuthWindow: (authUrl: string) => invoke('open_oauth_window', { authUrl }),
   }
 
   const displayAPIShim = {
