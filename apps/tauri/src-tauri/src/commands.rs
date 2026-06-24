@@ -136,27 +136,12 @@ fn build_label(prefix: &str, display_id: u32) -> String {
 
 // Aplica la configuración final de una ventana de presentación (live/stage).
 // En macOS usamos un "simple fullscreen" simulado: ventana sin decoraciones,
-// del tamaño del monitor, siempre visible y con nivel por encima de la menu bar,
-// para no crear un Space nuevo como hace el fullscreen nativo de macOS.
-// En otras plataformas usamos fullscreen nativo.
+// del tamaño del monitor y siempre visible, para no crear un Space nuevo como
+// hace el fullscreen nativo de macOS. En otras plataformas usamos fullscreen
+// nativo.
 #[cfg(target_os = "macos")]
-#[allow(unexpected_cfgs)]
 fn finish_presentation_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> Result<(), String> {
-    use objc::runtime::Object;
-    use objc::{msg_send, sel, sel_impl};
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
-    window.set_always_on_top(true).map_err(|e| e.to_string())?;
-    unsafe {
-        if let Ok(handle) = window.window_handle() {
-            if let RawWindowHandle::AppKit(appkit) = handle.as_raw() {
-                let ns_view = appkit.ns_view.as_ptr() as *mut Object;
-                let ns_window: *mut Object = msg_send![ns_view, window];
-                let () = msg_send![ns_window, setLevel: 1000isize];
-            }
-        }
-    }
-    Ok(())
+    window.set_always_on_top(true).map_err(|e| e.to_string())
 }
 
 #[cfg(not(target_os = "macos"))]
