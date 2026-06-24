@@ -8,9 +8,22 @@ const configureMock = vi.fn()
 const getAuthUrlMock = vi.fn()
 const exchangeOAuthCodeMock = vi.fn()
 const disconnectMock = vi.fn()
-let oauthCodeCapturedCallback: ((data: { code?: string; error?: string }) => void) | null = null
-let oauthCompleteCallback: ((data: { success: boolean; email?: string; error?: string }) => void) | null = null
-const openOAuthWindowMock = vi.fn()
+
+const mocks = vi.hoisted(() => {
+  let oauthCodeCapturedCallback: ((data: { code?: string; error?: string }) => void) | null = null
+  let oauthCompleteCallback: ((data: { success: boolean; email?: string; error?: string }) => void) | null = null
+  return {
+    openOAuthWindowMock: vi.fn(),
+    getOauthCodeCapturedCallback: () => oauthCodeCapturedCallback,
+    setOauthCodeCapturedCallback: (cb: typeof oauthCodeCapturedCallback) => {
+      oauthCodeCapturedCallback = cb
+    },
+    getOauthCompleteCallback: () => oauthCompleteCallback,
+    setOauthCompleteCallback: (cb: typeof oauthCompleteCallback) => {
+      oauthCompleteCallback = cb
+    }
+  }
+})
 
 vi.mock('@ecclesia/queries', () => ({
   Api: {
@@ -26,12 +39,8 @@ vi.mock('@ecclesia/queries', () => ({
     socket: {
       listen: {
         syncProgress: vi.fn(() => vi.fn()),
-        oauthCodeCaptured: vi.fn((cb: (data: { code?: string; error?: string }) => void) => {
-          oauthCodeCapturedCallback = cb
-          return vi.fn()
-        }),
         oauthComplete: vi.fn((cb: (data: { success: boolean; email?: string; error?: string }) => void) => {
-          oauthCompleteCallback = cb
+          mocks.setOauthCompleteCallback(cb)
           return vi.fn()
         })
       }
@@ -39,18 +48,28 @@ vi.mock('@ecclesia/queries', () => ({
   }
 }))
 
+vi.mock('@/lib/platformBridge', () => ({
+  platformBridge: {
+    openOAuthWindow: mocks.openOAuthWindowMock,
+    listen: vi.fn((_event: string, cb: (data: unknown) => void) => {
+      if (_event === 'oauthCodeCaptured') {
+        mocks.setOauthCodeCapturedCallback(cb as (data: { code?: string; error?: string }) => void)
+      }
+      return Promise.resolve(() => {})
+    }),
+    ipcRenderer: { on: vi.fn(() => vi.fn()), send: vi.fn(), invoke: vi.fn() },
+    getMemoryUsage: vi.fn()
+  },
+  isTauriOAuthAvailable: () => true
+}))
+
 import SyncSettingsSection from './syncSettingsSection'
 
 describe('SyncSettingsSection', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    oauthCodeCapturedCallback = null
-    oauthCompleteCallback = null
-
-    vi.stubGlobal('__TAURI__', {})
-    vi.stubGlobal('electron', {
-      openOAuthWindow: openOAuthWindowMock
-    })
+    mocks.setOauthCodeCapturedCallback(null)
+    mocks.setOauthCompleteCallback(null)
 
     localStorage.clear()
   })
@@ -85,7 +104,7 @@ describe('SyncSettingsSection', () => {
     })
 
     await waitFor(() => {
-      expect(openOAuthWindowMock).toHaveBeenCalledWith('https://accounts.google.com/oauth?test=1')
+      expect(mocks.openOAuthWindowMock).toHaveBeenCalledWith('https://accounts.google.com/oauth?test=1')
     })
   })
 
@@ -115,9 +134,9 @@ describe('SyncSettingsSection', () => {
     const connectButton = await screen.findByRole('button', { name: /Conectar Google/i })
     await userEvent.click(connectButton)
 
-    await waitFor(() => expect(openOAuthWindowMock).toHaveBeenCalled())
+    await waitFor(() => expect(mocks.openOAuthWindowMock).toHaveBeenCalled())
 
-    oauthCodeCapturedCallback?.({ code: 'abc123' })
+    mocks.getOauthCodeCapturedCallback()?.({ code: 'abc123' })
 
     await waitFor(() => expect(exchangeOAuthCodeMock).toHaveBeenCalledWith({ body: { code: 'abc123' } }))
     await waitFor(() => expect(getStatusMock).toHaveBeenCalledTimes(2))
@@ -143,9 +162,9 @@ describe('SyncSettingsSection', () => {
     const connectButton = await screen.findByRole('button', { name: /Conectar Google/i })
     await userEvent.click(connectButton)
 
-    await waitFor(() => expect(openOAuthWindowMock).toHaveBeenCalled())
+    await waitFor(() => expect(mocks.openOAuthWindowMock).toHaveBeenCalled())
 
-    oauthCodeCapturedCallback?.({ error: 'El usuario canceló el permiso' })
+    mocks.getOauthCodeCapturedCallback()?.({ error: 'El usuario canceló el permiso' })
 
     expect(await screen.findByText(/El usuario canceló el permiso/i)).toBeInTheDocument()
   })
@@ -175,9 +194,9 @@ describe('SyncSettingsSection', () => {
     const connectButton = await screen.findByRole('button', { name: /Conectar Google/i })
     await userEvent.click(connectButton)
 
-    await waitFor(() => expect(openOAuthWindowMock).toHaveBeenCalled())
+    await waitFor(() => expect(mocks.openOAuthWindowMock).toHaveBeenCalled())
 
-    oauthCompleteCallback?.({ success: true, email: 'test@example.com' })
+    mocks.getOauthCompleteCallback()?.({ success: true, email: 'test@example.com' })
 
     await waitFor(() => expect(getStatusMock).toHaveBeenCalledTimes(2))
     expect(await screen.findByText(/Conectado con test@example.com/i)).toBeInTheDocument()

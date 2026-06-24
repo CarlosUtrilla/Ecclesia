@@ -1,10 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { platformBridge, isTauriOAuthAvailable } from './platformBridge'
 
+const { listenMock } = vi.hoisted(() => ({ listenMock: vi.fn() }))
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: listenMock
+}))
+
 describe('platformBridge', () => {
   let originalWindow: typeof window
 
   beforeEach(() => {
+    vi.resetAllMocks()
     originalWindow = globalThis.window as unknown as typeof window
   })
 
@@ -84,5 +91,33 @@ describe('platformBridge', () => {
       electron: {}
     })
     expect(isTauriOAuthAvailable()).toBe(false)
+  })
+
+  it('debería escuchar eventos de Tauri cuando está disponible', async () => {
+    const callback = vi.fn()
+    const tauriUnlisten = vi.fn()
+    listenMock.mockResolvedValue(tauriUnlisten)
+    vi.stubGlobal('window', {
+      electron: { openOAuthWindow: vi.fn() }
+    })
+
+    const cleanup = await platformBridge.listen('oauthCodeCaptured', callback)
+
+    expect(listenMock).toHaveBeenCalledWith('oauthCodeCaptured', expect.any(Function))
+    expect(typeof cleanup).toBe('function')
+
+    // Simular que Tauri dispara el evento con payload
+    const tauriWrapper = listenMock.mock.calls[0][1] as (event: { payload: unknown }) => void
+    tauriWrapper({ payload: { code: 'abc' } })
+    expect(callback).toHaveBeenCalledWith({ code: 'abc' })
+  })
+
+  it('debería retornar no-op listen cuando no está en Tauri', async () => {
+    vi.stubGlobal('window', { electron: {} })
+
+    const cleanup = await platformBridge.listen('oauthCodeCaptured', () => {})
+
+    expect(listenMock).not.toHaveBeenCalled()
+    expect(typeof cleanup).toBe('function')
   })
 })

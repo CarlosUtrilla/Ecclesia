@@ -74,6 +74,8 @@ function getBridge(): PlatformBridgeShape {
   }
 }
 
+export type TauriEventListener<T = unknown> = (payload: T) => void
+
 export const platformBridge = {
   ipcRenderer: {
     on: <T = unknown>(channel: string, listener: IpcTypedListener<T>) =>
@@ -84,7 +86,28 @@ export const platformBridge = {
       getBridge().ipcRenderer.invoke(channel, ...args)
   },
   getMemoryUsage: () => getBridge().getMemoryUsage(),
-  openOAuthWindow: (authUrl: string) => getBridge().openOAuthWindow(authUrl)
+  openOAuthWindow: (authUrl: string) => getBridge().openOAuthWindow(authUrl),
+  /**
+   * Escucha un evento nativo de Tauri. En Electron o entornos sin Tauri retorna un cleanup no-op.
+   * Usar exclusivamente para eventos que emite el main process de Tauri (ej. oauthCodeCaptured).
+   */
+  listen: async <T = unknown>(
+    event: string,
+    callback: TauriEventListener<T>
+  ): Promise<() => void> => {
+    if (typeof window === 'undefined' || !isTauriOAuthAvailable()) {
+      return () => {}
+    }
+    try {
+      const { listen } = await import('@tauri-apps/api/event')
+      return await listen(event, (event) => {
+        callback(event.payload as T)
+      })
+    } catch (error) {
+      console.warn(`[PlatformBridge] No se pudo escuchar el evento ${event}:`, error)
+      return () => {}
+    }
+  }
 }
 
 export function isTauriOAuthAvailable(): boolean {

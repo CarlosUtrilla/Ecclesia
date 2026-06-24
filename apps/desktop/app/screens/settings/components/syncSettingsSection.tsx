@@ -246,28 +246,33 @@ export default function SyncSettingsSection() {
   // Tauri: la ventana OAuth capturó el code y lo emitió desde Rust.
   // El frontend debe canjearlo llamando al sidecar.
   useEffect(() => {
-    const unsub = Api.socket.listen.oauthCodeCaptured(async (data) => {
-      if (!isAwaitingOAuthRef.current) return
-      if (data.error || !data.code) {
-        setIsAwaitingOAuth(false)
-        setIsProcessing(false)
-        setStatusMessage(data.error || 'No se recibió el código de autorización')
-        return
-      }
-      try {
-        const result = await Api.fetch.sync.exchangeOAuthCode({ body: { code: data.code } })
-        await refreshStatus()
-        setIsAwaitingOAuth(false)
-        setIsProcessing(false)
-        setStatusMessage(`Conectado con ${result.email || 'Google Drive'}`)
-      } catch (error) {
-        setIsAwaitingOAuth(false)
-        setIsProcessing(false)
-        setStatusMessage(error instanceof Error ? error.message : 'Error al canjear el código')
-      }
-    })
+    let cleanup = () => {}
+    platformBridge
+      .listen<{ code?: string; error?: string }>('oauthCodeCaptured', async (data) => {
+        if (!isAwaitingOAuthRef.current) return
+        if (data.error || !data.code) {
+          setIsAwaitingOAuth(false)
+          setIsProcessing(false)
+          setStatusMessage(data.error || 'No se recibió el código de autorización')
+          return
+        }
+        try {
+          const result = await Api.fetch.sync.exchangeOAuthCode({ body: { code: data.code } })
+          await refreshStatus()
+          setIsAwaitingOAuth(false)
+          setIsProcessing(false)
+          setStatusMessage(`Conectado con ${result.email || 'Google Drive'}`)
+        } catch (error) {
+          setIsAwaitingOAuth(false)
+          setIsProcessing(false)
+          setStatusMessage(error instanceof Error ? error.message : 'Error al canjear el código')
+        }
+      })
+      .then((unlisten) => {
+        cleanup = unlisten
+      })
 
-    return () => unsub()
+    return () => cleanup()
   }, [])
 
   // Electron / fallback: el sidecar recibió el redirect, canjeó el code y notifica resultado.
