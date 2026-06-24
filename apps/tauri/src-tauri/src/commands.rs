@@ -136,12 +136,20 @@ fn build_label(prefix: &str, display_id: u32) -> String {
 
 // Aplica la configuración final de una ventana de presentación (live/stage).
 // En macOS usamos un "simple fullscreen" simulado: ventana sin decoraciones,
-// del tamaño del monitor y siempre visible, para no crear un Space nuevo como
-// hace el fullscreen nativo de macOS. En otras plataformas usamos fullscreen
-// nativo.
+// del tamaño del monitor y siempre visible, con nivel por encima de la menu bar,
+// para no crear un Space nuevo como hace el fullscreen nativo de macOS.
+// En otras plataformas usamos fullscreen nativo.
 #[cfg(target_os = "macos")]
 fn finish_presentation_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> Result<(), String> {
-    window.set_always_on_top(true).map_err(|e| e.to_string())
+    use objc::runtime::Object;
+    use objc::{msg_send, sel, sel_impl};
+
+    window.set_always_on_top(true).map_err(|e| e.to_string())?;
+    let ns_window = window.ns_window().map_err(|e| e.to_string())? as *mut Object;
+    unsafe {
+        let () = msg_send![ns_window, setLevel: 1000isize];
+    }
+    Ok(())
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -155,17 +163,20 @@ pub async fn open_live_window(
     display: DisplayInfo,
 ) -> Result<u32, String> {
     let label = build_label("live", display.id);
+    let scale = display.scale_factor;
+    // Tauri builder usa píxeles lógicos; convertimos desde físicos.
+    let logical_x = display.x as f64 / scale;
+    let logical_y = display.y as f64 / scale;
+    let logical_w = display.width as f64 / scale;
+    let logical_h = display.height as f64 / scale;
 
     // Si ya existe una ventana live para este display, reutilizarla y reposicionarla.
     if let Some(window) = app.get_webview_window(&label) {
         window
-            .set_position(tauri::PhysicalPosition::new(display.x, display.y))
+            .set_position(tauri::LogicalPosition::new(logical_x, logical_y))
             .map_err(|e| e.to_string())?;
         window
-            .set_size(tauri::PhysicalSize::new(
-                display.width as u32,
-                display.height as u32,
-            ))
+            .set_size(tauri::LogicalSize::new(logical_w, logical_h))
             .map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
         finish_presentation_window(&window)?;
@@ -179,6 +190,8 @@ pub async fn open_live_window(
         WebviewUrl::App(format!("index.html#/live-screen/{}", display.id).into()),
     )
     .title(format!("Live - {}", display.name))
+    .position(logical_x, logical_y)
+    .inner_size(logical_w, logical_h)
     .visible(false)
     .decorations(false)
     .always_on_top(true)
@@ -187,18 +200,6 @@ pub async fn open_live_window(
     .build()
     .map_err(|e| e.to_string())?;
 
-    // Posicionar en píxeles físicos del monitor objetivo y aplicar fullscreen
-    // simple en macOS (sin crear un Space nuevo) o fullscreen nativo en otras
-    // plataformas, replicando el comportamiento de Electron.
-    window
-        .set_position(tauri::PhysicalPosition::new(display.x, display.y))
-        .map_err(|e| e.to_string())?;
-    window
-        .set_size(tauri::PhysicalSize::new(
-            display.width as u32,
-            display.height as u32,
-        ))
-        .map_err(|e| e.to_string())?;
     window.show().map_err(|e| e.to_string())?;
     finish_presentation_window(&window)?;
 
@@ -222,16 +223,18 @@ pub async fn open_stage_window(
     display: DisplayInfo,
 ) -> Result<u32, String> {
     let label = build_label("stage", display.id);
+    let scale = display.scale_factor;
+    let logical_x = display.x as f64 / scale;
+    let logical_y = display.y as f64 / scale;
+    let logical_w = display.width as f64 / scale;
+    let logical_h = display.height as f64 / scale;
 
     if let Some(window) = app.get_webview_window(&label) {
         window
-            .set_position(tauri::PhysicalPosition::new(display.x, display.y))
+            .set_position(tauri::LogicalPosition::new(logical_x, logical_y))
             .map_err(|e| e.to_string())?;
         window
-            .set_size(tauri::PhysicalSize::new(
-                display.width as u32,
-                display.height as u32,
-            ))
+            .set_size(tauri::LogicalSize::new(logical_w, logical_h))
             .map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
         finish_presentation_window(&window)?;
@@ -245,6 +248,8 @@ pub async fn open_stage_window(
         WebviewUrl::App(format!("index.html#/stage-screen/{}", display.id).into()),
     )
     .title(format!("Stage - {}", display.name))
+    .position(logical_x, logical_y)
+    .inner_size(logical_w, logical_h)
     .visible(false)
     .decorations(false)
     .always_on_top(true)
@@ -253,15 +258,6 @@ pub async fn open_stage_window(
     .build()
     .map_err(|e| e.to_string())?;
 
-    window
-        .set_position(tauri::PhysicalPosition::new(display.x, display.y))
-        .map_err(|e| e.to_string())?;
-    window
-        .set_size(tauri::PhysicalSize::new(
-            display.width as u32,
-            display.height as u32,
-        ))
-        .map_err(|e| e.to_string())?;
     window.show().map_err(|e| e.to_string())?;
     finish_presentation_window(&window)?;
 
