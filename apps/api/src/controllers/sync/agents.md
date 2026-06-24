@@ -63,6 +63,7 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
 
 - `sync-drive-client.service.ts` usa **PKCE** (Proof Key for Code Exchange) para apps de escritorio, por lo que **no requiere `GOOGLE_DRIVE_CLIENT_SECRET`**.
 - Solo se necesita `GOOGLE_DRIVE_CLIENT_ID` (variable pública por diseño en OAuth 2.0).
+- **Importante:** el OAuth client de Google Cloud Console debe ser de tipo **Aplicación de escritorio** (Desktop app). Los clientes tipo "Web" exigen `client_secret` y rechazan el canje con `invalid_request / client_secret is missing.`
 
 ### Tauri — ventana OAuth in-app
 

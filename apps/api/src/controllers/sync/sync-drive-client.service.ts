@@ -1,4 +1,5 @@
 import { google, drive_v3 } from 'googleapis'
+import { OAuth2Client } from 'google-auth-library'
 import { createHash, randomBytes } from 'crypto'
 import fs from 'fs-extra'
 import path from 'path'
@@ -35,7 +36,13 @@ export class DriveClientService {
     }
     // PKCE para apps de escritorio: no se requiere client_secret.
     // Loopback redirects (http://127.0.0.1:PORT) no necesitan pre-registro en Google Cloud.
-    return new google.auth.OAuth2(clientId, '', redirectUri || 'urn:ietf:wg:oauth:2.0:oob')
+    // El cliente de Google Cloud DEBE ser de tipo "Aplicación de escritorio" (Desktop app)
+    // para que Google acepte requests sin client_secret.
+    return new OAuth2Client({
+      clientId,
+      redirectUri: redirectUri || 'urn:ietf:wg:oauth:2.0:oob',
+      clientAuthentication: 'None' as any
+    })
   }
 
   private generatePKCE() {
@@ -65,15 +72,25 @@ export class DriveClientService {
         'No hay una sesión de OAuth pendiente. Vuelve a iniciar el flujo de conexión.'
       )
     }
-    const tokenResult = await this.pendingOAuthClient.getToken({
-      code,
-      codeVerifier: this.pendingCodeVerifier,
-      redirect_uri: this.pendingRedirectUri
-    })
-    this.pendingOAuthClient = null
-    this.pendingCodeVerifier = null
-    this.pendingRedirectUri = null
-    return Object.assign({}, tokenResult.tokens) as unknown as Record<string, unknown>
+    try {
+      const tokenResult = await this.pendingOAuthClient.getToken({
+        code,
+        codeVerifier: this.pendingCodeVerifier,
+        redirect_uri: this.pendingRedirectUri
+      })
+      this.pendingOAuthClient = null
+      this.pendingCodeVerifier = null
+      this.pendingRedirectUri = null
+      return Object.assign({}, tokenResult.tokens) as unknown as Record<string, unknown>
+    } catch (error: any) {
+      console.error('[OAuth] exchangeAuthCode error:', {
+        message: error?.message,
+        responseData: error?.response?.data,
+        requestBody: error?.config?.data,
+        redirectUri: this.pendingRedirectUri
+      })
+      throw error
+    }
   }
 
   async getDriveClient(): Promise<{ drive: drive_v3.Drive; config: PersistedSyncConfig }> {
