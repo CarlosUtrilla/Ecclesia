@@ -152,16 +152,23 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     }
 
     const reconcileScreens = async () => {
-      const screenCountChanged =
-        windowsLiveScreenOpens.length !== liveScreens.length ||
-        windowsStageScreenOpens.length !== stageScreens.length
+      const desiredLiveIds = liveScreens.map((d) => d.id)
+      const desiredStageIds = stageScreens.map((d) => d.id)
+      const liveIdsChanged =
+        windowsLiveScreenOpens.length !== desiredLiveIds.length ||
+        windowsLiveScreenOpens.some((id, i) => id !== desiredLiveIds[i])
+      const stageIdsChanged =
+        windowsStageScreenOpens.length !== desiredStageIds.length ||
+        windowsStageScreenOpens.some((id, i) => id !== desiredStageIds[i])
 
-      if (
-        screenCountChanged ||
+      const needsReconcile =
+        liveIdsChanged ||
+        stageIdsChanged ||
         windowsLiveScreenOpens.length === 0 ||
         windowsStageScreenOpens.length === 0
-      ) {
-        // Si cambió la cantidad de pantallas o no hay ventanas abiertas aún, reconciliar completamente
+
+      if (needsReconcile) {
+        // Si cambió el conjunto de pantallas o no hay ventanas abiertas aún, reconciliar completamente
         if (windowsLiveScreenOpens.length > 0 || windowsStageScreenOpens.length > 0) {
           // Cerrar todas las existentes primero
           setLiveScreensReady(false)

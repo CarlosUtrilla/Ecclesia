@@ -148,7 +148,7 @@ fn build_label(prefix: &str, display_id: u32) -> String {
 pub async fn open_live_window(
     app: tauri::AppHandle,
     display: DisplayInfo,
-) -> Result<(), String> {
+) -> Result<u32, String> {
     let label = build_label("live", display.id);
     let (width, height, x, y) = display_bounds(&display);
 
@@ -158,7 +158,7 @@ pub async fn open_live_window(
         window.show().map_err(|e| e.to_string())?;
         window.set_fullscreen(true).map_err(|e| e.to_string())?;
         let _ = app.emit("live-window-opened", &display);
-        return Ok(());
+        return Ok(display.id);
     }
 
     let window = WebviewWindowBuilder::new(
@@ -182,14 +182,14 @@ pub async fn open_live_window(
     window.set_fullscreen(true).map_err(|e| e.to_string())?;
 
     let _ = app.emit("live-window-opened", &display);
-    Ok(())
+    Ok(display.id)
 }
 
 #[tauri::command]
 pub async fn open_stage_window(
     app: tauri::AppHandle,
     display: DisplayInfo,
-) -> Result<(), String> {
+) -> Result<u32, String> {
     let label = build_label("stage", display.id);
     let (width, height, x, y) = display_bounds(&display);
 
@@ -197,7 +197,7 @@ pub async fn open_stage_window(
         window.show().map_err(|e| e.to_string())?;
         window.set_fullscreen(true).map_err(|e| e.to_string())?;
         let _ = app.emit("stage-window-opened", &display);
-        return Ok(());
+        return Ok(display.id);
     }
 
     let window = WebviewWindowBuilder::new(
@@ -219,7 +219,7 @@ pub async fn open_stage_window(
     window.set_fullscreen(true).map_err(|e| e.to_string())?;
 
     let _ = app.emit("stage-window-opened", &display);
-    Ok(())
+    Ok(display.id)
 }
 
 #[tauri::command]
