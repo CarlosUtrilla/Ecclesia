@@ -16,6 +16,7 @@ export class DriveClientService {
   private folderCreationPromise: Promise<string> | null = null
   private pendingOAuthClient: InstanceType<typeof google.auth.OAuth2> | null = null
   private pendingCodeVerifier: string | null = null
+  private pendingRedirectUri: string | null = null
 
   private getClientId(): string {
     return (
@@ -45,6 +46,7 @@ export class DriveClientService {
 
   getAuthUrl(redirectUri?: string): string {
     this.pendingOAuthClient = this.createOAuthClient(redirectUri)
+    this.pendingRedirectUri = redirectUri ?? 'urn:ietf:wg:oauth:2.0:oob'
     const { verifier, challenge } = this.generatePKCE()
     this.pendingCodeVerifier = verifier
 
@@ -58,17 +60,19 @@ export class DriveClientService {
   }
 
   async exchangeAuthCode(code: string): Promise<Record<string, unknown>> {
-    if (!this.pendingOAuthClient || !this.pendingCodeVerifier) {
+    if (!this.pendingOAuthClient || !this.pendingCodeVerifier || !this.pendingRedirectUri) {
       throw new Error(
         'No hay una sesión de OAuth pendiente. Vuelve a iniciar el flujo de conexión.'
       )
     }
     const tokenResult = await this.pendingOAuthClient.getToken({
       code,
-      codeVerifier: this.pendingCodeVerifier
+      codeVerifier: this.pendingCodeVerifier,
+      redirect_uri: this.pendingRedirectUri
     })
     this.pendingOAuthClient = null
     this.pendingCodeVerifier = null
+    this.pendingRedirectUri = null
     return Object.assign({}, tokenResult.tokens) as unknown as Record<string, unknown>
   }
 
