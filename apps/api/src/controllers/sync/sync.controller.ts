@@ -9,7 +9,8 @@ import {
   PendingOutboxChangesDTO,
   SyncStateDTO,
   UpsertSyncStateDTO,
-  SyncConfigDTO
+  SyncConfigDTO,
+  ExchangeOAuthCodeDTO
 } from './sync.dto'
 import SyncService from './sync.service'
 import { driveClientService } from './sync-drive-client.service'
@@ -116,6 +117,12 @@ class SyncController {
     await writeJson(getConfigFilePath(), config)
     const authUrl = driveClientService.getAuthUrl()
     return { authUrl }
+  }
+
+  async exchangeOAuthCode({ body }: RequestHandler<ExchangeOAuthCodeDTO>): Promise<{ success: boolean; email?: string }> {
+    const tokens = await driveClientService.exchangeAuthCode(body.code)
+    await writeJson(getTokenFilePath(), tokens)
+    return { success: true, email: tokens.email as string | undefined }
   }
 
   async disconnect(): Promise<void> {

@@ -40,6 +40,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Create .env from secrets
+        run: |
+          if [ -n "${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}" ]; then
+            echo "GOOGLE_DRIVE_CLIENT_ID=${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}" > .env
+          else
+            echo "::warning::GOOGLE_DRIVE_CLIENT_ID secret is not set. Google Drive sync will not work."
+          fi
+        shell: bash
+
       - name: Generate Prisma client
         env:
           PRISMA_GENERATE_SKIP_AUTOINSTALL: 'true'

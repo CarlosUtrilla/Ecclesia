@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
-import { syncPush, syncPull, syncStatus, syncGetAuthUrl, syncSetOAuthToken } from '../syncBridge'
+import { syncPush, syncPull, syncStatus, syncGetAuthUrl, syncExchangeOAuthToken } from '../syncBridge'
 
 let isSyncing = false
 
@@ -56,7 +56,7 @@ export async function showOAuthWindow(): Promise<void> {
     const code = new URL(url).searchParams.get('code')
     if (code) {
       try {
-        await syncSetOAuthToken({ code })
+        await syncExchangeOAuthToken(code)
         authWindow.close()
       } catch (err) {
         log.error('[sync] Error intercambiando código OAuth:', err)
@@ -68,7 +68,7 @@ export async function showOAuthWindow(): Promise<void> {
     const code = new URL(url).searchParams.get('code')
     if (code) {
       try {
-        await syncSetOAuthToken({ code })
+        await syncExchangeOAuthToken(code)
         authWindow.close()
       } catch (err) {
         log.error('[sync] Error intercambiando código OAuth:', err)

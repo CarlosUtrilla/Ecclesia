@@ -26,8 +26,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "sidecar-deps": "sidecar-deps",
-      "../../../.env": ".env"
+      "sidecar-deps": "sidecar-deps"
     },
     "macOS": {
       "minimumSystemVersion": "11.0"

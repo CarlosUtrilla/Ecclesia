@@ -185,6 +185,10 @@ export type SyncConfigDTO = {
   autoOnClose: boolean
 }
 
+export type ExchangeOAuthCodeDTO = {
+  code: string
+}
+
 export type SyncRemoteDriveDataDTO = {
   fetchedAt: string
   workspaceId: string

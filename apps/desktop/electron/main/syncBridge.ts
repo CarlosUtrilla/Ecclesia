@@ -94,6 +94,6 @@ export function syncGetAuthUrl(): Promise<unknown> {
   return apiRequest('POST', '/api/sync/connect', { enabled: true, workspaceId: 'default', deviceName: 'Este dispositivo', conflictStrategy: 'lastWriteWins' })
 }
 
-export function syncSetOAuthToken(token: Record<string, unknown>): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/connect', { ...token, enabled: true, workspaceId: 'default', deviceName: 'Este dispositivo', conflictStrategy: 'lastWriteWins' })
+export function syncExchangeOAuthToken(code: string): Promise<unknown> {
+  return apiRequest('POST', '/api/sync/exchangeOAuthCode', { code })
 }

@@ -16,7 +16,8 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
 - `SyncController` expone métodos vía Express (`/api/sync/*`):
   - `getStatus` — estado de conexión/configuración
   - `configure` — guarda configuración
-  - `connect` — guarda config + devuelve auth URL
+  - `connect` — guarda config + devuelve auth URL (PKCE)
+  - `exchangeOAuthCode` — canjea el código OAuth por tokens y los persiste
   - `disconnect` — deshabilita sync
   - `push` — push completo (snapshot + media + bible)
   - `pull` — pull completo (snapshots remotos + media + bible)
@@ -57,6 +58,17 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
 - Tests unitarios en `sync.controller.test.ts` validan el contrato DTO -> service (delegación de payload/respuesta) para evitar regresiones en los canales IPC del namespace `sync`.
 - Tests de integración ligera en `sync.service.integration.test.ts` validan flujos completos `ingest -> pending -> apply` y `append -> pending -> ack` con estado en memoria para detectar regresiones de orquestación entre inbox/outbox/syncState.
 - La suite integration-lite cubre además casos base multi-dispositivo: altas independientes (A canción / B tema), conflicto diferido sobre el mismo tema y eliminación remota idempotente sobre registro ya inexistente.
+
+## Autenticación OAuth (PKCE)
+
+- `sync-drive-client.service.ts` usa **PKCE** (Proof Key for Code Exchange) para apps de escritorio, por lo que **no requiere `GOOGLE_DRIVE_CLIENT_SECRET`**.
+- Solo se necesita `GOOGLE_DRIVE_CLIENT_ID` (variable pública por diseño en OAuth 2.0).
+- Flujo:
+  1. `connect()` → genera URL de auth con `code_challenge` y retorna `{ authUrl }`.
+  2. El frontend abre la URL y captura el `code` de redirect.
+  3. `exchangeOAuthCode({ code })` canjea el código usando el `code_verifier` almacenado en memoria durante el paso 1.
+  4. Los tokens se persisten en `{userData}/sync/google-drive-token.json`.
+- El `code_verifier` se descarta tras el exchange. Si el sidecar se reinicia entre pasos 1 y 3, el usuario debe reiniciar el flujo.
 
 ## Ubicación
 

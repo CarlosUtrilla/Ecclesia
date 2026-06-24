@@ -12,6 +12,9 @@ importers:
         specifier: ^2.10.1
         version: 2.10.1
     devDependencies:
+      '@prisma/client':
+        specifier: ^6.19.3
+        version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       prettier:
         specifier: ^3.6.2
         version: 3.8.3
@@ -57,6 +60,9 @@ importers:
       fs-extra:
         specifier: ^11.3.0
         version: 11.3.5
+      googleapis:
+        specifier: ^171.4.0
+        version: 171.4.0
       multer:
         specifier: ^2.1.1
         version: 2.1.1
@@ -91,6 +97,9 @@ importers:
       esbuild:
         specifier: ^0.25.12
         version: 0.25.12
+      prisma:
+        specifier: ^6.12.0
+        version: 6.19.3(typescript@5.9.3)
       tsx:
         specifier: ^4.19.0
         version: 4.22.4
