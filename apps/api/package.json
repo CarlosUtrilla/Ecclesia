@@ -28,6 +28,7 @@
     "decimal.js": "^10.6.0",
     "express": "^5.2.1",
     "fs-extra": "^11.3.0",
+    "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
     "multer": "^2.1.1",
     "reflect-metadata": "^0.2.2",
