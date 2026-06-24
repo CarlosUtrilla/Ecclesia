@@ -9,6 +9,7 @@ import { useMediaServer } from '@/contexts/MediaServerContext'
 import { MediaDto } from '@ecclesia/api/src/controllers/media/media.dto'
 import { parseAnimationSettings } from '@/ui/PresentationView/utils/parseAnimationSettings'
 import { Api } from '@ecclesia/queries'
+import { platformBridge } from '@/lib/platformBridge'
 
 const FALLBACK_MEDIA_KEY = 'LOGO_FALLBACK_MEDIA_ID'
 const FALLBACK_COLOR_KEY = 'LOGO_FALLBACK_COLOR'
@@ -95,8 +96,8 @@ export default function LiveScreen({
   }, [shouldApplyFallback])
 
   useEffect(() => {
-    window.electron.ipcRenderer.send('renderer-ready')
-    const unsuscribeItems = window.electron.ipcRenderer.on(
+    platformBridge.ipcRenderer.send('renderer-ready')
+    const unsuscribeItems = platformBridge.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
         if (typeof data.itemIndex === 'number') {
@@ -120,7 +121,7 @@ export default function LiveScreen({
         }
       }
     )
-    const unsuscribeThemes = window.electron.ipcRenderer.on(
+    const unsuscribeThemes = platformBridge.ipcRenderer.on(
       'liveScreen-update-theme',
       (_, data: ThemeWithMedia) => {
         setSelectedTheme(data)

@@ -215,7 +215,7 @@ React Component
 
 **Data fetching:** Siempre React Query (`useQuery`, `useMutation`). Usar `queryKey` descriptivos. Invalidar queries despues de mutations.
 
-**Refetch por IPC:** Escuchar eventos IPC con `window.electron.ipcRenderer.on()` dentro de `useEffect` y llamar `refetch()` de React Query.
+**Refetch por IPC:** Escuchar eventos IPC con `platformBridge.ipcRenderer.on()` (desde `app/lib/platformBridge.ts`) dentro de `useEffect` y llamar `refetch()` de React Query. No usar `window.electron` directamente desde componentes.
 
 **Context pattern:** `createContext(null)` + `Provider` component + `useX()` hook con throw si se usa fuera del provider.
 
@@ -284,6 +284,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 ### IPC / API desde el renderer
 
 *   **HTTP:** usar `Api.fetch.namespace.method()` del paquete `@ecclesia/queries` (conecta REST a sidecar). Para nativas (ventanas, dialogs, shortcuts), exponer via Rust commands y llamar desde `@tauri-apps/api`.
+*   **Toda comunicación IPC del renderer con el backend nativo debe pasar por `platformBridge`** (`app/lib/platformBridge.ts`). `platformBridge` expone `ipcRenderer` (`on`/`send`/`invoke`), `openOAuthWindow` y `getMemoryUsage`, validando en runtime que las funciones existan en `window.electron` y lanzando errores descriptivos si no. No usar `window.electron` directamente desde componentes.
 *   Los imports de **tipos** (`.dto.d.ts`) sí están permitidos en el renderer.
 
 ### Antes de modificar codigo

@@ -6,6 +6,7 @@ type HandleManagersType = typeof HandleManagers
 declare module '@electron-toolkit/preload' {
   interface ElectronAPI {
     openOAuthWindow?: (authUrl: string) => Promise<void>
+    getMemoryUsage?: () => Promise<{ app_mb: number; sidecar_mb: number }>
   }
 }
 

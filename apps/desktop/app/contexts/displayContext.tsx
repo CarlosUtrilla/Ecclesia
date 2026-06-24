@@ -3,6 +3,7 @@ import type { ScreenRol } from '@ecclesia/api'
 import { DisplayInfo } from 'electron/main/displayManager/displayType'
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react'
 import { Api } from '@ecclesia/queries'
+import { platformBridge } from '@/lib/platformBridge'
 export interface DisplayWithUsage extends DisplayInfo {
   inUse: boolean
   type: ScreenRol | null
@@ -69,7 +70,7 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
 
     hasExecuted.current = true
 
-    const unsuscribe = window.electron.ipcRenderer.on('display-update', () => {
+    const unsuscribe = platformBridge.ipcRenderer.on('display-update', () => {
       fetchDisplays()
     })
 
@@ -86,7 +87,7 @@ export const DisplaysProvider = ({ children }: PropsWithChildren) => {
   }
   useEffect(() => {
     // Listener para abrir el dialog manualmente desde Electron
-    const unsub = window.electron.ipcRenderer.on('open-new-display-connected', () => {
+    const unsub = platformBridge.ipcRenderer.on('open-new-display-connected', () => {
       setOpenNewDisplay(true)
     })
     return () => {

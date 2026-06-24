@@ -37,6 +37,7 @@ import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePres
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { clampBibleEdgeOffset, shouldDetachDefaultBibleSettings } from './utils/bibleSettings'
 import { clampBibleVerseWidthPercent } from '@/ui/PresentationView/utils/verseWidth'
+import { platformBridge } from '@/lib/platformBridge'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
@@ -227,7 +228,7 @@ export default function ThemesEditor() {
   const pendingCloseRef = useRef(false)
 
   useEffect(() => {
-    const unsub = window.electron.ipcRenderer.on('theme-close-requested', () => {
+    const unsub = platformBridge.ipcRenderer.on('theme-close-requested', () => {
       if (!isDirty) {
         window.windowAPI.confirmThemeClose()
         return

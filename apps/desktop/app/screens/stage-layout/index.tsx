@@ -34,6 +34,7 @@ import {
   toTimerThresholdSeconds
 } from './timerThreshold.utils'
 import { Api } from '@ecclesia/queries'
+import { platformBridge } from '@/lib/platformBridge'
 
 const WIDGET_LABELS: Record<StageWidgetType, string> = {
   liveScreen: 'Pantalla En Vivo',
@@ -264,7 +265,7 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
   }
 
   useEffect(() => {
-    const unsubscribeItems = window.electron.ipcRenderer.on(
+    const unsubscribeItems = platformBridge.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
         if (typeof data.itemIndex === 'number') {
@@ -275,7 +276,7 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
       }
     )
 
-    const unsubscribeTheme = window.electron.ipcRenderer.on(
+    const unsubscribeTheme = platformBridge.ipcRenderer.on(
       'liveScreen-update-theme',
       (_, theme: ThemeWithMedia) => {
         setLiveTheme(theme)

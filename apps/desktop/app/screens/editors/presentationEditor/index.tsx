@@ -75,6 +75,7 @@ import {
   PresentationSlideItem
 } from './utils/slideUtils'
 import { Api } from '@ecclesia/queries'
+import { platformBridge } from '@/lib/platformBridge'
 
 const getUniformThemeId = (slides: PresentationFormValues['slides']): number | null => {
   if (slides.length === 0) return null
@@ -196,7 +197,7 @@ export default function PresentationEditor() {
   })
 
   useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('presentation-close-requested', () => {
+    const unsubscribe = platformBridge.ipcRenderer.on('presentation-close-requested', () => {
       if (!isDirty) {
         window.windowAPI.confirmPresentationClose()
         return

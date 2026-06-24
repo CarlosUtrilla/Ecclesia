@@ -7,6 +7,7 @@ import { Badge } from '../../ui/badge'
 import { CircleSlash, Monitor, Tv } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/dialog'
 import { Api } from '@ecclesia/queries'
+import { platformBridge } from '@/lib/platformBridge'
 
 interface DisplayConfig {
   display: DisplayInfo
@@ -101,7 +102,7 @@ export default function NewDisplayConected({
 
       // Refrescar la lista después de guardar y emitir evento para que LiveContext se actualice
       await fetchDisplays()
-      window.electron.ipcRenderer.send('display-update')
+      platformBridge.ipcRenderer.send('display-update')
       onSaved?.()
       onOpenChange(false)
     } catch (error) {

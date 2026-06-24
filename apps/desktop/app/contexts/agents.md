@@ -495,7 +495,7 @@ const { startMove, startResize } = useCanvasWidgetTransform({
 ## Convenciones
 
 - Todos los hooks de datos usan React Query con `queryKey` descriptivos.
-- Los hooks que dependen de IPC events usan `useEffect` con `window.electron.ipcRenderer.on()` para escuchar cambios.
+- Los hooks que dependen de IPC events usan `useEffect` con `platformBridge.ipcRenderer.on()` (desde `app/lib/platformBridge.ts`) para escuchar cambios.
 - Los contexts siguen el patron: `createContext` + `Provider component` + `useX() hook`.
 - Los providers no deben tener logica de UI, solo estado y funciones.
 - Los hooks de `app/hooks/` son independientes de los contexts (pueden usarse en cualquier componente).

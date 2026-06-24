@@ -13,6 +13,7 @@ import { StageWidgets } from './StageWidgets'
 import { DEFAULT_STATE, StageState } from './types'
 import { MAX_STAGE_TIMERS, formatRemaining, resolveRemainingMs } from './utils'
 import { Api } from '@ecclesia/queries'
+import { platformBridge } from '@/lib/platformBridge'
 
 type StageScreenProps = {
   isPreview?: boolean
@@ -167,9 +168,9 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
   }, [applyTheme, displayId, liveTheme])
 
   useEffect(() => {
-    window.electron.ipcRenderer.send('renderer-ready')
+    platformBridge.ipcRenderer.send('renderer-ready')
 
-    const unsubscribeItems = window.electron.ipcRenderer.on(
+    const unsubscribeItems = platformBridge.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
         if (typeof data.itemIndex === 'number') {
@@ -186,7 +187,7 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
       }
     )
 
-    const unsubscribeTheme = window.electron.ipcRenderer.on(
+    const unsubscribeTheme = platformBridge.ipcRenderer.on(
       'liveScreen-update-theme',
       (_, theme: ThemeWithMedia) => {
         setLiveTheme(theme)
@@ -197,7 +198,7 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
       }
     )
 
-    const unsubscribeStageConfig = window.electron.ipcRenderer.on(
+    const unsubscribeStageConfig = platformBridge.ipcRenderer.on(
       'stageScreen-config-updated',
       async (_, data: StageScreenConfigUpdate) => {
         if (

@@ -10,6 +10,7 @@ import {
 import { Button } from './button'
 import { Spinner } from './spinner'
 import { Api } from '@ecclesia/queries'
+import { platformBridge } from '@/lib/platformBridge'
 
 type Phase = 'hidden' | 'confirming' | 'syncing'
 
@@ -17,7 +18,7 @@ export function ClosingDialog() {
   const [phase, setPhase] = useState<Phase>('hidden')
 
   useEffect(() => {
-    const unsubscribe = window.electron.ipcRenderer.on('app-close-requested', () => {
+    const unsubscribe = platformBridge.ipcRenderer.on('app-close-requested', () => {
       setPhase('confirming')
     })
     return () => {

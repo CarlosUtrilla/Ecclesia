@@ -4,7 +4,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { readFile, stat } from '@tauri-apps/plugin-fs'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
-type IpcListener = (...args: unknown[]) => void
+type IpcListener = (event: unknown, ...args: unknown[]) => void
 
 type DisplayInfoTauri = {
   id: number

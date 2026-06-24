@@ -8,6 +8,7 @@ import { BlankTheme } from '@/hooks/useThemes'
 import { PresentationBibleOverrideMap } from '@/lib/presentationBibleVersionOverrides'
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { resolveAppliedLiveTheme } from './resolveAppliedLiveTheme'
+import { platformBridge } from '@/lib/platformBridge'
 
 // Extensión: stub para sincronización de media
 type LiveMediaState = { action: 'play' | 'pause' | 'seek' | 'restart'; time: number; volume?: number }
@@ -56,7 +57,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
 
   // Escuchar renderer-ready desde las ventanas live/stage para reenviar contenido
   useEffect(() => {
-    const unlisten = window.electron.ipcRenderer.on('renderer-ready', () => {
+    const unlisten = platformBridge.ipcRenderer.on('renderer-ready', () => {
       const latest = latestContentRef.current
       window.displayAPI.updateLiveScreenContent({
         itemIndex: latest.itemIndex,
@@ -256,7 +257,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   ])
 
   useEffect(() => {
-    const unsuscribe = window.electron.ipcRenderer.on('all-screens-closed', () => {
+    const unsuscribe = platformBridge.ipcRenderer.on('all-screens-closed', () => {
       setShowLiveScreen(false)
       setWindowsLiveScreenOpens([])
       setWindowsStageScreenOpens([])
