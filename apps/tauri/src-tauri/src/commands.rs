@@ -141,15 +141,18 @@ fn build_label(prefix: &str, display_id: u32) -> String {
 // En otras plataformas usamos fullscreen nativo.
 #[cfg(target_os = "macos")]
 fn finish_presentation_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> Result<(), String> {
-    use objc::runtime::Object;
-    use objc::{msg_send, sel, sel_impl};
-
-    window.set_always_on_top(true).map_err(|e| e.to_string())?;
-    let ns_window = window.ns_window().map_err(|e| e.to_string())? as *mut Object;
-    unsafe {
-        let () = msg_send![ns_window, setLevel: 1000isize];
-    }
-    Ok(())
+    let ns_window = window.ns_window().map_err(|e| e.to_string())? as usize;
+    let app_handle = window.app_handle().clone();
+    app_handle
+        .run_on_main_thread(move || {
+            use objc::runtime::Object;
+            use objc::{msg_send, sel, sel_impl};
+            unsafe {
+                let ns_window = ns_window as *mut Object;
+                let () = msg_send![ns_window, setLevel: 1000isize];
+            }
+        })
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(not(target_os = "macos"))]
