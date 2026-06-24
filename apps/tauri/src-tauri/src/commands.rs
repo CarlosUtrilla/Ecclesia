@@ -400,22 +400,28 @@ pub async fn open_oauth_window(
     auth_url: String,
 ) -> Result<(), String> {
     let label = "oauth";
+    println!("[OAuth] open_oauth_window invoked with auth_url: {}", &auth_url[..auth_url.len().min(80)]);
 
     if let Some(window) = app.get_webview_window(label) {
+        println!("[OAuth] closing existing oauth window");
         let _ = window.close();
     }
 
     let url: tauri::Url = auth_url
         .parse()
-        .map_err(|e| format!("URL de auth inválida: {}", e))?;
+        .map_err(|e| {
+            eprintln!("[OAuth] invalid auth URL: {}", e);
+            format!("URL de auth inválida: {}", e)
+        })?;
 
     let app_clone = app.clone();
-    WebviewWindowBuilder::new(&app, label, WebviewUrl::External(url))
+    let window = WebviewWindowBuilder::new(&app, label, WebviewUrl::External(url))
         .title("Autenticación de Google")
         .inner_size(500.0, 700.0)
         .center()
         .on_navigation(move |url| {
             let url_str = url.to_string();
+            println!("[OAuth] navigation: {}", url_str);
             if url_str.starts_with("http://127.0.0.1:7777/oauth-redirect") {
                 let code = url
                     .query_pairs()
@@ -426,6 +432,7 @@ pub async fn open_oauth_window(
                     .find(|(k, _)| k == "error")
                     .map(|(_, v)| v.to_string());
 
+                println!("[OAuth] captured redirect code={:?} error={:?}", code.is_some(), error);
                 let payload = OAuthCallbackPayload { code, error };
                 let _ = app_clone.emit("oauthCodeCaptured", payload);
 
@@ -437,7 +444,12 @@ pub async fn open_oauth_window(
             true
         })
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            eprintln!("[OAuth] failed to build window: {}", e);
+            e.to_string()
+        })?;
 
+    println!("[OAuth] oauth window built, showing");
+    window.show().map_err(|e| e.to_string())?;
     Ok(())
 }

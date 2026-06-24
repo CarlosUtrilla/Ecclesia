@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "Default capability set for Ecclesia",
-  "windows": ["main*", "live*", "stage*", "settings*", "editor*", "control*", "layout*"],
+  "windows": ["main*", "live*", "stage*", "settings*", "editor*", "control*", "layout*", "oauth"],
   "permissions": [
     "core:default",
     "core:window:default",

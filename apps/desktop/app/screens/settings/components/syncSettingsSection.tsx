@@ -110,13 +110,16 @@ export default function SyncSettingsSection() {
       const { authUrl } = await Api.fetch.sync.getAuthUrl({
         body: { redirectUri: OAUTH_REDIRECT_URI }
       })
+      console.log('[OAuth] isTauri:', isTauri(), 'authUrl:', authUrl.slice(0, 80))
       await openOAuthWindow(authUrl)
+      console.log('[OAuth] openOAuthWindow resolved')
       setStatusMessage(
         isTauri()
           ? 'Se abrió una ventana de autenticación. Autorizá a Ecclesia para continuar.'
           : 'Se abrió una pestaña en tu navegador. Autorizá a Ecclesia para continuar.'
       )
     } catch (error) {
+      console.error('[OAuth] Error opening OAuth window:', error)
       setIsAwaitingOAuth(false)
       setIsProcessing(false)
       setStatusMessage(
