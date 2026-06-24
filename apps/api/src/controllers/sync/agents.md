@@ -18,7 +18,7 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
   - `configure` — guarda configuración
   - `connect` — guarda config + devuelve auth URL (PKCE)
   - `exchangeOAuthCode` — canjea el código OAuth por tokens y los persiste
-  - `disconnect` — deshabilita sync
+  - `disconnect` — deshabilita sync y elimina el token de Google Drive (`google-drive-token.json`)
   - `push` — push completo (snapshot + media + bible)
   - `pull` — pull completo (snapshots remotos + media + bible)
   - `reconcile` — push + pull combinado

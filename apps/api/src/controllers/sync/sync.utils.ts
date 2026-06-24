@@ -19,6 +19,14 @@ export async function ensureDir(filePath: string): Promise<void> {
   await fs.ensureDir(path.dirname(filePath))
 }
 
+export async function removeFile(filePath: string): Promise<void> {
+  try {
+    await fs.remove(filePath)
+  } catch {
+    // noop: no existe o ya fue eliminado
+  }
+}
+
 export async function streamToString(readable: NodeJS.ReadableStream): Promise<string> {
   const chunks: Buffer[] = []
   await new Promise<void>((resolve, reject) => {

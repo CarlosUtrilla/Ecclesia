@@ -35,7 +35,7 @@ import {
   SyncReason,
   SyncResult
 } from './sync.config'
-import { readJsonSafe, writeJson } from './sync.utils'
+import { readJsonSafe, writeJson, removeFile } from './sync.utils'
 
 class SyncController {
   private syncService = new SyncService()
@@ -137,6 +137,7 @@ class SyncController {
       config.enabled = false
       await writeJson(getConfigFilePath(), config)
     }
+    await removeFile(getTokenFilePath())
     driveClientService.clearCachedFolderId()
   }
 

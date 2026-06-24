@@ -39,7 +39,8 @@ vi.mock('./sync.service', () => ({
 const { driveClientMethods, driveClientServiceMock } = vi.hoisted(() => {
   const methods = {
     getAuthUrl: vi.fn(),
-    exchangeAuthCode: vi.fn()
+    exchangeAuthCode: vi.fn(),
+    clearCachedFolderId: vi.fn()
   }
   return {
     driveClientMethods: methods,
@@ -53,10 +54,13 @@ vi.mock('./sync-drive-client.service', () => ({
 
 vi.mock('./sync.utils', () => ({
   readJsonSafe: vi.fn(),
-  writeJson: vi.fn()
+  writeJson: vi.fn(),
+  removeFile: vi.fn()
 }))
 
 import SyncController from './sync.controller'
+import * as syncUtils from './sync.utils'
+import { getTokenFilePath } from './sync.config'
 
 describe('SyncController', () => {
   it('crea una instancia de SyncService', () => {
@@ -174,6 +178,23 @@ describe('SyncController', () => {
 
       expect(driveClientMethods.exchangeAuthCode).toHaveBeenCalledWith('abc123')
       expect(result).toEqual({ success: true, email: 'test@example.com' })
+    })
+
+    it('disconnect deshabilita sync y elimina el token de Google Drive', async () => {
+      const controller = new SyncController()
+      const removeFileMock = syncUtils.removeFile as unknown as ReturnType<typeof vi.fn>
+      const writeJsonMock = syncUtils.writeJson as unknown as ReturnType<typeof vi.fn>
+      const readJsonSafeMock = syncUtils.readJsonSafe as unknown as ReturnType<typeof vi.fn>
+
+      readJsonSafeMock.mockResolvedValueOnce({ enabled: true, workspaceId: 'ws-1' })
+
+      await controller.disconnect()
+
+      expect(writeJsonMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ enabled: false })
+      )
+      expect(removeFileMock).toHaveBeenCalledWith(getTokenFilePath())
     })
   })
 })
