@@ -258,10 +258,18 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
       }
     )
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+      }
+    }
+    addEventListener('keydown', handleKeyDown)
+
     return () => {
       unsubscribeItems()
       unsubscribeTheme()
       unsubscribeStageConfig()
+      removeEventListener('keydown', handleKeyDown)
     }
   }, [applyTheme, liveTheme])
 

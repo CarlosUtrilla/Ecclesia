@@ -140,12 +140,21 @@ export default function LiveScreen({
         window.displayAPI.closeAllScreens()
       }
     }
+    // Evitar que Escape saque la ventana live de fullscreen (comportamiento por
+    // defecto del navegador/Tauri). El control de Escape vive en la ventana principal.
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+      }
+    }
     addEventListener('keyup', handleKeyUp)
+    addEventListener('keydown', handleKeyDown)
 
     return () => {
       unsuscribeItems()
       unsuscribeThemes()
       removeEventListener('keyup', handleKeyUp)
+      removeEventListener('keydown', handleKeyDown)
     }
   }, [])
 

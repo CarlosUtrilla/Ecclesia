@@ -160,7 +160,6 @@ pub async fn open_live_window(
     .title(format!("Live - {}", display.name))
     .position(x as f64, y as f64)
     .inner_size(width, height)
-    .fullscreen(true)
     .decorations(false)
     .always_on_top(true)
     .resizable(false)
@@ -168,7 +167,10 @@ pub async fn open_live_window(
     .build()
     .map_err(|e| e.to_string())?;
 
+    // Crear en la posición del display objetivo y luego poner fullscreen,
+    // para que macOS/Tauri abra la ventana en el monitor correcto.
     window.show().map_err(|e| e.to_string())?;
+    window.set_fullscreen(true).map_err(|e| e.to_string())?;
 
     let _ = app.emit("live-window-opened", &display);
     Ok(())
@@ -190,7 +192,6 @@ pub async fn open_stage_window(
     .title(format!("Stage - {}", display.name))
     .position(x as f64, y as f64)
     .inner_size(width, height)
-    .fullscreen(true)
     .decorations(false)
     .always_on_top(true)
     .resizable(false)
@@ -199,6 +200,7 @@ pub async fn open_stage_window(
     .map_err(|e| e.to_string())?;
 
     window.show().map_err(|e| e.to_string())?;
+    window.set_fullscreen(true).map_err(|e| e.to_string())?;
 
     let _ = app.emit("stage-window-opened", &display);
     Ok(())
