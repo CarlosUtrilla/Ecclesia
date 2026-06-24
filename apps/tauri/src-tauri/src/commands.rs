@@ -95,16 +95,23 @@ pub async fn get_displays(app: tauri::AppHandle) -> Result<Vec<DisplayInfo>, Str
     let displays: Vec<DisplayInfo> = monitors
         .into_iter()
         .enumerate()
-        .map(|(i, m)| {
+        .map(|(_i, m)| {
             let pos = m.position();
             let size = m.size();
             let name = m.name().map(|s| s.to_string()).unwrap_or_default();
+            // Intentar extraer un id estable del nombre (p.ej. "Monitor #2" -> 2).
+            // Si no es posible, generar un hash determinista basado solo en la posición
+            // y el tamaño, evitando el índice de enumeración que puede variar.
             let id: u32 = name
                 .rsplit('#')
                 .next()
                 .and_then(|s| s.trim().parse().ok())
                 .unwrap_or_else(|| {
-                    let hash = name.len() as u32 * 1000 + pos.x as u32 + pos.y as u32 + i as u32;
+                    let hash = (pos.x.abs() as u32)
+                        .wrapping_mul(73856093)
+                        .wrapping_add((pos.y.abs() as u32).wrapping_mul(19349663))
+                        .wrapping_add((size.width as u32).wrapping_mul(83492791))
+                        .wrapping_add((size.height as u32).wrapping_mul(1000003));
                     if hash == 0 { 1 } else { hash }
                 });
             DisplayInfo {

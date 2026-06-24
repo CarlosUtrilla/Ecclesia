@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 use tauri_utils::config::Color;
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutEvent, ShortcutState};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 use commands::*;
 
@@ -216,25 +216,10 @@ fn init_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    // F7/F9/F10/F11/Escape se manejan localmente en el renderer (liveContext)
+    // para no capturar atajos a nivel del sistema y respetar el foco de otras apps.
+
     let shortcuts = app.global_shortcut();
-    // Escape se maneja localmente en el renderer para no capturar la tecla
-    // en todas las aplicaciones del sistema.
-    for key in &["F7", "F9", "F10", "F11"] {
-        let handler = move |h: &tauri::AppHandle, s: &Shortcut, e: ShortcutEvent| {
-            if e.state == ShortcutState::Pressed {
-                let msg = match s.to_string().as_str() {
-                    k if k.contains("F7") => "activate-live",
-                    k if k.contains("F9") => "toggle-text",
-                    k if k.contains("F10") => "show-logo",
-                    k if k.contains("F11") => "black-screen",
-                    k if k.contains("Escape") => "clear-live",
-                    _ => return,
-                };
-                let _ = h.emit("shortcut", msg);
-            }
-        };
-        shortcuts.on_shortcut(*key, handler)?;
-    }
 
     // Cmd+Q → cerrar ventana principal (mismo flujo que Cmd+W)
     let app_for_q = app.handle().clone();

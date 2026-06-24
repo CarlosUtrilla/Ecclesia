@@ -47,6 +47,11 @@ jobs:
           else
             echo "::warning::GOOGLE_DRIVE_CLIENT_ID secret is not set. Google Drive sync will not work."
           fi
+          if [ -n "${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}" ]; then
+            echo "GOOGLE_DRIVE_CLIENT_SECRET=${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}" >> .env
+          else
+            echo "::warning::GOOGLE_DRIVE_CLIENT_SECRET secret is not set. Google Drive sync may fail."
+          fi
         shell: bash
 
       - name: Generate Prisma client
