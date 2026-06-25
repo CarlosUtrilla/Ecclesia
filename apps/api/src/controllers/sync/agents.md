@@ -19,7 +19,7 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
   - `connect` — guarda config + devuelve auth URL (legacy, prefiere getAuthUrl + exchangeOAuthCode)
   - `getAuthUrl` — genera URL de auth con PKCE (S256), guarda sesión pendiente
   - `exchangeOAuthCode` — canjea código por token usando codeVerifier pendiente
-  - `disconnect` — deshabilita sync
+  - `disconnect` — cierra sesión (revoca token Google, elimina token/state/app-instance-id, deshabilita sync)
   - `push` — push completo (snapshot + media + bible)
   - `pull` — pull completo (snapshots remotos + media + bible)
   - `reconcile` — push + pull combinado
@@ -38,6 +38,8 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
   - `getAuthUrl()` genera PKCE challenge y guarda `pendingOAuthClient`, `pendingCodeVerifier`, `pendingRedirectUri`
   - `exchangeAuthCode()` usa `codeVerifier` y `redirect_uri` del estado pendiente, luego lo limpia
   - `createOAuthClient()` reemplaza al antiguo `getOAuthClient()`, acepta `redirectUri` dinámico
+  - `revokeToken()` — revoca el token OAuth con Google (best-effort)
+  - `clearPendingAuth()` — limpia estado en memoria (pendingOAuthClient, codeVerifier, redirectUri, cachedFolderId)
 - `sync-state.service.ts` — Persistencia de estado en JSON, retry backoff
 - `sync-snapshot.service.ts` — Build/upload/download/aplicar snapshots de modelos de BD
 - `sync-media.service.ts` — Manifest local/remoto, blob upload/download, diff sync, driveFileId caching

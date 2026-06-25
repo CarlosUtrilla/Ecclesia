@@ -11,7 +11,7 @@ import {
 } from './sync.config'
 import { writeJson, readJsonSafe } from './sync.utils'
 
-const DEFAULT_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
+const DEFAULT_REDIRECT_URI = 'http://127.0.0.1'
 
 export class DriveClientService {
   private cachedFolderId: string | null = null
@@ -149,6 +149,25 @@ export class DriveClientService {
   }
 
   clearCachedFolderId(): void {
+    this.cachedFolderId = null
+  }
+
+  async revokeToken(): Promise<void> {
+    const tokens = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
+    if (tokens?.access_token) {
+      try {
+        const client = this.createOAuthClient()
+        await client.revokeToken(tokens.access_token as string)
+      } catch {
+        // Best-effort: revocación online no crítica para el cierre local
+      }
+    }
+  }
+
+  clearPendingAuth(): void {
+    this.pendingOAuthClient = null
+    this.pendingCodeVerifier = null
+    this.pendingRedirectUri = null
     this.cachedFolderId = null
   }
 

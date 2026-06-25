@@ -25,6 +25,8 @@ import { syncMediaService } from './sync-media.service'
 import {
   getConfigFilePath,
   getTokenFilePath,
+  getStateFilePath,
+  getAppInstanceIdFilePath,
   PersistedSyncConfig,
   SyncStatus,
   normalizeConfig,
@@ -35,6 +37,7 @@ import {
   SyncReason,
   SyncResult
 } from './sync.config'
+import fs from 'fs-extra'
 import { readJsonSafe, writeJson } from './sync.utils'
 
 class SyncController {
@@ -121,12 +124,25 @@ class SyncController {
   }
 
   async disconnect(): Promise<void> {
+    // Revocar token con Google (best-effort)
+    await driveClientService.revokeToken()
+
+    // Eliminar archivos de credenciales y estado
+    await Promise.allSettled([
+      fs.remove(getTokenFilePath()),
+      fs.remove(getStateFilePath()),
+      fs.remove(getAppInstanceIdFilePath())
+    ])
+
+    // Deshabilitar sync en config
     const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
     if (config) {
       config.enabled = false
       await writeJson(getConfigFilePath(), config)
     }
-    driveClientService.clearCachedFolderId()
+
+    // Limpiar estado en memoria
+    driveClientService.clearPendingAuth()
   }
 
   async getAuthUrl({ body }: RequestHandler<SyncAuthUrlDTO>): Promise<{ authUrl: string }> {

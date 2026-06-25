@@ -62,24 +62,21 @@ export async function showOAuthWindow(): Promise<void> {
 
   authWindow.loadURL(authUrl)
 
-  const handleCode = async (url: string) => {
-    const code = new URL(url).searchParams.get('code')
+  // Interceptar redirect OAuth vía webRequest (más confiable que will-redirect/will-navigate)
+  const filter = { urls: ['http://127.0.0.1/*'] }
+  authWindow.webContents.session.webRequest.onBeforeRequest(filter, async (details, callback) => {
+    const url = new URL(details.url)
+    const code = url.searchParams.get('code')
     if (code) {
       try {
         await syncExchangeOAuthToken(code)
         notifyWindowsOAuthComplete()
-        authWindow.close()
       } catch (err) {
         log.error('[sync] Error intercambiando código OAuth:', err)
+      } finally {
+        authWindow.close()
       }
     }
-  }
-
-  authWindow.webContents.on('will-redirect', async (_event, url) => {
-    await handleCode(url)
-  })
-
-  authWindow.webContents.on('will-navigate', async (_event, url) => {
-    await handleCode(url)
+    callback({ cancel: true })
   })
 }

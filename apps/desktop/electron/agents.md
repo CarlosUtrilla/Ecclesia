@@ -122,11 +122,12 @@ El renderer ya no usa IPC para sync — todas las operaciones van por HTTP direc
 - `showOAuthWindow()` en `sync-init.ts`:
   1. Llama `syncGetAuthUrl()` → `POST /api/sync/getAuthUrl` con PKCE
   2. Abre `BrowserWindow` con la URL de auth de Google
-  3. Captura `code` de `will-redirect`/`will-navigate`
+  3. Captura `code` interceptando redirect loopback (`http://127.0.0.1/*`) via `webRequest.onBeforeRequest` (más confiable que `will-redirect`/`will-navigate`)
   4. Llama `syncExchangeOAuthToken(code)` → `POST /api/sync/exchangeOAuthCode`
   5. Emite `oauth-complete` a todas las ventanas vía `notifyWindowsOAuthComplete()`
 - `syncBridge.ts` llama `POST /api/sync/getAuthUrl` y `POST /api/sync/exchangeOAuthCode`.
 - La API usa `driveClientService.getAuthUrl(redirectUri?)` con PKCE / `driveClientService.exchangeAuthCode(code)`.
+- El redirect URI por defecto es `http://127.0.0.1` (loopback IP, debe estar registrado en Google Cloud Console como Authorized redirect URI).
 
 #### Arquitectura snapshot-based
 

@@ -33,8 +33,24 @@ function parseEnv(content: string): Record<string, string> {
   return entries
 }
 
+function findRootDir(): string | null {
+  let dir = process.cwd()
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))) return dir
+    const parent = path.dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+  return null
+}
+
 export function loadAppEnv(userDataPath?: string) {
+  const rootDir = findRootDir()
   const envPaths = [
+    ...(rootDir ? [
+      path.join(rootDir, '.env'),
+      path.join(rootDir, '.env.local')
+    ] : []),
     path.join(process.cwd(), '.env'),
     path.join(process.cwd(), '.env.local'),
     ...(userDataPath ? [path.join(userDataPath, '.env')] : [])

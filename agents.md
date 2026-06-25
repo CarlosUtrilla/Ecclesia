@@ -24,6 +24,24 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 
 **📖 Sistema de Chunks para Textos Bíblicos:** Documentación completa en [`packages/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md`](packages/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md) - explica cómo funciona la división inteligente de textos bíblicos largos, arquitectura de metadata objects, hidratación desde BD, navegación por chunks y preview de presentaciones.
 
+## Estado del proyecto
+
+### Goal
+- Mantener Ecclesia funcional en Electron, con OAuth PKCE y Google Drive sync operativos; la migración a Tauri fue abandonada.
+
+### Done
+- **Prisma generate reparado** (sesión anterior): Loop infinito por auto-install de `prisma` CLI. Solución: agregar `"prisma": "6.19.3"` como devDependency de `@ecclesia/api`. Ahora `prisma generate` resuelve ambos paquetes desde `apps/api/` y no hay loop.
+- **Electron binary reinstalado**: `pnpm add electron@35.7.5` creó un stub (~50KB) sin frameworks y sin `path.txt`. El `install.js` fallaba silenciosamente porque descargaba el zip pero no lo extraía correctamente (el `extract-zip` interno se colgaba sin error). Solución manual: extraer el zip cachead con `unzip` + crear `path.txt` sin trailing newline. El binary ahora pesa 245MB con frameworks completos.
+- **`path.txt` sin newline**: El archivo `path.txt` contenía `Electron.app/Contents/MacOS/Electron\n`, lo que causaba `ENOENT` al spawnear (el `\n` se interpretaba como parte del path). Fijado con `printf '%s' ...`.
+- **`better-sqlite3` rebuild para Electron**: `NODE_MODULE_VERSION 137` (Node v24) vs `133` (Electron 35, Node ~v22). Rebuild con `@electron/rebuild -o better-sqlite3`.
+- **`@electron/rebuild`** agregado como devDependency de `@ecclesia/desktop`.
+- **Dev server verificado**: Electron arranca, Prisma conecta, 10 biblias EBBL cargan con `better-sqlite3` operativo, Socket.IO conecta desde el renderer.
+
+### Known Issues
+- `invalid_client` en sync OAuth: error de configuración — faltan credenciales válidas de Google OAuth en `.env`.
+- GPU process crash (`exit_code=15`) en headless/dev — normal sin display físico.
+- 4 test failures pre-existentes por `react/jsx-dev-runtime` (no relacionados con cambios).
+
 ## Stack tecnologico
 
 *   **Frontend:** React 19, TypeScript, Tailwind CSS, Shadcn UI, React Router v7, React Hook Form + Zod, TanStack React Query, TipTap, Framer Motion (LazyMotion), dnd-kit
