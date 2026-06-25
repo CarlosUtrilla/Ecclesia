@@ -118,8 +118,15 @@ El renderer ya no usa IPC para sync — todas las operaciones van por HTTP direc
 
 #### OAuth Flow
 
-- `showOAuthWindow()` en `sync-init.ts` abre `BrowserWindow`, captura el código OAuth de la URL, y llama `exchangeOAuthCode()` que delega en la API vía `syncBridge.ts`.
-- La API usa `driveClientService.getAuthUrl()` / `driveClientService.exchangeAuthCode()`.
+- `open-oauth-window` IPC handler en `index.ts` llama `showOAuthWindow()`.
+- `showOAuthWindow()` en `sync-init.ts`:
+  1. Llama `syncGetAuthUrl()` → `POST /api/sync/getAuthUrl` con PKCE
+  2. Abre `BrowserWindow` con la URL de auth de Google
+  3. Captura `code` de `will-redirect`/`will-navigate`
+  4. Llama `syncExchangeOAuthToken(code)` → `POST /api/sync/exchangeOAuthCode`
+  5. Emite `oauth-complete` a todas las ventanas vía `notifyWindowsOAuthComplete()`
+- `syncBridge.ts` llama `POST /api/sync/getAuthUrl` y `POST /api/sync/exchangeOAuthCode`.
+- La API usa `driveClientService.getAuthUrl(redirectUri?)` con PKCE / `driveClientService.exchangeAuthCode(code)`.
 
 #### Arquitectura snapshot-based
 

@@ -27,6 +27,7 @@ import { initializeDisplayManager } from './displayManager'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
 import { initializeBibleSearchManager } from './bibleSearchManager'
 import { initializeRemoteManager } from './remoteManager'
+import { showOAuthWindow } from './sync/sync-init'
 
 let isQuittingAfterStageTimersCleanup = false
 
@@ -172,6 +173,11 @@ app.whenReady().then(async () => {
 
   ipcMain.on('open-stage-control-window', () => {
     createStageControlWindow()
+  })
+
+  // Abrir ventana de autenticación OAuth de Google Drive
+  ipcMain.on('open-oauth-window', () => {
+    showOAuthWindow()
   })
 
   // Cerrar ventana actual

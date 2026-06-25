@@ -1,6 +1,15 @@
 import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
-import { syncPush, syncPull, syncStatus, syncGetAuthUrl, syncSetOAuthToken } from '../syncBridge'
+import { syncPush, syncPull, syncStatus, syncGetAuthUrl, syncExchangeOAuthToken } from '../syncBridge'
+
+// Para notificar al renderer cuando OAuth se complete exitosamente
+function notifyWindowsOAuthComplete(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('oauth-complete')
+    }
+  }
+}
 
 let isSyncing = false
 
@@ -34,7 +43,8 @@ export async function executeSyncCycle(reason: string): Promise<void> {
 }
 
 export async function showOAuthWindow(): Promise<void> {
-  const authUrl = (await syncGetAuthUrl()) as string
+  const result = (await syncGetAuthUrl()) as { authUrl?: string }
+  const authUrl = result?.authUrl
   if (!authUrl) {
     log.error('[sync] No se pudo obtener URL de autenticación')
     return
@@ -52,27 +62,24 @@ export async function showOAuthWindow(): Promise<void> {
 
   authWindow.loadURL(authUrl)
 
-  authWindow.webContents.on('will-redirect', async (_event, url) => {
+  const handleCode = async (url: string) => {
     const code = new URL(url).searchParams.get('code')
     if (code) {
       try {
-        await syncSetOAuthToken({ code })
+        await syncExchangeOAuthToken(code)
+        notifyWindowsOAuthComplete()
         authWindow.close()
       } catch (err) {
         log.error('[sync] Error intercambiando código OAuth:', err)
       }
     }
+  }
+
+  authWindow.webContents.on('will-redirect', async (_event, url) => {
+    await handleCode(url)
   })
 
   authWindow.webContents.on('will-navigate', async (_event, url) => {
-    const code = new URL(url).searchParams.get('code')
-    if (code) {
-      try {
-        await syncSetOAuthToken({ code })
-        authWindow.close()
-      } catch (err) {
-        log.error('[sync] Error intercambiando código OAuth:', err)
-      }
-    }
+    await handleCode(url)
   })
 }

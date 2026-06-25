@@ -16,7 +16,9 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
 - `SyncController` expone métodos vía Express (`/api/sync/*`):
   - `getStatus` — estado de conexión/configuración
   - `configure` — guarda configuración
-  - `connect` — guarda config + devuelve auth URL
+  - `connect` — guarda config + devuelve auth URL (legacy, prefiere getAuthUrl + exchangeOAuthCode)
+  - `getAuthUrl` — genera URL de auth con PKCE (S256), guarda sesión pendiente
+  - `exchangeOAuthCode` — canjea código por token usando codeVerifier pendiente
   - `disconnect` — deshabilita sync
   - `push` — push completo (snapshot + media + bible)
   - `pull` — pull completo (snapshots remotos + media + bible)
@@ -30,7 +32,12 @@ Controlador y servicios para sincronización snapshot-based con Google Drive en 
 - `sync-drive-ops.service.ts` — Operaciones Drive compartidas (find/upsert file, list by prefix, download blob, verify fileId) — usado por media, bible, snapshot, push, lazy-fetch
   - `remoteFileIdExists`: ahora reintenta 1 vez con 1s de delay ante errores transitorios (5xx/timeout), evitando falsos negativos que causaban re-uploads.
   - `isDriveNotFoundError`: también verifica `response?.status === 404` para cubrir más formatos de error de Google API.
-- `sync-drive-client.service.ts` — OAuth2, Drive v3 client, carpeta Ecclesia, appInstanceId
+- `sync-drive-client.service.ts` — OAuth2 con PKCE (S256), Drive v3 client, carpeta Ecclesia, appInstanceId
+  - Usa `OAuth2Client` de `google-auth-library` (no `google.auth.OAuth2` de googleapis)
+  - `client_secret` opcional: si no existe, usa `clientAuthentication: 'None'` (solo PKCE + client_id)
+  - `getAuthUrl()` genera PKCE challenge y guarda `pendingOAuthClient`, `pendingCodeVerifier`, `pendingRedirectUri`
+  - `exchangeAuthCode()` usa `codeVerifier` y `redirect_uri` del estado pendiente, luego lo limpia
+  - `createOAuthClient()` reemplaza al antiguo `getOAuthClient()`, acepta `redirectUri` dinámico
 - `sync-state.service.ts` — Persistencia de estado en JSON, retry backoff
 - `sync-snapshot.service.ts` — Build/upload/download/aplicar snapshots de modelos de BD
 - `sync-media.service.ts` — Manifest local/remoto, blob upload/download, diff sync, driveFileId caching

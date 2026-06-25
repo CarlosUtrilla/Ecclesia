@@ -72,6 +72,16 @@ export type ApplyPendingInboxBatchDTO = {
   limit?: number
 }
 
+// --- OAuth DTOs ---
+
+export type SyncAuthUrlDTO = {
+  redirectUri?: string
+}
+
+export type ExchangeOAuthCodeDTO = {
+  code: string
+}
+
 // --- Sync Drive DTOs (new modular sync) ---
 
 export type SyncStatusDTO = {

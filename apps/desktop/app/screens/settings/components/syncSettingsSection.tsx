@@ -88,20 +88,27 @@ export default function SyncSettingsSection() {
     setIsProcessing(true)
     setStatusMessage('Abriendo autenticación de Google...')
     try {
-      persistSyncSettings(values)
-      await Api.fetch.sync.connect({ body: {
-        enabled: values.enabled,
-        workspaceId: values.workspaceId,
-        deviceName: values.deviceName,
-        conflictStrategy: values.conflictStrategy,
-        primaryDeviceName: values.primaryDeviceName,
-        autoOnStart: values.autoOnStart,
-        autoEvery5Min: values.autoEvery5Min,
-        autoOnSave: values.autoOnSave,
-        autoOnClose: values.autoOnClose
-      }})
-      await refreshStatus()
-      setStatusMessage('Google Drive conectado correctamente')
+      await persistSyncSettings(values)
+      if (window.windowAPI?.openOAuthWindow) {
+        window.windowAPI.openOAuthWindow()
+        setStatusMessage(
+          'Se abrió la ventana de autenticación de Google. Completa el proceso allí.'
+        )
+      } else {
+        await Api.fetch.sync.connect({ body: {
+          enabled: values.enabled,
+          workspaceId: values.workspaceId,
+          deviceName: values.deviceName,
+          conflictStrategy: values.conflictStrategy,
+          primaryDeviceName: values.primaryDeviceName,
+          autoOnStart: values.autoOnStart,
+          autoEvery5Min: values.autoEvery5Min,
+          autoOnSave: values.autoOnSave,
+          autoOnClose: values.autoOnClose
+        }})
+        await refreshStatus()
+        setStatusMessage('Google Drive conectado correctamente')
+      }
     } catch (error) {
       setStatusMessage(
         error instanceof Error ? error.message : 'No se pudo conectar con Google Drive'
@@ -191,6 +198,21 @@ export default function SyncSettingsSection() {
         setStatusMessage('No se pudo consultar el estado de sincronización')
       })
   }, [persistSyncSettings, storedSettings]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Escuchar evento de OAuth completado desde el main process de Electron
+  useEffect(() => {
+    const handler = () => {
+      refreshStatus().then((nextStatus) => {
+        if (nextStatus?.connected) {
+          setStatusMessage('Google Drive conectado correctamente')
+        }
+      })
+    }
+    window.electron?.ipcRenderer?.on('oauth-complete', handler)
+    return () => {
+      window.electron?.ipcRenderer?.removeListener('oauth-complete', handler)
+    }
+  }, [])
 
   // Escuchar eventos de progreso de sync directo por Socket.IO (host + remoto)
   useEffect(() => {

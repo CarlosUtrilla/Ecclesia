@@ -1,7 +1,8 @@
+import { OAuth2Client } from 'google-auth-library'
 import { google, drive_v3 } from 'googleapis'
+import { createHash, randomBytes, randomUUID } from 'crypto'
 import fs from 'fs-extra'
 import path from 'path'
-import { randomUUID } from 'crypto'
 import {
   getConfigFilePath,
   getTokenFilePath,
@@ -10,36 +11,81 @@ import {
 } from './sync.config'
 import { writeJson, readJsonSafe } from './sync.utils'
 
+const DEFAULT_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
+
 export class DriveClientService {
   private cachedFolderId: string | null = null
   private folderCreationPromise: Promise<string> | null = null
 
-  private getOAuthClient() {
-    const clientId =
-      process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_ID || ''
-    const clientSecret =
-      process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_SECRET || ''
+  // Estado pendiente entre getAuthUrl() y exchangeAuthCode()
+  private pendingOAuthClient: OAuth2Client | null = null
+  private pendingCodeVerifier: string | null = null
+  private pendingRedirectUri: string | null = null
 
-    if (!clientId || !clientSecret) {
+  private getClientId(): string {
+    return process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_ID || ''
+  }
+
+  private getClientSecret(): string {
+    return process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.ECCLESIA_GOOGLE_DRIVE_CLIENT_SECRET || ''
+  }
+
+  private createOAuthClient(redirectUri?: string): OAuth2Client {
+    const clientId = this.getClientId()
+    if (!clientId) {
       throw new Error(
-        'Faltan variables de entorno para OAuth de Google Drive: GOOGLE_DRIVE_CLIENT_ID y GOOGLE_DRIVE_CLIENT_SECRET'
+        'Falta variable de entorno GOOGLE_DRIVE_CLIENT_ID para OAuth de Google Drive'
       )
     }
 
-    return new google.auth.OAuth2(clientId, clientSecret, 'urn:ietf:wg:oauth:2.0:oob')
+    const clientSecret = this.getClientSecret()
+
+    return new OAuth2Client({
+      clientId,
+      clientSecret: clientSecret || undefined,
+      redirectUri: redirectUri || DEFAULT_REDIRECT_URI,
+      // Si no hay client_secret, indicamos explícitamente que no se use
+      // (PKCE + client_id son suficientes para el flujo OAuth)
+      clientAuthentication: clientSecret ? undefined : ('None' as any),
+    })
   }
 
-  getAuthUrl(): string {
-    return this.getOAuthClient().generateAuthUrl({
+  private generatePKCE(): { verifier: string; challenge: string } {
+    const verifier = randomBytes(32).toString('base64url')
+    const challenge = createHash('sha256').update(verifier).digest('base64url')
+    return { verifier, challenge }
+  }
+
+  getAuthUrl(redirectUri?: string): string {
+    this.pendingOAuthClient = this.createOAuthClient(redirectUri)
+    this.pendingRedirectUri = redirectUri || DEFAULT_REDIRECT_URI
+    const { verifier, challenge } = this.generatePKCE()
+    this.pendingCodeVerifier = verifier
+    return this.pendingOAuthClient.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
-      scope: ['https://www.googleapis.com/auth/drive.file']
+      scope: ['https://www.googleapis.com/auth/drive.file'],
+      code_challenge: challenge,
+      code_challenge_method: 'S256' as any,
     })
   }
 
   async exchangeAuthCode(code: string): Promise<Record<string, unknown>> {
-    const oauthClient = this.getOAuthClient()
-    const tokenResult = await oauthClient.getToken(code)
+    if (!this.pendingOAuthClient || !this.pendingCodeVerifier || !this.pendingRedirectUri) {
+      throw new Error('No hay una sesión de OAuth pendiente. Llama a getAuthUrl() primero.')
+    }
+
+    const tokenResult = await this.pendingOAuthClient.getToken({
+      code,
+      codeVerifier: this.pendingCodeVerifier,
+      redirect_uri: this.pendingRedirectUri,
+    })
+
+    // Limpiar estado pendiente
+    this.pendingOAuthClient = null
+    this.pendingCodeVerifier = null
+    this.pendingRedirectUri = null
+
     return Object.assign({}, tokenResult.tokens) as unknown as Record<string, unknown>
   }
 
@@ -51,7 +97,7 @@ export class DriveClientService {
       throw new Error('No hay configuración o sesión activa de Google Drive')
     }
 
-    const oauthClient = this.getOAuthClient()
+    const oauthClient = this.createOAuthClient()
     oauthClient.setCredentials(tokens)
 
     try {
@@ -71,7 +117,7 @@ export class DriveClientService {
   async getDriveClientFromTokensOnly(): Promise<drive_v3.Drive> {
     const tokens = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
     if (!tokens) throw new Error('No hay sesión activa de Google Drive')
-    const oauthClient = this.getOAuthClient()
+    const oauthClient = this.createOAuthClient()
     oauthClient.setCredentials(tokens)
     return google.drive({ version: 'v3', auth: oauthClient })
   }
@@ -80,7 +126,7 @@ export class DriveClientService {
     if (this.cachedFolderId) return this.cachedFolderId
     if (this.folderCreationPromise) return this.folderCreationPromise
 
-    this.folderCreationPromise = (async () => {
+    this.folderCreationPromise = (async (): Promise<string> => {
       const search = await drive.files.list({
         q: `name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed = false`,
         spaces: 'drive',
@@ -89,17 +135,17 @@ export class DriveClientService {
       })
       if (search.data.files?.[0]?.id) {
         this.cachedFolderId = search.data.files[0].id
-        return this.cachedFolderId
+        return this.cachedFolderId!
       }
       const created = await drive.files.create({
         requestBody: { name: DRIVE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' },
         fields: 'id'
       })
       this.cachedFolderId = created.data.id!
-      return this.cachedFolderId
+      return this.cachedFolderId!
     })().finally(() => { this.folderCreationPromise = null })
 
-    return this.folderCreationPromise
+    return this.folderCreationPromise!
   }
 
   clearCachedFolderId(): void {

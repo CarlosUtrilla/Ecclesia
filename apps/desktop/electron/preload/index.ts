@@ -36,6 +36,7 @@ const windowAPI = {
   openTagSongsWindow: () => ipcRenderer.send('open-tag-songs-window'),
   openSettingsWindow: () => ipcRenderer.send('open-settings-window'),
   openStageControlWindow: () => ipcRenderer.send('open-stage-control-window'),
+  openOAuthWindow: () => ipcRenderer.send('open-oauth-window'),
   closeCurrentWindow: () => ipcRenderer.send('close-current-window'),
   confirmClose: () => ipcRenderer.send('app-close-confirm'),
   cancelClose: () => ipcRenderer.send('app-close-cancel'),

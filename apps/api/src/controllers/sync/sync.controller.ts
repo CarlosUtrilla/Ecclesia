@@ -3,10 +3,12 @@ import {
   ApplyPendingInboxBatchDTO,
   AckOutboxChangesDTO,
   AppendOutboxChangeDTO,
+  ExchangeOAuthCodeDTO,
   IngestRemoteChangesDTO,
   MarkInboxAppliedDTO,
   PendingInboxChangesDTO,
   PendingOutboxChangesDTO,
+  SyncAuthUrlDTO,
   SyncStateDTO,
   UpsertSyncStateDTO,
   SyncConfigDTO
@@ -125,6 +127,20 @@ class SyncController {
       await writeJson(getConfigFilePath(), config)
     }
     driveClientService.clearCachedFolderId()
+  }
+
+  async getAuthUrl({ body }: RequestHandler<SyncAuthUrlDTO>): Promise<{ authUrl: string }> {
+    const authUrl = driveClientService.getAuthUrl(body.redirectUri)
+    return { authUrl }
+  }
+
+  async exchangeOAuthCode({ body }: RequestHandler<ExchangeOAuthCodeDTO>): Promise<{
+    success: boolean
+    email?: string
+  }> {
+    const tokens = await driveClientService.exchangeAuthCode(body.code)
+    await writeJson(getTokenFilePath(), tokens)
+    return { success: true, email: tokens.email as string | undefined }
   }
 
   async push({ body }: RequestHandler<{ reason: SyncReason; snapApplied?: number }>): Promise<SyncResult> {
