@@ -34,6 +34,7 @@ export class SyncMediaService {
     )
 
     const mediaRows = await prisma.media.findMany({
+      where: { deletedAt: null },
       select: { filePath: true, thumbnail: true, fallback: true }
     })
 

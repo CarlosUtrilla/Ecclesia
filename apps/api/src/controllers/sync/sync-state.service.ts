@@ -24,8 +24,10 @@ export class SyncStateService {
   }
 
   async recordSuccess(reason: string): Promise<void> {
+    const now = new Date().toISOString()
     await this.updateState({
-      lastRunAt: new Date().toISOString(),
+      lastSyncAt: now,
+      lastRunAt: now,
       lastRunReason: reason as any,
       lastRunStatus: 'ok',
       lastRunError: undefined,

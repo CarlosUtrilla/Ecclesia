@@ -12,6 +12,7 @@ export async function readJsonSafe<T>(filePath: string): Promise<T | null> {
 }
 
 export async function writeJson(filePath: string, value: unknown): Promise<void> {
+  await fs.ensureDir(path.dirname(filePath))
   await fs.writeJSON(filePath, value, { spaces: 2 })
 }
 

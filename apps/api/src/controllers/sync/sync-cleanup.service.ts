@@ -139,6 +139,41 @@ export class SyncCleanupService {
       }
     }
 
+    // Phase 3: Scan Drive blobs and delete any not referenced in the remote manifest
+    log.warn('[cleanup] Escaneando blobs en Drive para buscar huérfanos...')
+    try {
+      const remoteManifest = await syncMediaService.readRemoteMediaManifest(drive, config.workspaceId, folderId)
+      const manifestChecksums = new Set<string>()
+      if (remoteManifest) {
+        for (const entry of remoteManifest.entries) {
+          if (entry.checksum) manifestChecksums.add(entry.checksum)
+        }
+      }
+
+      const driveBlobs = await syncMediaService.listRemoteMediaBlobs(drive, config.workspaceId, folderId)
+      log.warn(`[cleanup] Blobs en Drive: ${driveBlobs.size}, checksums en manifest: ${manifestChecksums.size}`)
+
+      for (const [checksum, fileId] of driveBlobs) {
+        if (!manifestChecksums.has(checksum)) {
+          try {
+            await drive.files.delete({ fileId })
+            driveDeleted++
+            details.push({ path: `blob:${checksum.slice(0, 12)}...`, reason: 'orphan-drive-blob', size: 0, driveDeleted: true })
+            log.warn(`[cleanup] Blob huérfano eliminado de Drive: checksum=${checksum.slice(0, 12)}..., fileId=${fileId}`)
+          } catch (err) {
+            if (syncDriveOpsService.isDriveNotFoundError(err)) {
+              driveDeleted++
+            } else {
+              driveErrors++
+              log.warn(`[cleanup] Error eliminando blob huérfano de Drive: checksum=${checksum.slice(0, 12)}..., fileId=${fileId}:`, err)
+            }
+          }
+        }
+      }
+    } catch (err) {
+      log.warn('[cleanup] Error escaneando blobs en Drive:', err)
+    }
+
     const deletedOrphans = details.filter(d => d.reason === 'orphan' || d.reason === 'orphan-thumbnail').length
     const deletedStale = details.filter(d => d.reason === 'deleted-record').length
 

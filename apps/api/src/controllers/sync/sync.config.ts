@@ -25,11 +25,11 @@ export const REMOTE_BIBLE_BLOB_FILE_PREFIX = 'ecclesia-bible-blob'
 
 // --- Timing ---
 export const GOOGLE_REDIRECT_PORT = 53682
-export const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000
+export const PULL_CHECK_INTERVAL_MS = 5 * 60 * 1000
+export const MICRO_PUSH_DEBOUNCE_MS = 30_000
 export const RETRY_BASE_DELAY_MS = 30 * 1000
 export const RETRY_MAX_DELAY_MS = 10 * 60 * 1000
 export const HEALTH_CHECK_INTERVAL_MS = 60 * 1000
-export const SCHEDULER_STALE_THRESHOLD_MS = AUTO_SYNC_INTERVAL_MS * 2 + 30 * 1000
 export const MAX_DRIVE_FILEID_VERIFICATIONS_PER_CYCLE = 20
 export const BLOB_REUPLOAD_GRACE_MS = 5 * 60 * 1000
 export const MEDIA_VERIFICATION_COOLDOWN_MS = 1 * 60 * 60 * 1000
@@ -57,6 +57,8 @@ export type PersistedSyncConfig = GoogleDriveSyncConfig & {
 export type SyncState = {
   lastSyncAt?: string
   lastRemoteModifiedAt?: string
+  lastSnapshotPushAt?: string
+  lastPullCheckAt?: string
   conflictDetected?: boolean
   nextRunAt?: string
   lastRunAt?: string
@@ -73,10 +75,13 @@ export type SyncState = {
 export type SyncReason =
   | 'startup'
   | 'interval'
+  | 'pull-check'
   | 'save'
   | 'close'
   | 'manual-push'
   | 'manual-pull'
+  | 'micro-snapshot-push'
+  | 'micro-media-push'
   | 'retry'
 
 export type SyncStatus = {

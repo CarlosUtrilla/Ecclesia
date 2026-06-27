@@ -1,13 +1,58 @@
 import log from 'electron-log'
 import { drive_v3 } from 'googleapis'
 import SyncService from './sync.service'
-import { PersistedSyncConfig } from './sync.config'
+import { PersistedSyncConfig, getManifestFileName, RemoteManifest } from './sync.config'
 import { syncSnapshotService } from './sync-snapshot.service'
 import { syncMediaService } from './sync-media.service'
 import { syncBibleService } from './sync-bible.service'
 import { syncProgressService } from './sync-progress.service'
+import { syncDriveOpsService } from './sync-drive-ops.service'
+import { driveClientService } from './sync-drive-client.service'
+import { syncStateService } from './sync-state.service'
 
 export class SyncPullService {
+  async hasRemoteChanges(): Promise<boolean> {
+    try {
+      const { drive, config } = await driveClientService.getDriveClient()
+      const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
+      const manifestFileName = getManifestFileName(config.workspaceId)
+
+      const existing = await syncDriveOpsService.findFileByName(drive, folderId, manifestFileName)
+      if (!existing?.id) {
+        log.warn('[sync] No hay manifiesto remoto — se necesita sync completo')
+        return true
+      }
+
+      const remoteManifest = await syncDriveOpsService.downloadJsonFile<RemoteManifest>(drive, existing.id)
+      if (!remoteManifest) {
+        log.warn('[sync] No se pudo leer manifiesto remoto — se necesita sync completo')
+        return true
+      }
+
+      const state = await syncStateService.getState()
+      const localTimestamp = state.lastSyncAt
+
+      if (!localTimestamp) {
+        log.warn('[sync] Sin timestamp local — se necesita sync completo')
+        return true
+      }
+
+      const remoteTime = new Date(remoteManifest.lastSyncAt).getTime()
+      const localTime = new Date(localTimestamp).getTime()
+
+      if (Number.isNaN(remoteTime) || Number.isNaN(localTime)) {
+        log.warn('[sync] Timestamps inválidos — se necesita sync completo')
+        return true
+      }
+
+      const hasChanges = remoteTime > localTime
+      log.warn(`[sync] Pull check: remoto=${remoteManifest.lastSyncAt}, local=${localTimestamp}, cambios=${hasChanges}`)
+      return hasChanges
+    } catch (err) {
+      log.error('[sync] Error en pull check:', err)
+      return true
+    }
+  }
   async pull(
     drive: drive_v3.Drive,
     config: PersistedSyncConfig,

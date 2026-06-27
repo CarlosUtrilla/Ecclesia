@@ -1,11 +1,13 @@
+import log from 'electron-log'
 import { getSocket } from '../../sockets/socket.service'
 import { setOnOutboxWriteCallback, setOnMediaChangeCallback } from '../../prisma-init'
 import SyncController from './sync.controller'
-
-const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000
+import { syncPushService } from './sync-push.service'
+import { syncPullService } from './sync-pull.service'
+import { PULL_CHECK_INTERVAL_MS, MICRO_PUSH_DEBOUNCE_MS } from './sync.config'
 
 let isRunning = false
-let autoSyncInterval: ReturnType<typeof setInterval> | null = null
+let pullCheckInterval: ReturnType<typeof setInterval> | null = null
 let microPushTimer: ReturnType<typeof setTimeout> | null = null
 let mediaMicroPushTimer: ReturnType<typeof setTimeout> | null = null
 let isSyncing = false
@@ -16,6 +18,66 @@ function notifyProgress(progress: number, message?: string, error?: boolean) {
   } catch {
     // Socket not yet initialized
   }
+}
+
+async function fullCycle(controller: SyncController, reason: string): Promise<void> {
+  log.warn(`\n========== [SYNC] INICIANDO CICLO COMPLETO (${reason}) ==========`)
+
+  log.warn('\n--- FASE 1: PULL (descargar cambios de otros dispositivos) ---')
+  notifyProgress(10, 'Pull: descargando cambios...')
+  const pullResult = await controller.pull({ body: { reason } } as any)
+  log.warn(`[sync] Pull completado: ${JSON.stringify(pullResult)}`)
+
+  log.warn('\n--- FASE 2: PUSH (subir cambios locales) ---')
+  notifyProgress(50, 'Push: subiendo cambios...')
+  const pushResult = await controller.push({ body: { reason } } as any)
+  log.warn(`[sync] Push completado: ${JSON.stringify(pushResult)}`)
+
+  log.warn('\n--- FASE 3: HEAL (verificar archivos faltantes localmente) ---')
+  notifyProgress(68, 'Heal: verificando archivos faltantes...')
+  try {
+    const diagnostic = await controller.diagnose()
+    log.warn(`[sync] Diagnóstico: total=${diagnostic.summary.total}, ok=${diagnostic.summary.ok}, needDownload=${diagnostic.summary.needDownload}, needUpload=${diagnostic.summary.needUpload}, orphanLocal=${diagnostic.summary.orphanLocal}, tombstoned=${diagnostic.summary.tombstoned}`)
+    if (diagnostic.summary.needDownload > 0) {
+      notifyProgress(72, `Heal: descargando ${diagnostic.summary.needDownload} archivos faltantes...`)
+      const healResult = await controller.heal({ body: { diagnostic } })
+      log.warn(`[sync] Heal completado: descargados=${healResult.downloaded}, subidos=${healResult.uploaded}, errores=${healResult.errors.length}`)
+    } else {
+      log.warn('[sync] Heal: no hay archivos faltantes que reparar')
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'error desconocido'
+    log.warn(`[sync] HEAL FALLÓ: ${msg}`)
+  }
+
+  log.warn('\n--- FASE 4: CLEANUP (eliminar blobs huérfanos de Drive) ---')
+  notifyProgress(85, 'Cleanup: limpiando archivos huérfanos...')
+  let totalDriveDeleted = 0
+  let totalDriveErrors = 0
+  let totalOrphans = 0
+  let totalStale = 0
+  let totalBytes = 0
+  const MAX_CLEANUP_ITERATIONS = 10
+  for (let iter = 0; iter < MAX_CLEANUP_ITERATIONS; iter++) {
+    try {
+      const cleanupResult = await controller.cleanupMedia()
+      totalDriveDeleted += cleanupResult.driveDeleted
+      totalDriveErrors += cleanupResult.driveErrors
+      totalOrphans += cleanupResult.deletedOrphans
+      totalStale += cleanupResult.deletedStale
+      totalBytes += cleanupResult.totalFreedBytes
+      log.warn(`[sync] Cleanup iter ${iter + 1}: ${cleanupResult.driveDeleted} blobs de Drive, ${cleanupResult.driveErrors} errores`)
+      if (cleanupResult.driveDeleted === 0 && cleanupResult.driveErrors === 0) break
+      await new Promise((r) => setTimeout(r, 2000))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'error desconocido'
+      log.warn(`[sync] Cleanup iter ${iter + 1} falló: ${msg}`)
+      break
+    }
+  }
+  log.warn(`[sync] Cleanup total: ${totalDriveDeleted} blobs eliminados de Drive, ${totalOrphans} huérfanos en disco, ${totalStale} stale, ${totalDriveErrors} errores, ${(totalBytes / 1024 / 1024).toFixed(2)} MB liberados`)
+
+  log.warn('\n========== [SYNC] CICLO COMPLETO FINALIZADO ==========')
 }
 
 async function executeCycle(reason: string): Promise<void> {
@@ -32,14 +94,28 @@ async function executeCycle(reason: string): Promise<void> {
       return
     }
 
-    if (reason === 'interval' || reason === 'startup') {
-      notifyProgress(10, 'Descargando cambios...')
-      await controller.pull({ body: { reason } } as any)
-      notifyProgress(50, 'Subiendo cambios...')
+    if (reason === 'startup') {
+      await fullCycle(controller, 'startup')
+    } else if (reason === 'pull-check') {
+      log.warn(`\n========== [SYNC] PULL CHECK ==========`)
+      const hasChanges = await syncPullService.hasRemoteChanges()
+      if (hasChanges) {
+        log.warn('[sync] Pull check detectó cambios remotos — iniciando ciclo completo')
+        await fullCycle(controller, 'pull-check')
+      } else {
+        log.warn('[sync] Pull check: sin cambios remotos, saltando ciclo')
+      }
+      log.warn('========== [SYNC] PULL CHECK FINALIZADO ==========')
+    } else if (reason === 'micro-snapshot-push') {
+      log.warn(`\n========== [SYNC] MICRO SNAPSHOT PUSH ==========`)
+      notifyProgress(30, 'Subiendo snapshot...')
+      await syncPushService.pushSnapshotOnly()
+      log.warn('========== [SYNC] MICRO SNAPSHOT PUSH FINALIZADO ==========')
+    } else if (reason === 'micro-media-push') {
+      log.warn(`\n========== [SYNC] MICRO MEDIA PUSH (${reason}) ==========`)
+      notifyProgress(10, 'Subiendo cambios multimedia...')
       await controller.push({ body: { reason } } as any)
-    } else {
-      notifyProgress(10, 'Subiendo cambios...')
-      await controller.push({ body: { reason } } as any)
+      log.warn('========== [SYNC] MICRO MEDIA PUSH FINALIZADO ==========')
     }
 
     notifyProgress(100, 'Sincronizado')
@@ -52,19 +128,27 @@ async function executeCycle(reason: string): Promise<void> {
   }
 }
 
-function scheduleMicroPush(): void {
+function scheduleMicroSnapshotPush(): void {
+  if (mediaMicroPushTimer) {
+    log.warn('[sync] Media push pendiente — saltando snapshot push (media push lo incluye)')
+    return
+  }
   if (microPushTimer) clearTimeout(microPushTimer)
   microPushTimer = setTimeout(async () => {
     microPushTimer = null
     try {
-      await executeCycle('micro-push')
+      await executeCycle('micro-snapshot-push')
     } catch {
-      // Silently fail for micro-push
+      // Silently fail for micro push
     }
-  }, 1000)
+  }, MICRO_PUSH_DEBOUNCE_MS)
 }
 
 function scheduleMicroMediaPush(): void {
+  if (microPushTimer) {
+    clearTimeout(microPushTimer)
+    microPushTimer = null
+  }
   if (mediaMicroPushTimer) clearTimeout(mediaMicroPushTimer)
   mediaMicroPushTimer = setTimeout(async () => {
     mediaMicroPushTimer = null
@@ -73,7 +157,7 @@ function scheduleMicroMediaPush(): void {
     } catch {
       // Silently fail for micro-media-push
     }
-  }, 1000)
+  }, MICRO_PUSH_DEBOUNCE_MS)
 }
 
 function cleanupTimers(): void {
@@ -93,23 +177,20 @@ export function startSyncScheduler(): void {
 
   executeCycle('startup').catch(() => {})
 
-  if (autoSyncInterval) clearInterval(autoSyncInterval)
-  autoSyncInterval = setInterval(() => {
-    executeCycle('interval').catch(() => {})
-  }, AUTO_SYNC_INTERVAL_MS)
+  if (pullCheckInterval) clearInterval(pullCheckInterval)
+  pullCheckInterval = setInterval(() => {
+    executeCycle('pull-check').catch(() => {})
+  }, PULL_CHECK_INTERVAL_MS)
 
-  setOnOutboxWriteCallback(() => scheduleMicroPush())
-  setOnMediaChangeCallback(() => {
-    scheduleMicroMediaPush()
-    scheduleMicroPush()
-  })
+  setOnOutboxWriteCallback(() => scheduleMicroSnapshotPush())
+  setOnMediaChangeCallback(() => scheduleMicroMediaPush())
 }
 
 export function stopSyncScheduler(): void {
   isRunning = false
-  if (autoSyncInterval) {
-    clearInterval(autoSyncInterval)
-    autoSyncInterval = null
+  if (pullCheckInterval) {
+    clearInterval(pullCheckInterval)
+    pullCheckInterval = null
   }
   cleanupTimers()
 }

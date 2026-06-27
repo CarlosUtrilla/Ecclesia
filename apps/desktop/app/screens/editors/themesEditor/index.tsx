@@ -274,7 +274,6 @@ export default function ThemesEditor() {
         await Api.fetch.themes.createTheme({ body: data as any })
       }
       // cerrar ventana
-      Api.fetch.sync.push({ body: { reason: 'save' } }).catch(() => {})
       pendingCloseRef.current = false
       window.windowAPI.confirmThemeClose()
     } catch (error: any) {

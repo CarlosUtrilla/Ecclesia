@@ -36,7 +36,7 @@ src/
 │                      #   GET  /api/remote/events → SSE endpoint: broadcast de queryKeys a todos los renderers conectados
 │                      # broadcastToRemoteClients(event, data) empuja eventos SSE a todos los clientes conectados
 │                      # initializeHttpServer acepta onQueryKeys callback para broadcast local Electron
-│                      # Arranca sync-scheduler.service (setInterval 5min) y udp-discovery.service tras listen
+│                      # Arranca sync-scheduler.service (pull check 2min + event-driven micro-push) y udp-discovery.service tras listen
 │                      # Nuevos endpoints HTTP:
 │                      #   GET  /api/remote/discover-lan → descubrimiento UDP LAN
 ├── prisma.ts          # setPrismaClient, getPrisma, injectables (bibles path)
@@ -114,7 +114,7 @@ src/
 │   │   ├── stageScreenConfig.service.ts
 │   │   └── stageScreenConfig.dto.d.ts
 ├── services/
-│   ├── sync-scheduler.service.ts  # Scheduler 5min, micro-push por outbox, notifica via Socket.IO
+│   ├── sync-scheduler.service.ts  # Scheduler event-driven: micro snapshot push, pull check remoto (2min), notifica via Socket.IO
 │   └── udp-discovery.service.ts   # Listener UDP + discoverLanDevices() para descubrimiento LAN
 ├── utils/
 │   ├── crashLogger.ts   # Crash logger sin Electron (sidecar-safe)
@@ -212,7 +212,9 @@ export interface CreateSongDTO {
 - El módulo `sync` implementa sincronización basada en **instantáneas (snapshots)**: cada dispositivo exporta todos los registros de SNAPSHOT_MODELS a un JSON, lo sube a Drive, y al hacer pull descarga los snapshots de todos los demás dispositivos aplicando filas por `lastWriteWins` (updatedAt). Las tablas `SyncOutboxChange`/`SyncInboxChange` siguen en el schema pero ya no son el mecanismo principal de sync.
 - `applySnapshotRows(tables, workspaceId, remoteDeviceId)` en `SyncService` aplica las filas de un snapshot remoto a la BD local con `runWithoutSyncOutboxTracking` y `lastWriteWins` por `updatedAt`; preserva el `updatedAt` remoto en `create/update` via Prisma (sin SQL crudo) para evitar falsos `stale` por desfase de reloj entre PCs. Al finalizar, actualiza `SyncState.lastAppliedSnapshotAt` y `snapshotApplySequence` para rastrear aplicación de snapshots remotos.
 - El outbox middleware en `prisma.ts` sigue activo pero los datos que escribe en `SyncOutboxChange` no se usan en el flujo principal de sync (se conserva para posible tracking de deletes futuro).
-- **Arquitectura sync**: Toda la lógica de sync con Drive vive en `apps/api/src/controllers/sync/`. El **scheduler** (setInterval 5min) y el **micro-push** (debounce 1s por outbox/media changes) ahora se ejecutan en el API como `sync-scheduler.service.ts`, iniciados desde `initializeHttpServer`. Electron solo mantiene: OAuth BrowserWindow, `sync-init.ts` helpers (close flow, getIsSyncing, executeSyncCycle), y `syncBridge.ts` (HTTP helpers para que `windowManager.ts` haga sync al cerrar).
+- **Arquitectura sync**: Toda la lógica de sync con Drive vive en `apps/api/src/controllers/sync/`. El **scheduler** (event-driven con pull check cada 2 min) se ejecuta en el API como `sync-scheduler.service.ts`, iniciado desde `initializeHttpServer`. Electron solo mantiene: OAuth BrowserWindow, `sync-init.ts` helpers (close flow, getIsSyncing, executeSyncCycle), y `syncBridge.ts` (HTTP helpers para que `windowManager.ts` haga sync al cerrar).
+  - **Event-driven push**: Cuando cualquier modelo de `SNAPSHOT_MODELS` cambia, el middleware outbox dispara un micro-snapshot-push (solo snapshot, sin media/bible). Si el cambio es Media o Font, se dispara un micro-media-push (snapshot + media + bible).
+  - **Pull check (2 min)**: Timer que compara `lastSyncAt` del manifiesto remoto de Drive con el estado local. Si el remoto es más reciente, ejecuta ciclo completo (pull → push → heal → cleanup). Si no hay cambios, salta el ciclo.
 - La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones.
 - **`sync.service.ts` NO usa `electron-log`**: Este archivo se bundlea en el preload (renderer). Usar `console.warn`/`console.error` únicamente. `electron-log` solo puede importarse en archivos bajo `electron/main/`.
 - El módulo `settings` acepta claves string públicas (`LOGO_FALLBACK_*`, `BIBLE_LIVE_CHUNK_MODE`, etc.) y las mapea a valores persistidos en DB (`logo.fallback.*`, `bible.live.chunkMode`) con SQL directo, evitando errores cuando una instalación tiene el cliente Prisma con enums desactualizados.

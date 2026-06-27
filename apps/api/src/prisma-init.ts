@@ -118,7 +118,7 @@ async function getSyncIdentityCached(userDataPath: string): Promise<SyncIdentity
   }
 
   const config = await readJsonSafe<SyncConfigSnapshot>(getSyncConfigPath(userDataPath))
-  if (!config?.enabled) {
+  if (!config) {
     cachedSyncIdentity = { loadedAt: now, value: null }
     return null
   }

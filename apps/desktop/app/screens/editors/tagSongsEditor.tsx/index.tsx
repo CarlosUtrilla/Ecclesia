@@ -46,7 +46,6 @@ export default function TagSongsEditor() {
     onSuccess: () => {
       toast.success('Tags guardadas correctamente')
       setHasChanges(false)
-      Api.fetch.sync.push({ body: { reason: 'save' } }).catch(() => {})
       window.windowAPI.closeCurrentWindow()
     },
     onError: (error: Error) => {

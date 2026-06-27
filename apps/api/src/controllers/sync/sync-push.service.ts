@@ -14,10 +14,11 @@ import { syncBibleService } from './sync-bible.service'
 import { driveClientService } from './sync-drive-client.service'
 import { syncDriveOpsService } from './sync-drive-ops.service'
 import { syncProgressService } from './sync-progress.service'
+import { syncStateService } from './sync-state.service'
 
 async function loadConfigAndToken(): Promise<{ config: PersistedSyncConfig; token: Record<string, unknown> } | null> {
   const config = await readJsonSafe<PersistedSyncConfig>(getConfigFilePath())
-  if (!config?.enabled) return null
+  if (!config) return null
   const token = await readJsonSafe<Record<string, unknown>>(getTokenFilePath())
   if (!token) return null
   if (!config.workspaceId) config.workspaceId = 'default'
@@ -31,6 +32,7 @@ export class SyncPushService {
     if (!loaded) return
 
     try {
+      syncProgressService.setPhaseRange(0, 100)
       syncProgressService.update(10, 'Conectando con Google Drive...')
       const { drive } = await driveClientService.getDriveClient()
       const appInstanceId = await driveClientService.getOrCreateAppInstanceId()
@@ -38,9 +40,25 @@ export class SyncPushService {
 
       syncProgressService.update(25, 'Construyendo snapshot de base de datos...')
       const snapshot = await syncSnapshotService.buildSnapshot(loaded.config, appInstanceId)
+      log.warn(`[sync] Snapshot construido para pushSnapshotOnly: ${Object.keys(snapshot.tables).length} tablas`)
 
       syncProgressService.update(60, 'Subiendo snapshot a Google Drive...')
       await syncSnapshotService.uploadSnapshot(drive, loaded.config, snapshot, folderId)
+
+      const now = new Date().toISOString()
+      await syncStateService.updateState({ lastSyncAt: now, lastSnapshotPushAt: now })
+      log.warn('[sync] Estado local actualizado tras pushSnapshotOnly')
+
+      syncProgressService.update(80, 'Actualizando manifiesto remoto...')
+      const manifestFileName = getManifestFileName(loaded.config.workspaceId)
+      const manifest = {
+        schemaVersion: 1,
+        workspaceId: loaded.config.workspaceId,
+        deviceName: loaded.config.deviceName,
+        updatedAt: now,
+        lastSyncAt: now
+      }
+      await syncDriveOpsService.upsertFile(drive, folderId, manifestFileName, manifest)
 
       syncProgressService.update(100, 'Snapshot subido correctamente')
     } catch (err) {

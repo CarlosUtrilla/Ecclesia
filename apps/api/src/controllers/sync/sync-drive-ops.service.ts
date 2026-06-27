@@ -175,6 +175,12 @@ export class SyncDriveOpsService {
       throw new Error(`Archivo local no encontrado: ${localPath}`)
     }
 
+    const existing = await this.findFileByName(drive, folderId, fileName)
+    if (existing?.id) {
+      log.warn(`[sync] Blob ya existe en Drive: ${fileName} (fileId=${existing.id}), reusando`)
+      return existing.id
+    }
+
     const created = await drive.files.create(
       {
         requestBody: { name: fileName, parents: [folderId] },
