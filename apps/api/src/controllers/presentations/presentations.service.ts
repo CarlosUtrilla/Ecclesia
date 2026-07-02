@@ -189,13 +189,14 @@ export class PresentationsService {
   }
 
   async getPresentations(params?: GetPresentationsDTO): Promise<PresentationResponseDTO[]> {
+    const where: any = { deletedAt: null, pdfMedia: null }
+
+    if (params?.search) {
+      where.title = { contains: params.search }
+    }
+
     const presentations = await this.prisma.presentation.findMany({
-      where: params?.search
-        ? {
-            deletedAt: null,
-            title: { contains: params.search }
-          }
-        : { deletedAt: null },
+      where,
       orderBy: {
         updatedAt: 'desc'
       }

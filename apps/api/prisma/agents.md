@@ -83,8 +83,8 @@ model Themes {
 model Media {
   id        Int       @id @default(autoincrement())
   name      String
-  type      MediaType                // IMAGE | VIDEO
-  format    String                   // webp, png, jpg, mp4, webm, etc.
+  type      MediaType                // IMAGE | VIDEO | PDF
+  format    String                   // webp, png, jpg, mp4, webm, pdf, etc.
   filePath  String    @unique        // Ruta relativa al directorio de datos
   fileSize  Int                      // Bytes
   width     Int?
@@ -323,7 +323,7 @@ model SyncInboxChange {
 
 | Enum | Valores | Uso |
 | ---- | ------- | --- |
-| `MediaType` | IMAGE, VIDEO | Tipo de medio |
+| `MediaType` | IMAGE, VIDEO, PDF | Tipo de medio |
 | `TestamentEnum` | Old, New | Antiguo/Nuevo Testamento |
 | `BibleDescriptionMode` | short, complete | Nombre corto/completo del libro |
 | `BibleDescriptionPosition` | beforeText, afterText, underText, overText, upScreen, downScreen | Posicion de referencia biblica |

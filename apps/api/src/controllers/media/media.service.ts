@@ -9,6 +9,7 @@ import {
   extractZipMp4,
   importMediaFromSourcePath,
   importClipboardImage,
+  importPdfPages,
   listMediaFolders,
   moveMediaPath,
   renameMediaPath,
@@ -34,6 +35,20 @@ export class MediaService {
 
     if (type) {
       where.type = type
+    }
+
+    // When not explicitly filtering for PDFs, hide internal page images
+    // NOT + startsWith on nullable column excludes nulls (SQL three-valued logic),
+    // so we must include null explicitly via OR
+    if (type !== 'PDF') {
+      where.AND = [
+        {
+          OR: [
+            { folder: null },
+            { folder: { not: { startsWith: '__pdf/' } } }
+          ]
+        }
+      ]
     }
 
     if (search) {
@@ -146,6 +161,59 @@ export class MediaService {
     return media
   }
 
+  async importPdfFromMulter(file: Express.Multer.File, _folder?: string): Promise<MediaDto> {
+    const prisma = getPrisma()
+    const { pages, pdfFileSize, originalName } = await importPdfPages(file.path, undefined, file.originalname)
+
+    // 1. Create Media records for each page image (IMAGE type, in __pdf/ hidden folder)
+    const pageMediaIds = await Promise.all(
+      pages.map(async (page) => {
+        const { width, height, ...fileData } = page
+        const media = await prisma.media.create({
+          data: { ...fileData, width, height }
+        })
+        return media.id
+      })
+    )
+
+    // 2. Create a Presentation with one slide per page
+    const slides = pageMediaIds.map((mediaId, idx) => ({
+      id: `slide-${idx}`,
+      type: 'MEDIA' as const,
+      mediaId,
+      items: [{
+        id: `item-${idx}-0`,
+        type: 'MEDIA' as const,
+        accessData: String(mediaId),
+        layer: 0
+      }]
+    }))
+
+    const presentation = await prisma.presentation.create({
+      data: {
+        title: `__pdf_${originalName}`,
+        slides: JSON.stringify(slides)
+      }
+    })
+
+    // 3. Create a single PDF-type Media record linking to the presentation
+    // Use the first page's thumbnail as the PDF thumbnail
+    const pdfMedia = await prisma.media.create({
+      data: {
+        name: originalName,
+        type: 'PDF',
+        format: 'pdf',
+        filePath: `presentation://${presentation.id}`,
+        fileSize: pdfFileSize,
+        folder: undefined,
+        presentationId: presentation.id,
+        thumbnail: pages[0]?.thumbnail ?? null
+      }
+    })
+
+    return pdfMedia
+  }
+
   async createFolder(folderPath: string) {
     const normalizedFolder = normalizeMediaPath(folderPath)
     const parts = normalizedFolder.split('/')
@@ -212,7 +280,7 @@ export class MediaService {
     return copyMediaSource(sourcePath, targetFolder, isFolder)
   }
 
-  async extractZipMp4(zipPath: string, folder?: string, originalName?: string) {
+  async extractZipMp4(zipPath: string, folder?: string, _originalName?: string) {
     const { tempDir, mp4Paths } = extractZipMp4(zipPath)
     const importedMedia = await Promise.all(
       mp4Paths.map(async (mp4Path) => {

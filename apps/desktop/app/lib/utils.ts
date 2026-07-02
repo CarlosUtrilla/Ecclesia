@@ -156,6 +156,7 @@ export const getMediaType = (format: string) => {
     jpeg: 'image/jpeg',
     webp: 'image/webp',
     gif: 'image/gif',
+    pdf: 'application/pdf',
     mp4: 'video/mp4',
     webm: 'video/webm',
     mov: 'video/quicktime',

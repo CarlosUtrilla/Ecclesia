@@ -21,7 +21,7 @@ function getInitialViewMode(): ViewModeTypes {
 }
 
 export default function LivePanel() {
-  const { itemOnLive, getScheduleItemContentScreen } = useSchedule()
+  const { itemOnLive, getScheduleItemContentScreen, media } = useSchedule()
   const {
     liveContentVersion,
     itemIndex,
@@ -122,8 +122,13 @@ export default function LivePanel() {
         return <RenderSongLyrics />
       case 'BIBLE':
         return <RenderBibleLiveControls data={content} />
-      case 'MEDIA':
+      case 'MEDIA': {
+        const pdfMedia = media.find((m) => m.id === Number(itemOnLive!.accessData))
+        if (pdfMedia?.type === 'PDF') {
+          return <RenderPresentationLiveController data={content} />
+        }
         return <RenderMedia />
+      }
       case 'PRESENTATION':
         return <RenderPresentationLiveController data={content} />
       default:

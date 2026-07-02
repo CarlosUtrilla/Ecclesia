@@ -23,7 +23,8 @@ const VALID_EXTENSIONS = [
   '.webm',
   '.ogg',
   '.mov',
-  '.avi'
+  '.avi',
+  '.pdf'
 ]
 
 const isExternalFile = (e: React.DragEvent) => {
@@ -83,7 +84,7 @@ export function useDragAndDrop({ onFilesDropped }: UseDragAndDropProps) {
     )
 
     if (validFiles.length === 0) {
-      toast.error('No se encontraron archivos de imagen o video válidos')
+      toast.error('No se encontraron archivos de imagen, video o PDF válidos')
       return
     }
 

@@ -161,10 +161,6 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
 
   // Envia cambios de contenido/slide a live/stage.
   useEffect(() => {
-    if (!liveScreensReady || windowsLiveScreenOpens.length + windowsStageScreenOpens.length === 0) {
-      return
-    }
-
     console.log('Sending content update to live screens')
     const sendUpdateToLiveScreens = async () => {
       await window.displayAPI.updateLiveScreenContent({
@@ -223,11 +219,6 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   }, [])
 
   useEffect(() => {
-    // Solo enviar updates si las pantallas están listas y hay ventanas abiertas
-    // no mandar si el tema cambio, solo mandar el cambio de tema al reeniviar otro item
-    if (!liveScreensReady || windowsLiveScreenOpens.length + windowsStageScreenOpens.length === 0) {
-      return
-    }
     console.log('Sending theme update to live screens')
     const sendThemeToLiveScreens = async () => {
       await window.displayAPI.updateLiveScreenTheme(appliedTheme)

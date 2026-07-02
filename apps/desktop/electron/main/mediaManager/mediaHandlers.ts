@@ -11,7 +11,7 @@ export function registerMediaHandlers() {
     if (type === 'all') {
       filters.push({
         name: 'Medios',
-        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm', 'mov', 'avi', 'zip']
+        extensions: ['png', "pdf", 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm', 'mov', 'avi', 'zip']
       })
     } else if (type === MediaType.IMAGE) {
       filters.push({

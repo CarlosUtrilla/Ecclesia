@@ -80,7 +80,7 @@ export async function initializeHttpServer(
       })
       return res.json({ response: routesMap })
     } catch (err: any) {
-      res.status(500).json({ error: 'Failed to retrieve routes', errMsg: err })
+      return res.status(500).json({ error: 'Failed to retrieve routes', errMsg: err })
     }
   })
 

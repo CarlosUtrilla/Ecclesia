@@ -37,6 +37,9 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 - **`@electron/rebuild`** agregado como devDependency de `@ecclesia/desktop`.
 - **Dev server verificado**: Electron arranca, Prisma conecta, 10 biblias EBBL cargan con `better-sqlite3` operativo, Socket.IO conecta desde el renderer.
 
+### In Progress
+- **Importación PDF**: Backend completo — `importPdf` endpoint que convierte cada página del PDF a IMAGE via `pdfjs-dist` v3 + `@napi-rs/canvas`, almacena en `__pdf/` oculto, crea Presentation one-slide-per-page y un Media PDF con `presentationId`. **Frontend completo**: `MediaCard` muestra icono PDF + placeholder, drag-and-drop acepta `.pdf`, file picker filtro incluido. **Live redirect**: cuando un Media PDF se envía a live, resuelve su Presentation vinculada y muestra las diapositivas.
+
 ### Known Issues
 - `invalid_client` en sync OAuth: error de configuración — faltan credenciales válidas de Google OAuth en `.env`.
 - GPU process crash (`exit_code=15`) en headless/dev — normal sin display físico.

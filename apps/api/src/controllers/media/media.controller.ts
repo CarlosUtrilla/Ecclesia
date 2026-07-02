@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import { MediaService } from './media.service'
 import { CreateMediaDto, UpdateMediaDto, MediaFilterDto } from './media.dto'
 import { RequestHandler } from '../../utils/RequestHandler'
@@ -32,10 +33,16 @@ export class MediaController {
     body
   }: RequestHandler<{ folder?: string }, Express.Multer.File>) {
     const targetFiles = file ? [file] : (files ?? [])
-    const mediaRecords = await Promise.all(
-      targetFiles.map(async (f) => await this.mediaService.importFileFromMulter(f, body.folder))
+    const results = await Promise.all(
+      targetFiles.map(async (f) => {
+        const ext = path.extname(f.originalname || f.path).toLowerCase()
+        if (ext === '.pdf') {
+          return [await this.mediaService.importPdfFromMulter(f, body.folder)]
+        }
+        return [await this.mediaService.importFileFromMulter(f, body.folder)]
+      })
     )
-    return mediaRecords
+    return results.flat()
   }
 
   @UsingMulter({ fieldName: 'file', maxFiles: 1 })
@@ -46,6 +53,20 @@ export class MediaController {
   }: RequestHandler<{ mimeType: string; folder?: string }, Express.Multer.File>) {
     if (!file) throw new Error('No se recibió la imagen del portapapeles')
     return await this.mediaService.importFileFromMulter(file, body.folder)
+  }
+
+  @UsingMulter({ fieldName: 'file', maxFiles: 10 })
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
+  async importPdf({
+    file,
+    files,
+    body
+  }: RequestHandler<{ folder?: string }, Express.Multer.File>) {
+    const targetFiles = file ? [file] : (files ?? [])
+    const results = await Promise.all(
+      targetFiles.map(async (f) => [await this.mediaService.importPdfFromMulter(f, body.folder)])
+    )
+    return results.flat()
   }
 
   @UpdateQueryKey(['folders'])

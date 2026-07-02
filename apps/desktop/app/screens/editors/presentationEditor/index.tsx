@@ -195,6 +195,44 @@ export default function PresentationEditor() {
     }
   })
 
+  const slideSortableIndex = useMemo(() => slides.map((slide) => slide.id), [slides])
+
+  const slideMediaIds = useMemo(() => {
+    const ids = new Set<number>()
+    for (const slide of slides) {
+      if (slide.mediaId) ids.add(slide.mediaId)
+      if (slide.items) {
+        for (const item of slide.items) {
+          if (item.type === 'MEDIA' && item.accessData) {
+            const id = Number(item.accessData)
+            if (Number.isFinite(id)) ids.add(id)
+          }
+        }
+      }
+    }
+    return Array.from(ids)
+  }, [slides])
+
+  const { data: extraSlideMedia = [] } = useQuery({
+    queryKey: ['presentation-extra-media', id, ...slideMediaIds],
+    queryFn: async () => {
+      if (slideMediaIds.length === 0) return []
+      const result = await Api.fetch.media.getMediaByIds({ body: { ids: slideMediaIds } })
+      return result as Media[]
+    },
+    enabled: slideMediaIds.length > 0
+  })
+
+  const mediaById = useMemo(() => {
+    const map = new Map(media.map((item: Media) => [item.id, item]))
+    for (const item of extraSlideMedia) {
+      if (!map.has(item.id)) {
+        map.set(item.id, item)
+      }
+    }
+    return map
+  }, [media, extraSlideMedia])
+
   useEffect(() => {
     const unsubscribe = window.electron.ipcRenderer.on('presentation-close-requested', () => {
       if (!isDirty) {
@@ -210,10 +248,7 @@ export default function PresentationEditor() {
     }
   }, [isDirty])
 
-  const mediaById = useMemo(() => new Map(media.map((item) => [item.id, item])), [media])
-  const slideSortableIndex = useMemo(() => slides.map((slide) => slide.id), [slides])
-
-  useQuery({
+  const presentationQuery = useQuery({
     queryKey: ['presentation', id],
     queryFn: async () => {
       if (isCreating || !id) return null

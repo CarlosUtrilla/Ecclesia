@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ScheduleSchemaType } from '../schema'
 import type { ScheduleItem } from '@ecclesia/api'
-import { BookPlusIcon, FileSliders, Music, Video } from 'lucide-react'
+import { BookPlusIcon, FileSliders, FileText, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from '../types'
 import { useCallback } from 'react'
@@ -144,6 +144,9 @@ export const useIndexDataItems = (
               className="size-8 object-contain"
             />
           )
+        }
+        if (med?.type === 'PDF') {
+          return <FileText className="h-4 w-4" />
         }
         return <Video className="h-4 w-4" />
       }
@@ -330,6 +333,43 @@ export const useIndexDataItems = (
             )
           }
         }
+
+        // PDF media redirects to its linked presentation
+        if (mediaItem?.type === 'PDF' && mediaItem.presentationId) {
+          const pres = await Api.fetch.presentations.getPresentationById({
+            body: { id: mediaItem.presentationId }
+          })
+          if (pres) {
+            const mediaIds = pres.slides?.flatMap((slide: any) => {
+              if (Array.isArray(slide.items)) {
+                return slide.items
+                  .filter((item: any) => item.type === 'MEDIA' && item.accessData)
+                  .map((item: any) => Number(item.accessData))
+                  .filter((id: number) => Number.isFinite(id))
+              }
+              if (slide.type === 'MEDIA' && slide.mediaId) {
+                return [Number(slide.mediaId)]
+              }
+              return []
+            }) ?? []
+            const slideMediaItems =
+              mediaIds.length > 0
+                ? await Api.fetch.media.getMediaByIds({
+                    body: { ids: Array.from(new Set(mediaIds)) }
+                  })
+                : []
+            const mediaById = new Map(
+              slideMediaItems.map((m: any) => [m.id, m])
+            )
+            const themeById = new Map(themes.map((t: any) => [t.id, t]))
+
+            const content = (pres.slides ?? []).map((slide: any) =>
+              presentationSlideToViewItem(slide, mediaById, themeById)
+            )
+            return { title: mediaItem.name, content }
+          }
+        }
+
         // Pre-construir la URL del medio para que la ventana live no dependa
         // de su propio MediaServerContext (podría no tener el puerto aún).
         const mediaUrl = mediaItem ? buildMediaUrl(mediaItem.filePath) : ''

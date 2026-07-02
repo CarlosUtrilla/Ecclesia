@@ -1,5 +1,5 @@
 import React from 'react'
-import { Image, Video, Trash2, Edit, Copy, Scissors } from 'lucide-react'
+import { Image, Video, FileText, Trash2, Edit, Edit2, Copy, Scissors } from 'lucide-react'
 import { Button } from '@/ui/button'
 import {
   ContextMenu,
@@ -58,8 +58,8 @@ export function MediaCard({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
-    // Solo enviar a en vivo si es imagen o video
-    if (media.type === 'IMAGE' || media.type === 'VIDEO') {
+    // Solo enviar a en vivo si es imagen, video o PDF
+    if (media.type === 'IMAGE' || media.type === 'VIDEO' || media.type === 'PDF') {
       showItemOnLiveScreen({
         id: generateUniqueId(),
         order: 0,
@@ -101,14 +101,30 @@ export function MediaCard({
         >
           {/* Preview */}
           <div className="aspect-square bg-muted/30 flex items-center justify-center overflow-hidden relative">
-            <img
-              src={mediaUrl}
-              alt={media.name}
-              className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-              width={128}
-              height={128}
-              loading="lazy"
-            />
+            {media.type === 'PDF' && !media.thumbnail ? (
+              <div className="flex flex-col items-center justify-center gap-2 p-4">
+                <FileText className="h-10 w-10 text-muted-foreground/60" />
+                <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-wider">
+                  PDF
+                </span>
+              </div>
+            ) : (
+              <div className="relative w-full h-full">
+                <img
+                  src={mediaUrl}
+                  alt={media.name}
+                  className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                  width={128}
+                  height={128}
+                  loading="lazy"
+                />
+                {media.type === 'PDF' && media.thumbnail && (
+                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold text-white bg-black/50 px-1 py-0.5 rounded">
+                    PDF
+                  </span>
+                )}
+              </div>
+            )}
             {/* Overlay sutil en hover */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
 
@@ -129,6 +145,8 @@ export function MediaCard({
                 <div className="w-3 h-3 flex-shrink-0">
                   {media.type === 'IMAGE' ? (
                     <Image className="h-3 w-3 text-white/80" />
+                  ) : media.type === 'PDF' ? (
+                    <FileText className="h-3 w-3 text-white/80" />
                   ) : (
                     <Video className="h-3 w-3 text-white/80" />
                   )}
@@ -165,6 +183,17 @@ export function MediaCard({
           <Edit className="h-4 w-4" />
           Renombrar
         </ContextMenuItem>
+        {media.type === 'PDF' && (
+          <>
+            <ContextMenuItem
+              onClick={() => window.windowAPI.openPresentationWindow(media.presentationId!)}
+            >
+              <Edit2 className="h-4 w-4" />
+              Editar presentación
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
         <ContextMenuItem onClick={() => onCopy(media, false)}>
           <Copy className="h-4 w-4" />
           Copiar

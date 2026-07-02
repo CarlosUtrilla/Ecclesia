@@ -50,7 +50,7 @@ type ThemeArchivePayload = {
   }
   backgroundMedia?: {
     name: string
-    type: 'IMAGE' | 'VIDEO'
+    type: MediaType
     format: string
     backgroundAssetPath: string
   } | null
@@ -85,7 +85,7 @@ export class ThemesService {
     backgroundMedia?: {
       filePath: string
       name: string
-      type: 'IMAGE' | 'VIDEO'
+      type: MediaType
       format: string
     } | null
   }): Promise<ThemeArchivePayload> {

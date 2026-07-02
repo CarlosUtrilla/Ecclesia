@@ -85,6 +85,7 @@ model Setting {
 enum MediaType {
   IMAGE
   VIDEO
+  PDF
 }
 
 model Media {
@@ -106,6 +107,10 @@ model Media {
 
   // Relación inversa con Themes
   themesUsingAsBackground Themes[]
+
+  // Si type === PDF, apunta a la Presentation que contiene los slides
+  presentationId Int?   @unique
+  presentation   Presentation? @relation(fields: [presentationId], references: [id])
 }
 
 model Presentation {
@@ -115,6 +120,9 @@ model Presentation {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+
+  // PDF Media que referencia esta presentación (si es PDF importado)
+  pdfMedia Media?
 }
 
 enum TestamentEnum {

@@ -103,11 +103,13 @@ app/screens/panels/library/
 | `useMediaOperations` | Importar, eliminar, renombrar medios y carpetas (mutations de React Query) |
 | `useSelection` | Seleccion multiple (click, Shift+click, Ctrl+click). Tipo `SelectableItem = Media \| string` |
 | `useClipboard` | Estado de clipboard interno (copiar/cortar medios/carpetas) |
-| `useDragAndDrop` | Drag & drop entre carpetas con HTML5 API |
+| `useDragAndDrop` | Drag & drop entre carpetas con HTML5 API (incluye `.pdf` en `VALID_EXTENSIONS`) |
 
 ### MediaCard y FolderCard
 
 - `MediaCard`: Muestra thumbnail, nombre, tipo. Draggable con `data: { type: 'MEDIA', accessData: media.id }`.
+  - Para `type: 'PDF'`: muestra icono `FileText` + badge "PDF" en lugar de thumbnail.
+  - La info bar muestra `FileText` icon en lugar de `Image`/`Video`.
 - `FolderCard`: Muestra icono de carpeta. Draggable Y drop target (para mover items a carpetas).
 - Al enviar recursos directo a live (`showItemOnLiveScreen`), los items temporales incluyen `deletedAt: null` para cumplir el tipo `ScheduleItem` de Prisma.
 - Ambos tienen `role="button"`, `tabIndex`, `onKeyDown` para accesibilidad.

@@ -15,6 +15,7 @@ import { resolveFilesRoot, resolveMediaRoot, resolveThumbnailsRoot } from '../..
 
 export const SUPPORTED_IMAGE_FORMATS = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 export const SUPPORTED_VIDEO_FORMATS = ['.mp4', '.webm', '.mov', '.avi']
+export const SUPPORTED_PDF_FORMATS = ['.pdf']
 
 export function sanitizeFileName(name: string): string {
   return name.replace(/[<>:"/\\|?*]/g, '_')
@@ -96,6 +97,8 @@ export async function importMediaFromSourcePath(
     type = MediaType.IMAGE
   } else if (SUPPORTED_VIDEO_FORMATS.includes(ext)) {
     type = MediaType.VIDEO
+  } else if (SUPPORTED_PDF_FORMATS.includes(ext)) {
+    type = MediaType.PDF
   } else {
     throw new Error(`Formato no soportado: ${ext}`)
   }
@@ -391,6 +394,68 @@ export function cleanupTempPath(targetPath: string): { success: boolean } {
   }
 
   return { success: true }
+}
+
+export interface PdfPageImportResult {
+  name: string
+  type: MediaType
+  format: string
+  filePath: string
+  fileSize: number
+  thumbnail: string
+  fallback?: string
+  folder?: string
+  width: number
+  height: number
+}
+
+export interface PdfImportResult {
+  /** File metadata for each rendered page */
+  pages: PdfPageImportResult[]
+  /** Total file size of the original PDF */
+  pdfFileSize: number
+  /** Sanitized name (without extension) */
+  originalName: string
+}
+
+export async function importPdfPages(
+  sourcePath: string,
+  _folder?: string,
+  originalFileName?: string
+): Promise<PdfImportResult> {
+  const { pdfToPngBuffers, createTempDir, writePagesToTemp, cleanupTempDir } = await import(
+    '../../pdfConverter'
+  )
+
+  const originalName = sanitizeFileName(
+    originalFileName ? path.basename(originalFileName, '.pdf') : path.basename(sourcePath, '.pdf')
+  )
+
+  const stats = fs.statSync(sourcePath)
+  const pages = await pdfToPngBuffers(sourcePath)
+  const tempDir = createTempDir()
+  const pagePaths = writePagesToTemp(pages, tempDir)
+
+  // Store page images in a hidden folder so they don't clutter the main media listing
+  const hiddenFolder = `__pdf/${originalName}`
+
+  try {
+    const results = await Promise.all(
+      pagePaths.map(async (pagePath, idx) => {
+        const page = pages[idx]
+        const pageFileName = `${originalName}-pagina-${page.pageNumber}`
+        const result = await importMediaFromSourcePath(pagePath, hiddenFolder, `${pageFileName}.png`)
+        return {
+          ...result,
+          width: page.width,
+          height: page.height
+        }
+      })
+    )
+    return { pages: results, pdfFileSize: stats.size, originalName }
+  } finally {
+    cleanupTempDir(tempDir)
+  }
 }
 
 function getImageExtensionFromMimeType(mimeType: string): string {
