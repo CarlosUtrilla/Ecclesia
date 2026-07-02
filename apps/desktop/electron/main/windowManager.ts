@@ -21,6 +21,43 @@ function loadRoute(win: BrowserWindow, route: string): void {
   }
 }
 
+type EditorWindowOptions = {
+  prefix: string
+  title?: string
+  sizeFactor: number
+  closeChannel?: string
+}
+
+function createEditorWindow(options: EditorWindowOptions, id?: number): BrowserWindow {
+  const route = id ? `/${options.prefix}/${id}` : `/${options.prefix}/new`
+
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  const editorWindow = new BrowserWindow({
+    title: options.title,
+    width: Math.round(width * options.sizeFactor),
+    height: Math.round(height * options.sizeFactor),
+    show: true,
+    backgroundColor: '#09090b',
+    autoHideMenuBar: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  if (options.closeChannel) {
+    editorWindow.on('close', (event) => {
+      if (editorWindow.webContents.isDestroyed()) return
+      event.preventDefault()
+      editorWindow.webContents.send(options.closeChannel!)
+    })
+  }
+
+  loadRoute(editorWindow, route)
+  return editorWindow
+}
+
 function focusExistingWindow(windowRef: BrowserWindow): BrowserWindow {
   if (windowRef.isMinimized()) {
     windowRef.restore()
@@ -194,81 +231,15 @@ export function createMainWindow(): BrowserWindow {
 }
 
 export function createSongWindow(songId?: number): BrowserWindow {
-  const route = songId ? `/song/${songId}` : '/song/new'
-
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  const songWindow = new BrowserWindow({
-    title: 'Editor de canciones',
-    width: Math.round(width * 0.8),
-    height: Math.round(height * 0.8),
-    show: true,
-    backgroundColor: '#09090b',
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
-
-  loadRoute(songWindow, route)
-  return songWindow
+  return createEditorWindow({ prefix: 'song', title: 'Editor de canciones', sizeFactor: 0.8 }, songId)
 }
 
 export function createThemeWindow(themeId?: number): BrowserWindow {
-  const route = themeId ? `/theme/${themeId}` : '/theme/new'
-
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  const themeWindow = new BrowserWindow({
-    width: Math.round(width * 0.95),
-    height: Math.round(height * 0.95),
-    show: true,
-    backgroundColor: '#09090b',
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
-
-  // Interceptar el cierre para que el renderer pueda confirmar si hay cambios sin guardar
-  themeWindow.on('close', (event) => {
-    if (themeWindow.webContents.isDestroyed()) return
-    event.preventDefault()
-    themeWindow.webContents.send('theme-close-requested')
-  })
-
-  loadRoute(themeWindow, route)
-  return themeWindow
+  return createEditorWindow({ prefix: 'theme', sizeFactor: 0.95, closeChannel: 'theme-close-requested' }, themeId)
 }
 
 export function createPresentationWindow(presentationId?: number): BrowserWindow {
-  const route = presentationId ? `/presentation/${presentationId}` : '/presentation/new'
-
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  const presentationWindow = new BrowserWindow({
-    title: 'Editor de presentaciones',
-    width: Math.round(width * 0.85),
-    height: Math.round(height * 0.85),
-    show: true,
-    backgroundColor: '#09090b',
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
-
-  presentationWindow.on('close', (event) => {
-    if (presentationWindow.webContents.isDestroyed()) return
-    event.preventDefault()
-    presentationWindow.webContents.send('presentation-close-requested')
-  })
-
-  loadRoute(presentationWindow, route)
-  return presentationWindow
+  return createEditorWindow({ prefix: 'presentation', title: 'Editor de presentaciones', sizeFactor: 0.85, closeChannel: 'presentation-close-requested' }, presentationId)
 }
 
 export function createTagsSongWindow(): BrowserWindow {

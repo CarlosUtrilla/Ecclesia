@@ -12,6 +12,7 @@ import {
   buildGlobalStageUpsertPayloads,
   getGlobalStageConfig
 } from '@/screens/stage/shared/globalStageConfig'
+import { formatRemaining } from '@/lib/time'
 import { Api } from '@ecclesia/queries'
 
 type StageTimerState = {
@@ -44,24 +45,6 @@ const EMPTY_STAGE_STATE: StageState = {
 
 const MAX_STAGE_TIMERS = 5
 const TIMER_PRESET_MINUTES = [1, 2, 5, 10, 15, 20, 30, 45, 60]
-
-function formatRemaining(remainingMs: number): string {
-  const isNegative = remainingMs < 0
-  const absRemainingMs = Math.abs(remainingMs)
-  const totalSeconds = Math.floor(absRemainingMs / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  const sign = isNegative ? '-' : ''
-
-  if (hours > 0) {
-    return `${sign}${hours.toString().padStart(2, '0')}:${minutes
-      .toString()
-      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-  }
-
-  return `${sign}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-}
 
 function safeParseState(raw: string | undefined): StageState {
   if (!raw) return EMPTY_STAGE_STATE

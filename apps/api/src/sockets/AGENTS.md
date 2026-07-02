@@ -52,7 +52,6 @@ No hay que tocar `packages/queries/` para agregar eventos.
 ### `socket.service.ts`
 - `setSocketIO(instance)` — inyecta el `SocketIOServer` (llamado desde `index.ts`)
 - `getSocket()` — devuelve el singleton `{ emit, on }`
-- `getIO()` — devuelve el `SocketIOServer` nativo (para casos excepcionales)
 
 ### `socket-handlers.ts`
 - `registerSocketHandlers()` — registra todos los handlers de eventos frontend → API

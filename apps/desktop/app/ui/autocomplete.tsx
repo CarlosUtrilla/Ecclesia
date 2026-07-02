@@ -1,6 +1,6 @@
 import { Command as CommandPrimitive } from 'cmdk'
 import { Check, ChevronDown, CircleX, Search } from 'lucide-react'
-import { useState, useRef, useCallback, useMemo, useEffect, type KeyboardEvent } from 'react'
+import { Fragment, useState, useRef, useCallback, useMemo, useEffect, type KeyboardEvent } from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -203,7 +203,7 @@ export const AutoComplete = ({
           {beforeOptions}
           {groups ? (
             groups.map((group, gi) => (
-              <>
+              <Fragment key={group.label}>
                 {gi > 0 && <CommandSeparator key={`sep-${gi}`} />}
                 <CommandGroup key={group.label} heading={group.label}>
                   {group.options.map((option) => {
@@ -232,7 +232,7 @@ export const AutoComplete = ({
                     )
                   })}
                 </CommandGroup>
-              </>
+              </Fragment>
             ))
           ) : allOptions.length > 0 && !isLoading ? (
             <CommandGroup>

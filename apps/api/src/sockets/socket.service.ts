@@ -46,10 +46,6 @@ export function getSocket(): ApiSocketShape {
   return _socket
 }
 
-export function getIO(): SocketIOServer | null {
-  return io
-}
-
 const globalHandlers = new Map<string, Set<Function>>()
 
 function createSocketProxy(io: SocketIOServer): ApiSocketShape {

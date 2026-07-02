@@ -314,20 +314,6 @@ export function getMediaDir(): string {
   return resolveMediaRoot()
 }
 
-export function isAutoReason(reason: SyncReason): boolean {
-  return reason === 'startup' || reason === 'interval' || reason === 'save' || reason === 'close'
-}
-
-export function isWithinBlobReuploadGraceWindow(
-  lastSyncedAt: string | null | undefined,
-  nowMs: number
-): boolean {
-  if (!lastSyncedAt) return false
-  const lastSyncedAtMs = Date.parse(lastSyncedAt)
-  if (Number.isNaN(lastSyncedAtMs)) return false
-  return nowMs - lastSyncedAtMs < BLOB_REUPLOAD_GRACE_MS
-}
-
 export function calculateRetryDelayMs(retryCount: number): number {
   const raw = RETRY_BASE_DELAY_MS * 2 ** Math.max(retryCount - 1, 0)
   return Math.min(raw, RETRY_MAX_DELAY_MS)

@@ -1,32 +1,7 @@
-import { PresentationLayerItem, PresentationViewItems } from '@/ui/PresentationView/types'
+import { PresentationViewItems } from '@/ui/PresentationView/types'
 
 export const getPresentationSlideKey = (slide: PresentationViewItems, fallbackIndex = 0) =>
   typeof slide.id === 'string' && slide.id.length > 0 ? slide.id : `slide-${fallbackIndex}`
-
-type SlideStepRange = {
-  start: number
-  end: number
-  mode: 'verse' | 'chunk'
-  layerId?: string
-}
-
-export const getRangedBibleLayer = (
-  slide?: PresentationViewItems
-): PresentationLayerItem | null => {
-  if (!slide || slide.resourceType !== 'PRESENTATION' || !Array.isArray(slide.presentationItems)) {
-    return null
-  }
-
-  const rangedLayer = slide.presentationItems.find(
-    (layer) =>
-      layer.resourceType === 'BIBLE' &&
-      layer.verse &&
-      layer.verse.verseEnd !== undefined &&
-      layer.verse.verseEnd > layer.verse.verse
-  )
-
-  return rangedLayer || null
-}
 
 export const getSlideVerseRange = (slide?: PresentationViewItems) => {
   if (!slide) return null

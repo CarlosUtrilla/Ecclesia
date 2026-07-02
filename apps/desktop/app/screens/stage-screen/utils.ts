@@ -18,23 +18,7 @@ export function resolveRemainingMs(timer: StageTimer, now: number): number {
   return endsAtMs - now
 }
 
-export function formatRemaining(remainingMs: number): string {
-  const isNegative = remainingMs < 0
-  const abs = Math.abs(remainingMs)
-  const totalSeconds = Math.floor(abs / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  const sign = isNegative ? '-' : ''
-
-  if (hours > 0) {
-    return `${sign}${hours.toString().padStart(2, '0')}:${minutes
-      .toString()
-      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-  }
-
-  return `${sign}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-}
+export { formatRemaining } from '@/lib/time'
 
 /**
  * Calcula un font size que garantiza que el texto cabe en el ancho del contenedor.

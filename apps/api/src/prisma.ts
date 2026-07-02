@@ -27,10 +27,6 @@ export function getPrisma(): PrismaClient {
   return prisma
 }
 
-export function isPrismaInitialized(): boolean {
-  return prisma !== null
-}
-
 export async function runWithoutSyncOutboxTracking<T>(fn: () => Promise<T>): Promise<T> {
   return await outboxContext.run({ skipOutbox: true }, fn)
 }

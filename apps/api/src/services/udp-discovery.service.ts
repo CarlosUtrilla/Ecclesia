@@ -65,13 +65,6 @@ export function initializeUdpDiscovery(): void {
   startUdpListener()
 }
 
-export function stopUdpDiscovery(): void {
-  if (udpListener) {
-    try { udpListener.close() } catch { /* ignore */ }
-    udpListener = null
-  }
-}
-
 export function discoverLanDevices(): Promise<LanDevice[]> {
   return new Promise((resolve) => {
     const devices: Map<string, LanDevice> = new Map()

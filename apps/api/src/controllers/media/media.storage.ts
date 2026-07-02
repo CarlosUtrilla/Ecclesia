@@ -212,18 +212,6 @@ export function createMediaFolder(folderPath: string): { success: boolean; path:
   return { success: true, path: normalizedFolder }
 }
 
-export function deleteMediaFolder(folderPath: string): { success: boolean } {
-  const filesRoot = resolveFilesRoot()
-  const normalizedFolder = normalizeMediaPath(folderPath)
-  const fullPath = resolveNormalizedPath(filesRoot, normalizedFolder)
-
-  if (fs.existsSync(fullPath)) {
-    fs.rmSync(fullPath, { recursive: true, force: true })
-  }
-
-  return { success: true }
-}
-
 export function renameMediaPath(
   oldPath: string,
   newName: string

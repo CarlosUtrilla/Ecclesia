@@ -44,9 +44,4 @@ export function initializeRemoteManager() {
   })
 }
 
-export function getCurrentRemoteState(): { url: string; port: number } | null {
-  if (currentRemoteUrl && currentRemotePort) {
-    return { url: currentRemoteUrl, port: currentRemotePort }
-  }
-  return null
-}
+

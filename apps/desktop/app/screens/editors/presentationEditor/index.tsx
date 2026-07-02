@@ -2,53 +2,25 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useParams } from 'react-router-dom'
-import {
-  Minus,
-  Palette,
-  Plus as PlusIcon,
-  Plus,
-  Redo2,
-  Save,
-  TextCursorInput,
-  Undo2,
-  Zap
-} from 'lucide-react'
+import { Plus, TextCursorInput, Zap } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import type { Media } from '@ecclesia/api'
 import {
-  closestCenter,
-  DndContext,
   DragEndEvent,
   PointerSensor,
   useSensor,
   useSensors
 } from '@dnd-kit/core'
-import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
-import { Button } from '@/ui/button'
-import { Input } from '@/ui/input'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription
-} from '@/ui/dialog'
-import { Card } from '@/ui/card'
-import { Slider } from '@/ui/slider'
-import { Label } from '@/ui/label'
+
 import { AnimationSettings, defaultAnimationSettings, easingOptions } from '@/lib/animationSettings'
 import { BlankTheme, useThemes } from '@/hooks/useThemes'
 import { resolvePresentationSlideTheme } from '@/lib/presentationSlides'
-import { MediaPicker } from '@/screens/panels/library/media/exports'
-import ThemePicker from './themePicker'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/ui/tabs'
-import { ColorPicker } from '@/ui/colorPicker'
 import { PresentationSchema, PresentationFormValues } from './schema'
-import BibleTextPicker from './bibleTextPicker'
 import EditorCanvas from './components/editorCanvas'
-import SortableSlideCard from './components/sortableSlideCard'
-import SlideInsertSlot from './components/slideInsertSlot'
+import EditorTopBar from './components/editorTopBar'
+import SlideTray from './components/slideTray'
+import EditorDialogs from './components/editorDialogs'
 import TextTabContent from './components/textTabContent'
 import AnimationTabContent from './components/animationTabContent'
 import InsertTabContent from './components/insertTabContent'
@@ -842,88 +814,22 @@ export default function PresentationEditor() {
     <div className="min-h-screen max-h-screen flex flex-col overflow-hidden">
       <title>Editor de presentaciones</title>
 
-      {/* ── TOP BAR ─────────────────────────────────────────────────── */}
-      <div className="h-10 px-3 flex items-center gap-1 border-b bg-background shrink-0">
-        <button
-          type="button"
-          onClick={() => {
-            setShowCloseDialog(false)
-            setSaveDialogOpen(true)
-            setSaveName(title || '')
-          }}
-          className="flex items-center gap-1.5 px-2 h-7 rounded hover:bg-muted transition-colors max-w-[200px] shrink-0"
-          title="Haz clic para guardar o renombrar"
-        >
-          <Save className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate text-sm font-medium">{title || 'Sin título'}</span>
-        </button>
-
-        <div className="w-px h-5 bg-border mx-1 shrink-0" />
-
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="size-7"
-          onClick={undoHistory}
-          title="Deshacer (Ctrl+Z)"
-        >
-          <Undo2 className="size-4" />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="size-7"
-          onClick={redoHistory}
-          title="Rehacer (Ctrl+Y)"
-        >
-          <Redo2 className="size-4" />
-        </Button>
-
-        <div className="flex-1" />
-
-        {selectedSlide ? (
-          <>
-            <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 shrink-0">
-              <span className="text-[11px] text-muted-foreground leading-none">
-                Fondo diapositiva
-              </span>
-              <ColorPicker
-                value={selectedSlide.backgroundColor || '#ffffff'}
-                onChange={handleSelectedSlideBackgroundChange}
-                className="h-6 w-7 shrink-0"
-              />
-              {selectedSlide.backgroundColor ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-[11px]"
-                  onClick={handleResetSelectedSlideBackground}
-                >
-                  Restablecer
-                </Button>
-              ) : (
-                <span className="text-[11px] text-muted-foreground leading-none">Usa tema</span>
-              )}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 px-2.5 text-xs shrink-0"
-              onClick={() => setIsThemePickerOpen(true)}
-            >
-              <Palette className="size-3.5" />
-              {globalThemeId === null
-                ? 'Sin tema'
-                : (themes.find((t) => t.id === globalThemeId)?.name ?? 'Tema')}
-            </Button>
-          </>
-        ) : null}
-      </div>
-      {/* ── Fin top bar ────────────────────────────────────────────────── */}
+      <EditorTopBar
+        title={title}
+        onOpenSaveDialog={() => {
+          setShowCloseDialog(false)
+          setSaveDialogOpen(true)
+          setSaveName(title || '')
+        }}
+        onUndo={undoHistory}
+        onRedo={redoHistory}
+        selectedSlide={selectedSlide}
+        onSlideBackgroundChange={handleSelectedSlideBackgroundChange}
+        onResetSlideBackground={handleResetSelectedSlideBackground}
+        globalThemeId={globalThemeId}
+        themes={themes}
+        onOpenThemePicker={() => setIsThemePickerOpen(true)}
+      />
 
       {/* ── MIDDLE: SIDEBAR + CANVAS ─────────────────────────────────── */}
       <div className="flex flex-1 min-h-0">
@@ -1078,218 +984,66 @@ export default function PresentationEditor() {
         </div>
       </div>
 
-      {/* ── SLIDE TRAY + ZOOM ─────────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-2.5 py-2 bg-muted/50 border-t">
-        <div className="flex items-end gap-3">
-          <div
-            className="min-w-0 flex-1 overflow-x-auto pb-1"
-            onMouseEnter={() => setIsSlideTrayHovered(true)}
-            onMouseLeave={() => setIsSlideTrayHovered(false)}
-          >
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleSlidesDragEnd}
-            >
-              <SortableContext items={slideSortableIndex} strategy={horizontalListSortingStrategy}>
-                <div className="flex items-center gap-1.5">
-                  <SlideInsertSlot onInsert={() => insertEmptySlideAt(0)} />
-                  {slides.map((slide, index) => (
-                    <div key={slide.id} className="flex items-center gap-1.5">
-                      <SortableSlideCard
-                        slide={slide}
-                        index={index}
-                        mediaById={mediaById}
-                        themeById={themeById}
-                        activeTheme={activePresentationTheme}
-                        isSelected={selectedSlideIndex === index}
-                        onDuplicate={() => duplicateSlideAt(index)}
-                        onDelete={() => deleteSlideAt(index)}
-                        onRename={() => renameSlideAt(index)}
-                        onSelect={() => {
-                          setSelectedSlideIndex(index)
-                          const topItem = [...(slide.items || [])]
-                            .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
-                            .at(-1)
-                          setSelectedItemId(topItem?.id)
-                          setSelectedItemIds(topItem?.id ? [topItem.id] : [])
-                        }}
-                      />
-                      <SlideInsertSlot onInsert={() => insertEmptySlideAt(index + 1)} />
-                    </div>
-                  ))}
-                  <Card
-                    className="w-36 shrink-0 p-1.5 h-full min-h-24 border-dashed cursor-pointer hover:border-primary/70 transition-colors"
-                    onClick={addEmptySlide}
-                  >
-                    <div className="h-full min-h-16 flex flex-col items-center justify-center text-muted-foreground gap-1.5">
-                      <Plus className="size-5" />
-                      <span className="text-xs">Nueva diapositiva</span>
-                    </div>
-                  </Card>
-                </div>
-              </SortableContext>
-            </DndContext>
-          </div>
-
-          <div className="shrink-0 rounded-md border bg-background/70 px-2 py-1.5 flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground shrink-0">Zoom</Label>
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
-              className="size-7"
-              onClick={() => setCanvasZoom((current) => clampCanvasZoom(current - 10))}
-              aria-label="Reducir zoom del canvas"
-            >
-              <Minus className="size-4" />
-            </Button>
-            <Slider
-              value={[canvasZoom]}
-              min={minCanvasZoom}
-              max={maxCanvasZoom}
-              step={5}
-              className="w-40"
-              onValueChange={(value) => setCanvasZoom(clampCanvasZoom(value[0] ?? 100))}
-            />
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
-              className="size-7"
-              onClick={() => setCanvasZoom((current) => clampCanvasZoom(current + 10))}
-              aria-label="Aumentar zoom del canvas"
-            >
-              <PlusIcon className="size-4" />
-            </Button>
-            <span className="text-xs text-muted-foreground tabular-nums w-11 text-right">
-              {canvasZoom}%
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── DIALOGS ───────────────────────────────────────────────────── */}
-      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Guardar presentación</DialogTitle>
-            <DialogDescription>Escribe un nombre para la presentación.</DialogDescription>
-          </DialogHeader>
-          <Input
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-            placeholder="Nombre de la presentación"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                setValue('title', saveName, { shouldDirty: true })
-                onSave()
-                setSaveDialogOpen(false)
-              }
-            }}
-          />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSaveDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              disabled={isSubmitting}
-              onClick={() => {
-                setValue('title', saveName, { shouldDirty: true })
-                onSave()
-                setSaveDialogOpen(false)
-              }}
-            >
-              <Save className="size-4 mr-1.5" />
-              Guardar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={showCloseDialog}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            handleCloseCancel()
-          }
+      <SlideTray
+        slides={slides}
+        selectedSlideIndex={selectedSlideIndex}
+        onSelectSlide={(index) => {
+          setSelectedSlideIndex(index)
+          const topItem = [...(slides[index]?.items || [])]
+            .sort((a, b) => Number(a.layer || 0) - Number(b.layer || 0))
+            .at(-1)
+          setSelectedItemId(topItem?.id)
+          setSelectedItemIds(topItem?.id ? [topItem.id] : [])
         }}
-      >
-        <DialogContent
-          showCloseButton={false}
-          onInteractOutside={(event) => event.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>Cambios sin guardar</DialogTitle>
-            <DialogDescription>
-              Tienes cambios sin guardar en esta presentación. ¿Qué deseas hacer?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
-            <Button variant="ghost" onClick={handleCloseCancel}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleCloseDiscard}>
-              Salir sin guardar
-            </Button>
-            <Button onClick={handleCloseSave} disabled={isSubmitting}>
-              <Save className="size-4" />
-              Guardar y salir
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={renameSlideDialogOpen} onOpenChange={handleRenameSlideDialogChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Renombrar diapositiva</DialogTitle>
-            <DialogDescription>
-              Escribe un nombre para identificar esta diapositiva en el carrusel.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={renameSlideName}
-            onChange={(event) => setRenameSlideName(event.target.value)}
-            placeholder={
-              renameSlideIndex !== null
-                ? `Diapositiva ${renameSlideIndex + 1}`
-                : 'Nombre de la diapositiva'
-            }
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                handleRenameSlide()
-              }
-            }}
-          />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => handleRenameSlideDialogChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleRenameSlide}>Guardar nombre</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <MediaPicker
-        open={isMediaPickerOpen}
-        onOpenChange={setIsMediaPickerOpen}
-        onSelect={handleSelectMediaAndFocus}
-        title="Seleccionar imagen o video"
+        onAddEmptySlide={addEmptySlide}
+        onInsertEmptySlideAt={insertEmptySlideAt}
+        onDuplicateSlide={duplicateSlideAt}
+        onDeleteSlide={deleteSlideAt}
+        onRenameSlide={renameSlideAt}
+        onSlidesDragEnd={handleSlidesDragEnd}
+        mediaById={mediaById}
+        themeById={themeById}
+        activePresentationTheme={activePresentationTheme}
+        canvasZoom={canvasZoom}
+        onZoomChange={setCanvasZoom}
+        onHoverChange={setIsSlideTrayHovered}
       />
-
-      <BibleTextPicker
-        open={isBiblePickerOpen}
-        onOpenChange={setIsBiblePickerOpen}
-        onAddToPresentation={handleAddBibleToPresentationAndFocus}
-      />
-
-      <ThemePicker
-        open={isThemePickerOpen}
-        onOpenChange={setIsThemePickerOpen}
+      <EditorDialogs
+        saveDialogOpen={saveDialogOpen}
+        onSaveDialogOpenChange={setSaveDialogOpen}
+        saveName={saveName}
+        onSaveNameChange={setSaveName}
+        onSave={() => {
+          setValue('title', saveName, { shouldDirty: true })
+          onSave()
+          setSaveDialogOpen(false)
+        }}
+        isSubmitting={isSubmitting}
+        showCloseDialog={showCloseDialog}
+        onCloseDiscard={handleCloseDiscard}
+        onCloseCancel={handleCloseCancel}
+        onCloseSave={handleCloseSave}
+        renameSlideDialogOpen={renameSlideDialogOpen}
+        onRenameSlideDialogOpenChange={handleRenameSlideDialogChange}
+        renameSlideName={renameSlideName}
+        onRenameSlideNameChange={setRenameSlideName}
+        onRenameSlide={handleRenameSlide}
+        renameSlidePlaceholder={
+          renameSlideIndex !== null
+            ? `Diapositiva ${renameSlideIndex + 1}`
+            : 'Nombre de la diapositiva'
+        }
+        isMediaPickerOpen={isMediaPickerOpen}
+        onMediaPickerOpenChange={setIsMediaPickerOpen}
+        onMediaPickerSelect={handleSelectMediaAndFocus}
+        isBiblePickerOpen={isBiblePickerOpen}
+        onBiblePickerOpenChange={setIsBiblePickerOpen}
+        onBiblePickerAdd={handleAddBibleToPresentationAndFocus}
+        isThemePickerOpen={isThemePickerOpen}
+        onThemePickerOpenChange={setIsThemePickerOpen}
         themes={themes}
-        selectedThemeId={globalThemeId}
-        onSelect={applyGlobalTheme}
+        globalThemeId={globalThemeId}
+        onThemePickerSelect={applyGlobalTheme}
       />
     </div>
   )
