@@ -37,6 +37,24 @@ export function getGlobalStageConfig<T extends StageConfigLike>(
   }
 }
 
+import type { QueryClient } from '@tanstack/react-query'
+
+export function onStageScreenConfigSuccess(
+  queryClient: QueryClient,
+  stageScreens: StageScreenLike[]
+): () => Promise<void> {
+  return async () => {
+    await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
+    await Promise.all(
+      stageScreens.map((screen) =>
+        window.displayAPI.updateStageScreenConfig({
+          selectedScreenId: screen.id
+        })
+      )
+    )
+  }
+}
+
 export function buildGlobalStageUpsertPayloads<T extends Record<string, unknown>>(
   stageScreens: StageScreenLike[],
   payload: T

@@ -7,7 +7,8 @@ import { Button } from '@/ui/button'
 import { useThemes } from '@/hooks/useThemes'
 import {
   buildGlobalStageUpsertPayloads,
-  getGlobalStageConfig
+  getGlobalStageConfig,
+  onStageScreenConfigSuccess
 } from '@/screens/stage/shared/globalStageConfig'
 import { Api } from '@ecclesia/queries'
 
@@ -41,16 +42,7 @@ export default function StageThemesPanel({ onOpenLayoutTab }: Props) {
         )
       )
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-      await Promise.all(
-        stageScreens.map((screen) =>
-          window.displayAPI.updateStageScreenConfig({
-            selectedScreenId: screen.id
-          })
-        )
-      )
-    }
+    onSuccess: onStageScreenConfigSuccess(queryClient, stageScreens)
   })
 
   return (

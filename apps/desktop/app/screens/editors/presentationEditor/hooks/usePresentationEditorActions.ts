@@ -1,13 +1,8 @@
 import { UseFieldArrayAppend, UseFormSetValue } from 'react-hook-form'
 import { Dispatch, SetStateAction } from 'react'
 import { Media as PickerMedia } from '@/screens/panels/library/media/exports'
-import { BibleTextSelection } from '../bibleTextPicker'
 import { PresentationFormValues } from '../schema'
-import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
-import { BASE_PRESENTATION_HEIGHT, BASE_PRESENTATION_WIDTH } from '@/lib/themeConstants'
 import {
-  BASE_CANVAS_HEIGHT,
-  BASE_CANVAS_WIDTH,
   buildAutoSizedTextCanvasItemStyle,
   buildCanvasItemStyle,
   CanvasItemStyle,
@@ -17,25 +12,14 @@ import {
   createTextSlide,
   ensureSlideItems,
   getNextLayer,
-  withVideoLiveBehavior,
   parseCanvasItemStyle,
   PresentationShapeType,
   PresentationSlideItem
 } from '../utils/slideUtils'
-import {
-  CanvaResolvedAsset,
-  extractCanvaSlideNumber,
-  getCanvaSourceKeyFromMp4Path,
-  getCanvaSourceKeyFromZipPath,
-  getCanvaZipFolderBaseName,
-  getNextAvailableFolderName,
-  sortCanvaResolvedAssets,
-  splitCanvaImportSourcePaths
-} from '../utils/canvaImport'
-import { buildBibleAccessData, parseBibleAccessData } from '../utils/bibleAccessData'
+import { removeUndefinedFields, mapThemeTextStyleToCanvasStyle } from '../utils/themeStyleMapping'
 import { generateUniqueId } from '@/lib/utils'
-import { useThemes } from '@/hooks/useThemes'
-import { Api } from '@ecclesia/queries'
+import useBibleInsertionActions from './useBibleInsertionActions'
+import useCanvaImportActions from './useCanvaImportActions'
 
 type UpdateTextStyleInput = Partial<{
   fontFamily?: string
@@ -88,364 +72,6 @@ type Params = {
   setIsMediaPickerOpen: Dispatch<SetStateAction<boolean>>
 }
 
-const removeUndefinedFields = <T extends Record<string, unknown>>(value: T): Partial<T> =>
-  Object.fromEntries(
-    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)
-  ) as Partial<T>
-
-type BiblePresentationSettingsInput = {
-  position?:
-    | 'beforeText'
-    | 'afterText'
-    | 'underText'
-    | 'overText'
-    | 'upScreen'
-    | 'downScreen'
-    | string
-    | null
-  positionStyle?: number | null
-}
-
-type Bounds = {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-const MAX_BIBLE_EDGE_OFFSET_BASE = 72
-const DEFAULT_BIBLE_VERSE_WIDTH_PERCENT = 100
-const MIN_BIBLE_VERSE_WIDTH_PERCENT = 20
-
-const parseTranslate = (value: unknown) => {
-  if (typeof value !== 'string') {
-    return { x: 0, y: 0 }
-  }
-
-  const parts = value
-    .trim()
-    .split(/[\s,]+/)
-    .filter(Boolean)
-
-  const x = Number.parseFloat(parts[0] || '0')
-  const y = Number.parseFloat(parts[1] || '0')
-
-  return {
-    x: Number.isFinite(x) ? x : 0,
-    y: Number.isFinite(y) ? y : 0
-  }
-}
-
-const toFiniteNumber = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
-const resolveBibleVerseWidthPercent = (value: unknown) => {
-  const parsed = toFiniteNumber(value)
-  if (parsed === null) return DEFAULT_BIBLE_VERSE_WIDTH_PERCENT
-  return Math.min(
-    Math.max(MIN_BIBLE_VERSE_WIDTH_PERCENT, Math.round(parsed)),
-    DEFAULT_BIBLE_VERSE_WIDTH_PERCENT
-  )
-}
-
-const resolveBibleVerseTranslateX = (value: unknown) => {
-  const parsed = toFiniteNumber(value)
-  return parsed === null ? 0 : Math.round(parsed)
-}
-
-const measureVerseLineHeightInCanvas = (
-  themeTextStyle: Record<string, unknown>,
-  scaleY: number
-) => {
-  const verseFontBase =
-    toFiniteNumber(themeTextStyle.verseFontSize) ??
-    (() => {
-      const textFontSize = toFiniteNumber(themeTextStyle.fontSize)
-      return textFontSize === null ? 48 * 0.85 : textFontSize * 0.85
-    })()
-
-  const verseFontSize = Math.max(8, Math.round(verseFontBase * scaleY))
-  const verseLineHeight =
-    toFiniteNumber(themeTextStyle.verseLineHeight) ??
-    toFiniteNumber(themeTextStyle.lineHeight) ??
-    1.2
-
-  if (typeof document === 'undefined') {
-    return Math.max(14, Math.round(verseFontSize * verseLineHeight))
-  }
-
-  const probe = document.createElement('span')
-  probe.style.position = 'absolute'
-  probe.style.visibility = 'hidden'
-  probe.style.pointerEvents = 'none'
-  probe.style.left = '-99999px'
-  probe.style.top = '-99999px'
-  probe.style.fontFamily =
-    (themeTextStyle.verseFontFamily as string | undefined) ||
-    (themeTextStyle.fontFamily as string | undefined) ||
-    'Arial'
-  probe.style.fontSize = `${verseFontSize}px`
-  probe.style.fontWeight =
-    (themeTextStyle.verseFontWeight as string | undefined) ||
-    (themeTextStyle.fontWeight as string | undefined) ||
-    'normal'
-  probe.style.fontStyle =
-    (themeTextStyle.verseFontStyle as string | undefined) ||
-    (themeTextStyle.fontStyle as string | undefined) ||
-    'normal'
-  probe.style.textDecoration =
-    (themeTextStyle.verseTextDecoration as string | undefined) ||
-    (themeTextStyle.textDecoration as string | undefined) ||
-    'none'
-  probe.style.letterSpacing = `${
-    toFiniteNumber(themeTextStyle.verseLetterSpacing) ??
-    toFiniteNumber(themeTextStyle.letterSpacing) ??
-    0
-  }px`
-  probe.style.lineHeight = String(verseLineHeight)
-  probe.style.whiteSpace = 'nowrap'
-  probe.textContent = 'A'
-
-  document.body.appendChild(probe)
-  const measuredHeight = Math.ceil(probe.getBoundingClientRect().height)
-  document.body.removeChild(probe)
-
-  return Math.max(
-    14,
-    Number.isFinite(measuredHeight) ? measuredHeight : Math.round(verseFontSize * verseLineHeight)
-  )
-}
-
-export const mergeBoundsWithVerse = (
-  textBounds: Bounds,
-  verseBounds: Bounds | null,
-  options?: { preserveTextWidth?: boolean }
-): Bounds => {
-  if (!verseBounds) return textBounds
-
-  if (options?.preserveTextWidth) {
-    const minY = Math.min(textBounds.y, verseBounds.y)
-    const maxY = Math.max(textBounds.y + textBounds.height, verseBounds.y + verseBounds.height)
-
-    return {
-      x: Math.round(textBounds.x),
-      y: Math.round(minY),
-      width: Math.max(80, Math.round(textBounds.width)),
-      height: Math.max(60, Math.round(maxY - minY))
-    }
-  }
-
-  const minX = Math.min(textBounds.x, verseBounds.x)
-  const minY = Math.min(textBounds.y, verseBounds.y)
-  const maxX = Math.max(textBounds.x + textBounds.width, verseBounds.x + verseBounds.width)
-  const maxY = Math.max(textBounds.y + textBounds.height, verseBounds.y + verseBounds.height)
-
-  return {
-    x: Math.round(minX),
-    y: Math.round(minY),
-    width: Math.max(80, Math.round(maxX - minX)),
-    height: Math.max(60, Math.round(maxY - minY))
-  }
-}
-
-export const getNoThemeBibleInsertStyle = (): Partial<CanvasItemStyle> => {
-  const width = Math.round(BASE_CANVAS_WIDTH * 0.9)
-  const height = Math.round(BASE_CANVAS_HEIGHT * 0.9)
-  const x = Math.round((BASE_CANVAS_WIDTH - width) / 2)
-  const y = Math.round((BASE_CANVAS_HEIGHT - height) / 2)
-
-  return { x, y, width, height }
-}
-
-const getVerseBoundsInCanvas = (
-  themeTextStyle: Record<string, unknown>,
-  bibleSettings: BiblePresentationSettingsInput | null | undefined,
-  textBounds: Bounds
-): Bounds | null => {
-  const position = bibleSettings?.position
-  if (!position) return null
-
-  const scaleX = BASE_CANVAS_WIDTH / BASE_PRESENTATION_WIDTH
-  const scaleY = BASE_CANVAS_HEIGHT / BASE_PRESENTATION_HEIGHT
-  const verseHeight = measureVerseLineHeightInCanvas(themeTextStyle, scaleY)
-
-  if (position === 'underText') {
-    return {
-      x: textBounds.x,
-      y: textBounds.y + textBounds.height,
-      width: textBounds.width,
-      height: verseHeight
-    }
-  }
-
-  if (position === 'overText') {
-    return {
-      x: textBounds.x,
-      y: textBounds.y - verseHeight,
-      width: textBounds.width,
-      height: verseHeight
-    }
-  }
-
-  if (position === 'upScreen' || position === 'downScreen') {
-    const widthPercent = resolveBibleVerseWidthPercent(themeTextStyle.verseWidthPercent)
-    const paddingInlineBase = (BASE_PRESENTATION_WIDTH * (100 - widthPercent)) / 200
-    const translateXBase = resolveBibleVerseTranslateX(themeTextStyle.verseTranslateX)
-    const clampedTranslateXBase = Math.max(
-      -paddingInlineBase,
-      Math.min(paddingInlineBase, translateXBase)
-    )
-
-    const clampedPositionStyle = Math.min(
-      Math.max(0, Math.round(toFiniteNumber(bibleSettings.positionStyle) ?? 0)),
-      MAX_BIBLE_EDGE_OFFSET_BASE
-    )
-
-    const verseWidthBase = BASE_PRESENTATION_WIDTH - 2 * paddingInlineBase
-    const verseX = (paddingInlineBase + clampedTranslateXBase) * scaleX
-    const edgeOffset = (clampedPositionStyle * BASE_CANVAS_HEIGHT) / BASE_PRESENTATION_HEIGHT
-    const verseY =
-      position === 'upScreen' ? edgeOffset : BASE_CANVAS_HEIGHT - edgeOffset - verseHeight
-
-    return {
-      x: Math.round(verseX),
-      y: Math.round(verseY),
-      width: Math.max(80, Math.round(verseWidthBase * scaleX)),
-      height: verseHeight
-    }
-  }
-
-  return null
-}
-
-const mapThemeTextStyleToCanvasStyle = (
-  themeTextStyle?: Record<string, unknown>,
-  bibleSettings?: BiblePresentationSettingsInput | null
-): Partial<CanvasItemStyle> | undefined => {
-  if (!themeTextStyle) return undefined
-
-  const scaleX = BASE_CANVAS_WIDTH / BASE_PRESENTATION_WIDTH
-  const scaleY = BASE_CANVAS_HEIGHT / BASE_PRESENTATION_HEIGHT
-
-  const paddingInline =
-    typeof themeTextStyle.paddingInline === 'number' &&
-    Number.isFinite(themeTextStyle.paddingInline)
-      ? themeTextStyle.paddingInline
-      : 16
-  const paddingBlock =
-    typeof themeTextStyle.paddingBlock === 'number' && Number.isFinite(themeTextStyle.paddingBlock)
-      ? themeTextStyle.paddingBlock
-      : 16
-  const translate = parseTranslate(themeTextStyle.translate)
-
-  const textBounds: Bounds = {
-    x: Math.round(paddingInline * scaleX + translate.x * scaleX),
-    y: Math.round(paddingBlock * scaleY + translate.y * scaleY),
-    width: Math.max(80, Math.round(BASE_CANVAS_WIDTH - 2 * paddingInline * scaleX)),
-    height: Math.max(60, Math.round(BASE_CANVAS_HEIGHT - 2 * paddingBlock * scaleY))
-  }
-
-  const verseBounds = getVerseBoundsInCanvas(themeTextStyle, bibleSettings, textBounds)
-  const preserveThemeWidth =
-    bibleSettings?.position === 'upScreen' || bibleSettings?.position === 'downScreen'
-  const mergedBounds = mergeBoundsWithVerse(textBounds, verseBounds, {
-    preserveTextWidth: preserveThemeWidth
-  })
-
-  const fontSizeBase =
-    typeof themeTextStyle.fontSize === 'number' && Number.isFinite(themeTextStyle.fontSize)
-      ? themeTextStyle.fontSize
-      : 48
-
-  const justifyContentRaw =
-    typeof themeTextStyle.justifyContent === 'string' ? themeTextStyle.justifyContent : 'center'
-
-  const verticalAlign: CanvasItemStyle['verticalAlign'] =
-    justifyContentRaw === 'flex-start'
-      ? 'top'
-      : justifyContentRaw === 'flex-end'
-        ? 'bottom'
-        : 'center'
-
-  const toScaledNumber = (value: unknown, scale: number) =>
-    typeof value === 'number' && Number.isFinite(value) ? value * scale : undefined
-
-  return removeUndefinedFields({
-    x: mergedBounds.x,
-    y: mergedBounds.y,
-    width: mergedBounds.width,
-    height: mergedBounds.height,
-    fontFamily: typeof themeTextStyle.fontFamily === 'string' ? themeTextStyle.fontFamily : 'Arial',
-    fontSize: Math.max(8, Math.round(fontSizeBase * scaleY)),
-    fontWeight:
-      themeTextStyle.fontWeight === 'bold' || themeTextStyle.fontWeight === 'normal'
-        ? themeTextStyle.fontWeight
-        : undefined,
-    color: typeof themeTextStyle.color === 'string' ? themeTextStyle.color : '#000000',
-    textAlign:
-      themeTextStyle.textAlign === 'left' ||
-      themeTextStyle.textAlign === 'center' ||
-      themeTextStyle.textAlign === 'right' ||
-      themeTextStyle.textAlign === 'justify'
-        ? themeTextStyle.textAlign
-        : undefined,
-    lineHeight:
-      typeof themeTextStyle.lineHeight === 'number' && Number.isFinite(themeTextStyle.lineHeight)
-        ? themeTextStyle.lineHeight
-        : undefined,
-    letterSpacing:
-      typeof themeTextStyle.letterSpacing === 'number' &&
-      Number.isFinite(themeTextStyle.letterSpacing)
-        ? themeTextStyle.letterSpacing
-        : undefined,
-    verticalAlign,
-    textShadowEnabled:
-      typeof themeTextStyle.textShadowEnabled === 'boolean'
-        ? themeTextStyle.textShadowEnabled
-        : undefined,
-    textShadowColor:
-      typeof themeTextStyle.textShadowColor === 'string'
-        ? themeTextStyle.textShadowColor
-        : undefined,
-    textShadowBlur: toScaledNumber(themeTextStyle.textShadowBlur, scaleY),
-    textShadowOffsetX: toScaledNumber(themeTextStyle.textShadowOffsetX, scaleX),
-    textShadowOffsetY: toScaledNumber(themeTextStyle.textShadowOffsetY, scaleY),
-    textStrokeEnabled:
-      typeof themeTextStyle.textStrokeEnabled === 'boolean'
-        ? themeTextStyle.textStrokeEnabled
-        : undefined,
-    textStrokeColor:
-      typeof themeTextStyle.textStrokeColor === 'string'
-        ? themeTextStyle.textStrokeColor
-        : undefined,
-    textStrokeWidth: toScaledNumber(themeTextStyle.textStrokeWidth, scaleY),
-    blockBgEnabled:
-      typeof themeTextStyle.blockBgEnabled === 'boolean'
-        ? themeTextStyle.blockBgEnabled
-        : undefined,
-    blockBgColor:
-      typeof themeTextStyle.blockBgColor === 'string' ? themeTextStyle.blockBgColor : undefined,
-    blockBgBlur: toScaledNumber(themeTextStyle.blockBgBlur, scaleY),
-    blockBgPadding:
-      typeof themeTextStyle.blockBgPadding === 'number' &&
-      Number.isFinite(themeTextStyle.blockBgPadding)
-        ? themeTextStyle.blockBgPadding * scaleY
-        : undefined,
-    blockBgOpacity:
-      typeof themeTextStyle.blockBgOpacity === 'number' &&
-      Number.isFinite(themeTextStyle.blockBgOpacity)
-        ? themeTextStyle.blockBgOpacity
-        : undefined,
-    blockBgRadius: toScaledNumber(themeTextStyle.blockBgRadius, scaleY)
-  })
-}
-
 export default function usePresentationEditorActions({
   selectedSlide,
   selectedSlideIndex,
@@ -463,12 +89,6 @@ export default function usePresentationEditorActions({
   setMediaPickerMode,
   setIsMediaPickerOpen
 }: Params) {
-  const { themes } = useThemes()
-  const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
-  const getThemeData = (themeId: number | null) => {
-    if (themeId === null) return undefined
-    return themes.find((theme) => theme.id === themeId)
-  }
   const updateSelectedSlideItems = (
     updater: (items: PresentationSlideItem[]) => PresentationSlideItem[]
   ) => {
@@ -568,85 +188,6 @@ export default function usePresentationEditorActions({
     updateSelectedItemStyle(next)
   }
 
-  const loadBibleText = async () => {
-    if (!selectedItem || selectedItem.type !== 'BIBLE') return
-
-    const bible = parseBibleAccessData(selectedItem.accessData)
-    const endVerse = bible.verseEnd ?? bible.verseStart
-    const verses = Array.from(
-      { length: endVerse - bible.verseStart + 1 },
-      (_, index) => bible.verseStart + index
-    )
-
-    const result = await Api.fetch.bible.getVerses({
-      body: {
-        book: bible.bookId,
-        chapter: bible.chapter,
-        verses,
-        version: bible.version
-      }
-    })
-
-    const bibleText = result.map((verse) => `${verse.verse}. ${verse.text}`).join('<br/>')
-
-    updateSelectedItem({
-      text: bibleText
-    })
-
-    if (selectedItemStyle) {
-      updateSelectedItemStyle({
-        height: parseCanvasItemStyle(
-          buildAutoSizedTextCanvasItemStyle(bibleText, selectedItemStyle),
-          'TEXT'
-        ).height
-      })
-    }
-  }
-
-  const handleAddBibleToPresentation = (selection: BibleTextSelection) => {
-    if (!selectedSlide) return
-
-    const items = ensureSlideItems(selectedSlide)
-    const themeData = getThemeData(globalThemeId)
-
-    const themeStyle = themeData?.textStyle as Record<string, unknown> | undefined
-    const effectiveBibleSettings = themeData?.useDefaultBibleSettings
-      ? (defaultBiblePresentationSettings as BiblePresentationSettingsInput | undefined)
-      : (themeData?.biblePresentationSettings as BiblePresentationSettingsInput | undefined)
-
-    const initialStyle = mapThemeTextStyleToCanvasStyle(themeStyle, effectiveBibleSettings)
-
-    const newItem = createSlideItem('BIBLE', {
-      text: selection.text,
-      accessData: buildBibleAccessData({
-        bookId: selection.bookId,
-        chapter: selection.chapter,
-        verseStart: selection.verseStart,
-        verseEnd: selection.verseEnd,
-        version: selection.version
-      }),
-      layer: getNextLayer(items),
-      customStyle: initialStyle
-        ? buildCanvasItemStyle(
-            {
-              ...parseCanvasItemStyle(undefined, 'TEXT'),
-              ...initialStyle
-            },
-            'TEXT'
-          )
-        : buildCanvasItemStyle(
-            {
-              ...parseCanvasItemStyle(undefined, 'TEXT'),
-              ...getNoThemeBibleInsertStyle()
-            },
-            'TEXT'
-          )
-    })
-
-    setValue(`slides.${selectedSlideIndex}.items`, [...items, newItem], { shouldDirty: true })
-    setSelectedItemId(newItem.id)
-  }
-
   const insertMediaItem = () => {
     setMediaPickerMode('insert-current')
     setIsMediaPickerOpen(true)
@@ -684,10 +225,8 @@ export default function usePresentationEditorActions({
     if (!selectedSlide) return
 
     const items = ensureSlideItems(selectedSlide)
-    const themeData = getThemeData(globalThemeId)
 
-    const themeStyle = themeData?.textStyle as Record<string, unknown> | undefined
-    const initialStyle = mapThemeTextStyleToCanvasStyle(themeStyle)
+    const initialStyle = mapThemeTextStyleToCanvasStyle(undefined)
 
     const newItem = createSlideItem('TEXT', {
       text: 'Nuevo texto',
@@ -724,266 +263,6 @@ export default function usePresentationEditorActions({
   const addEmptySlide = () => {
     appendSlide(createTextSlide(globalThemeId))
     setSelectedSlideIndex(slidesLength)
-  }
-
-  const createCanvaFullSlide = (mediaId: number, themeId?: number | null) => {
-    const baseSlide = withVideoLiveBehavior(createMediaSlide(mediaId, themeId), 'auto')
-    const baseItem = baseSlide.items[0]
-
-    if (!baseItem) {
-      return {
-        ...baseSlide,
-        textStyle: {
-          ...baseSlide.textStyle,
-          mediaWidth: 100,
-          mediaHeight: 100,
-          offsetX: 0,
-          offsetY: 0
-        }
-      }
-    }
-
-    const currentStyle = parseCanvasItemStyle(baseItem.customStyle, 'MEDIA')
-    const fullStyle = buildCanvasItemStyle(
-      {
-        ...currentStyle,
-        x: 0,
-        y: 0,
-        width: BASE_CANVAS_WIDTH,
-        height: BASE_CANVAS_HEIGHT
-      },
-      'MEDIA'
-    )
-
-    return {
-      ...baseSlide,
-      items: [
-        {
-          ...baseItem,
-          customStyle: fullStyle
-        }
-      ],
-      textStyle: {
-        ...baseSlide.textStyle,
-        mediaWidth: 100,
-        mediaHeight: 100,
-        offsetX: 0,
-        offsetY: 0
-      }
-    }
-  }
-
-  const importCanvaAssetsAsSlides = async () => {
-    const selectedFiles = await window.mediaAPI.selectFiles('all')
-    if (selectedFiles.length === 0) return
-
-    const mp4Files = selectedFiles.filter((f) => f.fileName.toLowerCase().endsWith('.mp4'))
-    const zipFiles = selectedFiles.filter((f) => f.fileName.toLowerCase().endsWith('.zip'))
-    const rejectedFiles = selectedFiles.filter(
-      (f) => !f.fileName.toLowerCase().endsWith('.mp4') && !f.fileName.toLowerCase().endsWith('.zip')
-    )
-
-    const rootFolders = await Api.fetch.media.listFolders({ body: { parentFolder: undefined } })
-    const occupiedFolderNames = new Set(rootFolders)
-
-    const resolvedMp4Paths: CanvaResolvedAsset[] = []
-    let zipWithoutMp4Count = 0
-    let zipExtractionFailureCount = 0
-
-    for (const mp4File of mp4Files) {
-      resolvedMp4Paths.push({
-        fileName: mp4File.fileName,
-        bytes: mp4File.bytes,
-        sourceKey: getCanvaSourceKeyFromMp4Path(mp4File.fileName),
-        slideNumber: extractCanvaSlideNumber(mp4File.fileName)
-      })
-    }
-
-    for (const zipFile of zipFiles) {
-      try {
-        const folderBaseName = getCanvaZipFolderBaseName(zipFile.fileName)
-        const folderName = getNextAvailableFolderName(folderBaseName, occupiedFolderNames)
-        occupiedFolderNames.add(folderName)
-        await Api.fetch.media.createFolder({ body: { folderPath: folderName } })
-
-        const fd = new FormData()
-        const blob = new Blob([zipFile.bytes])
-        fd.append('file', blob, zipFile.fileName)
-        fd.append('folder', folderName)
-        const extracted = await Api.fetch.media.extractZipMp4(fd)
-
-        if (!extracted || extracted.length === 0) {
-          zipWithoutMp4Count += 1
-          continue
-        }
-
-        for (const mediaRecord of extracted) {
-          resolvedMp4Paths.push({
-            fileName: mediaRecord.fileName || `${mediaRecord.name}.mp4`,
-            bytes: new Uint8Array(0),
-            mediaId: Number(mediaRecord.id),
-            folder: folderName,
-            sourceKey: getCanvaSourceKeyFromZipPath(zipFile.fileName),
-            slideNumber: extractCanvaSlideNumber(mediaRecord.fileName || '')
-          })
-        }
-      } catch {
-        zipExtractionFailureCount += 1
-      }
-    }
-
-    if (resolvedMp4Paths.length === 0) {
-      const baseMessage = 'No se encontraron videos .mp4 para importar.'
-
-      const details: string[] = []
-      if (zipWithoutMp4Count > 0) {
-        details.push(`${zipWithoutMp4Count} ZIP sin MP4`)
-      }
-      if (zipExtractionFailureCount > 0) {
-        details.push(`${zipExtractionFailureCount} ZIP con error de extracción`)
-      }
-
-      alert(details.length > 0 ? `${baseMessage} (${details.join(', ')}).` : baseMessage)
-      return
-    }
-
-    const sortedAssets = sortCanvaResolvedAssets(resolvedMp4Paths)
-    const importedAssets: Array<{
-      mediaId: number
-      sourceKey: string
-      slideNumber: number | null
-    }> = []
-    let failedImports = 0
-
-    for (const entry of sortedAssets) {
-      if (entry.mediaId) {
-        importedAssets.push({
-          mediaId: entry.mediaId,
-          sourceKey: entry.sourceKey,
-          slideNumber: entry.slideNumber
-        })
-        continue
-      }
-      try {
-        const fd = new FormData()
-        const blob = new Blob([entry.bytes])
-        fd.append('file', blob, entry.fileName)
-        if (entry.folder) fd.append('folder', entry.folder)
-        const result = await Api.fetch.media.importFile(fd)
-        const [mediaRecord] = result
-        importedAssets.push({
-          mediaId: Number(mediaRecord.id),
-          sourceKey: entry.sourceKey,
-          slideNumber: entry.slideNumber
-        })
-      } catch {
-        failedImports += 1
-      }
-    }
-
-    if (importedAssets.length === 0) {
-      alert('No se pudo importar ningún video MP4 de Canva.')
-      return
-    }
-
-    const nextSlides = [...slides]
-    const canvaSlotToIndex = new Map<string, number>()
-
-    for (let index = 0; index < nextSlides.length; index += 1) {
-      const slide = nextSlides[index]
-      if (!slide.canvaSourceKey || !slide.canvaSlideNumber) continue
-      canvaSlotToIndex.set(
-        `${slide.canvaSourceKey.toLowerCase()}::${slide.canvaSlideNumber}`,
-        index
-      )
-    }
-
-    let updatedSlidesCount = 0
-    let appendedSlidesCount = 0
-
-    for (const asset of importedAssets) {
-      const hasStableSlot = asset.slideNumber !== null
-      const slotKey = hasStableSlot ? `${asset.sourceKey}::${asset.slideNumber}` : ''
-      const existingIndex = hasStableSlot ? canvaSlotToIndex.get(slotKey) : undefined
-
-      if (existingIndex !== undefined) {
-        const currentSlide = nextSlides[existingIndex]
-        const replacement = createCanvaFullSlide(
-          asset.mediaId,
-          currentSlide.themeId ?? globalThemeId
-        )
-
-        nextSlides[existingIndex] = {
-          ...replacement,
-          id: currentSlide.id,
-          themeId: currentSlide.themeId ?? globalThemeId ?? null,
-          transitionSettings: currentSlide.transitionSettings || replacement.transitionSettings,
-          videoLoop: currentSlide.videoLoop === true,
-          videoLiveBehavior: currentSlide.videoLiveBehavior || replacement.videoLiveBehavior,
-          canvaSourceKey: asset.sourceKey,
-          canvaSlideNumber: asset.slideNumber ?? undefined
-        }
-        updatedSlidesCount += 1
-        continue
-      }
-
-      const created = createCanvaFullSlide(asset.mediaId, globalThemeId)
-      const createdWithCanvaMeta = {
-        ...created,
-        canvaSourceKey: asset.sourceKey,
-        canvaSlideNumber: asset.slideNumber ?? undefined
-      }
-
-      nextSlides.push(createdWithCanvaMeta)
-      appendedSlidesCount += 1
-
-      if (hasStableSlot) {
-        canvaSlotToIndex.set(slotKey, nextSlides.length - 1)
-      }
-    }
-
-    setValue('slides', nextSlides, { shouldDirty: true })
-    const lastSlide = nextSlides[nextSlides.length - 1]
-    setSelectedSlideIndex(nextSlides.length - 1)
-    setSelectedItemId(lastSlide?.items?.[0]?.id)
-
-    const skippedByFormat = rejectedFiles.length
-    const importedCount = importedAssets.length
-
-    if (
-      failedImports === 0 &&
-      skippedByFormat === 0 &&
-      zipWithoutMp4Count === 0 &&
-      zipExtractionFailureCount === 0
-    ) {
-      const parts = [`Se importaron ${importedCount} videos.`]
-      if (updatedSlidesCount > 0) parts.push(`${updatedSlidesCount} diapositiva(s) actualizada(s).`)
-      if (appendedSlidesCount > 0) parts.push(`${appendedSlidesCount} diapositiva(s) agregada(s).`)
-      alert(parts.join(' '))
-      return
-    }
-
-    const parts = [`Se importaron ${importedCount} videos.`]
-    if (updatedSlidesCount > 0) parts.push(`${updatedSlidesCount} diapositiva(s) actualizada(s).`)
-    if (appendedSlidesCount > 0) parts.push(`${appendedSlidesCount} diapositiva(s) agregada(s).`)
-
-    if (skippedByFormat > 0) {
-      parts.push(`Se omitieron ${skippedByFormat} archivo(s) por no ser .mp4.`)
-    }
-
-    if (zipWithoutMp4Count > 0) {
-      parts.push(`${zipWithoutMp4Count} ZIP no contenía videos .mp4.`)
-    }
-
-    if (zipExtractionFailureCount > 0) {
-      parts.push(`Falló la extracción de ${zipExtractionFailureCount} ZIP.`)
-    }
-
-    if (failedImports > 0) {
-      parts.push(`Fallaron ${failedImports} importación(es).`)
-    }
-
-    alert(parts.join(' '))
   }
 
   const updateItemLayerById = (itemId: string, direction: 'up' | 'down') => {
@@ -1054,6 +333,27 @@ export default function usePresentationEditorActions({
     if (!selectedItem) return
     removeItemById(selectedItem.id)
   }
+
+  const { loadBibleText, handleAddBibleToPresentation } = useBibleInsertionActions(
+    {
+      selectedSlide,
+      selectedSlideIndex,
+      selectedItem,
+      selectedItemStyle,
+      globalThemeId,
+      setValue,
+      setSelectedItemId
+    },
+    { updateSelectedItem, updateSelectedItemStyle }
+  )
+
+  const { importCanvaAssetsAsSlides } = useCanvaImportActions({
+    slides,
+    globalThemeId,
+    setValue,
+    setSelectedSlideIndex,
+    setSelectedItemId
+  })
 
   return {
     updateSelectedSlideItems,

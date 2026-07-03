@@ -36,6 +36,10 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 - **`better-sqlite3` rebuild para Electron**: `NODE_MODULE_VERSION 137` (Node v24) vs `133` (Electron 35, Node ~v22). Rebuild con `@electron/rebuild -o better-sqlite3`.
 - **`@electron/rebuild`** agregado como devDependency de `@ecclesia/desktop`.
 - **Dev server verificado**: Electron arranca, Prisma conecta, 10 biblias EBBL cargan con `better-sqlite3` operativo, Socket.IO conecta desde el renderer.
+- **Refactor Fase 1:** `onSuccess` callbacks unificados en factory `onStageScreenConfigSuccess` en `globalStageConfig.ts`.
+- **Refactor Fase 3:** Reducidas alocaciones en loops en `SongGroup.tsx` (merge O(n²)→monotónico), `useCanvaImportActions.ts` (3×filter→1 loop), `splitLongBibleVerse.ts` (redundantes `normalizeBibleText`).
+- **Refactor Fase 4.2:** Outbox middleware extraído de `prisma-init.ts` → `apps/api/src/middleware/outbox.ts`. `registerOutboxMiddleware`, `setOnOutboxWriteCallback`, `setOnMediaChangeCallback` re-exportados desde `prisma-init.ts`.
+- **Refactor Fase 4.3:** Creado `ipcHelpers.ts` (`onIpc`, `onIpcFromWindow`, `handleIpc`) en `apps/desktop/electron/main/`. Aplicado a 11 handlers locales de `index.ts`.
 
 ### In Progress
 - **Importación PDF**: Backend completo — `importPdf` endpoint que convierte cada página del PDF a IMAGE via `pdfjs-dist` v3 + `@napi-rs/canvas`, almacena en `__pdf/` oculto, crea Presentation one-slide-per-page y un Media PDF con `presentationId`. **Frontend completo**: `MediaCard` muestra icono PDF + placeholder, drag-and-drop acepta `.pdf`, file picker filtro incluido. **Live redirect**: cuando un Media PDF se envía a live, resuelve su Presentation vinculada y muestra las diapositivas.

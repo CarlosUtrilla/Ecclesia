@@ -9,7 +9,8 @@ import LiveScreen from '@/screens/live-screen'
 import StageScreen from '@/screens/stage-screen/index'
 import {
   buildGlobalStageUpsertPayloads,
-  getGlobalStageConfig
+  getGlobalStageConfig,
+  onStageScreenConfigSuccess
 } from '@/screens/stage/shared/globalStageConfig'
 import { formatRemaining, resolveRemainingMs } from '@/lib/time'
 import { Api } from '@ecclesia/queries'
@@ -114,16 +115,7 @@ export default function LiveScreens() {
         )
       )
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-      await Promise.all(
-        stageScreensForConfig.map((screen) =>
-          window.displayAPI.updateStageScreenConfig({
-            selectedScreenId: screen.id
-          })
-        )
-      )
-    }
+    onSuccess: onStageScreenConfigSuccess(queryClient, stageScreensForConfig)
   })
 
   const activeStageTimers = useMemo(() => {

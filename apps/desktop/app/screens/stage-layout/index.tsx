@@ -25,7 +25,8 @@ import { useCanvasWidgetTransform, WidgetResizeHandle } from '@/hooks/useCanvasW
 import { fontSizes } from '@/lib/themeConstants'
 import {
   buildGlobalStageUpsertPayloads,
-  getGlobalStageConfig
+  getGlobalStageConfig,
+  onStageScreenConfigSuccess
 } from '../stage/shared/globalStageConfig'
 import {
   resolveTimerThresholdUnit,
@@ -198,16 +199,7 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
         )
       )
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-      await Promise.all(
-        stageScreens.map((screen) =>
-          window.displayAPI.updateStageScreenConfig({
-            selectedScreenId: screen.id
-          })
-        )
-      )
-    }
+    onSuccess: onStageScreenConfigSuccess(queryClient, stageScreens)
   })
 
   const updateWidget = useCallback(

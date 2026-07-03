@@ -1,5 +1,6 @@
 import { initializeLiveMediaManager } from './liveMediaController/liveMediaController'
-import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
+import { onIpc, onIpcFromWindow } from './ipcHelpers'
 import path, { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { initializeHttpServer } from '@ecclesia/api'
@@ -147,66 +148,29 @@ app.whenReady().then(async () => {
   // Inicializar manager de busqueda de biblia
   initializeBibleSearchManager()
 
-  // Abrir ventana para crear/editar canción
-  ipcMain.on('open-song-window', (_event, songId?: number) => {
-    createSongWindow(songId)
-  })
-
-  // Abrir ventana para crear/editar tema
-  ipcMain.on('open-theme-window', (_event, themeId?: number) => {
-    createThemeWindow(themeId)
-  })
-
-  ipcMain.on('open-presentation-window', (_event, presentationId?: number) => {
+  onIpc('open-song-window', (songId?: number) => createSongWindow(songId))
+  onIpc('open-theme-window', (themeId?: number) => createThemeWindow(themeId))
+  onIpc('open-presentation-window', (presentationId?: number) =>
     createPresentationWindow(presentationId)
-  })
+  )
+  onIpc('open-tag-songs-window', () => createTagsSongWindow())
+  onIpc('open-settings-window', () => createSettingsWindow())
+  onIpc('open-stage-control-window', () => createStageControlWindow())
+  onIpc('open-oauth-window', () => showOAuthWindow())
 
-  // Abrir ventana para crear/editar tema
-  ipcMain.on('open-tag-songs-window', () => {
-    createTagsSongWindow()
-  })
+  onIpcFromWindow('close-current-window', (win) => win.close())
 
-  // Abrir ventana de ajustes
-  ipcMain.on('open-settings-window', () => {
-    createSettingsWindow()
-  })
-
-  ipcMain.on('open-stage-control-window', () => {
-    createStageControlWindow()
-  })
-
-  // Abrir ventana de autenticación OAuth de Google Drive
-  ipcMain.on('open-oauth-window', () => {
-    showOAuthWindow()
-  })
-
-  // Cerrar ventana actual
-  ipcMain.on('close-current-window', (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender)
-    if (window) {
-      window.close()
-    }
-  })
-
-  // Disparar cierre de la ventana principal (para instalar actualizacion)
-  ipcMain.on('window:trigger-close', () => {
+  onIpc('window:trigger-close', () => {
     const win = getMainWindow()
     if (win) win.close()
   })
 
-  // Confirmar cierre de ventana de tema (el renderer aprobó cerrar)
-  ipcMain.on('theme-close-confirm', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (win && !win.isDestroyed()) {
-      win.destroy()
-    }
+  onIpcFromWindow('theme-close-confirm', (win) => {
+    if (!win.isDestroyed()) win.destroy()
   })
 
-  ipcMain.on('presentation-close-confirm', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (win && !win.isDestroyed()) {
-      win.destroy()
-    }
+  onIpcFromWindow('presentation-close-confirm', (win) => {
+    if (!win.isDestroyed()) win.destroy()
   })
 
   updateSplashStatus('Abriendo Ecclesia...')

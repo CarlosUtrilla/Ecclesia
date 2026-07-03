@@ -100,13 +100,11 @@ export const SongGroup = Node.create({
         ({ state, commands, editor }) => {
           const { from, to } = state.selection
 
-          // Función para fusionar grupos adyacentes con el mismo tag en TODO el documento
           const mergeAdjacentGroups = () => {
             setTimeout(() => {
               const { state: newState } = editor.view
               const { tr: finalTr, doc: finalDoc, schema: finalSchema } = newState
 
-              // Primero convertir todos los nodos a un array para poder mirar hacia adelante
               const allNodes: any[] = []
               finalDoc.content.forEach((node: any) => {
                 allNodes.push(node)
@@ -120,72 +118,60 @@ export const SongGroup = Node.create({
 
                 if (node.type.name === 'songGroup') {
                   const currentTagId = node.attrs.tagId
-                  const groupParagraphs: any[] = []
 
-                  // Agregar párrafos del grupo actual
-                  node.content.forEach((p: any) => {
-                    groupParagraphs.push(p)
-                  })
-
-                  // Mirar hacia adelante: recoger párrafos sueltos y grupos con el mismo tag
-                  let j = i + 1
-                  while (j < allNodes.length) {
-                    const nextNode = allNodes[j]
-
-                    if (
-                      nextNode.type.name === 'songGroup' &&
-                      nextNode.attrs.tagId === currentTagId
-                    ) {
-                      // Mismo tag - fusionar
-                      nextNode.content.forEach((p: any) => {
-                        groupParagraphs.push(p)
-                      })
-                      j++
-                    } else if (nextNode.type.name === 'paragraph') {
-                      // Párrafo suelto - ver si el siguiente es grupo con mismo tag
-                      let k = j + 1
-                      let foundMatchingGroup = false
-                      while (k < allNodes.length) {
-                        if (allNodes[k].type.name === 'paragraph') {
-                          k++
-                        } else if (
-                          allNodes[k].type.name === 'songGroup' &&
-                          allNodes[k].attrs.tagId === currentTagId
-                        ) {
-                          foundMatchingGroup = true
-                          break
-                        } else {
+                  let mergeEnd = i + 1
+                  while (mergeEnd < allNodes.length) {
+                    const next = allNodes[mergeEnd]
+                    if (next.type.name === 'songGroup' && next.attrs.tagId === currentTagId) {
+                      mergeEnd++
+                    } else if (next.type.name === 'paragraph') {
+                      let scan = mergeEnd + 1
+                      let found = false
+                      while (scan < allNodes.length) {
+                        const candidate = allNodes[scan]
+                        if (candidate.type.name === 'songGroup' && candidate.attrs.tagId === currentTagId) {
+                          found = true
                           break
                         }
+                        if (candidate.type.name !== 'paragraph') break
+                        scan++
                       }
-
-                      if (foundMatchingGroup) {
-                        // Agregar este párrafo al grupo
-                        groupParagraphs.push(nextNode)
-                        j++
+                      if (found) {
+                        mergeEnd = scan + 1
                       } else {
-                        // No hay más grupos con este tag, detener
                         break
                       }
                     } else {
-                      // Grupo con diferente tag o nodo desconocido
                       break
                     }
                   }
 
-                  // Crear grupo fusionado
-                  mergedNodes.push(
-                    finalSchema.nodes.songGroup.create({ tagId: currentTagId }, groupParagraphs)
-                  )
-                  i = j
+                  const needsMerge = mergeEnd - i > 1
+
+                  if (needsMerge) {
+                    const groupParagraphs: any[] = []
+                    for (let j = i; j < mergeEnd; j++) {
+                      const current = allNodes[j]
+                      if (current.type.name === 'songGroup') {
+                        current.content.forEach((p: any) => groupParagraphs.push(p))
+                      } else {
+                        groupParagraphs.push(current)
+                      }
+                    }
+                    mergedNodes.push(
+                      finalSchema.nodes.songGroup.create({ tagId: currentTagId }, groupParagraphs)
+                    )
+                  } else {
+                    mergedNodes.push(node)
+                  }
+
+                  i = mergeEnd
                 } else {
-                  // Párrafo suelto o nodo desconocido
                   mergedNodes.push(node)
                   i++
                 }
               }
 
-              // Solo reemplazar si hubo cambios
               if (mergedNodes.length > 0) {
                 finalTr.replaceWith(0, finalDoc.content.size, mergedNodes)
                 editor.view.dispatch(finalTr)

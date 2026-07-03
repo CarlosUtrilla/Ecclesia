@@ -10,7 +10,8 @@ import { Switch } from '@/ui/switch'
 import StageScreen from '@/screens/stage-screen'
 import {
   buildGlobalStageUpsertPayloads,
-  getGlobalStageConfig
+  getGlobalStageConfig,
+  onStageScreenConfigSuccess
 } from '@/screens/stage/shared/globalStageConfig'
 import { formatRemaining } from '@/lib/time'
 import { Api } from '@ecclesia/queries'
@@ -123,16 +124,7 @@ export default function StageControlsPanel() {
         )
       )
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['stageScreenConfig'] })
-      await Promise.all(
-        stageScreens.map((screen) =>
-          window.displayAPI.updateStageScreenConfig({
-            selectedScreenId: screen.id
-          })
-        )
-      )
-    }
+    onSuccess: onStageScreenConfigSuccess(queryClient, stageScreens)
   })
 
   const handleSaveMessage = () => {

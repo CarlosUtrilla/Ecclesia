@@ -93,15 +93,15 @@ function splitSentenceByWords(sentence: string, maxLength: number): string[] {
 
     const punctuationSplit = findPreferredPunctuationSplit(remaining, maxLength)
     const splitIndex = punctuationSplit ?? findWordBoundarySplit(remaining, maxLength)
-    const currentChunk = normalizeBibleText(remaining.slice(0, splitIndex))
+    const chunk = remaining.slice(0, splitIndex).trim()
 
-    if (!currentChunk) {
+    if (!chunk) {
       chunks.push(remaining)
       break
     }
 
-    chunks.push(currentChunk)
-    remaining = normalizeBibleText(remaining.slice(splitIndex))
+    chunks.push(chunk)
+    remaining = remaining.slice(splitIndex).trim()
   }
 
   return chunks

@@ -12,6 +12,7 @@ Proceso principal de Electron. Gestiona ventanas, servidor de medios locales, ma
 electron/
 ├── main/
 │   ├── index.ts
+│   ├── ipcHelpers.ts             # Helpers onIpc/onIpcFromWindow/handleIpc para registro IPC
 │   ├── windowManager.ts
 │   ├── prisma.ts
 │   ├── liveMediaController.ts
@@ -77,6 +78,16 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 9. Registra IPC locales           -> Fuentes, ventanas, notificaciones
 10. createMainWindow()            -> Crea ventana principal
 ```
+
+## Helpers IPC
+
+`ipcHelpers.ts` exporta tres helpers que reducen boilerplate al registrar canales IPC:
+
+- `onIpc(channel, handler)` → `ipcMain.on` sin acceso al sender window (fire-and-forget sin WebContents).
+- `onIpcFromWindow(channel, handler)` → `ipcMain.on` que resuelve `BrowserWindow.fromWebContents(event.sender)` automáticamente y verifica que no esté destruida.
+- `handleIpc(channel, handler)` → `ipcMain.handle` para request-response (invoke).
+
+Usar siempre estos helpers en lugar de `ipcMain.on/handle` directo en `index.ts` para handlers locales.
 
 ## Flujo de cierre
 

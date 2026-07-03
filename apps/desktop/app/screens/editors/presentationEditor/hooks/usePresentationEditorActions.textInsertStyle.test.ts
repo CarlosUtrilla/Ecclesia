@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getNoThemeBibleInsertStyle } from './usePresentationEditorActions'
+import { getNoThemeBibleInsertStyle } from '../utils/themeStyleMapping'
 
 describe('usePresentationEditorActions no-theme bible insert style', () => {
   it('deberia usar 90% de ancho y alto centrado en canvas', () => {

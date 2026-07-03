@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mergeBoundsWithVerse } from './usePresentationEditorActions'
+import { mergeBoundsWithVerse } from '../utils/themeStyleMapping'
 
 describe('usePresentationEditorActions bounds merge', () => {
   it('deberia unir texto y verso desacoplado (caso y:0..10 + verso hasta y:14)', () => {
