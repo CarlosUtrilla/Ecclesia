@@ -8,10 +8,12 @@ Sistema de comunicación bidireccional en tiempo real vía Socket.IO entre el AP
 
 ```
 apps/api/src/sockets/
-├── socket.service.ts     ← Definición de eventos + Proxy runtime
-├── socket-handlers.ts    ← Handlers de eventos entrantes (frontend → API)
-└── AGENTS.md             ← Este archivo
+├── socket.service.ts       ← Definición de eventos + Proxy runtime
+├── socket-handlers.ts      ← Handlers de eventos entrantes (frontend → API)
+└── AGENTS.md               ← Este archivo
 ```
+
+Los eventos de live control se registran como **relay handlers** directos en el `io.on('connection')` dentro de `apps/api/src/index.ts`. Cuando cualquier cliente emite un evento `live*`, el servidor lo re-emite a todos los demás clientes con `socket.broadcast.emit()`, sin lógica de negocio.
 
 ## SocketEventMap — Único registro de eventos
 
@@ -21,16 +23,39 @@ Todos los eventos se declaran en `SocketEventMap` (`socket.service.ts`). Un solo
 |---|---|---|
 | API → Frontend | `Api.socket.listen.syncProgress(cb)` | `socket.emit.syncProgress(data)` |
 | Frontend → API | `Api.socket.emit.startSync(data)` | `socket.on.startSync(cb)` |
+| Bidireccional (relay) | `Api.socket.emit.liveNextSlide()` | `socket.broadcast.emit('liveNextSlide')` |
+| | `Api.socket.listen.liveStateUpdate(cb)` | en `index.ts` connection handler |
 
 Cuando el valor del mapa es `void`, el evento no transporta datos:
 
 ```typescript
 export interface SocketEventMap {
   syncProgress: { progress: number; message: string; error?: boolean }
-  songCreated: void          // sin datos
-  ping: void                 // sin datos
+  songCreated: void
+  ping: void
+  liveClearItem: void
+  liveNextSlide: void
+  livePrevSlide: void
 }
 ```
+
+## Eventos de Live Control
+
+Estos eventos se usan para el control remoto de pantallas en vivo. Cualquier cliente (renderer o remoto) puede emitirlos.
+
+| Evento | Payload | Descripción |
+|---|---|---|
+| `liveSendToItem` | `{ itemId: string }` | Enviar item del cronograma a live |
+| `liveClearItem` | `void` | Limpiar item en vivo |
+| `liveNextSlide` | `void` | Avanzar al siguiente slide |
+| `livePrevSlide` | `void` | Retroceder al slide anterior |
+| `liveGoToSlide` | `{ index: number }` | Ir a un slide específico |
+| `liveSetHideText` | `{ active: boolean }` | Ocultar/mostrar texto en live |
+| `liveSetShowLogo` | `{ active: boolean }` | Mostrar logo/fallback |
+| `liveSetBlackScreen` | `{ active: boolean }` | Pantalla negra |
+| `liveStateUpdate` | `LiveStateUpdate` | Broadcast de estado actual (renderer → remotos) |
+
+El `LiveContext` en el renderer escucha todos estos eventos y los procesa como si fueran acciones locales del operador.
 
 ## Cómo agregar un nuevo evento
 
@@ -43,7 +68,11 @@ export interface SocketEventMap {
    ```typescript
    socket.on.myNewEvent((data) => { ... })
    ```
-4. Frontend lo recibe tipado automáticamente vía `Api.socket.listen.myNewEvent(cb)` o emite con `Api.socket.emit.myNewEvent(data)`
+4. Si es bidirectional/relay: agregar el nombre del evento al array `liveRelayEvents` en el `io.on('connection')` de `index.ts`:
+   ```typescript
+   const liveRelayEvents = ['liveNextSlide', 'myNewEvent', ...]
+   ```
+5. Frontend lo recibe tipado automáticamente vía `Api.socket.listen.eventName(cb)` o emite con `Api.socket.emit.eventName(data)`
 
 No hay que tocar `packages/queries/` para agregar eventos.
 
@@ -61,6 +90,11 @@ No hay que tocar `packages/queries/` para agregar eventos.
 ### Proxy `on` — wiring automático per-connection
 - Cuando se registra un handler con `socket.on.eventName(cb)`, se aplica a todas las conexiones **actuales** y **futuras**
 - Retorna una función `unsubscribe` que remueve el handler de todas las conexiones
+
+### Relay handlers en `index.ts`
+- Los eventos live:* se registran como relay dentro del callback `io.on('connection')`
+- Usan `socket.broadcast.emit(event, data)` para re-enviar a todos los clientes excepto el emisor
+- No requieren lógica de negocio del lado del servidor
 
 ## Dependencia con queries
 

@@ -491,6 +491,9 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
       socket.io-client:
         specifier: ^4.8.1
         version: 4.8.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)

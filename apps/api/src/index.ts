@@ -153,6 +153,25 @@ export async function initializeHttpServer(
     socket.on('disconnect', () => {
       Logger.info(`[Socket.IO] Cliente desconectado: ${socket.id}`)
     })
+
+    // Relay live control commands to all other clients (remote → renderer or vice versa)
+    const liveRelayEvents = [
+      'liveSendToItem',
+      'liveClearItem',
+      'liveNextSlide',
+      'livePrevSlide',
+      'liveGoToSlide',
+      'liveSetHideText',
+      'liveSetShowLogo',
+      'liveSetBlackScreen',
+      'liveStateUpdate',
+      'scheduleStateUpdate'
+    ] as const
+    for (const event of liveRelayEvents) {
+      socket.on(event, (data: unknown) => {
+        socket.broadcast.emit(event, data)
+      })
+    }
   })
 
   server.listen(port, () => {

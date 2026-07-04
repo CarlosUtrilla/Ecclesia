@@ -15,6 +15,45 @@ export interface SocketEventMap {
   startSync: { reason: string }
   ping: void
   requestResync: void
+
+  // Live control commands (relayed: any client emits, server broadcasts to others)
+  liveSendToItem: { itemId: string }
+  liveClearItem: void
+  liveNextSlide: void
+  livePrevSlide: void
+  liveGoToSlide: { index: number }
+  liveSetHideText: { active: boolean }
+  liveSetShowLogo: { active: boolean }
+  liveSetBlackScreen: { active: boolean }
+
+  // Live state sync (renderer broadcasts current state to remotes)
+  liveStateUpdate: {
+    itemOnLive: { id: string; type: string; accessData: string; label?: string | null } | null
+    itemIndex: number
+    slideCount: number
+    hideTextOnLive: boolean
+    showLogoOnLive: boolean
+    blackScreenOnLive: boolean
+    showLiveScreen: boolean
+  }
+
+  // Schedule state sync (broadcast full schedule form state to all clients)
+  scheduleStateUpdate: {
+    id: number | null
+    title: string
+    items: Array<{
+      id: string
+      order: number
+      type: string
+      accessData: string
+      scheduleId: number
+      updatedAt: string
+      deletedAt: string | null
+    }>
+    dateFrom: string | null
+    dateTo: string | null
+    isTemporary: boolean
+  }
 }
 
 type ApiEmitShape = {

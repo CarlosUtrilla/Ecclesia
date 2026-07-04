@@ -32,6 +32,41 @@ vi.mock('../../displayContext', () => ({
   })
 }))
 
+vi.mock('@ecclesia/queries', () => ({
+  Api: {
+    socket: {
+      listen: {
+        liveSendToItem: vi.fn().mockReturnValue(vi.fn()),
+        liveClearItem: vi.fn().mockReturnValue(vi.fn()),
+        liveNextSlide: vi.fn().mockReturnValue(vi.fn()),
+        livePrevSlide: vi.fn().mockReturnValue(vi.fn()),
+        liveGoToSlide: vi.fn().mockReturnValue(vi.fn()),
+        liveSetHideText: vi.fn().mockReturnValue(vi.fn()),
+        liveSetShowLogo: vi.fn().mockReturnValue(vi.fn()),
+        liveSetBlackScreen: vi.fn().mockReturnValue(vi.fn()),
+        liveStateUpdate: vi.fn().mockReturnValue(vi.fn())
+      },
+      emit: {
+        liveStateUpdate: vi.fn()
+      }
+    }
+  },
+  onSocketReconnect: vi.fn().mockReturnValue(vi.fn())
+}))
+
+vi.mock('../../RemoteModeContext', () => ({
+  useRemoteMode: () => ({ isRemoteMode: false })
+}))
+
+const ipcRendererOn = vi.fn().mockReturnValue(vi.fn())
+const updateLiveScreenContent = vi.fn().mockResolvedValue(undefined)
+const updateLiveScreenTheme = vi.fn().mockResolvedValue(undefined)
+
+Object.assign(window, {
+  electron: { ipcRenderer: { on: ipcRendererOn } },
+  displayAPI: { updateLiveScreenContent, updateLiveScreenTheme }
+})
+
 describe('LiveContext', () => {
   const wrapper = ({ children }: PropsWithChildren) => <LiveProvider>{children}</LiveProvider>
   const createItem = (id: string): ScheduleItem => ({

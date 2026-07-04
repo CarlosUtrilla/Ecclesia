@@ -37,6 +37,12 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
       - `F10`: alterna mostrar logo/fallback sin quitar el item del cronograma.
       - `F11`: alterna pantalla negra en live.
       - `Escape`: limpia item en vivo manteniendo la ventana live abierta.
+    - **Integración Socket.IO para control remoto:**
+      - Escucha comandos remotos (`liveSendToItem`, `liveNextSlide`, `livePrevSlide`, `liveGoToSlide`, `liveClearItem`, `liveSetHideText`, `liveSetShowLogo`, `liveSetBlackScreen`) y los procesa como si fueran acciones locales.
+      - Usa `useRef` (`currentScheduleRef`, `showItemOnLiveScreenRef`, `navigateSlideRef`, `goToSlideRef`) para evitar closures stale en los callbacks de Socket.IO.
+      - `navigateSlideRef` replica la navegación con soporte de rangos bíblicos para PRESENTATION.
+      - Emite `liveStateUpdate` cuando cambia cualquier estado relevante (itemOnLive, itemIndex, slideCount, controles).
+      - El servidor relayea los eventos live:* con `socket.broadcast.emit()` en `index.ts`.
   - **LibraryItemPreview.tsx**: Vista previa de items durante drag & drop.
 
 ---

@@ -19,7 +19,7 @@ import { LiveProvider } from './utils/liveContext'
 import { AddItemToSchedule, IScheduleContext } from './types'
 import DragAndDropSchedule from './utils/dragAndDropSchedule'
 import { generateUniqueId } from '@/lib/utils'
-import { Api } from '@ecclesia/queries'
+import { Api, onSocketReconnect } from '@ecclesia/queries'
 
 const ScheduleContext = createContext({} as IScheduleContext)
 
@@ -37,6 +37,55 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     },
     resolver: zodResolver(ScheduleSchema)
   })
+  const [socketReconnectKey, setSocketReconnectKey] = useState(0)
+  const [isTemporary, setIsTemporary] = useState(true)
+
+  // Re-registrar listeners Socket.IO cuando la conexión se reconecta
+  useEffect(() => {
+    return onSocketReconnect(() => setSocketReconnectKey((k) => k + 1))
+  }, [])
+
+  // Recibir scheduleStateUpdate desde otros clientes
+  useEffect(() => {
+    const unsub = Api.socket.listen.scheduleStateUpdate((payload) => {
+      const data = {
+        id: payload.id,
+        title: payload.title,
+        dateFrom: payload.dateFrom ? new Date(payload.dateFrom) : null,
+        dateTo: payload.dateTo ? new Date(payload.dateTo) : null,
+        items: payload.items.map((item) => ({
+          ...item,
+          scheduleId: item.scheduleId ?? -1,
+          updatedAt: new Date(item.updatedAt),
+          deletedAt: item.deletedAt ? new Date(item.deletedAt) : null
+        }))
+      }
+      form.reset(data)
+      setIsTemporary(payload.isTemporary)
+    })
+    return unsub
+  }, [socketReconnectKey])
+
+  // Helper: serializar estado del form para broadcast
+  const serializeScheduleState = useCallback(() => {
+    const values = form.getValues()
+    return {
+      id: values.id,
+      title: values.title,
+      dateFrom: values.dateFrom instanceof Date ? values.dateFrom.toISOString() : null,
+      dateTo: values.dateTo instanceof Date ? values.dateTo.toISOString() : null,
+      items: values.items.map((item) => ({
+        id: item.id,
+        order: item.order,
+        type: item.type,
+        accessData: item.accessData,
+        scheduleId: item.scheduleId,
+        updatedAt: item.updatedAt instanceof Date ? item.updatedAt.toISOString() : String(item.updatedAt),
+        deletedAt: item.deletedAt instanceof Date ? item.deletedAt.toISOString() : null
+      })),
+      isTemporary
+    }
+  }, [isTemporary, form])
 
   const formData = form.watch()
 
@@ -108,8 +157,9 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       // Recalcular order para todos los items
       const reOrdered = updatedItems.map((it, idx) => ({ ...it, order: idx + 1 }))
       form.setValue('items', reOrdered, { shouldDirty: true })
+      Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
     },
-    [formData.items, formData.id, form]
+    [formData.items, formData.id, form, serializeScheduleState]
   )
 
   const deleteItemFromSchedule = useCallback(
@@ -119,8 +169,9 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       // Recalcular order para todos los items
       const reOrdered = updatedItems.map((it, idx) => ({ ...it, order: idx + 1 }))
       form.setValue('items', reOrdered, { shouldDirty: true })
+      Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
     },
-    [formData.items, form]
+    [formData.items, form, serializeScheduleState]
   )
 
   const currentSchedule = useMemo(() => {
@@ -138,6 +189,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     // Recalcular order para todos los items
     const reOrdered = reordered.map((item, idx) => ({ ...item, order: idx + 1 }))
     form.setValue('items', reOrdered, { shouldDirty: true })
+    Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
   }
 
   // Alias para compatibilidad con DnD
@@ -194,7 +246,9 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         form.setValue('id', created.id)
       }
       // Reset dirty state
-      form.reset(form.getValues())
+      const saved = form.getValues()
+      form.reset(saved)
+      Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
     } catch (error) {
       console.error('Error saving schedule changes:', error)
     }
@@ -208,11 +262,10 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     if (schedule) {
       form.reset(schedule)
       setItemOnLive(null)
+      Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
     }
   }
 
-  // Estado y función para sesión temporal
-  const [isTemporary, setIsTemporary] = useState(true)
   const createTemporarySchedule = () => {
     form.reset({
       id: null,
@@ -223,6 +276,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     })
     setItemOnLive(null)
     setIsTemporary(true)
+    Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
   }
 
   const cleanForm = () => {
@@ -234,6 +288,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       dateTo: null
     })
     setIsTemporary(false)
+    Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
   }
 
   return (

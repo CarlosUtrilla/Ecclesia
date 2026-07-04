@@ -4,6 +4,12 @@ import type { SocketEventMap } from '@ecclesia/api'
 let socketInstance: Socket | null = null
 let currentUrl = ''
 let currentPort = 0
+const socketReconnectListeners = new Set<() => void>()
+
+export function onSocketReconnect(cb: () => void): () => void {
+  socketReconnectListeners.add(cb)
+  return () => socketReconnectListeners.delete(cb)
+}
 
 type SocketListenShape = {
   [K in keyof SocketEventMap]: SocketEventMap[K] extends void
@@ -31,6 +37,7 @@ function getOrCreateSocket(apiUrl: string, port: number): Socket {
       transports: ['websocket', 'polling'],
       reconnection: true,
     })
+    socketReconnectListeners.forEach((cb) => cb())
   }
   return socketInstance
 }
