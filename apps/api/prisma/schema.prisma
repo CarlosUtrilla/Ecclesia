@@ -72,6 +72,7 @@ enum SettingOptions {
   LOGO_FALLBACK_MEDIA_ID @map("logo.fallback.mediaId")
   LOGO_FALLBACK_COLOR    @map("logo.fallback.color")
   BIBLE_LIVE_CHUNK_MODE  @map("bible.live.chunkMode")
+  SHOW_COPYRIGHT_ON_LIVE @map("show.copyright.onLive")
 }
 
 model Setting {

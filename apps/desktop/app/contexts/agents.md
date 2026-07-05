@@ -360,6 +360,8 @@ const presentationVerseBySlideKey = {
 - Si hay item en vivo, `Escape` limpia el item (`setItemOnLive(null)`) y deja la pantalla live abierta mostrando fondo.
 - Depende de `useSchedule()` y `useDisplays()`.
 - `showItemOnLiveScreen` incrementa una versión (`liveContentVersion`) para que consumidores como `items-on-live` puedan refetchear contenido incluso al reenviar el mismo item.
+- **Optimización IPC (lastContentRef):** El efecto de envío a live screens compara `contentScreen` contra `lastContentRef.current`. Cuando solo cambia `itemIndex` (navegación de diapositivas), omite `contentScreen` del payload, evitando que `LiveScreen` setee un nuevo `content` que rompa la referencia de `items` en `PresentationView` y fuerce re-render completo.
+- **Test:** `liveContext.test.tsx` incluye tests de `lastContentRef` que verifican que `contentScreen` se incluya al cambiar contenido y se omita al navegar diapositivas.
 
 ### DragAndDropSchedule
 

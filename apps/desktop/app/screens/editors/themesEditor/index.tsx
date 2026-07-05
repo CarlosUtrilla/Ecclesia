@@ -339,6 +339,14 @@ export default function ThemesEditor() {
     [setValue]
   )
 
+  const handleCopyrightPositionChange = useCallback(
+    (next: { translateX: number; translateY: number }) => {
+      setValue('textStyle.copyrightTranslateX', next.translateX, { shouldDirty: true })
+      setValue('textStyle.copyrightTranslateY', next.translateY, { shouldDirty: true })
+    },
+    [setValue]
+  )
+
   const activeBibleSettings = useMemo(() => {
     const baseSettings = watchedData.useDefaultBibleSettings
       ? defaultBiblePresentationSettings
@@ -671,11 +679,13 @@ export default function ThemesEditor() {
             themeTransitionKey={themeTransitionPreviewKey}
             showTextBounds
             textBoundsIsSelected={selectedBoundsTarget === 'text'}
+            copyrightBoundsIsSelected={selectedBoundsTarget === 'copyright'}
             bibleVerseIsSelected={selectedBoundsTarget === 'verse'}
             onTextBoundsChange={handleTextBoundsChange}
             onBibleVersePositionChange={handleBibleVersePositionChange}
             onBibleVerseHorizontalBoundsChange={handleBibleVerseHorizontalBoundsChange}
             onEditableTargetSelect={setSelectedBoundsTarget}
+            onCopyrightPositionChange={handleCopyrightPositionChange}
           />
         </div>
       </div>
@@ -728,7 +738,7 @@ export default function ThemesEditor() {
 const PreviewsItems: PresentationViewItems[] = [
   {
     text: `Testing Theme Preview
-          <br>Aa Áá Ee Éé Ii Íí Oo Óó Uu Úú
+          <br>Aa Áá Ee Éé Ii Íí Oo Óó Uu Úu
           <br>Çç Ññ Ää Öö Üü ß
           <br>Àà Èè Ìì Òò Ùù`,
     resourceType: 'BIBLE'
@@ -742,5 +752,10 @@ const PreviewsItems: PresentationViewItems[] = [
       version: 'RVR1960'
     },
     resourceType: 'BIBLE'
+  },
+  {
+    text: 'Alma, bendice al Señor<br/>todo mi ser bendiga su santo nombre',
+    resourceType: 'SONG',
+    songMeta: { title: 'Alma, bendice al Señor', author: 'Autor Ejemplo', copyright: '2026 Iglesia Ejemplo' }
   }
 ]

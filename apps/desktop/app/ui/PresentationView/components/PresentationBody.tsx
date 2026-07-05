@@ -3,6 +3,7 @@ import { getContrastTextColor } from '@/lib/utils'
 import { PresentationViewProps } from '../types'
 import { AnimationType } from '@/lib/animations'
 import { ResourceContent } from './ResourceContent'
+import { CopyrightTextRender } from './CopyrightTextRender'
 import { LiveSlideTransitionShell } from './LiveSlideTransitionShell'
 import MediaRender from './MediaRender'
 import { BackgroundImage } from './BackgroundImage'
@@ -47,6 +48,7 @@ type Props = {
   presentationHeight: number
   showTextBounds: boolean
   textBoundsIsSelected: boolean
+  copyrightBoundsIsSelected: boolean
   bibleVerseIsSelected: boolean
   textBoundsBaseValues: {
     paddingInline: number
@@ -64,6 +66,7 @@ type Props = {
   onBibleVerseTranslateXChange: PresentationViewProps['onBibleVerseTranslateXChange']
   onBibleVerseHorizontalBoundsChange: PresentationViewProps['onBibleVerseHorizontalBoundsChange']
   onEditableTargetSelect: PresentationViewProps['onEditableTargetSelect']
+  onCopyrightPositionChange: PresentationViewProps['onCopyrightPositionChange']
   currentIndex: number
   presentationVerseBySlideKey?: Record<string, number>
   hideTextInLive: boolean
@@ -71,6 +74,7 @@ type Props = {
   blockBgPadding: number | null
   animationDuration: number
   autoSplitVerseText: boolean
+  showCopyright?: boolean
 }
 
 function PresentationBodyComponent({
@@ -104,6 +108,7 @@ function PresentationBodyComponent({
   presentationHeight,
   showTextBounds,
   textBoundsIsSelected,
+  copyrightBoundsIsSelected,
   bibleVerseIsSelected,
   textBoundsBaseValues,
   textBoundsScale,
@@ -113,13 +118,15 @@ function PresentationBodyComponent({
   onBibleVerseTranslateXChange,
   onBibleVerseHorizontalBoundsChange,
   onEditableTargetSelect,
+  onCopyrightPositionChange,
   currentIndex,
   presentationVerseBySlideKey,
   hideTextInLive,
   blockBgStyle,
   blockBgPadding,
   animationDuration,
-  autoSplitVerseText
+  autoSplitVerseText,
+  showCopyright = true
 }: Props) {
   const backgroundLayer = !isMediaItem ? (
     <>
@@ -210,6 +217,24 @@ function PresentationBodyComponent({
           autoSplitVerseText={autoSplitVerseText}
         />
       ) : null}
+
+      {!isMediaItem && currentItem.songMeta ? (
+        <CopyrightTextRender
+          songMeta={currentItem.songMeta}
+          theme={theme}
+          textStyle={textStyle}
+          isPreview={!live}
+          animationType={animationType}
+          variants={variants}
+          hideTextInLive={hideTextInLive}
+          scaleFactor={scaleFactor}
+          presentationHeight={presentationHeight}
+          showCopyright={showCopyright}
+          copyrightBoundsIsSelected={copyrightBoundsIsSelected}
+          onCopyrightPositionChange={onCopyrightPositionChange}
+          onEditableTargetSelect={onEditableTargetSelect}
+        />
+      ) : null}
     </>
   )
 
@@ -284,6 +309,7 @@ function arePresentationBodyPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.presentationHeight === nextProps.presentationHeight &&
     prevProps.showTextBounds === nextProps.showTextBounds &&
     prevProps.textBoundsIsSelected === nextProps.textBoundsIsSelected &&
+    prevProps.copyrightBoundsIsSelected === nextProps.copyrightBoundsIsSelected &&
     prevProps.bibleVerseIsSelected === nextProps.bibleVerseIsSelected &&
     prevProps.textBoundsBaseValues === nextProps.textBoundsBaseValues &&
     prevProps.textBoundsScale === nextProps.textBoundsScale &&
@@ -293,12 +319,14 @@ function arePresentationBodyPropsEqual(prevProps: Props, nextProps: Props) {
     prevProps.onBibleVerseTranslateXChange === nextProps.onBibleVerseTranslateXChange &&
     prevProps.onBibleVerseHorizontalBoundsChange === nextProps.onBibleVerseHorizontalBoundsChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
+    prevProps.onCopyrightPositionChange === nextProps.onCopyrightPositionChange &&
     prevProps.currentIndex === nextProps.currentIndex &&
     prevProps.presentationVerseBySlideKey === nextProps.presentationVerseBySlideKey &&
     prevProps.hideTextInLive === nextProps.hideTextInLive &&
     prevProps.blockBgStyle === nextProps.blockBgStyle &&
     prevProps.blockBgPadding === nextProps.blockBgPadding &&
-    prevProps.animationDuration === nextProps.animationDuration
+    prevProps.animationDuration === nextProps.animationDuration &&
+    prevProps.showCopyright === nextProps.showCopyright
   )
 }
 

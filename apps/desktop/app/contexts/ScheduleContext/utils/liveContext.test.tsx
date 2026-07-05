@@ -17,19 +17,20 @@ const { onLiveStateUpdateCbRef, liveStateUpdateEmitMock, resetLiveStateMocks } =
 })
 
 const getScheduleItemContentScreenMock = vi.fn().mockResolvedValue(null)
-const setItemOnLiveMock = vi.fn()
+let _itemOnLive: ScheduleItem | null = null
+const setItemOnLiveMock = vi.fn((item: ScheduleItem | null) => { _itemOnLive = item })
 const selectedThemeMock = {
   id: 1,
   name: 'Tema',
   background: '#000000',
   textStyle: {}
 }
-const displaysMock: never[] = []
+const displaysMock: any[] = []
 
 vi.mock('..', () => ({
   useSchedule: () => ({
     getScheduleItemContentScreen: getScheduleItemContentScreenMock,
-    itemOnLive: null,
+    get itemOnLive() { return _itemOnLive },
     selectedTheme: selectedThemeMock,
     setItemOnLive: setItemOnLiveMock,
     getScheduleItemLabel: vi.fn().mockResolvedValue(''),
@@ -86,10 +87,21 @@ vi.mock('../../RemoteModeContext', () => ({
 const ipcRendererOn = vi.fn().mockReturnValue(vi.fn())
 const updateLiveScreenContent = vi.fn().mockResolvedValue(undefined)
 const updateLiveScreenTheme = vi.fn().mockResolvedValue(undefined)
+const showLiveScreenMock = vi.fn().mockResolvedValue(['window-live-1'])
+const showStageScreenMock = vi.fn().mockResolvedValue(['window-stage-1'])
+const closeLiveScreenMock = vi.fn().mockResolvedValue(undefined)
+const closeStageScreenMock = vi.fn().mockResolvedValue(undefined)
 
 Object.assign(window, {
   electron: { ipcRenderer: { on: ipcRendererOn } },
-  displayAPI: { updateLiveScreenContent, updateLiveScreenTheme }
+  displayAPI: {
+    updateLiveScreenContent,
+    updateLiveScreenTheme,
+    showLiveScreen: showLiveScreenMock,
+    showStageScreen: showStageScreenMock,
+    closeLiveScreen: closeLiveScreenMock,
+    closeStageScreen: closeStageScreenMock
+  }
 })
 
 describe('LiveContext', () => {
@@ -106,6 +118,9 @@ describe('LiveContext', () => {
 
   beforeEach(() => {
     resetLiveStateMocks()
+    _itemOnLive = null
+    getScheduleItemContentScreenMock.mockReset()
+    getScheduleItemContentScreenMock.mockResolvedValue(null)
   })
 
   it('deberia reiniciar itemIndex al mostrar un nuevo item sin indice explicito', async () => {
@@ -267,5 +282,100 @@ describe('LiveContext', () => {
     // El tema debe actualizarse incluso al limpiar live
     expect(result.current.appliedTheme.id).toBe(5)
     expect(result.current.itemOnLive).toBeNull()
+  })
+
+  // --- contentScreen ref comparison (lastContentRef) ---
+
+  it('deberia incluir contentScreen en el payload IPC cuando el contenido cambia', async () => {
+    const fakeContent = { content: [{ type: 'text' as const, value: 'Nuevo contenido' }] }
+    getScheduleItemContentScreenMock.mockResolvedValue(fakeContent)
+    updateLiveScreenContent.mockClear()
+
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    await act(async () => {
+      await result.current.showItemOnLiveScreen(createItem('item-content-change'))
+    })
+
+    await waitFor(() => {
+      expect(result.current.contentScreen).toEqual(fakeContent)
+    })
+
+    // Buscar el ultimo payload que contenga contentScreen (se emitio al cambiar el contenido)
+    const contentCalls = updateLiveScreenContent.mock.calls.filter(
+      (c: any[]) => c[0] && 'contentScreen' in c[0]
+    )
+    expect(contentCalls.length).toBeGreaterThanOrEqual(1)
+    const payload = contentCalls[contentCalls.length - 1][0]
+    expect(payload.contentScreen).toEqual(fakeContent)
+  })
+
+  it('deberia omitir contentScreen en el payload IPC cuando solo cambia itemIndex (mismo contenido)', async () => {
+    const fakeContent = { content: [{ type: 'text' as const, value: 'Estable' }] }
+    getScheduleItemContentScreenMock.mockResolvedValue(fakeContent)
+    updateLiveScreenContent.mockClear()
+
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    await act(async () => {
+      await result.current.showItemOnLiveScreen(createItem('item-nav'))
+    })
+
+    await waitFor(() => {
+      expect(result.current.contentScreen).toEqual(fakeContent)
+    })
+
+    updateLiveScreenContent.mockClear()
+
+    act(() => {
+      result.current.setItemIndex(1)
+    })
+
+    await vi.waitFor(() => {
+      expect(updateLiveScreenContent).toHaveBeenCalled()
+    })
+
+    const navPayload = updateLiveScreenContent.mock.calls[0][0]
+    expect(navPayload.itemIndex).toBe(1)
+    expect(navPayload).not.toHaveProperty('contentScreen')
+    expect(navPayload).toHaveProperty('presentationVerseBySlideKey')
+  })
+
+  // --- late screen ready (race condition regresion) ---
+
+  it('deberia reenviar contenido cuando liveScreensReady se vuelve true (late connect)', async () => {
+    displaysMock.push({ id: 'display-1', type: 'LIVE_SCREEN', name: 'Test' })
+
+    const fakeContent = {
+      content: [{ type: 'text' as const, value: 'Contenido enviado antes de ready' }]
+    }
+    getScheduleItemContentScreenMock.mockResolvedValue(fakeContent)
+    updateLiveScreenContent.mockClear()
+    showLiveScreenMock.mockClear()
+
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    // Mostrar item en vivo (dispara showItemOnLiveScreen → setItemOnLive → setShowLiveScreen)
+    await act(async () => {
+      await result.current.showItemOnLiveScreen(createItem('item-late'))
+    })
+
+    // Esperar a que el reconcile abra la ventana y setee liveScreensReady=true
+    await vi.waitFor(() => {
+      expect(showLiveScreenMock).toHaveBeenCalled()
+    })
+
+    // El contenido debe haberse enviado al menos una vez (tras liveScreensReady=true)
+    await vi.waitFor(() => {
+      const contentCalls = updateLiveScreenContent.mock.calls.filter(
+        (c: any[]) => c[0] && 'contentScreen' in c[0]
+      )
+      expect(contentCalls.length).toBeGreaterThanOrEqual(1)
+      const lastContentPayload = contentCalls[contentCalls.length - 1][0]
+      expect(lastContentPayload.contentScreen).toEqual(fakeContent)
+    })
+
+    displaysMock.length = 0
+    showLiveScreenMock.mockClear()
   })
 })

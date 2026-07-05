@@ -305,10 +305,12 @@ export const useIndexDataItems = (
           }
         }
 
+        const hasSongMeta = song.author || song.copyright
         const content = song.lyrics.map((lyric) => ({
           text: lyric.content,
           tagSongId: lyric.tagSongsId,
-          resourceType: item.type
+          resourceType: item.type,
+          songMeta: hasSongMeta ? { title: song.title, author: song.author, copyright: song.copyright } : undefined
         }))
 
         return {

@@ -13,7 +13,13 @@ export type TextBoundsValues = {
   translateY: number
 }
 
-export type EditableBoundsTarget = 'text' | 'verse'
+export type EditableBoundsTarget = 'text' | 'verse' | 'copyright'
+
+export type SongMeta = {
+  title: string
+  author?: string | null
+  copyright?: string | null
+}
 
 export type PresentationViewProps = {
   maxHeight?: number
@@ -43,6 +49,9 @@ export type PresentationViewProps = {
   onBibleVerseTranslateXChange?: (next: number) => void
   onBibleVerseHorizontalBoundsChange?: (next: { widthPercent: number; translateX: number }) => void
   onEditableTargetSelect?: (target: EditableBoundsTarget) => void
+  copyrightBoundsIsSelected?: boolean
+  onCopyrightPositionChange?: (next: { translateX: number; translateY: number }) => void
+  showCopyright?: boolean
 }
 
 export type PresentationViewItems = {
@@ -74,6 +83,7 @@ export type PresentationViewItems = {
     version: string
   }
   resourceType: PresentationRenderableResourceType
+  songMeta?: SongMeta
 }
 
 export type PresentationLayerItem = {

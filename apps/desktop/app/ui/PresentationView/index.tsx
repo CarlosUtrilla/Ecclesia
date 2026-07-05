@@ -55,7 +55,10 @@ function PresentationViewComponent({
   onBibleVerseWidthChange,
   onBibleVerseTranslateXChange,
   onBibleVerseHorizontalBoundsChange,
-  onEditableTargetSelect
+  onEditableTargetSelect,
+  copyrightBoundsIsSelected = false,
+  onCopyrightPositionChange,
+  showCopyright = true
 }: PresentationViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const { tagSongs } = useTagSongs()
@@ -224,6 +227,7 @@ function PresentationViewComponent({
       presentationHeight={screenSize.height}
       showTextBounds={showTextBounds}
       textBoundsIsSelected={textBoundsIsSelected}
+      copyrightBoundsIsSelected={copyrightBoundsIsSelected}
       bibleVerseIsSelected={bibleVerseIsSelected}
       textBoundsBaseValues={textBoundsBaseValues}
       textBoundsScale={textBoundsScale}
@@ -233,6 +237,7 @@ function PresentationViewComponent({
       onBibleVerseTranslateXChange={onBibleVerseTranslateXChange}
       onBibleVerseHorizontalBoundsChange={onBibleVerseHorizontalBoundsChange}
       onEditableTargetSelect={onEditableTargetSelect}
+      onCopyrightPositionChange={onCopyrightPositionChange}
       currentIndex={currentIndex}
       presentationVerseBySlideKey={presentationVerseBySlideKey}
       hideTextInLive={hideTextInLive}
@@ -240,6 +245,7 @@ function PresentationViewComponent({
       blockBgPadding={blockBgPadding}
       animationDuration={animationSettings.duration}
       autoSplitVerseText={autoSplitVerseText}
+      showCopyright={showCopyright ?? true}
     />
   )
 
@@ -318,6 +324,7 @@ function arePresentationViewPropsEqual(
     prevProps.style === nextProps.style &&
     prevProps.showTextBounds === nextProps.showTextBounds &&
     prevProps.textBoundsIsSelected === nextProps.textBoundsIsSelected &&
+    prevProps.copyrightBoundsIsSelected === nextProps.copyrightBoundsIsSelected &&
     prevProps.bibleVerseIsSelected === nextProps.bibleVerseIsSelected &&
     prevProps.onTextBoundsChange === nextProps.onTextBoundsChange &&
     prevProps.onBibleVersePositionChange === nextProps.onBibleVersePositionChange &&
@@ -325,9 +332,11 @@ function arePresentationViewPropsEqual(
     prevProps.onBibleVerseTranslateXChange === nextProps.onBibleVerseTranslateXChange &&
     prevProps.onBibleVerseHorizontalBoundsChange === nextProps.onBibleVerseHorizontalBoundsChange &&
     prevProps.onEditableTargetSelect === nextProps.onEditableTargetSelect &&
+    prevProps.onCopyrightPositionChange === nextProps.onCopyrightPositionChange &&
     prevProps.items === nextProps.items &&
     prevProps.theme === nextProps.theme &&
-    prevProps.hideTextInLive === nextProps.hideTextInLive
+    prevProps.hideTextInLive === nextProps.hideTextInLive &&
+    prevProps.showCopyright === nextProps.showCopyright
   )
 }
 

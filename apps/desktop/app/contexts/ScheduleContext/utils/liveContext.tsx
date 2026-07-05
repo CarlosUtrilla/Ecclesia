@@ -439,20 +439,36 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   // Solo incluye contentScreen cuando realmente cambio (referencia distinta),
   // asi las ventanas live no reciben contenido redundante al navegar slides.
   const lastContentRef = useRef<ContentScreen | null | '__unset__'>('__unset__')
+  const prevLiveScreensReadyRef = useRef(false)
   useEffect(() => {
     if (isRemoteMode) return
+
+    const screensJustBecameReady = !prevLiveScreensReadyRef.current && liveScreensReady
+    prevLiveScreensReadyRef.current = liveScreensReady
+
     const contentChanged = contentScreen !== lastContentRef.current
-    lastContentRef.current = contentScreen
+    if (contentChanged) {
+      lastContentRef.current = contentScreen
+    }
+
+    // Cuando las pantallas se ponen ready por primera vez o cambia el contenido,
+    // reenviar el estado completo para pantallas que se conectaron tarde
+    if (screensJustBecameReady) {
+      window.displayAPI.updateLiveScreenContent({
+        itemIndex,
+        contentScreen,
+        presentationVerseBySlideKey
+      })
+      return
+    }
 
     if (contentChanged) {
-      console.log('Sending content update to live screens')
       window.displayAPI.updateLiveScreenContent({
         itemIndex,
         contentScreen,
         presentationVerseBySlideKey
       })
     } else {
-      console.log('Sending navigation update to live screens')
       window.displayAPI.updateLiveScreenContent({
         itemIndex,
         presentationVerseBySlideKey

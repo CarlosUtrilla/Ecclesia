@@ -3,6 +3,8 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { ImageIcon, Trash2, Video } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
+import { Separator } from '@/ui/separator'
+import { Switch } from '@/ui/switch'
 import { ColorPicker } from '@/ui/colorPicker'
 import { MediaPicker, type Media } from '@/screens/panels/library/media/exports'
 import { useMediaServer } from '@/contexts/MediaServerContext'
@@ -131,6 +133,9 @@ export default function LogoFallbackSection() {
         </div>
       </CardContent>
 
+      <Separator />
+
+      <CopyrightToggle />
       <MediaPicker
         open={isPickerOpen}
         onOpenChange={setIsPickerOpen}
@@ -138,5 +143,40 @@ export default function LogoFallbackSection() {
         title="Seleccionar logo / pantalla de fondo"
       />
     </Card>
+  )
+}
+
+function CopyrightToggle() {
+  const { data: settings } = useQuery({
+    ...Api.query.settings.getSettings({
+      body: { settings: ['SHOW_COPYRIGHT_ON_LIVE'] }
+    }),
+    staleTime: Infinity
+  })
+
+  const { mutate: saveSettings } = useMutation({
+    ...Api.mutation.settings.updateSettings
+  })
+
+  const isEnabled = settings?.find((s: { key: string }) => s.key === 'SHOW_COPYRIGHT_ON_LIVE')?.value === 'true'
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-4">
+      <div>
+        <label htmlFor="show-copyright-toggle" className="font-medium text-sm">
+          Mostrar créditos en vivo
+        </label>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Muestra el aviso de derechos de autor en la parte inferior de las presentaciones de canciones
+        </p>
+      </div>
+      <Switch
+        id="show-copyright-toggle"
+        checked={isEnabled}
+        onCheckedChange={(checked) => {
+          saveSettings({ body: { settings: [{ key: 'SHOW_COPYRIGHT_ON_LIVE', value: checked ? 'true' : 'false' }] } })
+        }}
+      />
+    </div>
   )
 }

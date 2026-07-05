@@ -19,7 +19,11 @@ const toPrefixedKey = (key: string) => `verse${key.charAt(0).toUpperCase()}${key
 export const getTargetTextStyleFieldPath = (
   target: EditableBoundsTarget,
   key: keyof TargetTypographyStyle
-) => (target === 'verse' ? `textStyle.${toPrefixedKey(key)}` : `textStyle.${key}`)
+) => {
+  if (target === 'verse') return `textStyle.${toPrefixedKey(key)}`
+  if (target === 'copyright') return `textStyle.copyright${key.charAt(0).toUpperCase()}${key.slice(1)}`
+  return `textStyle.${key}`
+}
 
 export const getTargetTypographyStyle = (
   textStyle: Record<string, unknown> | undefined,
@@ -27,46 +31,76 @@ export const getTargetTypographyStyle = (
 ): TargetTypographyStyle => {
   const source = textStyle || {}
 
-  if (target === 'text') {
+  const base = () => ({
+    fontFamily: source.fontFamily as string | undefined,
+    fontSize: source.fontSize as number | undefined,
+    color: source.color as string | undefined,
+    fontWeight: source.fontWeight as TargetTypographyStyle['fontWeight'],
+    fontStyle: source.fontStyle as TargetTypographyStyle['fontStyle'],
+    textDecoration: source.textDecoration as TargetTypographyStyle['textDecoration'],
+    lineHeight: source.lineHeight as number | undefined,
+    letterSpacing: source.letterSpacing as number | undefined,
+    textAlign: source.textAlign as TargetTypographyStyle['textAlign'],
+    justifyContent: source.justifyContent as TargetTypographyStyle['justifyContent']
+  })
+
+  if (target === 'text') return base()
+
+  if (target === 'verse') {
     return {
-      fontFamily: source.fontFamily as string | undefined,
-      fontSize: source.fontSize as number | undefined,
-      color: source.color as string | undefined,
-      fontWeight: source.fontWeight as TargetTypographyStyle['fontWeight'],
-      fontStyle: source.fontStyle as TargetTypographyStyle['fontStyle'],
-      textDecoration: source.textDecoration as TargetTypographyStyle['textDecoration'],
-      lineHeight: source.lineHeight as number | undefined,
-      letterSpacing: source.letterSpacing as number | undefined,
-      textAlign: source.textAlign as TargetTypographyStyle['textAlign'],
-      justifyContent: source.justifyContent as TargetTypographyStyle['justifyContent']
+      fontFamily: (source.verseFontFamily as string | undefined) || (source.fontFamily as string | undefined),
+      fontSize:
+        (source.verseFontSize as number | undefined) ||
+        (typeof source.fontSize === 'number' ? Math.round(source.fontSize * 0.85) : undefined),
+      color: (source.verseColor as string | undefined) || (source.color as string | undefined),
+      fontWeight:
+        (source.verseFontWeight as TargetTypographyStyle['fontWeight']) ||
+        (source.fontWeight as TargetTypographyStyle['fontWeight']),
+      fontStyle:
+        (source.verseFontStyle as TargetTypographyStyle['fontStyle']) ||
+        (source.fontStyle as TargetTypographyStyle['fontStyle']),
+      textDecoration:
+        (source.verseTextDecoration as TargetTypographyStyle['textDecoration']) ||
+        (source.textDecoration as TargetTypographyStyle['textDecoration']),
+      lineHeight:
+        (source.verseLineHeight as number | undefined) || (source.lineHeight as number | undefined),
+      letterSpacing:
+        (source.verseLetterSpacing as number | undefined) ||
+        (source.letterSpacing as number | undefined),
+      textAlign:
+        (source.verseTextAlign as TargetTypographyStyle['textAlign']) ||
+        (source.textAlign as TargetTypographyStyle['textAlign']),
+      justifyContent:
+        (source.verseJustifyContent as TargetTypographyStyle['justifyContent']) ||
+        (source.justifyContent as TargetTypographyStyle['justifyContent'])
     }
   }
 
   return {
-    fontFamily: (source.verseFontFamily as string | undefined) || (source.fontFamily as string | undefined),
+    fontFamily: (source.copyrightFontFamily as string | undefined) || (source.fontFamily as string | undefined),
     fontSize:
-      (source.verseFontSize as number | undefined) ||
-      (typeof source.fontSize === 'number' ? Math.round(source.fontSize * 0.85) : undefined),
-    color: (source.verseColor as string | undefined) || (source.color as string | undefined),
+      (source.copyrightFontSize as number | undefined) ||
+      (typeof source.fontSize === 'number' ? Math.round(source.fontSize * 0.5) : undefined),
+    color: (source.copyrightColor as string | undefined) || (source.color as string | undefined),
     fontWeight:
-      (source.verseFontWeight as TargetTypographyStyle['fontWeight']) ||
+      (source.copyrightFontWeight as TargetTypographyStyle['fontWeight']) ||
       (source.fontWeight as TargetTypographyStyle['fontWeight']),
     fontStyle:
-      (source.verseFontStyle as TargetTypographyStyle['fontStyle']) ||
+      (source.copyrightFontStyle as TargetTypographyStyle['fontStyle']) ||
       (source.fontStyle as TargetTypographyStyle['fontStyle']),
     textDecoration:
-      (source.verseTextDecoration as TargetTypographyStyle['textDecoration']) ||
+      (source.copyrightTextDecoration as TargetTypographyStyle['textDecoration']) ||
       (source.textDecoration as TargetTypographyStyle['textDecoration']),
     lineHeight:
-      (source.verseLineHeight as number | undefined) || (source.lineHeight as number | undefined),
+      (source.copyrightLineHeight as number | undefined) || (source.lineHeight as number | undefined),
     letterSpacing:
-      (source.verseLetterSpacing as number | undefined) ||
+      (source.copyrightLetterSpacing as number | undefined) ||
       (source.letterSpacing as number | undefined),
     textAlign:
-      (source.verseTextAlign as TargetTypographyStyle['textAlign']) ||
+      (source.copyrightTextAlign as TargetTypographyStyle['textAlign']) ||
       (source.textAlign as TargetTypographyStyle['textAlign']),
     justifyContent:
-      (source.verseJustifyContent as TargetTypographyStyle['justifyContent']) ||
+      (source.copyrightJustifyContent as TargetTypographyStyle['justifyContent']) ||
       (source.justifyContent as TargetTypographyStyle['justifyContent'])
   }
 }
@@ -81,48 +115,50 @@ export const getTargetTextEffectsValue = (
     return source as TextEffectsValue
   }
 
+  const prefix = target === 'verse' ? 'verse' : 'copyright'
+
   return {
     textShadowEnabled:
-      (source.verseTextShadowEnabled as boolean | undefined) ??
+      (source[`${prefix}TextShadowEnabled` as keyof typeof source] as boolean | undefined) ??
       (source.textShadowEnabled as boolean | undefined),
     textShadowColor:
-      (source.verseTextShadowColor as string | undefined) ||
+      (source[`${prefix}TextShadowColor` as keyof typeof source] as string | undefined) ||
       (source.textShadowColor as string | undefined),
     textShadowBlur:
-      (source.verseTextShadowBlur as number | undefined) ||
+      (source[`${prefix}TextShadowBlur` as keyof typeof source] as number | undefined) ||
       (source.textShadowBlur as number | undefined),
     textShadowOffsetX:
-      (source.verseTextShadowOffsetX as number | undefined) ||
+      (source[`${prefix}TextShadowOffsetX` as keyof typeof source] as number | undefined) ||
       (source.textShadowOffsetX as number | undefined),
     textShadowOffsetY:
-      (source.verseTextShadowOffsetY as number | undefined) ||
+      (source[`${prefix}TextShadowOffsetY` as keyof typeof source] as number | undefined) ||
       (source.textShadowOffsetY as number | undefined),
     textStrokeEnabled:
-      (source.verseTextStrokeEnabled as boolean | undefined) ??
+      (source[`${prefix}TextStrokeEnabled` as keyof typeof source] as boolean | undefined) ??
       (source.textStrokeEnabled as boolean | undefined),
     textStrokeColor:
-      (source.verseTextStrokeColor as string | undefined) ||
+      (source[`${prefix}TextStrokeColor` as keyof typeof source] as string | undefined) ||
       (source.textStrokeColor as string | undefined),
     textStrokeWidth:
-      (source.verseTextStrokeWidth as number | undefined) ||
+      (source[`${prefix}TextStrokeWidth` as keyof typeof source] as number | undefined) ||
       (source.textStrokeWidth as number | undefined),
     blockBgEnabled:
-      (source.verseBlockBgEnabled as boolean | undefined) ??
+      (source[`${prefix}BlockBgEnabled` as keyof typeof source] as boolean | undefined) ??
       (source.blockBgEnabled as boolean | undefined),
     blockBgColor:
-      (source.verseBlockBgColor as string | undefined) ||
+      (source[`${prefix}BlockBgColor` as keyof typeof source] as string | undefined) ||
       (source.blockBgColor as string | undefined),
     blockBgBlur:
-      (source.verseBlockBgBlur as number | undefined) ||
+      (source[`${prefix}BlockBgBlur` as keyof typeof source] as number | undefined) ||
       (source.blockBgBlur as number | undefined),
     blockBgPadding:
-      (source.verseBlockBgPadding as number | null | undefined) ??
+      (source[`${prefix}BlockBgPadding` as keyof typeof source] as number | null | undefined) ??
       (source.blockBgPadding as number | null | undefined),
     blockBgOpacity:
-      (source.verseBlockBgOpacity as number | undefined) ||
+      (source[`${prefix}BlockBgOpacity` as keyof typeof source] as number | undefined) ||
       (source.blockBgOpacity as number | undefined),
     blockBgRadius:
-      (source.verseBlockBgRadius as number | undefined) ||
+      (source[`${prefix}BlockBgRadius` as keyof typeof source] as number | undefined) ||
       (source.blockBgRadius as number | undefined)
   }
 }
@@ -133,7 +169,10 @@ export const mapTextEffectsUpdatesToTarget = (
 ) => {
   if (target === 'text') return updates
 
+  const prefix = target === 'verse' ? 'verse' : 'copyright'
+  const toKey = (key: string) => `${prefix}${key.charAt(0).toUpperCase()}${key.slice(1)}`
+
   return Object.fromEntries(
-    Object.entries(updates).map(([key, value]) => [toPrefixedKey(key), value])
+    Object.entries(updates).map(([key, value]) => [toKey(key), value])
   ) as Record<string, unknown>
 }

@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('liveMediaAPI', liveMediaAPI)
 
 No exponer funciones directas de ipcRenderer fuera de este archivo.
 
+## Archivos de test
+
+- `RenderGridMode.test.tsx` — Tests del componente de grilla de diapositivas: click handler con/ sin `indexMap`, `onSelectIndexOverride`, `activeIndexOverride`, badges de preview, `themeOverride`.
+
 ## Soporte de items MEDIA (video/imágenes)
 
 Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:

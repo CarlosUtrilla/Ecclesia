@@ -89,6 +89,15 @@ export default function ThemeToolbar({
         >
           Indicador
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={selectedBoundsTarget === 'copyright' ? 'default' : 'ghost'}
+          className="h-7 px-2 text-xs"
+          onClick={() => setSelectedBoundsTarget('copyright')}
+        >
+          Créditos
+        </Button>
       </div>
 
       <FontFamilySelector
