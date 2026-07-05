@@ -1,7 +1,7 @@
 {
   "name": "@ecclesia/desktop",
   "productName": "Ecclesia",
-  "version": "0.19.7",
+  "version": "0.19.8",
   "description": "Eclesia - Desktop application",
   "main": "./out/main/index.js",
   "author": "Carlos Utrilla",
@@ -80,7 +80,9 @@
     "@types/dompurify": "^3.2.0",
     "@uiw/react-color-chrome": "^2.9.6",
     "adm-zip": "^0.5.16",
+    "bufferutil": "^4.0.9",
     "better-sqlite3": "^12.8.0",
+    "utf-8-validate": "^6.0.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
