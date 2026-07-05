@@ -3,7 +3,7 @@ import { ContentScreen, ILiveContext } from '../types'
 import { useSchedule } from '..'
 import { DisplayWithUsage, useDisplays } from '../../displayContext'
 import type { ScheduleItem } from '@ecclesia/api'
-import { BlankTheme } from '@/hooks/useThemes'
+import { BlankTheme, useThemes } from '@/hooks/useThemes'
 import { PresentationBibleOverrideMap } from '@/lib/presentationBibleVersionOverrides'
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { resolveAppliedLiveTheme } from './resolveAppliedLiveTheme'
@@ -18,6 +18,7 @@ const LiveContext = createContext({} as ILiveContext)
 export const LiveProvider = ({ children }: PropsWithChildren) => {
   const { isRemoteMode } = useRemoteMode()
   const { getScheduleItemContentScreen, itemOnLive, selectedTheme, setItemOnLive, currentSchedule, getScheduleItemLabel } = useSchedule()
+  const { themes } = useThemes()
 
   // Stub para sincronización de media (debe implementarse con IPC)
   const sendLiveMediaState = (state: LiveMediaState) => {
@@ -49,9 +50,15 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const [showLogoOnLive, setShowLogoOnLive] = useState(false)
   const [blackScreenOnLive, setBlackScreenOnLive] = useState(false)
 
+  // Flag para evitar que el broadcast effect re-emita cambios recibidos vía Socket.IO
+  const isApplyingRemoteUpdate = useRef(false)
+
   // Refs para evitar closures stale en los callbacks de Socket.IO
   const currentScheduleRef = useRef(currentSchedule)
   currentScheduleRef.current = currentSchedule
+
+  const themesRef = useRef(themes)
+  themesRef.current = themes
 
   const showItemOnLiveScreenRef = useRef<(item: ScheduleItem, index?: number) => Promise<void>>(
     null as unknown as (item: ScheduleItem, index?: number) => Promise<void>
@@ -161,10 +168,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       setBlackScreenOnLive(active)
     })
 
-    // Aplicar liveStateUpdate solo en modo remoto (mirror del host)
+    // Aplicar liveStateUpdate desde remotos (broadcast socket.io excluye al sender)
     const unsubLiveState = Api.socket.listen.liveStateUpdate((state) => {
-      if (!isRemoteModeRef.current) return
-
+      isApplyingRemoteUpdate.current = true
       if (state.itemOnLive) {
         const item = currentScheduleRef.current.find((i) => i.id === state.itemOnLive?.id)
         if (item) {
@@ -183,16 +189,40 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
             state.itemIndex
           )
         }
+        // Override appliedTheme with the remote's themeId
+        if (state.themeId != null) {
+          const remoteTheme = themesRef.current.find((t) => t.id === state.themeId)
+          if (remoteTheme) {
+            setAppliedTheme(remoteTheme)
+          }
+        }
       } else {
         setItemOnLive(null)
         setPresentationVerseBySlideKeyState({})
         setPresentationBibleOverrideByKeyState({})
         setItemIndex(0)
+        // Also sync themeId when clearing live
+        if (state.themeId != null) {
+          const remoteTheme = themesRef.current.find((t) => t.id === state.themeId)
+          if (remoteTheme) {
+            setAppliedTheme(remoteTheme)
+          }
+        }
       }
       setHideTextOnLive(state.hideTextOnLive)
       setShowLogoOnLive(state.showLogoOnLive)
       setBlackScreenOnLive(state.blackScreenOnLive)
       setShowLiveScreen(state.showLiveScreen)
+      // Solo el cliente remoto sobreescribe sus pantallas con las del host;
+      // el host nunca debe reemplazar sus displays locales con datos del cliente.
+      if (isRemoteModeRef.current) {
+        if (state.liveScreens) {
+          setLiveScreens(state.liveScreens as DisplayWithUsage[])
+        }
+        if (state.stageScreens) {
+          setStageScreens(state.stageScreens as DisplayWithUsage[])
+        }
+      }
     })
 
     return () => {
@@ -211,7 +241,14 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   // Broadcast estado actual a clientes remotos cuando cambia
   // Se emite incluso cuando showLiveScreen es false para que los remotos
   // sepan que el host apagó la proyección.
+  // Solo se omite cuando el cambio proviene de recibir un liveStateUpdate
+  // (evita el ping-pong infinito entre host y cliente remoto).
   useEffect(() => {
+    if (isRemoteMode && isApplyingRemoteUpdate.current) {
+      isApplyingRemoteUpdate.current = false
+      return
+    }
+
     if (showLiveScreen) {
       const labelPromise = itemOnLive && !isRemoteMode
         ? getScheduleItemLabel(itemOnLive).then((l) => (typeof l === 'string' ? l : String(l)))
@@ -227,7 +264,20 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
           hideTextOnLive,
           showLogoOnLive,
           blackScreenOnLive,
-          showLiveScreen
+          showLiveScreen,
+          themeId: appliedTheme.id,
+          liveScreens: liveScreens.map((s) => ({
+            id: s.id,
+            label: s.label,
+            type: s.type,
+            aspectRatioCss: s.aspectRatioCss
+          })),
+          stageScreens: stageScreens.map((s) => ({
+            id: s.id,
+            label: s.label,
+            type: s.type,
+            aspectRatioCss: s.aspectRatioCss
+          }))
         })
       })
     } else {
@@ -238,7 +288,10 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
         hideTextOnLive: false,
         showLogoOnLive: false,
         blackScreenOnLive: false,
-        showLiveScreen: false
+        showLiveScreen: false,
+        themeId: null,
+        liveScreens: [],
+        stageScreens: []
       })
     }
   }, [
@@ -249,6 +302,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     hideTextOnLive,
     showLogoOnLive,
     blackScreenOnLive,
+    liveScreens,
+    stageScreens,
+    appliedTheme,
     socketReconnectKey,
     isRemoteMode,
     getScheduleItemLabel
@@ -261,6 +317,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   }, [itemOnLive])
 
   useEffect(() => {
+    // En modo remoto, las pantallas vienen del broadcast Socket.IO
+    if (isRemoteMode) return
+
     // Detectar si las pantallas live han cambiado y asignarlas al state interno
     if (displays && displays.length > 0) {
       setLiveScreens(displays.filter((display) => display.type === 'LIVE_SCREEN'))
@@ -270,7 +329,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       setLiveScreens(mainDisplay ? [mainDisplay] : [])
       setStageScreens([])
     }
-  }, [displays, mainDisplay])
+  }, [displays, mainDisplay, isRemoteMode])
 
   useEffect(() => {
     const fetchContentScreen = async () => {
@@ -377,17 +436,28 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   }, [showLiveScreen, liveScreens, stageScreens, isRemoteMode])
 
   // Envia cambios de contenido/slide a live/stage.
+  // Solo incluye contentScreen cuando realmente cambio (referencia distinta),
+  // asi las ventanas live no reciben contenido redundante al navegar slides.
+  const lastContentRef = useRef<ContentScreen | null | '__unset__'>('__unset__')
   useEffect(() => {
     if (isRemoteMode) return
-    console.log('Sending content update to live screens')
-    const sendUpdateToLiveScreens = async () => {
-      await window.displayAPI.updateLiveScreenContent({
+    const contentChanged = contentScreen !== lastContentRef.current
+    lastContentRef.current = contentScreen
+
+    if (contentChanged) {
+      console.log('Sending content update to live screens')
+      window.displayAPI.updateLiveScreenContent({
         itemIndex,
         contentScreen,
         presentationVerseBySlideKey
       })
+    } else {
+      console.log('Sending navigation update to live screens')
+      window.displayAPI.updateLiveScreenContent({
+        itemIndex,
+        presentationVerseBySlideKey
+      })
     }
-    sendUpdateToLiveScreens()
   }, [
     itemIndex,
     itemOnLive,

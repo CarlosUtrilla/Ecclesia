@@ -10,23 +10,23 @@ export default function RemoteConnectionListener() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    window.remoteControlAPI.getConnectionState().then((state) => {
+    window.remoteControlAPI.getConnectionState().then(async (state) => {
       if (state) {
-        setApiConfiguration(queryClient, state.url, state.port)
+        await setApiConfiguration(queryClient, state.url, state.port)
         switchSSEConnection(state.url)
         setMediaServerHost(new URL(state.url).hostname)
         window.remoteControlAPI.invalidateAllWindows()
       }
     })
 
-    const cleanup = window.remoteControlAPI.onConnectionChanged((state) => {
+    const cleanup = window.remoteControlAPI.onConnectionChanged(async (state) => {
       if (state) {
-        setApiConfiguration(queryClient, state.url, state.port)
+        await setApiConfiguration(queryClient, state.url, state.port)
         switchSSEConnection(state.url)
         setMediaServerHost(new URL(state.url).hostname)
         window.remoteControlAPI.invalidateAllWindows()
       } else {
-        setApiConfiguration(queryClient, 'http://localhost', 7777)
+        await setApiConfiguration(queryClient, 'http://localhost', 7777)
         switchSSEConnection(null)
         setMediaServerHost('127.0.0.1')
         window.remoteControlAPI.invalidateAllWindows()

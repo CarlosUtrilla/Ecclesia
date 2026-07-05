@@ -64,7 +64,7 @@ ensure_sharp_ready() {
 }
 
 prepare_windows_sharp() {
-  echo -e "  Preparando ${CYAN}sharp${RESET} para runtime ${CYAN}win32-x64${RESET}..."
+  echo -e "  Preparando módulos nativos para runtime ${CYAN}win32-x64${RESET}..."
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
@@ -79,7 +79,6 @@ prepare_windows_sharp() {
     cp -r "$win_pkg" apps/desktop/node_modules/@img/
     echo -e "  ${GREEN}✓ Binario Windows x64 de sharp instalado${RESET}"
 
-    # Populate the root pnpm store so electron-builder's install-app-deps can resolve it
     local sharp_version
     sharp_version=$(node -p "require('./apps/desktop/node_modules/sharp/package.json').version" 2>/dev/null || echo "0.34.5")
     local pnpm_store_dir="node_modules/.pnpm/@img+sharp-win32-x64@${sharp_version}"
@@ -108,9 +107,67 @@ prepare_windows_sharp() {
     echo -e "  ${YELLOW}⚠ No se encontró binario Windows x64 de ffmpeg${RESET}"
   fi
 
-  rm -rf "$tmp_dir"
+  # ─── Native modules con binding.gyp (hide before install-app-deps) ──
+  # Canvas (pdfjs-dist), bufferutil, utf-8-validate
+  local native_dirs=()
+  echo -e "  Preparando módulos nativos para win32-x64 (ocultando binding.gyp)..."
+  for native_pkg in "canvas" "bufferutil" "utf-8-validate"; do
+    local dir
+    dir=$(find node_modules/.pnpm -name "binding.gyp" -path "*${native_pkg}*" ! -path "*napi*" -exec dirname {} \; 2>/dev/null | head -1)
+    if [ -n "$dir" ] && [ -d "$dir" ]; then
+      mv "$dir/binding.gyp" "$dir/binding.gyp.bak"
+      native_dirs+=("$dir")
+      echo -e "  ${GREEN}✓ ${native_pkg} binding.gyp desactivado${RESET}"
+    else
+      echo -e "  ${YELLOW}⚠ ${native_pkg} no encontrado en pnpm store${RESET}"
+    fi
+  done
 
-  npx electron-builder install-app-deps --platform=win32 --arch=x64
+  (cd apps/desktop && npx electron-builder install-app-deps --platform=win32 --arch=x64)
+
+  # ─── Restaurar binding.gyp y descargar binarios Windows ──
+  local electron_ver
+  electron_ver=$(node -p "require('./apps/desktop/node_modules/electron/package.json').version" 2>/dev/null || echo "35.0.0")
+  for dir in "${native_dirs[@]}"; do
+    if [ -f "$dir/binding.gyp.bak" ]; then
+      mv "$dir/binding.gyp.bak" "$dir/binding.gyp"
+      local pkg_name
+      pkg_name=$(basename "$dir")
+      echo -e "  ${GREEN}✓ binding.gyp restaurado para $pkg_name${RESET}"
+      echo -e "  Descargando binario Windows para $pkg_name..."
+      (cd "$dir" && npx prebuild-install --runtime=electron --target=$electron_ver --platform=win32 --arch=x64) 2>&1 && \
+        echo -e "  ${GREEN}✓ $pkg_name (win32-x64) instalado${RESET}" || {
+        echo -e "  ${YELLOW}⚠ falló electron, intentando --runtime=node...${RESET}"
+        (cd "$dir" && npx prebuild-install --runtime=node --target=22.0.0 --platform=win32 --arch=x64) 2>&1 || \
+          echo -e "  ${YELLOW}⚠ no hay prebuild para $pkg_name win32-x64${RESET}"
+      }
+    fi
+  done
+
+  # ─── @napi-rs/canvas (N-API) — binario Windows (después de install-app-deps para que no lo borre) ──
+  echo -e "  Preparando ${CYAN}@napi-rs/canvas${RESET} Windows x64 binary..."
+  local canvas_ver
+  canvas_ver=$(node -p "require('./apps/desktop/node_modules/@napi-rs/canvas/package.json').version" 2>/dev/null || echo "1.0.1")
+  local canvas_store
+  canvas_store=$(node -e "try{console.log(require('fs').realpathSync('apps/desktop/node_modules/@napi-rs/canvas'))}catch(e){}" 2>/dev/null || echo "")
+  if [ -n "$canvas_store" ] && [ -d "$canvas_store" ]; then
+    if (cd "$tmp_dir" \
+      && npm pack "@napi-rs/canvas-win32-x64-msvc@${canvas_ver}" > /dev/null 2>&1 \
+      && tar -xzf "napi-rs-canvas-win32-x64-msvc-${canvas_ver}.tgz" > /dev/null 2>&1); then
+      if [ -f "$tmp_dir/package/skia.win32-x64-msvc.node" ]; then
+        cp "$tmp_dir/package/skia.win32-x64-msvc.node" "$canvas_store/"
+        echo -e "  ${GREEN}✓ skia.win32-x64-msvc.node instalado en store${RESET}"
+      else
+        echo -e "  ${YELLOW}⚠ skia.win32-x64-msvc.node no encontrado${RESET}"
+      fi
+    else
+      echo -e "  ${YELLOW}⚠ Falló npm pack de @napi-rs/canvas-win32-x64-msvc${RESET}"
+    fi
+  else
+    echo -e "  ${YELLOW}⚠ @napi-rs/canvas no encontrado en store${RESET}"
+  fi
+
+  rm -rf "$tmp_dir"
 
   # Verificar que better-sqlite3 quedó como PE32+ (Windows)
   local bsqlite3="apps/desktop/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
@@ -161,27 +218,32 @@ ensure_prisma_client_targets() {
   npx prisma generate --schema apps/api/prisma/schema.prisma
   echo -e "  ${GREEN}✓ Prisma Client generado${RESET}"
 
-  echo -e "  Copiando .prisma/client a ${CYAN}apps/desktop/node_modules/${RESET}..."
-  rm -rf apps/desktop/node_modules/.prisma
-  cp -r node_modules/.prisma apps/desktop/node_modules/.prisma
-  echo -e "  ${GREEN}✓ .prisma/client copiado a apps/desktop${RESET}"
-
-  echo -e "  Reemplazando symlink de @prisma/client con copia real..."
-  if [ ! -e apps/desktop/node_modules/@prisma/client ]; then
-    echo -e "  ${YELLOW}⚠ @prisma/client no existe, reinstalando...${RESET}"
-    pnpm install --frozen-lockfile > /dev/null 2>&1
-  fi
-  if [ -L apps/desktop/node_modules/@prisma/client ]; then
-    client_target="$(readlink apps/desktop/node_modules/@prisma/client)" || true
-    if [ -n "$client_target" ] && [ -d "$client_target" ]; then
-      rm -rf apps/desktop/node_modules/@prisma/client
-      cp -r "$client_target" apps/desktop/node_modules/@prisma/client
-      echo -e "  ${GREEN}✓ @prisma/client copiado como directorio real${RESET}"
-    else
-      echo -e "  ${YELLOW}⚠ readlink falló o target no existe, se deja symlink${RESET}"
-    fi
+  # En Prisma 6 + pnpm, .prisma/client vive dentro del store de pnpm como
+  # hermano de @prisma/client. Resolvemos la ruta real desde el symlink.
+  echo -e "  Resolviendo .prisma/client desde el store de pnpm..."
+  eval "$(node -e "
+    const fs=require('fs'),p=require('path');
+    const r=fs.realpathSync('apps/desktop/node_modules/@prisma/client');
+    const dot=p.dirname(p.dirname(r))+'/.prisma';
+    console.log('CLIENT_REAL='+JSON.stringify(r));
+    console.log('DOT_PRISMA_REAL='+JSON.stringify(dot));
+  ")"
+  if [ -n "$DOT_PRISMA_REAL" ] && [ -d "$DOT_PRISMA_REAL/client" ]; then
+    echo -e "  Copiando .prisma/client a ${CYAN}apps/desktop/node_modules/${RESET}..."
+    rm -rf apps/desktop/node_modules/.prisma
+    cp -r "$DOT_PRISMA_REAL" apps/desktop/node_modules/.prisma
+    echo -e "  ${GREEN}✓ .prisma/client copiado a apps/desktop${RESET}"
   else
-    echo -e "  ${YELLOW}⚠ @prisma/client no es symlink, se deja como está${RESET}"
+    echo -e "  ${YELLOW}⚠ .prisma/client no encontrado en $DOT_PRISMA_REAL${RESET}"
+  fi
+
+  if [ -n "$CLIENT_REAL" ] && [ -d "$CLIENT_REAL" ]; then
+    echo -e "  Reemplazando symlink de @prisma/client con copia real..."
+    rm -rf apps/desktop/node_modules/@prisma/client
+    cp -r "$CLIENT_REAL" apps/desktop/node_modules/@prisma/client
+    echo -e "  ${GREEN}✓ @prisma/client copiado como directorio real${RESET}"
+  else
+    echo -e "  ${YELLOW}⚠ @prisma/client real no encontrado${RESET}"
   fi
 }
 

@@ -90,7 +90,37 @@ async function clearPersistedStageTimersOnShutdown() {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
+process.on('uncaughtException', (err) => {
+  try {
+    require('fs').appendFileSync(
+      require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
+      `[${new Date().toISOString()}] UNCAUGHT_EXCEPTION_MAIN:\n${err.stack ?? err.message}\n`
+    )
+  } catch { /* ignore */ }
+})
+process.on('unhandledRejection', (reason) => {
+  try {
+    const err = reason as { stack?: string; message?: string }
+    require('fs').appendFileSync(
+      require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
+      `[${new Date().toISOString()}] UNHANDLED_REJECTION_MAIN:\n${err?.stack ?? err?.message ?? String(reason)}\n`
+    )
+  } catch { /* ignore */ }
+})
+
 app.whenReady().then(async () => {
+  // Set up crash logger immediately
+  setCrashLogPath(require('path').join(app.getPath('userData'), 'ecclesia-crash.log'))
+
+  // --debug flag: disable GPU, log GPU info to crash log
+  if (process.argv.includes('--debug')) {
+    app.disableHardwareAcceleration()
+    try {
+      const logPath = require('path').join(app.getPath('userData'), 'ecclesia-crash.log')
+      const gpuInfo = app.getGPUFeatureStatus()
+      require('fs').appendFileSync(logPath, `[${new Date().toISOString()}] GPU_INFO:\n${JSON.stringify(gpuInfo, null, 2)}\n`)
+    } catch { /* ignore */ }
+  }
   // V8 bytecode cache: tras la primera apertura, V8 guarda el bytecode compilado
   // en disco y las aperturas siguientes omiten parse+compile completamente.
   // Debe configurarse antes de crear cualquier BrowserWindow.
@@ -99,10 +129,18 @@ app.whenReady().then(async () => {
   const splash = createSplashWindow()
   await new Promise<void>((resolve) => splash.webContents.once('dom-ready', resolve))
 
+  const crashLog = () => {
+    try {
+      const p = require('path').join(app.getPath('userData'), 'ecclesia-crash.log')
+      require('fs').appendFileSync(p, `[${new Date().toISOString()}] STEP: ${new Error().stack?.split('\n')[2]?.trim() ?? ''}\n`)
+    } catch { /* ignore */ }
+  }
+
+  crashLog()
   updateSplashStatus('Cargando entorno...')
-  setCrashLogPath(path.join(app.getPath('userData'), 'ecclesia-crash.log'))
   loadAppEnv(app.getPath('userData'))
 
+  crashLog()
   updateSplashStatus('Inicializando base de datos...')
   setGetBiblesResourcesPath(getBiblesResourcesPath)
   const isDev = !app.isPackaged
@@ -120,6 +158,7 @@ app.whenReady().then(async () => {
     })
   })
 
+  crashLog()
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.ecclesia.app')
   app.setName('Ecclesia')
@@ -131,20 +170,25 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  crashLog()
   updateSplashStatus('Cargando medios...')
   initializeMediaManager()
 
+  crashLog()
   //inicalizar gestor de pantallas
   initializeDisplayManager()
   // Inicializar manager de media en vivo
   initializeLiveMediaManager()
 
+  crashLog()
   // Inicializar manager de actualizaciones automáticas
   initializeUpdaterManager()
 
+  crashLog()
   // Inicializar manager de control remoto LAN
   initializeRemoteManager()
 
+  crashLog()
   // Inicializar manager de busqueda de biblia
   initializeBibleSearchManager()
 
@@ -173,8 +217,28 @@ app.whenReady().then(async () => {
     if (!win.isDestroyed()) win.destroy()
   })
 
+  crashLog()
   updateSplashStatus('Abriendo Ecclesia...')
   const mainWindow = createMainWindow()
+
+  mainWindow.webContents.on('crashed', (_, killed) => {
+    try {
+      require('fs').appendFileSync(
+        require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
+        `[${new Date().toISOString()}] RENDERER_CRASHED killed=${killed}\n`
+      )
+    } catch { /* ignore */ }
+  })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    crashLog()
+    try {
+      require('fs').appendFileSync(
+        require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
+        `[${new Date().toISOString()}] RENDERER_FINISHED_LOAD url=${mainWindow.webContents.getURL()}\n`
+      )
+    } catch { /* ignore */ }
+  })
 
   mainWindow.once('ready-to-show', () => {
     closeSplashWindow()
@@ -187,13 +251,23 @@ app.whenReady().then(async () => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
   })
+}).catch((err) => {
+  try {
+    require('fs').appendFileSync(
+      require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
+      `[${new Date().toISOString()}] FATAL_INIT_CRASH:\n${err?.stack ?? err?.message ?? String(err)}\n`
+    )
+  } catch { /* ignore */ }
+  console.error('FATAL INIT ERROR:', err)
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  app.quit()
+  // Don't quit immediately on Windows — keep process alive for diagnostics
+  if (process.platform === 'darwin') return
+  setTimeout(() => app.quit(), 500)
 })
 
 app.on('before-quit', (event) => {

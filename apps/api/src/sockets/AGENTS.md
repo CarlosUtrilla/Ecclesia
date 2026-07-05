@@ -53,7 +53,9 @@ Estos eventos se usan para el control remoto de pantallas en vivo. Cualquier cli
 | `liveSetHideText` | `{ active: boolean }` | Ocultar/mostrar texto en live |
 | `liveSetShowLogo` | `{ active: boolean }` | Mostrar logo/fallback |
 | `liveSetBlackScreen` | `{ active: boolean }` | Pantalla negra |
-| `liveStateUpdate` | `LiveStateUpdate` | Broadcast de estado actual (renderer → remotos) |
+| `liveStateUpdate` | `LiveStateUpdate` (incluye `themeId`) | Broadcast de estado actual (renderer → remotos) |
+| `scheduleStateUpdate` | `ScheduleStateUpdate` | Broadcast de estado del cronograma (host → remotos) |
+| `requestScheduleState` | `void` | Cliente remoto pide el estado actual del cronograma al host |
 
 El `LiveContext` en el renderer escucha todos estos eventos y los procesa como si fueran acciones locales del operador.
 
@@ -93,6 +95,7 @@ No hay que tocar `packages/queries/` para agregar eventos.
 
 ### Relay handlers en `index.ts`
 - Los eventos live:* se registran como relay dentro del callback `io.on('connection')`
+- También se relayan `scheduleStateUpdate` y `requestScheduleState` para sincronización de cronograma
 - Usan `socket.broadcast.emit(event, data)` para re-enviar a todos los clientes excepto el emisor
 - No requieren lógica de negocio del lado del servidor
 

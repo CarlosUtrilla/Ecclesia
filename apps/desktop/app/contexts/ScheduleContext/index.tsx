@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useCallback
 } from 'react'
@@ -63,7 +64,20 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       form.reset(data)
       setIsTemporary(payload.isTemporary)
     })
-    return unsub
+
+    const unsubRequest = Api.socket.listen.requestScheduleState(() => {
+      Api.socket.emit.scheduleStateUpdate(serializeRef.current())
+    })
+
+    return () => {
+      unsub()
+      unsubRequest()
+    }
+  }, [socketReconnectKey])
+
+  // Solicitar estado del schedule al host cuando se conecta/reconecta
+  useEffect(() => {
+    Api.socket.emit.requestScheduleState()
   }, [socketReconnectKey])
 
   // Helper: serializar estado del form para broadcast
@@ -120,11 +134,19 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
     }
   }, [themes, selectedTheme])
 
+  const serializeRef = useRef(serializeScheduleState)
+  serializeRef.current = serializeScheduleState
+
   useEffect(() => {
     const actualSchedule = async () => {
       const schedule = await Api.fetch.schedule.getActualSchedule()
       if (schedule) {
         form.reset(schedule)
+        setIsTemporary(false)
+        Api.socket.emit.scheduleStateUpdate({
+          ...serializeRef.current(),
+          isTemporary: false
+        })
       }
     }
     actualSchedule()

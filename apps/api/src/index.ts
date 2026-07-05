@@ -165,7 +165,8 @@ export async function initializeHttpServer(
       'liveSetShowLogo',
       'liveSetBlackScreen',
       'liveStateUpdate',
-      'scheduleStateUpdate'
+      'scheduleStateUpdate',
+      'requestScheduleState'
     ] as const
     for (const event of liveRelayEvents) {
       socket.on(event, (data: unknown) => {

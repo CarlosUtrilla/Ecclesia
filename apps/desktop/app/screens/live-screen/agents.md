@@ -38,6 +38,11 @@ Modulo encargado de la ventana de proyeccion en vivo y su sincronizacion por IPC
 - Salida UI:
   - `PresentationView` con `themeTransitionKey` para controlar transiciones.
 
+## Preview mode en cliente remoto
+
+- `LiveScreen` acepta props `previewContent`, `previewItemIndex`, `previewTheme`, `previewPresentationVerseBySlideKey`.
+- Cuando `isPreview` y estas props se proporcionan, se usan en lugar del estado local (IPC-driven), permitiendo que el panel `live-screens` en cliente remoto muestre previews sin depender de IPC.
+
 ## Logo / Pantalla de fondo (fallback)
 
 - Solo se aplica en la ventana de proyeccion live real (`isPreview = false`). En previews dentro de la app no se renderiza.

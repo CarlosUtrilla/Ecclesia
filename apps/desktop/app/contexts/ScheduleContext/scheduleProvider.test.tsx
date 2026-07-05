@@ -7,15 +7,25 @@ import { PropsWithChildren } from 'react'
 import { ScheduleProvider, useSchedule } from '.'
 
 // --- Hoisted mocks (necesario porque vi.mock se hoistea al tope del archivo) ---
-const { scheduleStateUpdateListenMock, scheduleStateUpdateEmitMock, onSocketReconnectMock } =
-  vi.hoisted(() => ({
-    scheduleStateUpdateListenMock: vi.fn(),
-    scheduleStateUpdateEmitMock: vi.fn(),
-    onSocketReconnectMock: vi.fn()
-  }))
+const {
+  scheduleStateUpdateListenMock,
+  scheduleStateUpdateEmitMock,
+  onSocketReconnectMock,
+  requestScheduleStateListenMock,
+  requestScheduleStateEmitMock,
+  getActualScheduleMock
+} = vi.hoisted(() => ({
+  scheduleStateUpdateListenMock: vi.fn(),
+  scheduleStateUpdateEmitMock: vi.fn(),
+  onSocketReconnectMock: vi.fn(),
+  requestScheduleStateListenMock: vi.fn(),
+  requestScheduleStateEmitMock: vi.fn(),
+  getActualScheduleMock: vi.fn().mockResolvedValue(null)
+}))
 
 let onScheduleStateUpdateCb: ((payload: any) => void) | null = null
 let onReconnectCb: (() => void) | null = null
+let onRequestScheduleStateCb: (() => void) | null = null
 
 // Refrescar los callbacks cada vez que se llame al mock
 scheduleStateUpdateListenMock.mockImplementation((cb: any) => {
@@ -24,6 +34,10 @@ scheduleStateUpdateListenMock.mockImplementation((cb: any) => {
 })
 onSocketReconnectMock.mockImplementation((cb: () => void) => {
   onReconnectCb = cb
+  return vi.fn()
+})
+requestScheduleStateListenMock.mockImplementation((cb: () => void) => {
+  onRequestScheduleStateCb = cb
   return vi.fn()
 })
 
@@ -36,15 +50,17 @@ vi.mock('@ecclesia/queries', () => ({
   Api: {
     socket: {
       listen: {
-        scheduleStateUpdate: scheduleStateUpdateListenMock
+        scheduleStateUpdate: scheduleStateUpdateListenMock,
+        requestScheduleState: requestScheduleStateListenMock
       },
       emit: {
-        scheduleStateUpdate: scheduleStateUpdateEmitMock
+        scheduleStateUpdate: scheduleStateUpdateEmitMock,
+        requestScheduleState: requestScheduleStateEmitMock
       }
     },
     fetch: {
       schedule: {
-        getActualSchedule: vi.fn().mockResolvedValue(null)
+        getActualSchedule: getActualScheduleMock
       }
     },
     query: {
@@ -124,9 +140,13 @@ describe('ScheduleProvider', () => {
     uniqueIdCounter = 0
     onScheduleStateUpdateCb = null
     onReconnectCb = null
+    onRequestScheduleStateCb = null
     scheduleStateUpdateListenMock.mockClear()
     scheduleStateUpdateEmitMock.mockClear()
     onSocketReconnectMock.mockClear()
+    requestScheduleStateListenMock.mockClear()
+    requestScheduleStateEmitMock.mockClear()
+    getActualScheduleMock.mockResolvedValue(null)
   })
 
   // --- TDZ regression ---
@@ -421,5 +441,103 @@ describe('ScheduleProvider', () => {
 
     // El listener se registró de nuevo (total 2 veces)
     expect(scheduleStateUpdateListenMock).toHaveBeenCalledTimes(2)
+  })
+
+  // --- Initial load broadcast ---
+
+  it('debería emitir scheduleStateUpdate al cargar schedule inicial con datos', async () => {
+    getActualScheduleMock.mockResolvedValue({
+      id: 1,
+      title: 'Culto Inicial',
+      items: [{ id: 'init-item', order: 1, type: 'SONG', accessData: '1', scheduleId: 1, updatedAt: new Date().toISOString(), deletedAt: null }],
+      dateFrom: null,
+      dateTo: null,
+      isTemporary: false
+    })
+
+    const wrapper = createWrapper()
+    renderHook(() => useSchedule(), { wrapper })
+
+    // Esperar a que el efecto asíncrono se complete
+    await vi.waitFor(() => {
+      expect(scheduleStateUpdateEmitMock).toHaveBeenCalled()
+    })
+
+    const payload = scheduleStateUpdateEmitMock.mock.calls[0][0]
+    expect(payload.title).toBe('Culto Inicial')
+    expect(payload.items).toHaveLength(1)
+    expect(payload.isTemporary).toBe(false)
+  })
+
+  // --- requestScheduleState listener ---
+
+  it('debería registrar listener de requestScheduleState al montar', () => {
+    const wrapper = createWrapper()
+    renderHook(() => useSchedule(), { wrapper })
+
+    expect(requestScheduleStateListenMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('debería responder a requestScheduleState emitiendo scheduleStateUpdate', () => {
+    const wrapper = createWrapper()
+    const { result } = renderHook(() => useSchedule(), { wrapper })
+
+    // Agregar item local para tener estado que responder
+    act(() => {
+      result.current.addItemToSchedule({ type: 'SONG', accessData: 99 })
+    })
+    scheduleStateUpdateEmitMock.mockClear()
+
+    // Simular requestScheduleState desde un remoto
+    act(() => {
+      onRequestScheduleStateCb!()
+    })
+
+    expect(scheduleStateUpdateEmitMock).toHaveBeenCalledTimes(1)
+    const payload = scheduleStateUpdateEmitMock.mock.calls[0][0]
+    expect(payload.items).toHaveLength(1)
+    expect(payload.items[0].accessData).toBe('99')
+  })
+
+  // --- requestScheduleState emission on reconnect ---
+
+  it('debería emitir requestScheduleState al montar el ScheduleProvider', () => {
+    const wrapper = createWrapper()
+    renderHook(() => useSchedule(), { wrapper })
+
+    expect(requestScheduleStateEmitMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('debería emitir requestScheduleState al reconectar socket', () => {
+    const wrapper = createWrapper()
+    renderHook(() => useSchedule(), { wrapper })
+
+    requestScheduleStateEmitMock.mockClear()
+
+    act(() => {
+      onReconnectCb!()
+    })
+    act(() => {})
+
+    expect(requestScheduleStateEmitMock).toHaveBeenCalledTimes(1)
+  })
+
+  // --- Theme sync: liveStateUpdate payload ---
+
+  it('debería incluir items y estado correcto en scheduleStateUpdate emitido por addItemToSchedule', () => {
+    const wrapper = createWrapper()
+    const { result } = renderHook(() => useSchedule(), { wrapper })
+
+    act(() => {
+      result.current.addItemToSchedule({ type: 'BIBLE', accessData: '1-1-1' })
+    })
+
+    expect(scheduleStateUpdateEmitMock).toHaveBeenCalledTimes(1)
+    const payload = scheduleStateUpdateEmitMock.mock.calls[0][0]
+    expect(payload.items).toHaveLength(1)
+    expect(payload.items[0].type).toBe('BIBLE')
+    expect(payload.items[0].accessData).toBe('1-1-1')
+    expect(typeof payload.items[0].id).toBe('string')
+    expect(payload.items[0].order).toBe(1)
   })
 })

@@ -35,7 +35,13 @@ export interface SocketEventMap {
     showLogoOnLive: boolean
     blackScreenOnLive: boolean
     showLiveScreen: boolean
+    themeId: number | null
+    liveScreens: Array<{ id: number; label: string; type: string | null; aspectRatioCss: string }>
+    stageScreens: Array<{ id: number; label: string; type: string | null; aspectRatioCss: string }>
   }
+
+  // Remote client requests current schedule state from host
+  requestScheduleState: void
 
   // Schedule state sync (broadcast full schedule form state to all clients)
   scheduleStateUpdate: {

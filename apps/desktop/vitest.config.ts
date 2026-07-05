@@ -5,7 +5,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'app'),
-      '@locales': resolve(__dirname, 'locales/index.ts')
+      '@locales': resolve(__dirname, 'locales/index.ts'),
+      '@ecclesia/queries': resolve(__dirname, '../../packages/queries/src')
     }
   },
   test: {

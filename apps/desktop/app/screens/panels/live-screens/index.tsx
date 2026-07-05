@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
+import { useRemoteMode } from '@/contexts/RemoteModeContext'
 import { cn } from '@/lib/utils'
 import { Button } from '@/ui/button'
 import { Switch } from '@/ui/switch'
@@ -67,9 +68,13 @@ export default function LiveScreens() {
     blackScreenOnLive,
     setHideTextOnLive,
     setShowLogoOnLive,
-    setBlackScreenOnLive
+    setBlackScreenOnLive,
+    itemIndex,
+    appliedTheme,
+    presentationVerseBySlideKey
   } = useLive()
 
+  const { isRemoteMode } = useRemoteMode()
   const [nowMs, setNowMs] = useState(() => Date.now())
 
   const { data: stageScreensForConfig = [] } = useQuery(
@@ -172,6 +177,12 @@ export default function LiveScreens() {
                     showLogo: showLogoOnLive,
                     blackScreen: blackScreenOnLive
                   }}
+                  {...(isRemoteMode ? {
+                    previewContent: contentScreen,
+                    previewItemIndex: itemIndex,
+                    previewTheme: appliedTheme,
+                    previewPresentationVerseBySlideKey: presentationVerseBySlideKey
+                  } : {})}
                 />
               ))
             ) : (

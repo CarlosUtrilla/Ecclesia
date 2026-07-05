@@ -34,10 +34,18 @@ type LiveControlsOverride = {
 
 export default function LiveScreen({
   isPreview = false,
-  liveControlsOverride
+  liveControlsOverride,
+  previewContent,
+  previewItemIndex,
+  previewTheme,
+  previewPresentationVerseBySlideKey
 }: {
   isPreview?: boolean
   liveControlsOverride?: LiveControlsOverride
+  previewContent?: ContentScreen | null
+  previewItemIndex?: number
+  previewTheme?: ThemeWithMedia
+  previewPresentationVerseBySlideKey?: Record<string, number>
 }) {
   const displayId = useParams().displayId
   const { buildMediaUrl } = useMediaServer()
@@ -45,10 +53,18 @@ export default function LiveScreen({
   const [selectedTheme, setSelectedTheme] = useState<ThemeWithMedia>(BlankTheme)
   const [itemIndex, setItemIndex] = useState(0)
   const [content, setContent] = useState<ContentScreen | null>(null)
-  const hasLiveItem = (content?.content?.length ?? 0) > 0
   const [presentationVerseBySlideKey, setPresentationVerseBySlideKey] = useState<
     Record<string, number>
   >({})
+
+  const displayContent = isPreview && previewContent !== undefined ? previewContent : content
+  const displayItemIndex = isPreview && previewItemIndex !== undefined ? previewItemIndex : itemIndex
+  const displayTheme = isPreview && previewTheme !== undefined ? previewTheme : selectedTheme
+  const displayPresentationVerseBySlideKey =
+    isPreview && previewPresentationVerseBySlideKey !== undefined
+      ? previewPresentationVerseBySlideKey
+      : presentationVerseBySlideKey
+  const hasLiveItem = (displayContent?.content?.length ?? 0) > 0
   const [liveControls, setLiveControls] = useState({
     hideText: false,
     showLogo: false,
@@ -233,11 +249,11 @@ export default function LiveScreen({
       {shouldRenderPresentation ? (
         <div className="relative z-10 w-full h-full">
           <PresentationView
-            items={content?.content || []}
-            theme={selectedTheme}
-            currentIndex={itemIndex}
+            items={displayContent?.content || []}
+            theme={displayTheme}
+            currentIndex={displayItemIndex}
             themeTransitionKey={themeKey}
-            presentationVerseBySlideKey={presentationVerseBySlideKey}
+            presentationVerseBySlideKey={displayPresentationVerseBySlideKey}
             hideTextInLive={effectiveLiveControls.hideText}
             live
             displayId={displayId && !isPreview ? parseInt(displayId) : undefined}

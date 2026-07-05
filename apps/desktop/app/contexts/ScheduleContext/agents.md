@@ -101,6 +101,16 @@ Ver detalles de implementación y convenciones en los agents de [schedule](../..
 - Expone helpers para mostrar un item en vivo, cambiar de item, y actualizar el tema.
 - Escucha eventos IPC para saber cuándo las pantallas están listas o deben ocultarse.
 - Regla actual para `PRESENTATION`: en live se fuerza `BlankTheme` como base (fondo blanco) mientras no exista tema explícito por diapositiva; para otros tipos se mantiene `selectedTheme`.
+- **Sincronización remota (vía Socket.IO):**
+  - `liveStateUpdate` se emite al cambiar cualquier estado live (itemOnLive, itemIndex, controles, screens, tema).
+  - Incluye `themeId` (appliedTheme.id) para que el receptor aplique el mismo tema que el emisor.
+  - El flag `isApplyingRemoteUpdate` evita que el broadcast effect re-emita cambios recibidos desde remotos (ping-pong loop).
+  - El handler de `liveStateUpdate` sobreescribe `appliedTheme` con el tema remoto (`themesRef.find(t => t.id === state.themeId)`) después de que `showItemOnLiveScreen` lo haya seteado con el `selectedTheme` local.
+- **Sincronización de schedule (vía Socket.IO):**
+  - `scheduleStateUpdate` se emite después de cada mutación (add/delete/reorder/save/load) y en el montaje inicial (`getActualSchedule()`).
+  - `requestScheduleState` se emite al reconectar el socket (`socketReconnectKey` cambia).
+  - El servidor relayea `requestScheduleState` al host, que responde con `scheduleStateUpdate`.
+  - Ambos eventos están en `liveRelayEvents` del servidor.
 
 ### 4. Integración con recursos
 
@@ -154,4 +164,4 @@ const {
 
 ## Última actualización
 
-2026-02-19
+2026-07-04

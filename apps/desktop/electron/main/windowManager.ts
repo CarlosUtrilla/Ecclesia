@@ -1,4 +1,4 @@
-import { BrowserWindow, shell, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -127,6 +127,11 @@ export function createMainWindow(): BrowserWindow {
     }
   })
 
+  // --debug flag: open DevTools + disable GPU on packaged build for diagnostics
+  if (process.argv.includes('--debug')) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
+  }
+
   mainWindowRef = mainWindow
   mainWindow.on('closed', () => {
     mainWindowRef = null
@@ -147,9 +152,7 @@ export function createMainWindow(): BrowserWindow {
     mainWindow.webContents.send('app-close-requested')
 
     const closeApp = () => {
-      BrowserWindow.getAllWindows().forEach((win) => {
-        if (!win.isDestroyed()) win.destroy()
-      })
+      app.exit()
     }
 
     let skipSyncInterval: ReturnType<typeof setInterval> | null = null

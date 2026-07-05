@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
 import { PresentationView } from '@/ui/PresentationView'
 import { PresentationViewItems, ThemeWithMedia } from '@/ui/PresentationView/types'
@@ -25,20 +26,34 @@ export default function RenderGridMode({
   const themeToUse = themeOverride || appliedTheme
   const activeIndex = activeIndexOverride ?? itemIndex
 
+  const indexMapRef = useRef(indexMap)
+  indexMapRef.current = indexMap
+  const onSelectRef = useRef(onSelectIndexOverride)
+  onSelectRef.current = onSelectIndexOverride
+  const setItemIndexRef = useRef(setItemIndex)
+  setItemIndexRef.current = setItemIndex
+
+  const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const index = Number(e.currentTarget.dataset.gridIndex)
+    const mappedIndex = indexMapRef.current?.[index] ?? index
+    if (onSelectRef.current) {
+      onSelectRef.current(mappedIndex)
+      return
+    }
+    setItemIndexRef.current(mappedIndex)
+  }, [])
+
   return (
     <div className="flex gap-3 items-center flex-wrap p-4">
       {data.map((item, i) => (
-        <div key={i} className="relative w-full sm:w-64 sm:max-w-64 shrink-0">
+        <div
+          key={i}
+          data-grid-index={i}
+          onClick={handleClick}
+          className="relative w-full sm:w-64 sm:max-w-64 shrink-0 cursor-pointer"
+        >
           <PresentationView
             selected={i === activeIndex}
-            onClick={() => {
-              const mappedIndex = indexMap?.[i] ?? i
-              if (onSelectIndexOverride) {
-                onSelectIndexOverride(mappedIndex)
-                return
-              }
-              setItemIndex(mappedIndex)
-            }}
             className="w-full"
             items={[item]}
             theme={themeToUse}
