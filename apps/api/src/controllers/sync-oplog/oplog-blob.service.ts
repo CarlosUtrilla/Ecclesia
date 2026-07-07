@@ -39,7 +39,20 @@ export class OplogBlobService {
     let uploadSkipped = 0
     let completed = 0
 
-    const CONCURRENCY = 5
+    const remoteBlobs = await this.listAllBlobFiles(drive, folderId)
+    const remoteBlobNames = new Map<string, string>()
+    for (const f of remoteBlobs) {
+      remoteBlobNames.set(f.name, f.id)
+    }
+
+    const uploadOps = ops.filter(o => o.type === 'upload')
+    const missingFromDrive = new Set<string>()
+    for (const op of uploadOps) {
+      const name = getRemoteBlobFileName(op.checksum)
+      if (!remoteBlobNames.has(name)) {
+        missingFromDrive.add(name)
+      }
+    }
 
     const runOp = async (op: BlobOperation): Promise<void> => {
       try {
@@ -49,8 +62,14 @@ export class OplogBlobService {
               result.downloaded++
               return
             }
+            const remoteName = getRemoteBlobFileName(op.checksum)
+            const remoteFileId = remoteBlobNames.get(remoteName)
+            if (!remoteFileId) {
+              log.warn(`[OplogBlob] Blob remoto no encontrado: ${remoteName}`)
+              return
+            }
             log.info(`[OplogBlob] Descargando ${op.checksum} → ${op.path}`)
-            await this.downloadBlob(drive, folderId, op.checksum, path.join(mediaRoot, op.path))
+            await this.downloadBlob(drive, remoteFileId, path.join(mediaRoot, op.path))
             await this.addToManifest(op.checksum, op.path)
             result.downloaded++
             return
@@ -58,10 +77,8 @@ export class OplogBlobService {
 
           case 'upload': {
             const remoteName = getRemoteBlobFileName(op.checksum)
-            const exists = await this.blobExistsOnDrive(drive, folderId, remoteName)
-            if (exists) {
+            if (!missingFromDrive.has(remoteName)) {
               uploadSkipped++
-              log.info(`[OplogBlob] Ya existe en Drive: ${op.checksum} (${op.localPath})`)
             } else {
               log.info(`[OplogBlob] Subiendo ${op.checksum} desde ${op.localPath}`)
               await this.uploadBlob(drive, folderId, remoteName, op.localPath)
@@ -94,46 +111,47 @@ export class OplogBlobService {
       }
     }
 
-    for (let i = 0; i < ops.length; i += CONCURRENCY) {
-      const batch = ops.slice(i, i + CONCURRENCY)
-      await Promise.allSettled(batch.map(runOp))
-    }
+    await Promise.allSettled(ops.map(runOp))
 
     await this.saveManifest()
     const uploadedCount = result.uploaded - uploadSkipped
-    log.info(`[OplogBlob] Resumen: ${uploadedCount} subidos, ${uploadErrors} fallos, ${uploadSkipped} saltados (ya existentes), ${result.downloaded} descargados, ${result.deleted} eliminados`)
+    if (total > 1) {
+      log.info(`[OplogBlob] Resumen: ${uploadedCount} subidos, ${uploadErrors} fallos, ${uploadSkipped} ya en Drive, ${result.downloaded} descargados, ${result.deleted} eliminados`)
+    }
 
     return result
   }
 
-  private async downloadBlob(drive: drive_v3.Drive, folderId: string, checksum: string, destPath: string): Promise<void> {
-    const remoteName = getRemoteBlobFileName(checksum)
+  private async listAllBlobFiles(drive: drive_v3.Drive, folderId: string): Promise<Array<{ id: string; name: string }>> {
+    const files: Array<{ id: string; name: string }> = []
+    let pageToken: string | undefined
+    do {
+      const res = await drive.files.list({
+        q: `name starts with '${BLOB_FILE_PREFIX}' and '${folderId}' in parents and trashed=false`,
+        spaces: 'drive',
+        fields: 'nextPageToken, files(id, name)',
+        pageSize: 1000,
+        pageToken,
+      })
+      for (const f of res.data.files ?? []) {
+        if (f.id && f.name) files.push({ id: f.id, name: f.name })
+      }
+      pageToken = res.data.nextPageToken ?? undefined
+    } while (pageToken)
+    return files
+  }
 
-    const search = await drive.files.list({
-      q: `name='${remoteName}' and '${folderId}' in parents and trashed=false`,
-      spaces: 'drive',
-      fields: 'files(id)',
-      pageSize: 1,
-    })
-
-    const file = search.data.files?.[0]
-    if (!file?.id) {
-      log.warn(`[OplogBlob] Blob remoto no encontrado: ${remoteName}`)
-      return
-    }
-
+  private async downloadBlob(drive: drive_v3.Drive, fileId: string, destPath: string): Promise<void> {
     const resp = await drive.files.get(
-      { fileId: file.id, alt: 'media' },
+      { fileId, alt: 'media' },
       { responseType: 'arraybuffer' }
     )
-
     await fs.ensureDir(path.dirname(destPath))
     await fs.writeFile(destPath, Buffer.from(resp.data as ArrayBuffer))
   }
 
   private async uploadBlob(drive: drive_v3.Drive, folderId: string, remoteName: string, localPath: string): Promise<void> {
     const fileBuffer = await fs.readFile(localPath)
-
     await drive.files.create({
       requestBody: { name: remoteName, parents: [folderId] },
       media: { mimeType: 'application/octet-stream', body: Readable.from(fileBuffer) },
@@ -143,16 +161,6 @@ export class OplogBlobService {
 
   private async blobExistsLocally(checksum: string, manifest: MediaManifest): Promise<boolean> {
     return manifest.entries.some(e => e.checksum === checksum)
-  }
-
-  private async blobExistsOnDrive(drive: drive_v3.Drive, folderId: string, remoteName: string): Promise<boolean> {
-    const search = await drive.files.list({
-      q: `name='${remoteName}' and '${folderId}' in parents and trashed=false`,
-      spaces: 'drive',
-      fields: 'files(id)',
-      pageSize: 1,
-    })
-    return (search.data.files?.length ?? 0) > 0
   }
 
   private async readLocalManifest(): Promise<MediaManifest> {

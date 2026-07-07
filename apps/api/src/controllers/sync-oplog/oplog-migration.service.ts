@@ -13,7 +13,6 @@ import { randomUUID } from 'crypto'
 import log from 'electron-log'
 
 export class OplogMigrationService {
-  private dbBlobMigrationDone = false
 
   async bootstrapOplog(deviceId: string): Promise<Doc<OplogDocument>> {
     const schemaHash = computeSchemaHash()
@@ -79,69 +78,32 @@ export class OplogMigrationService {
 
   async migrateExistingMediaBlobs(): Promise<number> {
     const mediaRoot = getMediaDir()
-    let uploaded = 0
-    const knownChecksums = new Set<string>()
+    const uploadOps: Array<{ checksum: string; localPath: string }> = []
+    const seenChecksums = new Set<string>()
 
     try {
       const manifestPath = getLocalMediaManifestPath()
       const manifest = await fs.readJson(manifestPath).catch(() => ({ entries: [] }))
 
       for (const entry of manifest.entries ?? []) {
-        if (entry.checksum && entry.path) {
-          knownChecksums.add(entry.checksum)
+        if (entry.checksum && !seenChecksums.has(entry.checksum)) {
+          seenChecksums.add(entry.checksum)
           const localPath = path.join(mediaRoot, entry.path)
           if (await fs.pathExists(localPath)) {
-            await oplogBlobService.processBlobOps([
-              { type: 'upload', checksum: entry.checksum, localPath },
-              { type: 'download', checksum: entry.checksum, path: entry.path },
-            ])
-            uploaded++
+            uploadOps.push({ checksum: entry.checksum, localPath })
           }
         }
       }
     } catch (err: any) {
-      log.warn('[OplogMigration] Error migrating legacy manifest blobs:', err.message)
+      log.warn('[OplogMigration] Error reading legacy manifest:', err.message)
     }
 
-    if (!this.dbBlobMigrationDone) {
-      try {
-        const prisma = getPrisma()
-        const allMedia = await prisma.media.findMany({
-          where: { deletedAt: null },
-          select: { id: true, filePath: true },
-        })
-        const mediaRecords = allMedia.filter(r => r.filePath !== null)
-        const allFonts = await prisma.font.findMany({
-          where: { deletedAt: null },
-          select: { id: true, filePath: true },
-        })
-        const fontRecords = allFonts.filter(r => r.filePath !== null)
-        const records = [
-          ...mediaRecords.map(r => ({ type: 'media' as const, filePath: r.filePath!, recordId: r.id })),
-          ...fontRecords.map(r => ({ type: 'font' as const, filePath: r.filePath!, recordId: r.id })),
-        ]
-
-        for (const rec of records) {
-          const fullPath = path.join(mediaRoot, rec.filePath)
-          if (!(await fs.pathExists(fullPath))) continue
-
-          const checksum = await oplogBlobService.computeChecksum(fullPath)
-          if (knownChecksums.has(checksum)) continue
-          knownChecksums.add(checksum)
-
-          await oplogBlobService.processBlobOps([
-            { type: 'upload', checksum, localPath: fullPath },
-          ])
-          uploaded++
-        }
-
-        this.dbBlobMigrationDone = true
-      } catch (err: any) {
-        log.warn('[OplogMigration] Error migrating DB-based blobs:', err.message)
-      }
+    if (uploadOps.length > 0) {
+      const ops = uploadOps.map(u => ({ type: 'upload' as const, checksum: u.checksum, localPath: u.localPath }))
+      await oplogBlobService.processBlobOps(ops)
     }
 
-    return uploaded
+    return uploadOps.length
   }
 
   async isOplogAlreadyPresent(): Promise<boolean> {

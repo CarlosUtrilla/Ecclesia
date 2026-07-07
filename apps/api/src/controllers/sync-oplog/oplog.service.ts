@@ -49,6 +49,25 @@ export class OplogService {
     this.onProgress?.({ phase, progress, message })
   }
 
+  private async runMappedPhase<T>(
+    phase: SyncProgress['phase'],
+    label: string,
+    startPct: number,
+    endPct: number,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const prevCb = this.onProgress
+    this.onProgress = (p: SyncProgress) => {
+      const mapped = startPct + Math.round((p.progress / 100) * (endPct - startPct))
+      prevCb?.({ phase, progress: Math.min(mapped, endPct), message: `${label} — ${p.message}` })
+    }
+    try {
+      return await fn()
+    } finally {
+      this.onProgress = prevCb
+    }
+  }
+
   async init(deviceId: string): Promise<void> {
     log.warn(`[DIAG-INIT] init() called deviceId=${deviceId}`)
     this.config = {
@@ -335,20 +354,19 @@ export class OplogService {
     const localClone = clone(this.localDoc)
     const merged = merge(localClone, remoteDoc)
 
-    const oldLength = this.localDoc.ops?.length ?? 0
-    const newLength = merged.ops?.length ?? 0
+    const localIds = new Set(this.localDoc.ops?.map(o => o.id) ?? [])
 
     this.localDoc = merged
     await this.persistLocal()
 
-    if (newLength > oldLength) {
-      const newEvents = merged.ops.slice(oldLength)
+    const newEvents = (merged.ops ?? []).filter(o => !localIds.has(o.id))
+    if (newEvents.length > 0) {
       this.emitProgress('pull', 60, `Aplicando ${newEvents.length} eventos nuevos...`)
       const applyResult = await oplogReplayService.applyEvents(newEvents)
 
       const replayState = await oplogStateService.readReplayState()
       if (replayState) {
-        replayState.lastAppliedIndex = newLength - 1
+        replayState.lastAppliedIndex = (merged.ops?.length ?? 0) - 1
         replayState.lastAppliedEventId = newEvents[newEvents.length - 1]?.id ?? null
         replayState.appliedAt = new Date().toISOString()
         await oplogStateService.writeReplayState(replayState)
@@ -441,10 +459,15 @@ export class OplogService {
     this.emitProgress('blob', 10, 'Escaneando blobs activos...')
     const ops = this.localDoc?.ops ?? []
     const activeChecksums = new Set<string>()
+    const opsLen = ops.length
 
-    for (const op of ops) {
+    for (let idx = 0; idx < opsLen; idx++) {
+      const op = ops[idx]
       if (op.op === 'upsert' && op.checksum && (op.entityType === 'media' || op.entityType === 'font')) {
         activeChecksums.add(op.checksum)
+      }
+      if (idx % 500 === 0 && idx > 0) {
+        this.emitProgress('blob', 12, `Escaneando blobs activos... ${idx}/${opsLen}`)
       }
     }
 
@@ -454,7 +477,8 @@ export class OplogService {
 
     const mediaRoot = getMediaDir()
 
-    for (const op of ops) {
+    for (let idx = 0; idx < opsLen; idx++) {
+      const op = ops[idx]
       if (op.op === 'upsert' && op.checksum) {
         if (seenChecksums.has(op.checksum)) continue
         if (op.data?.filePath) {
@@ -475,10 +499,15 @@ export class OplogService {
           }
         }
       }
+      if (idx % 500 === 0 && idx > 0) {
+        this.emitProgress('blob', 20, `Verificando archivos locales... ${idx}/${opsLen}`)
+      }
     }
 
     if (!this.blobFallbackDone) {
-      for (const op of ops) {
+      const fallbackLen = opsLen
+      for (let idx = 0; idx < fallbackLen; idx++) {
+        const op = ops[idx]
         if (op.op !== 'upsert') continue
         const isBlobType = op.entityType === 'media' || op.entityType === 'font'
         if (!isBlobType || op.checksum) continue
@@ -510,6 +539,9 @@ export class OplogService {
           this.checksumCache.set(relPath, checksum)
           activeChecksums.add(checksum)
           toUpload.push({ checksum, localPath })
+        }
+        if (idx % 200 === 0 && idx > 0) {
+          this.emitProgress('blob', 35, `Fallback: generando checksums... ${idx}/${fallbackLen}`)
         }
       }
       this.blobFallbackDone = true
@@ -549,13 +581,13 @@ export class OplogService {
     const result: SyncCycleResult = { pulled: 0, pushed: 0, blobsDownloaded: 0, blobsUploaded: 0, errors: [] }
 
     try {
-      const pullResult = await this.pull()
+      const pullResult = await this.runMappedPhase('pull', '1/3 Pull', 0, 33, () => this.pull())
       result.pulled = pullResult.newEventsCount
 
-      const pushResult = await this.push()
+      const pushResult = await this.runMappedPhase('push', '2/3 Push', 33, 66, () => this.push())
       result.pushed = pushResult.pushed
 
-      const blobResult = await this.syncBlobs()
+      const blobResult = await this.runMappedPhase('blob', '3/3 Blobs', 66, 100, () => this.syncBlobs())
       result.blobsDownloaded = blobResult.downloaded
       result.blobsUploaded = blobResult.uploaded
     } catch (err: any) {

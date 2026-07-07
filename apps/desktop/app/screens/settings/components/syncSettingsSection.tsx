@@ -3,10 +3,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { AlertCircle, CheckCircle2, Download, Link2, Upload } from 'lucide-react'
 import { Button } from '@/ui/button'
+import { Label } from '@/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card'
 import { Badge } from '@/ui/badge'
-import { Label } from '@/ui/label'
-import { Input } from '@/ui/input'
 import { Switch } from '@/ui/switch'
 import { Progress } from '@/ui/progress'
 import { SyncSettingsForm, SyncSettingsSchema } from '../schema'
@@ -19,8 +18,6 @@ type SyncStatus = {
   accountEmail?: string
   accountName?: string
   pendingRestore: boolean
-  workspaceId?: string
-  deviceName?: string
   systemHostname?: string
   lastSyncAt?: string
   lastRunStatus?: 'ok' | 'error'
@@ -43,8 +40,6 @@ const getStoredSyncSettings = (): SyncSettingsForm => {
 
   return {
     enabled: false,
-    workspaceId: '',
-    deviceName: '',
     conflictStrategy: 'lastWriteWins',
     primaryDeviceName: '',
     autoOnStart: true,
@@ -97,8 +92,6 @@ export default function SyncSettingsSection() {
       } else {
         await Api.fetch.sync.connect({ body: {
           enabled: values.enabled,
-          workspaceId: values.workspaceId,
-          deviceName: values.deviceName,
           conflictStrategy: values.conflictStrategy,
           primaryDeviceName: values.primaryDeviceName,
           autoOnStart: values.autoOnStart,
@@ -185,18 +178,10 @@ export default function SyncSettingsSection() {
   }
 
   useEffect(() => {
-    // No llamamos persistSyncSettings al montar para no sobreescribir enabled en disco
-    refreshStatus()
-      .then((nextStatus) => {
-        // Auto-rellenar deviceName con el hostname del sistema si no hay uno guardado
-        if (!syncForm.getValues('deviceName') && nextStatus?.systemHostname) {
-          syncForm.setValue('deviceName', nextStatus.systemHostname)
-        }
-      })
-      .catch(() => {
-        setStatusMessage('No se pudo consultar el estado de sincronización')
-      })
-  }, [persistSyncSettings, storedSettings]) // eslint-disable-line react-hooks/exhaustive-deps
+    refreshStatus().catch(() => {
+      setStatusMessage('No se pudo consultar el estado de sincronización')
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Escuchar evento de OAuth completado desde el main process de Electron
   useEffect(() => {
@@ -278,9 +263,6 @@ export default function SyncSettingsSection() {
           {status?.accountEmail ? (
             <p className="text-xs text-muted-foreground">Cuenta: {status.accountEmail}</p>
           ) : null}
-          {status?.deviceName ? (
-            <p className="text-xs text-muted-foreground">Dispositivo: {status.deviceName}</p>
-          ) : null}
           {status?.lastSyncAt ? (
             <p className="text-xs text-muted-foreground">
               Última sincronización: {new Date(status.lastSyncAt).toLocaleString()}
@@ -332,34 +314,6 @@ export default function SyncSettingsSection() {
           />
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="sync-workspace-id">ID del workspace</Label>
-          <Input
-            id="sync-workspace-id"
-            placeholder="iglesia-central"
-            disabled={!isSyncEnabled}
-            {...syncForm.register('workspaceId')}
-          />
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="sync-device-name">Nombre de este dispositivo</Label>
-          <Input
-            id="sync-device-name"
-            placeholder={status?.systemHostname || 'Mi computadora'}
-            disabled={!isSyncEnabled}
-            {...syncForm.register('deviceName')}
-          />
-          <p className="text-xs text-muted-foreground">
-            Debe ser único para cada equipo. Cambia este nombre en el segundo dispositivo antes de
-            conectar.
-          </p>
-          {syncForm.formState.errors.deviceName ? (
-            <p className="text-xs text-destructive">
-              {syncForm.formState.errors.deviceName.message}
-            </p>
-          ) : null}
-        </div>
       </CardContent>
 
       <CardFooter className="justify-end gap-2 mt-2">
