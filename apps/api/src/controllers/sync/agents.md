@@ -1,5 +1,10 @@
 # Sync Controller Agent
 
+> **NUEVO SISTEMA:** Ver `sync-oplog/` para el nuevo sistema de sincronización basado en
+> Automerge CRDT + Operation Log. El sistema actual (snapshot-based) será reemplazado
+> progresivamente. Ver diseño completo en:
+> `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`
+
 ## Descripción
 
 Controlador y servicios para sincronización snapshot-based con Google Drive en Ecclesia.

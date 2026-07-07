@@ -115,12 +115,14 @@ src/
 │   │   └── stageScreenConfig.dto.d.ts
 ├── services/
 │   ├── sync-scheduler.service.ts  # Scheduler event-driven: micro snapshot push, pull check remoto (2min), notifica via Socket.IO
+│   ├── oplog-scheduler.service.ts # Scheduler OpLog: arranca ciclo startup, periodic sync 5min, event-driven en cambios locales
 │   └── udp-discovery.service.ts   # Listener UDP + discoverLanDevices() para descubrimiento LAN
 ├── utils/
 │   ├── crashLogger.ts   # Crash logger sin Electron (sidecar-safe)
 │   └── loadEnv.ts       # Carga .env desde userDataPath opcional
 ├── middleware/
-│   └── decimal.ts     # Serializacion Decimal/Date para IPC
+│   ├── decimal.ts     # Serializacion Decimal/Date para IPC
+│   └── oplog.ts       # OpLog Prisma middleware: intercepta mutaciones y llama appendEvent
 ```
 
 ## Namespaces IPC registrados
@@ -217,6 +219,7 @@ export interface CreateSongDTO {
   - **Pull check (2 min)**: Timer que compara `lastSyncAt` del manifiesto remoto de Drive con el estado local. Si el remoto es más reciente, ejecuta ciclo completo (pull → push → heal → cleanup). Si no hay cambios, salta el ciclo.
 - La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones.
 - **`sync.service.ts` NO usa `electron-log`**: Este archivo se bundlea en el preload (renderer). Usar `console.warn`/`console.error` únicamente. `electron-log` solo puede importarse en archivos bajo `electron/main/`.
+- **NO usar `console.log/warn/error` en código que corre en el proceso principal** (controllers, services, middleware, schedulers). Estas llamadas son eliminadas por terser (`drop_console: true`, `pure_funcs: ['console.log', 'console.info']`), dejando el logging invisible en producción y dificultando el debugging. Usar `import log from 'electron-log'` y `log.info/warn/error` en su lugar. Excepción: `console.log` está permitido en archivos de test (`*.test.ts`).
 - El módulo `settings` acepta claves string públicas (`LOGO_FALLBACK_*`, `BIBLE_LIVE_CHUNK_MODE`, etc.) y las mapea a valores persistidos en DB (`logo.fallback.*`, `bible.live.chunkMode`) con SQL directo, evitando errores cuando una instalación tiene el cliente Prisma con enums desactualizados.
 - `AddScheduleItemDto` omite `id`, `scheduleId` y `updatedAt`; en `ScheduleService` los creates deben mapear items sin desestructurar esos campos y generar `id` nuevo con `crypto.randomUUID()`.
 - `songImporter.service.ts` debe retornar boolean en todos los caminos de `holyricsImporter` (`true` si hubo imports fulfilled, `false` en caso contrario) para cumplir tipado estricto.

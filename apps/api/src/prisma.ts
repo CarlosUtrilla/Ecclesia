@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'async_hooks'
 import path from 'path'
 
 let prisma: PrismaClient | null = null
-export const outboxContext = new AsyncLocalStorage<{ skipOutbox: boolean }>()
+export const oplogContext = new AsyncLocalStorage<{ skipOplog: boolean }>()
 
 let getBiblesResourcesPathImpl: () => string = () =>
   path.join(process.cwd(), 'bibles')
@@ -28,5 +28,9 @@ export function getPrisma(): PrismaClient {
 }
 
 export async function runWithoutSyncOutboxTracking<T>(fn: () => Promise<T>): Promise<T> {
-  return await outboxContext.run({ skipOutbox: true }, fn)
+  return await fn()
+}
+
+export async function runWithoutOplogTracking<T>(fn: () => Promise<T>): Promise<T> {
+  return await oplogContext.run({ skipOplog: true }, fn)
 }

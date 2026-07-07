@@ -10,13 +10,13 @@
     "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma"
   },
   "dependencies": {
+    "@automerge/automerge": "^3.2.6",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@napi-rs/canvas": "^1.0.1",
     "@prisma/client": "6.19.3",
     "adm-zip": "^0.5.16",
-    "bufferutil": "^4.0.9",
     "better-sqlite3": "^12.8.0",
-    "utf-8-validate": "^6.0.5",
+    "bufferutil": "^4.0.9",
     "cors": "^2.8.6",
     "decimal.js": "^10.6.0",
     "express": "^5.2.1",
@@ -28,7 +28,8 @@
     "pdfjs-dist": "^3.11.174",
     "reflect-metadata": "^0.2.2",
     "sharp": "^0.34.5",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "utf-8-validate": "^6.0.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

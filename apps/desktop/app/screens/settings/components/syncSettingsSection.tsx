@@ -128,7 +128,7 @@ export default function SyncSettingsSection() {
     setStatusMessage('Sincronizando con Google Drive...')
     try {
       persistSyncSettings(values)
-      await Api.fetch.sync.push({ body: { reason: 'manual-push' } })
+      await Api.fetch.oplog.syncCycle()
       await refreshStatus()
       setStatusMessage('Sincronización completada')
     } catch (error) {
@@ -158,10 +158,9 @@ export default function SyncSettingsSection() {
     }
 
     setIsProcessing(true)
-    setStatusMessage('Reconciliando cambios y subiendo respaldo a Google Drive...')
+    setStatusMessage('Subiendo cambios a Google Drive...')
     try {
-      await Api.fetch.sync.reconcile()
-      await Api.fetch.sync.push({ body: { reason: 'manual-push' } })
+      await Api.fetch.oplog.push()
       await refreshStatus()
       setStatusMessage('Respaldo subido correctamente')
     } catch (error) {
@@ -175,7 +174,7 @@ export default function SyncSettingsSection() {
     setIsProcessing(true)
     setStatusMessage('Descargando respaldo de Google Drive...')
     try {
-      await Api.fetch.sync.pull({ body: { reason: 'manual-pull' } })
+      await Api.fetch.oplog.pull()
       await refreshStatus()
       setStatusMessage('Respaldo aplicado sin reiniciar. Datos actualizados.')
     } catch (error) {

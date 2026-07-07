@@ -37,10 +37,6 @@ export async function initializeHttpServer(
   onQueryKeys?: (keys: string[][]) => void,
   onLazyFetch?: LazyFetchHandler
 ) {
-  if (!onLazyFetch) {
-    const { syncLazyFetchService } = await import('./controllers/sync/sync-lazy-fetch.service')
-    onLazyFetch = (relativePath: string) => syncLazyFetchService.lazyFetchMediaFromDrive(relativePath)
-  }
   const app = express()
   const port = serverPort ?? MEDIA_SERVER_PORT
 
@@ -179,9 +175,9 @@ export async function initializeHttpServer(
     Logger.info(`Eclessia server running on port ${port} (Socket.IO disponible)`)
   })
 
-  // Start sync scheduler
-  const { startSyncScheduler } = await import('./controllers/sync/sync-scheduler.service')
-  startSyncScheduler()
+  // Start oplog sync scheduler (replaces legacy snapshot-based sync scheduler)
+  const { startOplogScheduler } = await import('./services/oplog-scheduler.service')
+  startOplogScheduler()
 
   // Initialize UDP discovery
   const { initializeUdpDiscovery } = await import('./services/udp-discovery.service')

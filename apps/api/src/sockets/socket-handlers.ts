@@ -1,16 +1,13 @@
 import { getSocket } from './socket.service'
-
-async function getSyncController() {
-  const SyncController = (await import('../controllers/sync/sync.controller')).default
-  return new SyncController()
-}
+import { oplogService } from '../controllers/sync-oplog/oplog.service'
 
 export function registerSocketHandlers(): void {
   const socket = getSocket()
 
   socket.on.startSync(async ({ reason }) => {
-    const controller = await getSyncController()
-    await controller.push({ body: { reason } } as any)
+    if (oplogService.isInitialized) {
+      await oplogService.syncCycle()
+    }
   })
 
   socket.on.ping(() => {
@@ -19,7 +16,8 @@ export function registerSocketHandlers(): void {
   })
 
   socket.on.requestResync(async () => {
-    const controller = await getSyncController()
-    await controller.pull({ body: { reason: 'resync' } } as any)
+    if (oplogService.isInitialized) {
+      await oplogService.syncCycle()
+    }
   })
 }

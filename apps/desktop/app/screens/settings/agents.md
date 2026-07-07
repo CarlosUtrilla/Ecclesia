@@ -36,8 +36,10 @@ app/screens/settings/
 - La ventana se abre desde `window.windowAPI.openSettingsWindow()`.
 - Electron carga la ruta hash `/settings` usando `createSettingsWindow()`.
 - El modo de color guardado se aplica globalmente en `app/main.tsx` para todas las ventanas.
-- La sección de sincronización usa `Api.fetch.sync.*` (HTTP directo vía `@ecclesia/queries`) para conectarse y disparar `push/pull` del pipeline diferencial.
-- **El botón "Subir" hace reconcile automático** antes del push: ejecuta `Api.fetch.sync.reconcile()` y luego `Api.fetch.sync.push()`, para indexar estado actual (incluyendo cambios históricos) y subirlo a Google Drive sin pasos manuales adicionales.
+- La sección de sincronización usa `Api.fetch.sync.*` para OAuth (getStatus, configure, connect, disconnect) y `Api.fetch.oplog.*` para el pipeline de datos (syncCycle, push, pull) vía HTTP directo a Express (`@ecclesia/queries`).
+- **El botón "Subir"** ejecuta `Api.fetch.oplog.push()` (envía eventos locales pendientes a Drive).
+- **El botón "Descargar"** ejecuta `Api.fetch.oplog.pull()` (trae eventos remotos y los aplica).
+- **El botón "Sincronizar ahora"** ejecuta `Api.fetch.oplog.syncCycle()` (pull + push + blob sync + GC completo).
 - **Diagnóstico y Reparación**: sección separada con dos botones:
   - **"Diagnosticar"** → llama `Api.fetch.sync.diagnose()` que ejecuta `diagnoseSyncIssues()` en la API. Compara archivos locales vs manifest remoto y muestra un resumen con conteos de archivos OK, por subir, por descargar, huérfanos y eliminados. Incluye un detalle colapsable con la lista de archivos con problemas.
   - **"Reparar"** → llama `Api.fetch.sync.heal({ body: { diagnostic } })` que ejecuta `healSyncIssues()` en la API. Sube archivos que faltan en Drive y descarga archivos que faltan localmente. Actualiza ambos manifests al finalizar.

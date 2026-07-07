@@ -1,8 +1,8 @@
 import { ipcRenderer, webUtils } from 'electron'
-import { registerMediaHandlers } from './mediaHandlers'
-import { MediaType } from '@ecclesia/api'
+import { MediaType } from '@prisma/client'
 
-export function initializeMediaManager() {
+export async function initializeMediaManager() {
+  const { registerMediaHandlers } = await import('./mediaHandlers')
   registerMediaHandlers()
 }
 

@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron'
 import { DisplayInfo, ScreenContentUpdate, StageScreenConfigUpdate } from './displayType'
-import { ThemeWithMedia } from '@ecclesia/api/src/controllers/themes/themes.dto'
+import type { ThemeWithMedia } from '@ecclesia/api/src/controllers/themes/themes.dto'
 
 export const displayAPI = {
   getDisplays: (): Promise<DisplayInfo[]> => ipcRenderer.invoke('get-displays'),

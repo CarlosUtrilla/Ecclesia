@@ -42,7 +42,7 @@ export default function SyncButton() {
     <Button
       size="sm"
       variant="ghost"
-      onClick={() => !isSyncing && Api.fetch.sync.push({ body: { reason: 'manual-push' } })}
+      onClick={() => !isSyncing && Api.fetch.oplog.syncCycle()}
     >
       {isSyncing ? (
         <span className="text-xs text-primary">

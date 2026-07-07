@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import Pages from 'vite-plugin-pages'
 import { config as dotenvConfig } from 'dotenv'
-import { existsSync } from 'fs'
+import { existsSync, copyFileSync, mkdirSync } from 'fs'
 
 // Cargar .env y .env.local desde el root del monorepo
 const rootEnvDir = resolve(__dirname, '../..')
@@ -20,7 +20,29 @@ export default defineConfig({
     plugins: [
       externalizeDepsPlugin({
         exclude: ['@ecclesia/api', '@ecclesia/queries']
-      })
+      }),
+      {
+        name: 'copy-automerge-wasm',
+        closeBundle() {
+          const apiNodeModules = resolve(__dirname, '../../apps/api/node_modules')
+          const mainDir = resolve(__dirname, 'out/main')
+          const wasmName = 'automerge_wasm_bg.wasm'
+          const pnpmWasmPath = resolve(__dirname, `../../node_modules/.pnpm/@automerge+automerge@3.2.6/node_modules/@automerge/automerge/dist/cjs/${wasmName}`)
+
+          const sourcePaths = [
+            resolve(apiNodeModules, '@automerge/automerge/dist/cjs', wasmName),
+            pnpmWasmPath,
+          ]
+
+          for (const src of sourcePaths) {
+            if (existsSync(src)) {
+              mkdirSync(mainDir, { recursive: true })
+              copyFileSync(src, resolve(mainDir, wasmName))
+              break
+            }
+          }
+        }
+      }
     ],
     resolve: {
       alias: {
@@ -68,6 +90,9 @@ process.on('unhandledRejection',function(e){
     }
   },
   preload: {
+    ssr: {
+      target: 'node'
+    },
     plugins: [
       externalizeDepsPlugin({
         exclude: ['@ecclesia/api', '@ecclesia/queries']
@@ -98,6 +123,7 @@ process.on('unhandledRejection',function(e){
         }
       },
       rollupOptions: {
+        external: ['@automerge/automerge'],
         output: {
           sourcemap: false
         }

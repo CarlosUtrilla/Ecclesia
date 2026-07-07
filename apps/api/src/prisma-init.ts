@@ -10,11 +10,7 @@ import {
   setGetBiblesResourcesPath,
   getBiblesResourcesPath
 } from './prisma'
-import {
-  registerOutboxMiddleware,
-  setOnOutboxWriteCallback,
-  setOnMediaChangeCallback
-} from './middleware/outbox'
+import { registerOplogMiddleware } from './middleware/oplog'
 import log from 'electron-log'
 
 export type DatabaseConfig = {
@@ -684,7 +680,7 @@ async function initializeDatabase(config: DatabaseConfig) {
       setGetBiblesResourcesPath(() => path.join(resolvedResourcesPath, 'resources', 'bibles'))
     }
 
-    prisma = registerOutboxMiddleware(prisma, resolvedUserDataPath)
+    prisma = registerOplogMiddleware(prisma)
     setPrismaClient(prisma)
     await prisma.$connect()
     log.info('✅ Prisma conectado a la base de datos')
@@ -730,8 +726,6 @@ export async function initializeBibleData(): Promise<void> {
 export {
   initializeDatabase,
   getPrisma,
-  registerOutboxMiddleware,
-  setOnOutboxWriteCallback,
-  setOnMediaChangeCallback,
+  registerOplogMiddleware,
   getDefaultDatabaseConfig
 }
