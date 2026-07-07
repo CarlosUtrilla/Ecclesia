@@ -1,0 +1,104 @@
+flowchart TB
+    subgraph TRIGGERS["🔄 Entry Points"]
+        STARTUP["startup<br/>(app init)"] --> CYCLE
+        PULL_CHECK["pull-check<br/>(5min timer)"] --> HASH_CHANGES{"hasRemoteChanges?"}
+        HASH_CHANGES -->|yes| CYCLE
+        HASH_CHANGES -->|no| SKIP["skip cycle"]
+        OUTBOX["outbox write<br/>(DB change)"] --> MICRO_SNAP["scheduleMicroSnapshotPush<br/>(30s debounce)"]
+        MEDIA_CHANGE["media/font change"] --> MICRO_MEDIA["scheduleMicroMediaPush<br/>(30s debounce)"]
+        MICRO_SNAP --> ONLY_SNAP["pushSnapshotOnly"]
+        MICRO_MEDIA --> PUSH["SyncPushService.push"]
+    end
+
+    subgraph CYCLE["fullCycle (startup/pull-check)"]
+        direction TB
+        P1["FASE 1: PULL"]
+        P2["FASE 2: PUSH"]
+        P3["FASE 3: HEAL"]
+        P4["FASE 4: CLEANUP"]
+        P1 --> P2 --> P3 --> P4
+    end
+
+    subgraph P1["FASE 1: PULL"]
+        direction TB
+        PULL_SVC["SyncPullService.pull"] --> SNAP_PULL["pullAndApplySnapshots"]
+        PULL_SVC --> MEDIA_PULL["syncMediaManifest('pull')"]
+        PULL_SVC --> BIBLE_PULL["syncBibleFiles('pull')"]
+
+        SNAP_PULL --> LIST["listAllRemoteSnapshotFiles<br/>name contains 'ecclesia-snapshot-...'"]
+        LIST --> FILTER{"startsWith expectedPrefix<br/>&& endsWith '.json'"}
+        FILTER -->|skip| NEXT["continue"]
+        FILTER -->|match| DEVICE_FILTER{"deviceSegment != myDevice"}
+        DEVICE_FILTER -->|skip own| NEXT
+        DEVICE_FILTER -->|other device| DOWNLOAD["downloadFileContent"]
+        DOWNLOAD --> PARSE{"JSON.parse"}
+        PARSE --> APPLY["applySnapshotRows<br/>(lastWriteWins by updatedAt)"]
+
+        MEDIA_PULL --> READ_MEDIA_MAN["readRemoteMediaManifest<br/>(exact name match)"]
+        READ_MEDIA_MAN -->|null| EMPTY_MAN["entries: []"]
+        READ_MEDIA_MAN -->|found| MEDIA_LOOP["loop remoteManifest.entries"]
+        MEDIA_LOOP --> TOMBSTONE{"entry.deletedAt?"}
+        TOMBSTONE -->|yes| DELETE_LOCAL{"localByPath.has(entry.path)?<br/>(FIX 4: solo si NO existe local)"}
+        DELETE_LOCAL -->|no db record| REMOVE_FILE["fs.remove(localFile)"]
+        DELETE_LOCAL -->|db record active| SKIP_DEL["skip deletion"]
+        TOMBSTONE -->|no| DIFF_CHECK{"localChecksum == remoteChecksum?"}
+        DIFF_CHECK -->|yes| SKIP_DL["skip"]
+        DIFF_CHECK -->|no| DOWNLOAD_BLOB["downloadAndVerifyBlobChecksum"]
+    end
+
+    subgraph P2["FASE 2: PUSH"]
+        direction TB
+        PUSH_SVC["SyncPushService.push"] --> CHECK_CHANGES{"pending outbox<br/>OR snapApplied>0?"}
+        CHECK_CHANGES -->|yes| BUILD_SNAP["buildSnapshot<br/>(export all SNAPSHOT_MODELS)"]
+        BUILD_SNAP --> UPLOAD_SNAP["uploadSnapshot<br/>(getSnapshotFileName)"]
+        UPLOAD_SNAP --> MEDIA_PUSH["syncMediaManifest('push')"]
+        CHECK_CHANGES -->|no| MEDIA_PUSH
+        MEDIA_PUSH --> MANIFEST["writeRemoteMediaManifest"]
+        PUSH_SVC --> BIBLE_PUSH["syncBibleFiles('push')"]
+        PUSH_SVC --> ACK_OUTBOX["acknowledgeOutboxUpToId"]
+    end
+
+    subgraph P3["FASE 3: HEAL"]
+        direction TB
+        HEAL["diagnoseSyncIssues"] --> COMPARE["compare local/remote manifest<br/>+ disk files + Drive blobs"]
+        COMPARE --> CLASSIFY["classify each entry:<br/>ok / missing-locally / missing-in-drive / orphan-local"]
+        CLASSIFY --> HEAL_ACTION["healSyncIssues<br/>(download missing-locally, upload missing-in-drive)"]
+    end
+
+    subgraph P4["FASE 4: CLEANUP"]
+        direction TB
+        CLEAN["cleanupOrphanMediaFromDiskAndDrive"] --> SCAN_DISK["scanDiskFiles(files/)"]
+        CLEAN --> QUERY_DB["prisma.media.findMany (ALL, sin deletedAt filter)"]
+        QUERY_DB --> BUILD_PATH_MAP["recordsByPath Map"]
+        SCAN_DISK --> LOOP_DISK["for each disk file"]
+        LOOP_DISK --> CHECK_DB{"recordsByPath.has(path)?"}
+        CHECK_DB -->|no| DELETE_ORPHAN["fs.unlinkSync (ORPHAN)"]
+        CHECK_DB -->|yes| CHECK_DELETED{"all records.deletedAt != null?"}
+        CHECK_DELETED -->|yes| DELETE_STALE["fs.unlinkSync (STALE)"]
+        CHECK_DELETED -->|no| KEEP["keep"]
+        CLEAN --> PHASE3["scan Drive blobs<br/>delete orphans not in remote manifest"]
+    end
+
+    subgraph STORES["📦 Data Stores"]
+        DB[("SQLite DB<br/>(Prisma)")]
+        DISK[("Local files<br/>(media/bibles)")]
+        DRIVE[("Google Drive<br/>(snapshots/manifests/blobs)")]
+        LOCAL_MAN[("media-manifest.json<br/>(local cache)")]
+        SYNC_STATE[("google-drive-state.json<br/>(lastSyncAt/retry/etc)")]
+        CONFIG_TOKEN[("config + token JSON")]
+    end
+
+    subgraph BUGS["🐛 Bugs Found & Fixed This Session"]
+        direction TB
+        B1["BUG 1: Snapshot prefix mismatch<br/>sync-snapshot.service.ts:58,78<br/>sync.controller.ts:245-246<br/>raw replace() vs toSafeFileSegment()"]
+        B2["BUG 2: loadEnv.ts no buscaba .env.local<br/>en raíz del proyecto<br/>→ OAuth sin client_id en prod"]
+        B3["BUG 3: electron.vite.config.ts<br/>dotenv apuntaba a apps/desktop/.env<br/>en vez de raíz del monorepo"]
+        B4["BUG 4: vitest.config.ts sin alias @ecclesia/api<br/>→ 2 tests rotos siempre"]
+        B5["BUG 5 (FIX 4): sync-media.service.ts:376<br/>pull borraba local sin verificar DB<br/>→ agregado !localByPath.has(remoteEntry.path)"]
+    end
+
+    P1 -.-> B1
+    P1 -.-> B5
+    B2 -.-> TRIGGERS
+    B3 -.-> TRIGGERS
+    B4 -.-> TESTS["tests/"]

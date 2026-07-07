@@ -6,7 +6,8 @@ import {
   SNAPSHOT_SCHEMA_VERSION,
   getSnapshotFileName,
   PersistedSyncConfig,
-  SnapshotFile
+  SnapshotFile,
+  toSafeFileSegment
 } from './sync.config'
 import { syncDriveOpsService } from './sync-drive-ops.service'
 import { syncProgressService } from './sync-progress.service'
@@ -54,7 +55,7 @@ export class SyncSnapshotService {
     workspaceId: string,
     folderId: string
   ) {
-    const safeWs = workspaceId.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const safeWs = toSafeFileSegment(workspaceId)
     const searchPrefix = `ecclesia-snapshot-${safeWs}-`
     const result = await drive.files.list({
       q: `name contains '${searchPrefix.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
@@ -74,8 +75,8 @@ export class SyncSnapshotService {
   ) {
     const files = await this.listAllRemoteSnapshotFiles(drive, config.workspaceId, folderId)
     log.warn(`[sync] Encontrados ${files.length} archivos snapshot remotos`)
-    const myDeviceSafe = appInstanceId.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const expectedPrefix = `ecclesia-snapshot-${config.workspaceId.replace(/[^a-zA-Z0-9._-]/g, '_')}-`
+    const myDeviceSafe = toSafeFileSegment(appInstanceId)
+    const expectedPrefix = `ecclesia-snapshot-${toSafeFileSegment(config.workspaceId)}-`
 
     let devicesProcessed = 0
     let totalApplied = 0
@@ -85,10 +86,24 @@ export class SyncSnapshotService {
 
     for (const [index, fileMeta] of files.entries()) {
       const fileName = fileMeta.name || ''
-      if (!fileName.startsWith(expectedPrefix) || !fileName.endsWith('.json')) continue
+      if (!fileName.startsWith(expectedPrefix)) {
+        log.warn(`[sync] Saltando snapshot por prefijo incorrecto: ${fileName} (esperado: ${expectedPrefix})`)
+        continue
+      }
+      if (!fileName.endsWith('.json')) {
+        log.warn(`[sync] Saltando snapshot por extensión incorrecta: ${fileName}`)
+        continue
+      }
 
       const deviceSegment = fileName.slice(expectedPrefix.length, -'.json'.length)
-      if (!deviceSegment || deviceSegment === myDeviceSafe) continue
+      if (!deviceSegment) {
+        log.warn(`[sync] Saltando snapshot sin segmento de dispositivo: ${fileName}`)
+        continue
+      }
+      if (deviceSegment === myDeviceSafe) {
+        log.warn(`[sync] Saltando snapshot propio: ${fileName}`)
+        continue
+      }
 
       syncProgressService.setMessage(`Aplicando snapshot de ${deviceSegment} (${index + 1}/${files.length})...`)
 
@@ -97,10 +112,27 @@ export class SyncSnapshotService {
         log.warn(`[sync] Descargado snapshot: ${fileName}`)
 
         let parsed: any
-        try { parsed = JSON.parse(raw) } catch { continue }
+        try { parsed = JSON.parse(raw) } catch {
+          log.warn(`[sync] Saltando snapshot por JSON inválido: ${fileName}`)
+          continue
+        }
 
-        if (!parsed || parsed.schemaVersion !== 1 || parsed.workspaceId !== config.workspaceId) continue
-        if (parsed.deviceId === appInstanceId) continue
+        if (!parsed) {
+          log.warn(`[sync] Saltando snapshot vacío: ${fileName}`)
+          continue
+        }
+        if (parsed.schemaVersion !== 1) {
+          log.warn(`[sync] Saltando snapshot por schemaVersion ${parsed.schemaVersion}: ${fileName}`)
+          continue
+        }
+        if (parsed.workspaceId !== config.workspaceId) {
+          log.warn(`[sync] Saltando snapshot por workspaceId distinto: ${fileName}`)
+          continue
+        }
+        if (parsed.deviceId === appInstanceId) {
+          log.warn(`[sync] Saltando snapshot por deviceId propio (belt): ${fileName}`)
+          continue
+        }
 
         const result = await syncService.applySnapshotRows(
           parsed.tables,

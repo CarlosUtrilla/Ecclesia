@@ -53,7 +53,10 @@ export function loadAppEnv(userDataPath?: string) {
     ] : []),
     path.join(process.cwd(), '.env'),
     path.join(process.cwd(), '.env.local'),
-    ...(userDataPath ? [path.join(userDataPath, '.env')] : [])
+    ...(userDataPath ? [
+      path.join(userDataPath, '.env'),
+      path.join(userDataPath, '.env.local')
+    ] : [])
   ]
 
   for (const envPath of envPaths) {

@@ -422,9 +422,10 @@ class SyncService {
             // P2011: campo NOT NULL sin valor → el snapshot viene de una versión del schema
             // diferente (campo requerido que no existe en el origen). Omitir silenciosamente.
             // P2006/P2009: tipo de dato incompatible entre versiones del schema.
-            if (code === 'P2011' || code === 'P2006' || code === 'P2009') {
+            // P2003: foreign key constraint — la fila padre fue omitida (stale/inexistente).
+            if (code === 'P2011' || code === 'P2006' || code === 'P2009' || code === 'P2003') {
               log.warn(
-                `[applySnapshot] Schema mismatch en tabla=${tableName} id=${recordId} code=${code} meta=${metaStr} - omitido (incompatibilidad de versiones)`
+                `[applySnapshot] Error en tabla=${tableName} id=${recordId} code=${code} meta=${metaStr} - omitido (${code === 'P2003' ? 'FK de fila padre no aplicada' : 'incompatibilidad de versiones'})`
               )
               skipped += 1
               continue

@@ -35,7 +35,8 @@ import {
   RemoteDriveData,
   RemoteSnapshotDeviceData,
   SyncReason,
-  SyncResult
+  SyncResult,
+  toSafeFileSegment
 } from './sync.config'
 import fs from 'fs-extra'
 import { readJsonSafe, writeJson } from './sync.utils'
@@ -242,8 +243,8 @@ class SyncController {
 
     const snapshotFiles = await syncSnapshotService.listAllRemoteSnapshotFiles(drive, config.workspaceId, folderId)
     const devices: RemoteSnapshotDeviceData[] = []
-    const myDeviceSafe = (await driveClientService.getOrCreateAppInstanceId()).replace(/[^a-zA-Z0-9._-]/g, '_')
-    const expectedPrefix = `ecclesia-snapshot-${config.workspaceId.replace(/[^a-zA-Z0-9._-]/g, '_')}-`
+    const myDeviceSafe = toSafeFileSegment(await driveClientService.getOrCreateAppInstanceId())
+    const expectedPrefix = `ecclesia-snapshot-${toSafeFileSegment(config.workspaceId)}-`
     for (const fileMeta of snapshotFiles) {
       const fileName = fileMeta.name || ''
       if (!fileName.startsWith(expectedPrefix) || !fileName.endsWith('.json')) continue

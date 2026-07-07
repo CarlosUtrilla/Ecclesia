@@ -125,7 +125,8 @@ describe('SyncController', () => {
       const expectedResponse = { ok: true, method: testCase.serviceMethod }
       serviceMethods[testCase.serviceMethod].mockResolvedValueOnce(expectedResponse)
 
-      const result = await (controller as any)[testCase.controllerMethod](testCase.payload)
+      const args = { body: testCase.payload }
+      const result = await (controller as any)[testCase.controllerMethod](args)
 
       expect(serviceMethods[testCase.serviceMethod]).toHaveBeenCalledWith(testCase.payload)
       expect(result).toEqual(expectedResponse)

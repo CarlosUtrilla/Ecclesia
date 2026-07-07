@@ -33,49 +33,55 @@ async function fullCycle(controller: SyncController, reason: string): Promise<vo
   const pushResult = await controller.push({ body: { reason } } as any)
   log.warn(`[sync] Push completado: ${JSON.stringify(pushResult)}`)
 
-  log.warn('\n--- FASE 3: HEAL (verificar archivos faltantes localmente) ---')
-  notifyProgress(68, 'Heal: verificando archivos faltantes...')
-  try {
-    const diagnostic = await controller.diagnose()
-    log.warn(`[sync] Diagnóstico: total=${diagnostic.summary.total}, ok=${diagnostic.summary.ok}, needDownload=${diagnostic.summary.needDownload}, needUpload=${diagnostic.summary.needUpload}, orphanLocal=${diagnostic.summary.orphanLocal}, tombstoned=${diagnostic.summary.tombstoned}`)
-    if (diagnostic.summary.needDownload > 0) {
-      notifyProgress(72, `Heal: descargando ${diagnostic.summary.needDownload} archivos faltantes...`)
-      const healResult = await controller.heal({ body: { diagnostic } })
-      log.warn(`[sync] Heal completado: descargados=${healResult.downloaded}, subidos=${healResult.uploaded}, errores=${healResult.errors.length}`)
-    } else {
-      log.warn('[sync] Heal: no hay archivos faltantes que reparar')
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'error desconocido'
-    log.warn(`[sync] HEAL FALLÓ: ${msg}`)
-  }
+  const isEmptyPull = !pullResult.devicesProcessed && !pullResult.applied && !pullResult.mediaDownloaded && !pullResult.biblesDownloaded
 
-  log.warn('\n--- FASE 4: CLEANUP (eliminar blobs huérfanos de Drive) ---')
-  notifyProgress(85, 'Cleanup: limpiando archivos huérfanos...')
-  let totalDriveDeleted = 0
-  let totalDriveErrors = 0
-  let totalOrphans = 0
-  let totalStale = 0
-  let totalBytes = 0
-  const MAX_CLEANUP_ITERATIONS = 10
-  for (let iter = 0; iter < MAX_CLEANUP_ITERATIONS; iter++) {
+  if (!isEmptyPull) {
+    log.warn('\n--- FASE 3: HEAL (verificar archivos faltantes localmente) ---')
+    notifyProgress(68, 'Heal: verificando archivos faltantes...')
     try {
-      const cleanupResult = await controller.cleanupMedia()
-      totalDriveDeleted += cleanupResult.driveDeleted
-      totalDriveErrors += cleanupResult.driveErrors
-      totalOrphans += cleanupResult.deletedOrphans
-      totalStale += cleanupResult.deletedStale
-      totalBytes += cleanupResult.totalFreedBytes
-      log.warn(`[sync] Cleanup iter ${iter + 1}: ${cleanupResult.driveDeleted} blobs de Drive, ${cleanupResult.driveErrors} errores`)
-      if (cleanupResult.driveDeleted === 0 && cleanupResult.driveErrors === 0) break
-      await new Promise((r) => setTimeout(r, 2000))
+      const diagnostic = await controller.diagnose()
+      log.warn(`[sync] Diagnóstico: total=${diagnostic.summary.total}, ok=${diagnostic.summary.ok}, needDownload=${diagnostic.summary.needDownload}, needUpload=${diagnostic.summary.needUpload}, orphanLocal=${diagnostic.summary.orphanLocal}, tombstoned=${diagnostic.summary.tombstoned}`)
+      if (diagnostic.summary.needDownload > 0) {
+        notifyProgress(72, `Heal: descargando ${diagnostic.summary.needDownload} archivos faltantes...`)
+        const healResult = await controller.heal({ body: { diagnostic } })
+        log.warn(`[sync] Heal completado: descargados=${healResult.downloaded}, subidos=${healResult.uploaded}, errores=${healResult.errors.length}`)
+      } else {
+        log.warn('[sync] Heal: no hay archivos faltantes que reparar')
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'error desconocido'
-      log.warn(`[sync] Cleanup iter ${iter + 1} falló: ${msg}`)
-      break
+      log.warn(`[sync] HEAL FALLÓ: ${msg}`)
     }
+
+    log.warn('\n--- FASE 4: CLEANUP (eliminar blobs huérfanos de Drive) ---')
+    notifyProgress(85, 'Cleanup: limpiando archivos huérfanos...')
+    let totalDriveDeleted = 0
+    let totalDriveErrors = 0
+    let totalOrphans = 0
+    let totalStale = 0
+    let totalBytes = 0
+    const MAX_CLEANUP_ITERATIONS = 10
+    for (let iter = 0; iter < MAX_CLEANUP_ITERATIONS; iter++) {
+      try {
+        const cleanupResult = await controller.cleanupMedia()
+        totalDriveDeleted += cleanupResult.driveDeleted
+        totalDriveErrors += cleanupResult.driveErrors
+        totalOrphans += cleanupResult.deletedOrphans
+        totalStale += cleanupResult.deletedStale
+        totalBytes += cleanupResult.totalFreedBytes
+        log.warn(`[sync] Cleanup iter ${iter + 1}: ${cleanupResult.driveDeleted} blobs de Drive, ${cleanupResult.driveErrors} errores`)
+        if (cleanupResult.driveDeleted === 0 && cleanupResult.driveErrors === 0) break
+        await new Promise((r) => setTimeout(r, 2000))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'error desconocido'
+        log.warn(`[sync] Cleanup iter ${iter + 1} falló: ${msg}`)
+        break
+      }
+    }
+    log.warn(`[sync] Cleanup total: ${totalDriveDeleted} blobs eliminados de Drive, ${totalOrphans} huérfanos en disco, ${totalStale} stale, ${totalDriveErrors} errores, ${(totalBytes / 1024 / 1024).toFixed(2)} MB liberados`)
+  } else {
+    log.warn('[sync] Pull vacío — saltando HEAL y CLEANUP (no hay datos remotos que verificar)')
   }
-  log.warn(`[sync] Cleanup total: ${totalDriveDeleted} blobs eliminados de Drive, ${totalOrphans} huérfanos en disco, ${totalStale} stale, ${totalDriveErrors} errores, ${(totalBytes / 1024 / 1024).toFixed(2)} MB liberados`)
 
   log.warn('\n========== [SYNC] CICLO COMPLETO FINALIZADO ==========')
 }

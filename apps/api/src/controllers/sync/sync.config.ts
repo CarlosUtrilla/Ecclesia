@@ -258,8 +258,7 @@ export function getSnapshotFileName(workspaceId: string, deviceId: string): stri
 }
 
 export function getManifestFileName(workspaceId?: string): string {
-  const normalizedWorkspace = workspaceId?.trim() || 'default'
-  return `ecclesia-diff-manifest-${normalizedWorkspace}.json`
+  return `ecclesia-diff-manifest-${toSafeFileSegment(workspaceId)}.json`
 }
 
 export function getRemoteMediaManifestFileName(workspaceId?: string): string {

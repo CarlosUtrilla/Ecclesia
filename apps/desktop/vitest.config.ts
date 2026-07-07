@@ -6,6 +6,7 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'app'),
       '@locales': resolve(__dirname, 'locales/index.ts'),
+      '@ecclesia/api': resolve(__dirname, '../../apps/api'),
       '@ecclesia/queries': resolve(__dirname, '../../packages/queries/src')
     }
   },
@@ -16,7 +17,8 @@ export default defineConfig({
     include: [
       'app/**/*.test.{ts,tsx}',
       'electron/**/*.test.{ts,tsx}',
-      'tests/**/*.test.{ts,tsx}'
+      'tests/**/*.test.{ts,tsx}',
+      '../../apps/api/src/**/*.test.{ts,tsx}'
     ],
     coverage: {
       provider: 'v8',

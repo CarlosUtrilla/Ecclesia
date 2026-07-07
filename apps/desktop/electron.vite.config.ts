@@ -3,9 +3,17 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import Pages from 'vite-plugin-pages'
-import dotenv from 'dotenv'
+import { config as dotenvConfig } from 'dotenv'
+import { existsSync } from 'fs'
 
-dotenv.config()
+// Cargar .env y .env.local desde el root del monorepo
+const rootEnvDir = resolve(__dirname, '../..')
+for (const file of ['.env', '.env.local']) {
+  const p = resolve(rootEnvDir, file)
+  if (existsSync(p)) {
+    dotenvConfig({ path: p })
+  }
+}
 
 export default defineConfig({
   main: {

@@ -85,8 +85,16 @@ export class SyncMediaService {
         ? previous.checksum
         : await computeFileChecksum(fullPath)
 
-      if (!canReuseChecksum && previous?.driveFileId) {
-        log.warn(`[sync] PERDIENDO driveFileId para ${relativePath}: prevDriveFileId=${previous.driveFileId}, sizeMatch=${previous.size === stats.size}, mtimeMatch=${previous.mtime === stats.mtimeMs}, prevMtime=${previous.mtime}, mtime=${stats.mtimeMs}`)
+      // Reuse driveFileId if content didn't change: either fast path (size+mtime match)
+      // or size matches and new checksum equals previous checksum.
+      const canReuseDriveFileId =
+        !!previous &&
+        !previous.deletedAt &&
+        previous.size === stats.size &&
+        (previous.mtime === stats.mtimeMs || checksum === previous.checksum)
+
+      if (!canReuseDriveFileId && previous?.driveFileId) {
+        log.warn(`[sync] PERDIENDO driveFileId para ${relativePath}: prevDriveFileId=${previous.driveFileId}, sizeMatch=${previous.size === stats.size}, mtimeMatch=${previous.mtime === stats.mtimeMs}`)
       }
 
       nextEntriesMap.set(relativePath, {
@@ -96,7 +104,7 @@ export class SyncMediaService {
         mtime: stats.mtimeMs,
         deletedAt: null,
         lastSyncedAt: previous?.lastSyncedAt || null,
-        driveFileId: canReuseChecksum ? previous?.driveFileId || null : null
+        driveFileId: canReuseDriveFileId ? previous?.driveFileId || null : null
       })
     }
 
@@ -358,14 +366,24 @@ export class SyncMediaService {
     }
 
     if (mode === 'pull') {
-      syncProgressService.setMessage(`Sincronizando ${remoteManifest.entries.length} archivos de medios (pull)...`)
+      // Salvaguarda: si el manifiesto remoto está vacío (no existe en Drive o
+      // workspaceId no coincide), NO borrar archivos locales. Solo descargar
+      // lo que falte.
+      const remoteTrusted = remoteManifest.entries.length > 0
+
+      syncProgressService.setMessage(`Sincronizando ${remoteManifest.entries.length} archivos de medios (pull, remoteTrusted=${remoteTrusted})...`)
       for (const [index, remoteEntry] of remoteManifest.entries.entries()) {
         if (index % 20 === 0 && index > 0) {
           syncProgressService.setMessage(`Procesando medios remotos: ${index}/${remoteManifest.entries.length}...`)
         }
         if (remoteEntry.deletedAt) {
-          const localFullPath = path.join(getMediaDir(), remoteEntry.path)
-          if (await fs.pathExists(localFullPath)) await fs.remove(localFullPath)
+          // Solo borrar archivo local si también está eliminado en DB local
+          // (previene borrados espurios cuando el manifiesto remoto está
+          // inconsistente).
+          if (remoteTrusted && !localByPath.has(remoteEntry.path)) {
+            const localFullPath = path.join(getMediaDir(), remoteEntry.path)
+            if (await fs.pathExists(localFullPath)) await fs.remove(localFullPath)
+          }
           localByPath.set(remoteEntry.path, { ...remoteEntry, lastSyncedAt: nowIso })
           continue
         }
