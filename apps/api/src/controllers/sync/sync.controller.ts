@@ -15,6 +15,26 @@ import {
 import fs from 'fs-extra'
 import os from 'os'
 import { readJsonSafe, writeJson } from './sync.utils'
+import { getSocket } from '../../sockets/socket.service'
+import { oplogService } from '../sync-oplog/oplog.service'
+import log from 'electron-log'
+
+function broadcastSyncState(connected: boolean): void {
+  try {
+    getSocket().emit.syncState({ connected })
+  } catch { /* socket no listo */ }
+}
+
+function triggerInitialSync(): void {
+  // Trigger a sync cycle in the background after Drive is connected.
+  // This is fire-and-forget; errors are logged but don't block the OAuth response.
+  setImmediate(() => {
+    oplogService
+      .ensureInitialized()
+      .then(() => oplogService.syncCycle())
+      .catch((err) => log.warn('[sync] Initial sync after connect failed:', err.message))
+  })
+}
 
 class SyncController {
   async getStatus(): Promise<SyncStatus> {
@@ -73,6 +93,7 @@ class SyncController {
     }
 
     driveClientService.clearPendingAuth()
+    broadcastSyncState(false)
   }
 
   async getAuthUrl({ body }: RequestHandler<{ redirectUri?: string }>): Promise<{ authUrl: string }> {
@@ -86,6 +107,8 @@ class SyncController {
   }> {
     const tokens = await driveClientService.exchangeAuthCode(body.code)
     await writeJson(getTokenFilePath(), tokens)
+    broadcastSyncState(true)
+    triggerInitialSync()
     return { success: true, email: tokens.email as string | undefined }
   }
 }

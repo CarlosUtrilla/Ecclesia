@@ -868,50 +868,61 @@ function bootstrapOplog():
 
 ```
 apps/api/src/controllers/sync-oplog/
-├── oplog.controller.ts        ← Endpoints Express (/api/sync-oplog/*)
-├── oplog.service.ts           ← Orquestación (pull, push, syncCycle)
-├── oplog.types.ts             ← Tipos (OplogEvent, OplogDocument, etc.)
-├── oplog-replay.service.ts    ← Replay Engine (aplica eventos a DB + files)
-├── oplog-blob.service.ts      ← Blob sync (download/upload/GC)
-├── oplog-drive.service.ts     ← Google Drive operations (download/upload/ifGenerationMatch)
-├── oplog-state.service.ts     ← Estado local (replay-state.json, etc.)
-├── oplog-compaction.service.ts ← Compaction (squash de eventos)
-└── oplog-migration.service.ts ← Bootstrap desde sistema actual
+├── oplog.service.ts           ← Orquestación (init, pull, push, syncCycle, appendEvent, syncBlobs)
+├── oplog.types.ts             ← Tipos (OplogEvent, OplogDocument, EntityType, BlobOperation, etc.)
+├── oplog.config.ts            ← Constantes de nombres de archivo en Drive
+├── oplog-state.service.ts     ← Persistencia local del OpLog binario + replay state + config
+├── oplog-drive.service.ts     ← Google Drive (download/upload/delete con ifGenerationMatch optimistic lock)
+├── oplog-replay.service.ts    ← Replay Engine (aplica eventos a DB + filesystem, blob ops para thumbnails/fallbacks)
+├── oplog-blob.service.ts      ← Blob sync (download/upload/delete/move con concurrencia 5 + GC con ventana 7 días)
+├── oplog-utils.ts             ← Utilidades: DMMF field filtering, computeSchemaHash, fieldCache
+├── oplog-compaction.service.ts ← Compaction: snapshot builder desde DB + último seq por device
+├── oplog-migration.service.ts ← Bootstrap: performFullMigration() desde DB + migrateExistingMediaBlobs()
+├── oplog.controller.ts        ← Endpoints Express (/api/sync-oplog/*): init, getStatus, bootstrap, syncCycle, pull, push
+└── oplog-logger.ts            ← Logger dedicado a archivo + stderr (no eliminado por terser)
+```
+
+**Archivos externos relacionados:**
+
+```
+apps/api/src/middleware/oplog.ts              ← Prisma middleware $extends: intercepta mutaciones, llama appendEvent()
+apps/api/src/services/oplog-scheduler.service.ts ← Scheduler: ciclo startup, periodic 5min, event-driven en cambios
+apps/api/src/sockets/socket.service.ts        ← SocketEventMap con queryKeysInvalidate, syncProgress
+apps/desktop/app/main.tsx                     ← Listener Socket.IO queryKeysInvalidate → queryClient.invalidateQueries()
 ```
 
 ---
 
 ## 13. Integración con el stack existente
 
-### 13.1 Desde los controllers actuales
+### 13.1 Prisma Middleware (intercepción automática)
 
-Cada controller existente (songs, media, themes, etc.) DEBE llamar a
-`oplogService.appendEvent()` después de cada mutación:
+**No se necesita modificar los controllers existentes.** En lugar de llamar manualmente
+a `appendEvent()` desde cada service, un middleware de Prisma (`middleware/oplog.ts`)
+intercepta automáticamente todas las mutaciones a los modelos trackeados:
 
 ```typescript
-class SongsService {
-  async createSong(data) {
-    const song = await prisma.song.create({ data })
-    await oplogService.appendEvent({
-      entityType: 'song',
-      entityId: String(song.id),
-      op: 'upsert',
-      data: song,
-    })
-    return song
-  }
+// middleware/oplog.ts — se registra vía client.$extends({ query: { $allModels: ... } })
+const TRACKED_ACTIONS = new Set(['create', 'update', 'upsert', 'delete',
+  'deleteMany', 'updateMany', 'createMany', 'createManyAndReturn'])
 
-  async deleteSong(id) {
-    // Obtener data antes de borrar (para el checksum de lyrics files si existieran)
-    await prisma.song.delete({ where: { id } })
-    await oplogService.appendEvent({
-      entityType: 'song',
-      entityId: String(id),
-      op: 'delete',
-    })
-  }
-}
+const EXCLUDED_MODELS = new Set(['SyncState', 'SyncOutboxChange', 'SyncInboxChange',
+  'BibleSchema', 'BibleVerses'])
 ```
+
+**Flujo del middleware:**
+1. `delete`: captura el record antes de eliminar, llama `appendEvent({ op: 'delete', data })`
+2. `deleteMany`: igual pero batch
+3. `updateMany`: captura records antes, mergea `args.data` sobre cada uno, llama `appendEvent({ op: 'upsert' })`
+4. `createMany` / `createManyAndReturn`: usa el resultado (array de rows creados)
+5. `create` / `update` / `upsert`: usa el resultado de la query
+
+**Exclusiones:** modelos de sync legacy (`SyncState`, `SyncOutboxChange`, `SyncInboxChange`),
+modelos bíblicos (`BibleSchema`, `BibleVerses`) — no generan eventos de sync.
+
+**Prevención de loops:** El Replay Engine envuelve sus escrituras en
+`runWithoutOplogTracking()` (contexto async local) para evitar que las mutaciones de replay
+generen nuevos eventos en el OpLog.
 
 ### 13.2 appendEvent: cómo funciona
 
@@ -939,43 +950,517 @@ async function appendEvent(event: OplogEventInput) {
 }
 ```
 
-### 13.3 Socket.IO / IPC Progress
+### 13.3 Socket.IO — Progreso e invalidación de queries
 
-El scheduler emite progreso vía Socket.IO (igual que ahora):
+**Progreso del sync:** El scheduler emite `syncProgress` via Socket.IO:
 
 ```
-Evento 'syncProgress': { phase: 'pull'|'push'|'blob'|'gc', progress: 0-100, message }
+Evento 'syncProgress': { progress: 0-100, message: string, error?: boolean }
 ```
+
+**Invalidación post-mutación:** Cuando un controller existente ejecuta una mutación, el
+middleware captura el cambio y llama `appendEvent()`. Después de responder al cliente,
+`registerRoutes()` emite `queryKeysInvalidate` via Socket.IO directo (sin intermediario IPC):
+
+```
+// apps/api/src/index.ts:48-54
+registerRoutes(app, (keys) => {
+  getSocket().emit.queryKeysInvalidate({ keys })
+})
+```
+
+**Invalidación post-sync:** `oplog.service.ts` emite `queryKeysInvalidate` tanto desde
+`init()` (replay de eventos locales/remotos) como desde `pull()` y `syncBlobs()`, usando
+`collectInvalidateKeys()` que mapea `EntityType` → query keys de React Query:
+
+```
+ENTITY_TYPE_TO_QUERY_KEY = {
+  song:           ['songs'],
+  tagSongs:       ['tagSongs'],
+  media:          ['media', 'folders'],
+  font:           ['fonts'],
+  themes:         ['themes'],
+  presentation:   ['presentations'],
+  biblePresentationSettings: ['biblePresentationSettings'],
+  setting:        ['settings'],
+  schedule:       ['schedules'],
+  scheduleGroupTemplate: ['scheduleGroupTemplates'],
+  scheduleItem:   ['schedules'],
+  selectedScreens: ['selectedScreens'],
+  stageScreenConfig: ['stageScreenConfig'],
+}
+```
+
+**Frontend:** Escucha en `main.tsx` vía `Api.socket.listen.queryKeysInvalidate()` y llama
+`queryClient.invalidateQueries()` con las keys recibidas. Si keys está vacío, invalida todo.
 
 ---
 
 ## 14. Plan de implementación
 
-### Fase 1: Core (1-2 semanas)
+### Fase 1: Core — COMPLETADO
 - [x] Diseño de arquitectura (este documento)
-- [ ] Instalar `@automerge/automerge` y `@automerge/automerge-repo`
-- [ ] Implementar `oplog.types.ts` con tipos de eventos
-- [ ] Implementar `oplog-drive.service.ts` (download/upload con ifGenerationMatch)
-- [ ] Implementar `oplog-replay.service.ts` (apply event → DB)
-- [ ] Implementar `oplog.service.ts` (pull + push con optimistic lock)
-- [ ] Tests unitarios del ciclo pull/push
+- [x] Instalar `@automerge/automerge` (v3, sin `automerge-repo`)
+- [x] Implementar `oplog.types.ts` con tipos de eventos
+- [x] Implementar `oplog-drive.service.ts` (download/upload con ifGenerationMatch)
+- [x] Implementar `oplog-replay.service.ts` (apply event → DB con priority ordering, FK retry)
+- [x] Implementar `oplog.service.ts` (init, pull, push con optimistic lock, syncCycle, syncBlobs)
+- [x] Implementar `oplog-state.service.ts` (persistencia local binaria + JSON)
 
-### Fase 2: Blobs + File lifecycle (1 semana)
-- [ ] Implementar `oplog-blob.service.ts` (download/upload/GC)
-- [ ] Implementar sync de blobs en el ciclo (syncBlobs)
-- [ ] Tests: create/delete/move de archivos
+### Fase 2: Blobs + File lifecycle — COMPLETADO
+- [x] Implementar `oplog-blob.service.ts` (download/upload/GC con ventana 7 días)
+- [x] Implementar sync de blobs en el ciclo (syncBlobs con fallback backfill, thumbnail regeneration)
+- [x] Orphan cleanup de thumbnails locales
+- [x] Pruning de eventos soft-deleted sin blob data
 
-### Fase 3: Compaction + Migration (1 semana)
-- [ ] Implementar `oplog-compaction.service.ts`
-- [ ] Implementar `oplog-migration.service.ts` (bootstrap desde DB actual)
-- [ ] Tests de compactación y migración
+### Fase 3: Compaction + Migration — COMPLETADO
+- [x] Implementar `oplog-compaction.service.ts` (snapshot builder desde DB + último seq por device)
+- [x] Implementar `oplog-migration.service.ts` (bootstrap desde DB, migrateExistingMediaBlobs)
+- [x] backfillChecksums() al iniciar para cover Drive download paths
 
-### Fase 4: Integración en controllers (1 semana)
-- [ ] Agregar `appendEvent()` en songs, media, themes, schedules, etc.
-- [ ] Reemplazar scheduler actual por el nuevo
-- [ ] Pruebas de integración end-to-end
+### Fase 4: Integración — COMPLETADO
+- [x] Middleware Prisma (`middleware/oplog.ts`) — intercepción automática sin modificar controllers
+- [x] Scheduler (`services/oplog-scheduler.service.ts`) — startup + periodic 5min + event-driven 30s debounce
+- [x] Scheduler reemplaza al de snapshot sync legacy
+- [x] Socket.IO integrado: queryKeysInvalidate post-mutación y post-sync
+- [x] SSE legacy eliminado completamente
 
-### Fase 5: Corte (días)
-- [ ] Desactivar snapshot sync
-- [ ] Eliminar archivos viejos de Drive
+### Fase 5: Corte — PENDIENTE
+- [ ] Desactivar snapshot sync legacy
+- [ ] Eliminar archivos viejos de Drive (`ecclesia-snapshot-*`, `ecclesia-media-manifest-*`)
 - [ ] Monitoreo post-migración
+
+---
+
+## 15. Scheduler y ciclo de sync
+
+### 15.1 Scheduler (`oplog-scheduler.service.ts`)
+
+Tres triggers ejecutan `syncCycle()`:
+
+| Trigger | Timing | Propósito |
+|---------|--------|-----------|
+| **Startup** | Inmediato al arrancar el servidor | Asegura que el OpLog local esté al día con Drive |
+| **Periódico** | Cada 5 minutos | Sync regular (pull + push + blobs + GC) |
+| **Event-driven** | 30s debounce tras `appendEvent()` | Subir cambios locales rápidamente |
+
+**Control de concurrencia:** Flag `isSyncing` impide ciclos simultáneos. Si un ciclo ya está
+en curso cuando se dispara otro trigger, se salta.
+
+**Progreso:** Emite `syncProgress` via Socket.IO con fase y porcentaje.
+
+### 15.2 Ciclo completo (`syncCycle()`)
+
+```
+syncCycle():
+  runMappedPhase('1/3 Pull',  0-33%)  →  pull()
+  runMappedPhase('2/3 Blobs', 33-66%) →  syncBlobs()
+  runMappedPhase('3/3 Push',  66-100%) → push()
+```
+
+`runMappedPhase()` remapea el progreso interno de cada sub-fase (0-100) al rango
+correspondiente del ciclo global. Esto da una barra de progreso uniforme al usuario.
+
+### 15.3 Pull (`pull()`)
+
+```
+pull():
+  1. Verificar que Drive esté disponible (token exists)
+  2. Descargar OpLog remoto de Drive → remoteDoc + generation
+  3. Si no hay doc local → adoptar remoteDoc como local
+  4. Merge: clone(localDoc) + merge(clone, remoteDoc) → mergedDoc
+  5. Detectar eventos nuevos: merged.ops.filter(id ∉ localIds)
+  6. Si hay eventos nuevos:
+     a. applyEvents(newEvents) → Replay Engine
+     b. emitInvalidateQueries(newEvents)
+     c. Actualizar replay state (lastAppliedIndex)
+     d. processBlobOps(applyResult.blobOps) → descargar blobs faltantes
+  7. Persistir mergedDoc localmente
+```
+
+**Merge:** Usa Automerge `merge(clone(localDoc), remoteDoc)`. Se clona el local primero
+porque Automerge muta el documento fuente durante el merge. El merge garantiza que el
+doc resultante contiene todos los eventos de ambos documentos en orden determinístico.
+
+### 15.4 Push (`push()`)
+
+```
+push():
+  1. Verificar Drive disponible
+  2. Si pendingEvents.length === 0 → salir
+  3. Serializar localDoc a binario (save())
+  4. Upload a Drive con ifGenerationMatch = lastRemoteGeneration
+  5. En éxito: actualizar lastRemoteGeneration, limpiar pendingEvents
+  6. En OplogConcurrencyError (412 Precondition Failed):
+     a. Hacer pull() para incorporar cambios concurrentes
+     b. Reintentar push()
+     c. Esto es equivalente a git pull --rebase && git push
+```
+
+**Optimistic lock:** La generación de Drive (equivalente a ETag) garantiza que dos PCs
+no sobrescriban el mismo archivo concurrentemente. El que pierde hace re-pull + re-merge
+y reintenta — nunca pierde datos.
+
+---
+
+## 16. Init y bootstrap
+
+### 16.1 Init (`init(deviceId)`)
+
+El proceso de inicialización es el punto más complejo del sistema. Maneja 4 escenarios:
+
+**Escenario A: OpLog local existe y tiene eventos**
+1. Cargar el binario local → load<OplogDocument>()
+2. Leer replay state
+3. Aplicar eventos pendientes (localOps.slice(replayState.lastAppliedIndex + 1))
+4. `backfillChecksums()` — computa checksums faltantes para media/font
+5. Poblar `pendingEvents` con todos los ops para que push() los suba a Drive
+
+**Escenario B: OpLog local corrupto o vacío**
+1. Intentar descargar OpLog remoto desde Drive
+2. Si existe y tiene eventos → adoptarlo como local, replicar a DB
+3. Si no existe en Drive → bootstrap desde DB local
+
+**Escenario C: PC secundaria sin OpLog local pero con Drive conectado**
+1. Descargar OpLog remoto → adoptarlo como local
+2. Replicar TODOS los eventos a la DB local (aplica el estado completo)
+3. Descargar blobs referenciados (thumbnails, media files, etc.)
+
+**Escenario D: Primera vez (sin OpLog local ni remoto)**
+1. `performFullMigration()` → lee toda la DB local, construye eventos para cada entidad
+2. Persiste el OpLog local y sube el inicial a Drive (con race check)
+3. Migra blobs existentes del manifest legacy a Drive
+
+### 16.2 Bootstrap desde DB (`bootstrapOplog()`)
+
+Recorre todos los modelos en `ENTITY_TYPE_TO_PRISMA_MODEL`, lee registros con `findMany`
+seleccionando solo campos escalares (vía `getPrismaModelFields()`), construye un evento
+`upsert` por registro:
+
+```typescript
+for (const [entityType, modelName] of Object.entries(ENTITY_TYPE_TO_PRISMA_MODEL)) {
+  const records = await delegate.findMany({ select: scalarFields })
+  for (const record of records) {
+    const event: OplogEvent = {
+      id: randomUUID(), seq, deviceId, timestamp: Date.now(),
+      entityType, entityId: String(record.id), op: 'upsert',
+      data: stripRelations(record),
+      blobPath, checksum, thumbnailBlobPath, thumbnailChecksum, // si media/font
+    }
+    ops.push(event)
+  }
+}
+```
+
+**Race condition:** Después de bootstrappear, verifica si apareció un OpLog remoto
+mientras se hacía la migración (primer arranque concurrente). Si existe, NO sube el
+bootstrap para no sobrescribir datos de otra PC.
+
+---
+
+## 17. Replay Engine (detalles de implementación)
+
+### 17.1 Priority ordering
+
+Los eventos se ordenan antes de aplicar para respetar dependencias FK:
+
+```typescript
+const priority = {
+  biblePresentationSettings: 0,  // sin dependencias
+  media:                    1,   // referenced by themes
+  font:                     2,   // referenced by themes
+  selectedScreens:          2,   // FK referenced by StageScreenConfig
+  themes:                   3,   // FK a media, biblePresentationSettings
+  presentation:             4,
+  stageScreenConfig:        5,   // FK a themes, selectedScreens
+  song:                     6,
+  tagSongs:                 7,
+  schedule:                 8,
+  scheduleGroupTemplate:    9,
+  scheduleItem:             10,
+  setting:                  12,
+}
+```
+
+Dentro del mismo priority, se ordena por `seq`.
+
+### 17.2 FK Retry queue
+
+Cuando un evento falla con `P2003` (foreign key violation) o mensaje que contiene
+"foreign key", se re-encola para reintentar hasta `MAX_RETRIES = 10` veces. Esto
+permite que eventos de entidades dependientes se apliquen después de que la entidad
+referenciada se haya creado en el mismo batch.
+
+### 17.3 Id remapping
+
+Para migraciones entre PCs donde los IDs pueden diferir (ej: números autoincrementales),
+`idRemap` trackea `entityType → { oldId → newId }` y remapea FK fields:
+
+- `themes.backgroundMediaId` → busca en idRemap['media']
+- `themes.biblePresentationSettingsId` → busca en idRemap['biblePresentationSettings']
+- `stageScreenConfig.themeId` → busca en idRemap['themes']
+
+### 17.4 Type inference para Media
+
+Cuando un evento media upsert no tiene `type` (capturado en versiones anteriores del
+schema), se deriva desde `format`:
+
+| format | type inferido |
+|--------|---------------|
+| pdf | PDF |
+| mp4, webm, mov, avi, mkv | VIDEO |
+| png, jpg, jpeg, webp, gif, bmp, svg | IMAGE |
+| otro | IMAGE (default) |
+
+### 17.5 Blob ops generados por apply
+
+Cuando se aplica un evento `upsert` de tipo `media`, se generan BlobOperations para
+cada checksum presente:
+
+```typescript
+// Por cada media upsert:
+blobOps.push({ type: 'download', checksum: event.checksum, path: filePath })
+blobOps.push({ type: 'download', checksum: event.thumbnailChecksum, path: thumbnailPath })
+blobOps.push({ type: 'download', checksum: event.fallbackChecksum, path: fallbackPath })
+```
+
+Cuando se aplica un evento `delete` de tipo `media`, se generan blob deletes para el
+checksum principal, thumbnail y fallback — solo si ningún otro registro activo reference
+el mismo checksum:
+
+```typescript
+// Antes de eliminar:
+existing = await findUnique({ select: { checksum, filePath, thumbnail, fallback } })
+remainingCount = await count({ where: { checksum: existing.checksum, deletedAt: null, id: { not: recordId } })
+if (remainingCount === 0) -> blobOps.push({ type: 'delete', checksum, path })
+// Ídem para thumbnail y fallback
+```
+
+### 17.6 DMMF field filtering
+
+Cada evento upsert filtra sus campos contra el schema de Prisma **local** usando
+`getPrismaModelFields()`:
+
+```typescript
+function filterFields(data, validFields, strict = false) {
+  if (validFields.size === 0) return { ...data }  // fallback: devuelve todo
+  return Object.fromEntries(
+    Object.entries(data).filter(([key]) => validFields.has(key))
+  )
+}
+```
+
+Esto permite tolerancia a campos y tablas desconocidas entre PCs con distinto schema.
+
+---
+
+## 18. Blob sync avanzado
+
+### 18.1 Concurrencia en processBlobOps
+
+Los blobs se procesan en chunks de 5 operaciones concurrentes para balancear velocidad
+y límites de rate de la API de Drive:
+
+```typescript
+const CONCURRENCY = 5
+for (const chunk of chunks) {
+  await Promise.allSettled(chunk.map(runOp))
+}
+```
+
+### 18.2 Fallback backfill checksums
+
+En el primer ciclo de `syncBlobs()`, se computan checksums para cualquier archivo
+(main file, thumbnail, fallback) que tenga path en el evento pero no checksum:
+
+1. Recorre todos los eventos `upsert` de media/font
+2. Para cada checksum faltante (`op.checksum`, `op.thumbnailChecksum`, `op.fallbackChecksum`):
+   a. Busca el path relativo en `data.filePath` / `data.thumbnail` / `data.fallback` o `blobPath`
+   b. Si el path existe en disco → computa SHA-256 del archivo
+   c. Acumula en `fallbackUpdates` (Map keyeado por índice del evento)
+3. Después del loop → `change(doc, 'fallback-backfill')` escribe checksums en los eventos
+4. Persiste localmente para que el próximo push incluya los checksums
+
+**Cache de checksums:** `checksumCache` evita recomputar el mismo path múltiples veces.
+Se popula en `init()` via `backfillChecksums()` y se usa en `appendEvent()` también.
+
+### 18.3 Thumbnail regeneration (cada ciclo)
+
+Cuando un evento media upsert no tiene `thumbnailChecksum` ni `data.thumbnail` ni
+`thumbnailBlobPath`, pero el source file (`data.filePath` / `blobPath`) existe en disco:
+
+1. Determina si es imagen o video por extensión
+2. Genera thumbnail: `generateImageThumbnail()` o `generateVideoThumbnail()` desde `mediaThumbnails.ts`
+3. Computa checksum del thumbnail generado
+4. Persiste `thumbnailChecksum`, `thumbnailBlobPath` y `data.thumbnail` en el evento
+5. Agrega a `toUpload` para subir a Drive
+
+**Esto corre cada ciclo** porque source files pueden llegar en ciclos posteriores
+(descargados desde Drive en un ciclo anterior).
+
+### 18.4 Orphan thumbnail cleanup (local)
+
+Después de GC, se limpian thumbnails locales sin referencia:
+
+```
+1. Recopilar thumbnails referenciados:
+   a. Eventos activos (post-pruning): op.data.thumbnail, op.thumbnailBlobPath
+   b. DB local: Media.findMany({ where: { deletedAt: null, thumbnail: { not: null } } })
+2. Escanear directorio media/thumbnails/
+3. Por cada archivo: si su path relativo NO está en validThumbs → eliminar
+```
+
+Los blobs de Drive se limpian via `garbageCollectBlobs()` con ventana de 7 días.
+
+### 18.5 Pruning de eventos soft-deleted
+
+Eventos de media con `data.deletedAt` truthy y sin blob data asociado (checksum, blobPath,
+thumbnailChecksum, etc.) se podan del OpLog:
+
+```
+for (op in ops):
+  if op.op === 'upsert' && op.entityType === 'media' && op.data.deletedAt:
+    if !op.checksum && !op.blobPath && !op.thumbnailChecksum && !op.thumbnailBlobPath
+       && !op.fallbackChecksum && !op.fallbackBlobPath:
+      prunedEntityIds.add(op.entityId)
+
+change(doc, 'prune-deleted-media'): splice todos los eventos de esas entidades
+persistLocal()
+```
+
+Los checksums de eventos pruned quedan en `activeChecksums` de este ciclo y serán GC'd
+en el próximo ciclo de Drive.
+
+---
+
+## 19. Caso "Ratón" — referencia futura
+
+> **Alias:** `raton` — porque un ratón se come los archivos silenciosamente, deja las
+> referencias rotas y la sync se pierde sin que se sepa bien qué pasó ni dónde quedaron las cosas.
+
+### Síntomas
+- En `[Blob-DIAG] Fallback: ...` se ve `File missing` alto (cientos) vs `File found` bajo
+- Thumbnails que no aparecen en PC2 aunque PC1 los tenga en DB
+- `toDownload` crece pero los downloads nunca completan (el checksum no existe en Drive)
+- Con el tiempo, la sync empieza a "perderse": entradas fantasma, referencias a archivos que no están
+- Al abrir la biblioteca de medios, faltan thumbnails o aparecen placeholders
+
+### Causa raíz documentada (Julio 2026)
+
+El **sync legacy** (sistema anterior basado en snapshots JSON + last-write-wins) copiaba
+solo registros de base de datos entre PCs — **no copiaba los archivos de medios**
+(thumbnails, fallbacks, ni siquiera los main files si no estaban cacheados). Cuando un PC
+se formateaba o se unía uno nuevo al sync:
+
+1. El snapshot traía los registros DB completos (`Media`, `Song`, etc.) con paths de archivos
+2. Pero los archivos físicos (`media/thumbnails/*.jpg`, `media/files/*.mp4`, etc.) nunca se transferían
+3. El nuevo PC quedaba con DB llena de referencias a archivos que **nunca existieron en disco**
+4. El OpLog heredó esos eventos con `data.thumbnail` / `data.filePath` poblados desde DB,
+   pero sin archivos reales — y sin `thumbnailChecksum` porque nunca se computó
+5. El ciclo se auto-alimenta: PC1 reporta eventos sin checksum → PC2 los descarga →
+   replica el mismo estado huérfano → los checksums nunca aparecen en Drive → nadie puede descargar nada
+
+### Lo que el Ratón se come
+
+| ¿Qué falta? | ¿Por qué? | ¿Cuántos? |
+|---|---|---|
+| Thumbnails de registros activos | Vinieron del snapshot legacy sin archivos | ~40 |
+| Thumbnails de registros soft-deleted | Idem + el registro ya no existe | ~139 |
+| Fallbacks de registros activos | Idem | variable |
+| Main files (raro) | Si el PC original los borró | variable |
+
+### Mitigaciones implementadas
+
+1. **Fallback backfill checksums** (`syncBlobs`, primer ciclo): computa checksums de archivos
+   que SÍ existen en disco y los persiste en el evento via `change()`. Esto permite que PC2
+   los descargue.
+2. **Thumbnail regeneration** (`syncBlobs`, cada ciclo): cuando el source file (`data.filePath`)
+   existe en disco pero el thumbnail no, regenera el thumbnail desde el archivo fuente y sube
+   el checksum a Drive.
+3. **Pruning de eventos soft-deleted** (`syncBlobs`, cada ciclo): remueve eventos de media
+   soft-deleted sin blob data para que no sigan contaminando el OpLog ni generando
+   referencias rotas.
+
+### Cómo diagnosticar "Ratón" en producción
+
+Buscar en los logs de sync:
+
+```
+[Blob-DIAG] Fallback: ... File missing: <alto>
+[Blob-DIAG] Media upsert ops: <total>, with thumbnailChecksum: <bajo>, with path but no checksum: <alto>
+[Blob] To upload: <bajo>, To download: <alto>
+[Blob] Regenerated N thumbnails from source files
+[Blob] Pruned N events for M soft-deleted media records
+```
+
+Si `File missing` es consistentemente alto (cientos) y `toDownload` no se reduce entre
+ciclos, es que los checksums de esos archivos **nunca existieron en Drive** — el Ratón ya pasó.
+
+En ese escenario:
+- Si el source file existe en disco → la regeneración debería resolverlo en 1-2 ciclos
+- Si ni el source file existe → esos registros son huérfanos irrecuperables (solo queda limpiarlos)
+
+### Prevención
+
+- No formatear un PC sin antes verificar que todos los blobs están subidos a Drive
+- En el futuro: el OpLog con CRDT + blob checksums evita que esto se reproduzca porque
+  los checksums se computan y persisten en el evento desde el momento de creación
+  (no a posteriori)
+- Si se agrega un PC nuevo, hacer un pull completo + esperar a que los blobs se descarguen
+  antes de usar la biblioteca de medios
+
+---
+
+## 20. Estructura en Google Drive (actual)
+
+```
+/Ecclesia/
+├── ecclesia-oplog.bin
+│   └── Documento Automerge binario (único archivo por workspace)
+│       └── Contiene: schemaVersion, schemaHash, createdAt, ops[]
+│
+├── ecclesia-blob-{checksum}.bin
+│   └── Blobs binarios keyeados por checksum SHA-256 (prefijo "sha256-")
+│
+└── (legacy: ecclesia-snapshot-*, ecclesia-media-manifest-* — por eliminar)
+```
+
+**Nota:** A diferencia del diseño original, el nombre del OpLog no incluye `workspaceId`
+— es siempre `ecclesia-oplog.bin` ya que cada instancia de Ecclesia maneja un solo workspace.
+
+---
+
+## 21. Logging en producción
+
+El logger `oplog-logger.ts` escribe logs a **dos destinos simultáneamente**:
+
+1. Archivo: `%TEMP%/ecclesia-oplog-sync.log` (Windows) o `/tmp/ecclesia-oplog-sync.log` (macOS/Linux)
+2. `process.stderr` (visible en logs de Electron)
+
+Esto asegura que los logs **no sean eliminados por terser** (que usa `drop_console: true`
+y `pure_funcs: ['console.log', 'console.info']`).
+
+Funciones disponibles:
+- `oplogLogInfo(message, data?)` — info informativo
+- `oplogLogWarn(message, data?)` — advertencia
+- `oplogLogError(message, data?)` — error con stack trace
+
+Todos los archivos del módulo oplog usan este logger además de `electron-log` para máxima
+visibilidad en producción.
+
+Además, las líneas de log en el archivo comienzan con tags searchables:
+
+| Tag | Propósito |
+|-----|-----------|
+| `[Pull]` | Ciclo de pull (descarga + merge + replay) |
+| `[Push]` | Ciclo de push (upload con optimistic lock) |
+| `[Blob]` | Sync de blobs (fallback, regeneration, GC, pruning) |
+| `[SyncCycle]` | Ciclo completo de sync |
+| `[Scheduler]` | Scheduler (triggers, concurrencia) |
+| `[Replay]` | Replay Engine (apply events, FK retry) |
+| `[Migration]` | Bootstrap y migración desde sistema legacy |
+| `[Backfill]` | Backfill de checksums |
+| `[Drive]` | Operaciones de Drive API (download, upload, search) |
+| `[OplogBlobGC]` | Garbage collection de blobs en Drive |
+| `[OplogInit]` | Inicialización (init, load, bootstrap) |
+| `[OplogState]` | Operaciones de estado local (read/write/delete) |

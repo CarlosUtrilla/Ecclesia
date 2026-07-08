@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import Logger from 'electron-log'
 import { initializeUdpDiscovery, discoverLanDevices } from '@ecclesia/api/src/services/udp-discovery.service'
+import { getSocket } from '@ecclesia/api'
 
 let currentRemoteUrl: string | null = null
 let currentRemotePort: number | null = null
@@ -40,7 +41,7 @@ export function initializeRemoteManager() {
   })
 
   ipcMain.on('remote:invalidate-all-windows', () => {
-    broadcastToAllWindows('invalidate-queries', undefined)
+    getSocket().emit.queryKeysInvalidate({ keys: [] })
   })
 }
 

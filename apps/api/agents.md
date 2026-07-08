@@ -29,13 +29,11 @@ Frontend (React)
 
 ```text
 src/
-├── index.ts           # registerRoutes() y exposeRoutes() - setup IPC
+├── index.ts           # registerRoutes() y exposeRoutes() - setup HTTP + Socket.IO
 │                      # Re-exporta tipos/enums de Prisma (Media, ScheduleItem, etc.)
 │                      # Rutas HTTP adicionales:
 │                      #   GET  /api/remote/info   → info de instancia (hostname, version) para descubrimiento LAN
-│                      #   GET  /api/remote/events → SSE endpoint: broadcast de queryKeys a todos los renderers conectados
-│                      # broadcastToRemoteClients(event, data) empuja eventos SSE a todos los clientes conectados
-│                      # initializeHttpServer acepta onQueryKeys callback para broadcast local Electron
+│                      # initializeHttpServer emite queryKeysInvalidate via Socket.IO en vez de IPC
 │                      # Arranca sync-scheduler.service (pull check 2min + event-driven micro-push) y udp-discovery.service tras listen
 │                      # Nuevos endpoints HTTP:
 │                      #   GET  /api/remote/discover-lan → descubrimiento UDP LAN

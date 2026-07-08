@@ -58,8 +58,8 @@ app/screens/settings/
 - **Búsqueda LAN**: descubre dispositivos vía UDP broadcast mediante `window.remoteControlAPI.discoverLan()`.
 - **Lista de dispositivos**: muestra nombre + IP de cada instancia encontrada, con botón `Conectar` por fila.
 - **Conexión manual**: entrada de IP directa + botón `Conectar`.
-- Al conectar: llama `setApiConfiguration(queryClient, 'http://{ip}', 7777)` para redirigir todas las llamadas `Api.fetch.*` al host, y `switchSSEConnection('http://{ip}')` para recibir actualizaciones SSE del host.
-- Al desconectar: restaura API a localhost y reconecta SSE local.
+- Al conectar: llama `setApiConfiguration(queryClient, 'http://{ip}', 7777)` para redirigir todas las llamadas `Api.fetch.*` al host. Las actualizaciones viajan vía Socket.IO.
+- Al desconectar: restaura API a localhost.
 - No usa `forwardCall` ni canales IPC intermediarios — la conexión es directa del renderer al Express del host.
 - `remoteControlEnabled` y `remoteControlIP` se persisten en `localStorage` (no en DB).
 

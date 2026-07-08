@@ -1,11 +1,11 @@
 export type EntityType =
   | 'song'
   | 'tagSongs'
+  | 'biblePresentationSettings'
   | 'media'
   | 'font'
   | 'themes'
   | 'presentation'
-  | 'biblePresentationSettings'
   | 'setting'
   | 'schedule'
   | 'scheduleGroupTemplate'
@@ -16,11 +16,11 @@ export type EntityType =
 export const ENTITY_TYPE_TO_PRISMA_MODEL: Record<EntityType, string> = {
   song: 'Song',
   tagSongs: 'TagSongs',
+  biblePresentationSettings: 'BiblePresentationSettings',
   media: 'Media',
   font: 'Font',
   themes: 'Themes',
   presentation: 'Presentation',
-  biblePresentationSettings: 'BiblePresentationSettings',
   setting: 'Setting',
   schedule: 'Schedule',
   scheduleGroupTemplate: 'ScheduleGroupTemplate',
@@ -41,9 +41,13 @@ export interface OplogEvent {
   op: OplogOperation
   data?: Record<string, unknown>
   checksum?: string
+  thumbnailChecksum?: string
+  fallbackChecksum?: string
   blobSize?: number
   blobMimeType?: string
   blobPath?: string
+  thumbnailBlobPath?: string
+  fallbackBlobPath?: string
 }
 
 export interface OplogDocument {

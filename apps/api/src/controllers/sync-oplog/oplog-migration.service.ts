@@ -11,6 +11,7 @@ import path from 'path'
 import fs from 'fs-extra'
 import { randomUUID } from 'crypto'
 import log from 'electron-log'
+import { oplogLogInfo, oplogLogWarn } from './oplog-logger'
 
 export class OplogMigrationService {
 
@@ -21,17 +22,28 @@ export class OplogMigrationService {
     const ops: OplogEvent[] = []
     let seq = 0
 
+    oplogLogInfo(`[Migration] bootstrapOplog starting for deviceId=${deviceId}`)
+    oplogLogInfo(`[Migration] Total entity types to process: ${Object.keys(ENTITY_TYPE_TO_PRISMA_MODEL).length}`)
+
     for (const [entityType, modelName] of Object.entries(ENTITY_TYPE_TO_PRISMA_MODEL)) {
-      const delegate = (prisma as any)[modelName.charAt(0).toLowerCase() + modelName.slice(1)]
-      if (!delegate) continue
+      const delegateKey = modelName.charAt(0).toLowerCase() + modelName.slice(1)
+      const delegate = (prisma as any)[delegateKey]
+      
+      oplogLogInfo(`[Migration] Processing ${entityType} (${modelName}) via delegate '${delegateKey}': ${delegate ? 'found' : 'MISSING'}`)
+      
+      if (!delegate) {
+        oplogLogWarn(`[Migration] SKIP: delegate '${delegateKey}' not found on prisma client`)
+        continue
+      }
 
       const validFields = getPrismaModelFields(modelName)
       const scalarFields = [...validFields]
+      oplogLogInfo(`[Migration] ${entityType}: ${scalarFields.length} scalar fields: ${scalarFields.join(', ')}`)
 
       try {
-        const records = await delegate.findMany({
-          select: scalarFields.reduce((acc: any, f) => { acc[f] = true; return acc }, {}),
-        })
+        const selectObj = scalarFields.reduce((acc: any, f) => { acc[f] = true; return acc }, {})
+        const records = await delegate.findMany({ select: selectObj })
+        oplogLogInfo(`[Migration] ${entityType}: found ${records.length} records in DB`)
 
         for (const record of records) {
           const data = this.stripRelations(record)
@@ -55,6 +67,35 @@ export class OplogMigrationService {
               const fullPath = path.join(getMediaDir(), filePath)
               if (await fs.pathExists(fullPath)) {
                 event.checksum = await oplogBlobService.computeChecksum(fullPath)
+                oplogLogInfo(`[Migration] ${entityType}#${record.id}: checksum=${event.checksum}`)
+              } else {
+                oplogLogWarn(`[Migration] ${entityType}#${record.id}: file not found at ${fullPath}`)
+              }
+            }
+
+            if (entityType === 'media') {
+              const thumbnailPath = (record as any).thumbnail
+              if (thumbnailPath) {
+                event.thumbnailBlobPath = thumbnailPath
+                const fullThumbnailPath = path.join(getMediaDir(), thumbnailPath)
+                if (await fs.pathExists(fullThumbnailPath)) {
+                  event.thumbnailChecksum = await oplogBlobService.computeChecksum(fullThumbnailPath)
+                  oplogLogInfo(`[Migration] ${entityType}#${record.id}: thumbnailChecksum=${event.thumbnailChecksum}`)
+                } else {
+                  oplogLogWarn(`[Migration] ${entityType}#${record.id}: thumbnail not found at ${fullThumbnailPath}`)
+                }
+              }
+
+              const fallbackPath = (record as any).fallback
+              if (fallbackPath) {
+                event.fallbackBlobPath = fallbackPath
+                const fullFallbackPath = path.join(getMediaDir(), fallbackPath)
+                if (await fs.pathExists(fullFallbackPath)) {
+                  event.fallbackChecksum = await oplogBlobService.computeChecksum(fullFallbackPath)
+                  oplogLogInfo(`[Migration] ${entityType}#${record.id}: fallbackChecksum=${event.fallbackChecksum}`)
+                } else {
+                  oplogLogWarn(`[Migration] ${entityType}#${record.id}: fallback not found at ${fullFallbackPath}`)
+                }
               }
             }
           }
@@ -62,8 +103,18 @@ export class OplogMigrationService {
           ops.push(event)
         }
       } catch (err: any) {
+        oplogLogWarn(`[Migration] Error reading ${entityType} (${modelName}): ${err.message}`, { stack: err.stack })
         log.warn(`[OplogMigration] Error reading ${entityType}:`, err.message)
       }
+    }
+
+    const mediaEvents = ops.filter(o => o.entityType === 'media')
+    const mediaWithThumbnailChecksum = mediaEvents.filter(o => !!o.thumbnailChecksum)
+    const mediaWithThumbnailPath = mediaEvents.filter(o => o.thumbnailBlobPath)
+    oplogLogInfo(`[Migration] bootstrapOplog complete: ${ops.length} total events, seq=${seq}`)
+    oplogLogInfo(`[Migration-DIAG] Media events: ${mediaEvents.length}, with thumbnailChecksum: ${mediaWithThumbnailChecksum.length}, with thumbnailBlobPath: ${mediaWithThumbnailPath.length}`)
+    if (mediaWithThumbnailPath.length > mediaWithThumbnailChecksum.length) {
+      oplogLogWarn(`[Migration-DIAG] ${mediaWithThumbnailPath.length - mediaWithThumbnailChecksum.length} media records have thumbnailBlobPath but no thumbnailChecksum (file missing?)`)
     }
 
     const doc = from<OplogDocument>({
@@ -118,17 +169,23 @@ export class OplogMigrationService {
   }
 
   async performFullMigration(deviceId: string): Promise<'local' | 'remote'> {
+    oplogLogInfo(`[Migration] performFullMigration starting for deviceId=${deviceId}`)
+    
     const alreadyHasOplog = await this.isOplogAlreadyPresent()
+    oplogLogInfo(`[Migration] isOplogAlreadyPresent: ${alreadyHasOplog}`)
     if (alreadyHasOplog) {
+      oplogLogInfo('[Migration] OpLog already exists locally, skipping bootstrap')
       log.info('[OplogMigration] OpLog already exists locally, skipping bootstrap')
       return 'local'
     }
 
     if (await oplogDriveService.isAvailable()) {
+      oplogLogInfo('[Migration] Drive is available, checking for remote OpLog...')
       const remote = await oplogDriveService.downloadOplog().catch(() => null)
       if (remote) {
         const remoteDoc = load<OplogDocument>(remote.data)
         const opsCount = remoteDoc.ops?.length ?? 0
+        oplogLogInfo(`[Migration] Remote OpLog found with ${opsCount} ops`)
         if (opsCount > 0) {
           log.info('[OplogMigration] OpLog remoto encontrado — descargando en vez de bootstrappear')
           await oplogStateService.writeOplogBinary(remote.data)
@@ -142,15 +199,22 @@ export class OplogMigrationService {
           return 'remote'
         }
         log.info('[OplogMigration] OpLog remoto vacío — bootstrapping desde DB local')
+      } else {
+        oplogLogInfo('[Migration] No remote OpLog found')
       }
+    } else {
+      oplogLogInfo('[Migration] Drive not available, will bootstrap from local DB')
     }
 
+    oplogLogInfo('[Migration] Bootstrapping OpLog from current DB state...')
     log.info('[OplogMigration] Bootstrapping OpLog from current DB state...')
     const doc = await this.bootstrapOplog(deviceId)
     const opsCount = (doc.ops ?? []).length
+    oplogLogInfo(`[Migration] Bootstrap produced ${opsCount} ops`)
 
     const binary = save(doc)
     await oplogStateService.writeOplogBinary(binary)
+    oplogLogInfo(`[Migration] OpLog binary written: ${binary.length} bytes`)
 
     await oplogStateService.writeReplayState({
       lastAppliedIndex: opsCount - 1,
@@ -160,10 +224,22 @@ export class OplogMigrationService {
     })
 
     try {
-      log.info('[OplogMigration] Uploading initial OpLog to Drive...')
-      await oplogDriveService.uploadOplog(binary)
+      log.info('[OplogMigration] Preparing to upload initial OpLog to Drive...')
+      // Recheck drive and remote to avoid overwriting a remote OpLog that
+      // may have appeared while we were bootstrapping (race on first-run).
+      if (await oplogDriveService.isAvailable()) {
+        const existingRemote = await oplogDriveService.downloadOplog().catch(() => null)
+        if (existingRemote && (existingRemote.data?.length ?? 0) > 0) {
+          log.info('[OplogMigration] Remote OpLog detected after bootstrap — skipping upload to avoid overwrite')
+        } else {
+          log.info('[OplogMigration] No remote OpLog present — uploading initial OpLog to Drive')
+          await oplogDriveService.uploadOplog(binary)
+        }
+      } else {
+        log.info('[OplogMigration] Drive not available at upload time — skipping upload')
+      }
     } catch (err: any) {
-      log.warn('[OplogMigration] Upload to Drive skipped (Drive not configured yet):', err.message)
+      log.warn('[OplogMigration] Upload to Drive failed:', err?.message ?? err)
     }
 
     try {

@@ -28,6 +28,17 @@ import { initializeDisplayManager } from './displayManager'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
 import { initializeBibleSearchManager } from './bibleSearchManager'
 import { initializeRemoteManager } from './remoteManager'
+
+declare const __GOOGLE_CLIENT_ID__: string
+declare const __GOOGLE_CLIENT_SECRET__: string
+
+// Inyectar credenciales de build-time en process.env para que la API las encuentre
+if (typeof __GOOGLE_CLIENT_ID__ !== 'undefined' && __GOOGLE_CLIENT_ID__) {
+  process.env.GOOGLE_DRIVE_CLIENT_ID = __GOOGLE_CLIENT_ID__
+}
+if (typeof __GOOGLE_CLIENT_SECRET__ !== 'undefined' && __GOOGLE_CLIENT_SECRET__) {
+  process.env.GOOGLE_DRIVE_CLIENT_SECRET = __GOOGLE_CLIENT_SECRET__
+}
 import { showOAuthWindow } from './sync/sync-init'
 
 let isQuittingAfterStageTimersCleanup = false
@@ -150,13 +161,7 @@ app.whenReady().then(async () => {
     resourcesPath: process.resourcesPath || path.join(app.getAppPath(), '..'),
     cwd: process.cwd()
   }
-  await initializeHttpServer(config, undefined, (keys) => {
-    BrowserWindow.getAllWindows().forEach((win) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('invalidate-queries', keys)
-      }
-    })
-  })
+  await initializeHttpServer(config, undefined)
 
   crashLog()
   // Set app user model id for windows

@@ -69,8 +69,9 @@ export class OplogBlobService {
               return
             }
             log.info(`[OplogBlob] Descargando ${op.checksum} → ${op.path}`)
-            await this.downloadBlob(drive, remoteFileId, path.join(mediaRoot, op.path))
+            await this.downloadBlobWithTimeout(drive, remoteFileId, path.join(mediaRoot, op.path), 300_000)
             await this.addToManifest(op.checksum, op.path)
+            log.info(`[OplogBlob] Descarga completada: ${op.checksum} → ${op.path}`)
             result.downloaded++
             return
           }
@@ -111,7 +112,14 @@ export class OplogBlobService {
       }
     }
 
-    await Promise.allSettled(ops.map(runOp))
+    const CONCURRENCY = 5
+    const chunks: BlobOperation[][] = []
+    for (let i = 0; i < ops.length; i += CONCURRENCY) {
+      chunks.push(ops.slice(i, i + CONCURRENCY))
+    }
+    for (const chunk of chunks) {
+      await Promise.allSettled(chunk.map(runOp))
+    }
 
     await this.saveManifest()
     const uploadedCount = result.uploaded - uploadSkipped
@@ -150,6 +158,26 @@ export class OplogBlobService {
     await fs.writeFile(destPath, Buffer.from(resp.data as ArrayBuffer))
   }
 
+  private async downloadBlobWithTimeout(
+    drive: drive_v3.Drive,
+    fileId: string,
+    destPath: string,
+    timeoutMs: number,
+  ): Promise<void> {
+    let timer: NodeJS.Timeout | undefined
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Timeout ${timeoutMs}ms descargando ${destPath}`)), timeoutMs)
+    })
+    try {
+      await Promise.race([
+        this.downloadBlob(drive, fileId, destPath),
+        timeoutPromise,
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
   private async uploadBlob(drive: drive_v3.Drive, folderId: string, remoteName: string, localPath: string): Promise<void> {
     const fileBuffer = await fs.readFile(localPath)
     await drive.files.create({
@@ -160,7 +188,16 @@ export class OplogBlobService {
   }
 
   private async blobExistsLocally(checksum: string, manifest: MediaManifest): Promise<boolean> {
-    return manifest.entries.some(e => e.checksum === checksum)
+    const entry = manifest.entries.find(e => e.checksum === checksum)
+    if (!entry) return false
+
+    const filePath = path.join(getMediaDir(), entry.path)
+    const exists = await fs.pathExists(filePath)
+    if (!exists) {
+      manifest.entries = manifest.entries.filter(e => e.checksum !== checksum)
+      await fs.writeJson(getLocalMediaManifestPath(), manifest, { spaces: 2 })
+    }
+    return exists
   }
 
   private async readLocalManifest(): Promise<MediaManifest> {
@@ -221,6 +258,8 @@ export class OplogBlobService {
     const drive = await driveClientService.getDriveClientFromTokensOnly()
     const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
     let deleted = 0
+    let scanned = 0
+    let pageNum = 0
 
     let pageToken: string | undefined
     do {
@@ -232,6 +271,11 @@ export class OplogBlobService {
         pageToken,
       })
 
+      pageNum++
+      const filesOnPage = res.data.files?.length ?? 0
+      scanned += filesOnPage
+      log.info(`[OplogBlobGC] Página ${pageNum}: ${filesOnPage} blobs escaneados (total: ${scanned})`)
+
       for (const file of res.data.files ?? []) {
         const checksum = this.checksumFromBlobName(file.name ?? '')
         if (checksum && !activeChecksums.has(checksum)) {
@@ -239,6 +283,7 @@ export class OplogBlobService {
           if (ageDays >= 7) {
             await drive.files.delete({ fileId: file.id! })
             deleted++
+            log.info(`[OplogBlobGC] Eliminado blob huérfano antiguo: ${file.name}`)
           }
         }
       }
@@ -246,6 +291,7 @@ export class OplogBlobService {
       pageToken = res.data.nextPageToken ?? undefined
     } while (pageToken)
 
+    log.info(`[OplogBlobGC] Completado: ${scanned} blobs escaneados, ${deleted} eliminados`)
     return deleted
   }
 

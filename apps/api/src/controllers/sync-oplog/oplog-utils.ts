@@ -17,7 +17,7 @@ export function getPrismaModelFields(modelName: string): Set<string> {
     if (model?.fields) {
       const fields = new Set<string>(
         model.fields
-          .filter((f: any) => !f.relationName && f.kind === 'scalar')
+          .filter((f: any) => !f.relationName && (f.kind === 'scalar' || f.kind === 'enum'))
           .map((f: any) => f.name)
       )
       fieldCache.set(modelName, fields)

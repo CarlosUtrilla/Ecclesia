@@ -6,8 +6,7 @@ import App from './App'
 import { HashRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { initializeApi } from '@ecclesia/queries'
-import { initSSE } from './lib/sseEvents'
+import { Api, initializeApi } from '@ecclesia/queries'
 
 const COLOR_THEME_KEY = 'ecclesia-color-theme'
 type ThemeMode = 'light' | 'dark' | 'system'
@@ -48,14 +47,6 @@ mediaQuery.addEventListener('change', () => {
 
 export const queryClient = new QueryClient()
 
-// Cuando el sync pull aplica filas nuevas, invalidar queries relevantes
-window.electron.ipcRenderer.on('invalidate-queries', (_event: unknown, keys?: string[][]) => {
-  if (keys && keys.length > 0) {
-    keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))
-  } else {
-    queryClient.invalidateQueries()
-  }
-})
 // Pre-carga el chunk de la ruta activa antes de renderizar React.
 // Como Electron sirve desde el ASAR local, los imports resuelven en ~0ms y
 // el módulo queda en caché. Cuando React.lazy() lo pide, ya está listo y
@@ -90,7 +81,15 @@ async function preloadCurrentRoute(): Promise<void> {
 // - Suspense muestra el Spinner inmediatamente en vez de ventana oscura vacía
 // - React.lazy() comparte la misma Promise del import() → resuelve en cuanto el chunk está listo
 initializeApi(queryClient).then(() => {
-  initSSE(queryClient)
+  // Invalidar queries via Socket.IO (post-mutación + OpLog sync)
+  Api.socket.listen.queryKeysInvalidate(({ keys }) => {
+    if (keys && keys.length > 0) {
+      keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))
+    } else {
+      queryClient.invalidateQueries()
+    }
+  })
+
   preloadCurrentRoute()
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

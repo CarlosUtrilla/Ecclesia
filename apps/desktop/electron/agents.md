@@ -249,7 +249,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - Manager dedicado para descubrimiento LAN de otras instancias de Ecclesia.
 - Delega en `@ecclesia/api/src/services/udp-discovery.service.ts` para toda la lógica UDP (listener + scanner).
 - El cliente se conecta al host vía `setApiConfiguration(queryClient, 'http://{ip}', 7777)` (desde el renderer) — todas las llamadas `Api.fetch.*` van directo al host.
-- Las actualizaciones fluyen vía SSE: el host emite `query-keys-invalidate` a todos los clientes conectados.
+- Las actualizaciones fluyen vía Socket.IO: el host emite `queryKeysInvalidate` a todos los clientes conectados.
 - Canal IPC:
   - `remote:discover-lan` → Invoke, devuelve `LanDevice[]` (`{ ip: string, name: string }`)
 - Endpoint HTTP alternativo: `GET /api/remote/discover-lan` (para frontend remoto).
@@ -304,7 +304,7 @@ Wrapper fino que delega toda la lógica de inicialización a `@ecclesia/api`:
 
 ## Eventos entre ventanas
 
-Las ventanas ya no se comunican por IPC directo. La invalidación de queries cross-window se maneja via SSE (`/api/remote/events`) desde el servidor Express. Los eventos de pantalla (live/stage updates) se transmiten via `webContents.send` desde displayManager.
+La comunicación API ↔ frontend es vía HTTP + Socket.IO. La invalidación de queries post-mutación se maneja via Socket.IO (`queryKeysInvalidate`), emitida desde el callback de `registerRoutes` en `apps/api/src/index.ts`. Los eventos de pantalla (live/stage updates) se transmiten via `webContents.send` desde displayManager.
 
 ## APIs expuestas al renderer (preload)
 

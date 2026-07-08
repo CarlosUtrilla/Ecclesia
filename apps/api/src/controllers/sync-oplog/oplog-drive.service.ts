@@ -4,6 +4,7 @@ import { REMOTE_OPLOG_FILE_NAME } from './oplog.config'
 import { getTokenFilePath } from '../sync/sync.config'
 import fs from 'fs-extra'
 import { Readable } from 'stream'
+import { oplogLogInfo, oplogLogWarn, oplogLogError } from './oplog-logger'
 
 export class OplogConcurrencyError extends Error {
   constructor(public remoteGeneration: number) {
@@ -18,8 +19,12 @@ export class OplogDriveService {
 
   async isAvailable(): Promise<boolean> {
     try {
-      return await fs.pathExists(getTokenFilePath())
-    } catch {
+      const tokenPath = getTokenFilePath()
+      const exists = await fs.pathExists(tokenPath)
+      oplogLogInfo(`[Drive] isAvailable: tokenPath=${tokenPath}, exists=${exists}`)
+      return exists
+    } catch (e: any) {
+      oplogLogWarn(`[Drive] isAvailable error: ${e.message}`)
       return false
     }
   }
@@ -70,30 +75,45 @@ export class OplogDriveService {
   }
 
   async downloadOplog(): Promise<{ data: Uint8Array; fileId: string; generation: number } | null> {
-    const drive = await this.getDrive()
-    const folderId = await this.getFolderId()
+    oplogLogInfo('[Drive] downloadOplog: starting...')
+    try {
+      const drive = await this.getDrive()
+      oplogLogInfo('[Drive] downloadOplog: got drive client')
+      const folderId = await this.getFolderId()
+      oplogLogInfo(`[Drive] downloadOplog: folderId=${folderId}`)
 
-    const search = await drive.files.list({
-      q: `name='${REMOTE_OPLOG_FILE_NAME}' and '${folderId}' in parents and trashed=false`,
-      spaces: 'drive',
-      fields: 'files(id, headRevisionId)',
-      pageSize: 1,
-    })
+      const search = await drive.files.list({
+        q: `name='${REMOTE_OPLOG_FILE_NAME}' and '${folderId}' in parents and trashed=false`,
+        spaces: 'drive',
+        fields: 'files(id, headRevisionId)',
+        pageSize: 1,
+      })
+      oplogLogInfo(`[Drive] downloadOplog: search found ${search.data.files?.length ?? 0} files`)
 
-    const file = search.data.files?.[0]
-    if (!file?.id) return null
+      const file = search.data.files?.[0]
+      if (!file?.id) {
+        oplogLogInfo('[Drive] downloadOplog: no file found')
+        return null
+      }
+      oplogLogInfo(`[Drive] downloadOplog: file found, id=${file.id}`)
 
-    const gen = await this.getFileGeneration(file.id)
+      const gen = await this.getFileGeneration(file.id)
+      oplogLogInfo(`[Drive] downloadOplog: generation=${gen}`)
 
-    const resp = await drive.files.get(
-      { fileId: file.id, alt: 'media' },
-      { responseType: 'arraybuffer' }
-    )
+      const resp = await drive.files.get(
+        { fileId: file.id, alt: 'media' },
+        { responseType: 'arraybuffer' }
+      )
+      oplogLogInfo(`[Drive] downloadOplog: downloaded ${((resp.data as ArrayBuffer)?.byteLength ?? 0)} bytes`)
 
-    return {
-      data: new Uint8Array(resp.data as ArrayBuffer),
-      fileId: file.id,
-      generation: gen,
+      return {
+        data: new Uint8Array(resp.data as ArrayBuffer),
+        fileId: file.id,
+        generation: gen,
+      }
+    } catch (err: any) {
+      oplogLogError(`[Drive] downloadOplog error: ${err.message}`, { code: err.code, status: err.status })
+      throw err
     }
   }
 
@@ -101,13 +121,16 @@ export class OplogDriveService {
     data: Uint8Array,
     ifGenerationMatch?: number
   ): Promise<{ fileId: string; generation: number }> {
+    oplogLogInfo(`[Drive] uploadOplog: starting, dataLen=${data.length}, ifGenerationMatch=${ifGenerationMatch}`)
     const drive = await this.getDrive()
     const folderId = await this.getFolderId()
 
     const existing = await this.findOplogFile()
+    oplogLogInfo(`[Drive] uploadOplog: existing=${existing ? JSON.stringify(existing) : 'null'}`)
 
     if (existing?.id) {
       const gen = ifGenerationMatch ?? (await this.getFileGeneration(existing.id))
+      oplogLogInfo(`[Drive] uploadOplog: updating existing, gen=${gen}`)
 
       try {
         const res = await drive.files.update({
@@ -124,15 +147,19 @@ export class OplogDriveService {
         const newGen = parseInt((res.data.headRevisionId ?? '').replace(/\D/g, ''), 10) || 0
         this.oplogFileId = res.data.id!
         this.oplogFileGeneration = newGen
+        oplogLogInfo(`[Drive] uploadOplog: updated, newGen=${newGen}`)
         return { fileId: res.data.id!, generation: newGen }
       } catch (err: any) {
         if (err?.code === 412 || err?.status === 412) {
+          oplogLogWarn(`[Drive] uploadOplog: concurrency error (412), currentGen=${await this.getFileGeneration(existing.id)}`)
           const currentGen = await this.getFileGeneration(existing.id)
           throw new OplogConcurrencyError(currentGen)
         }
+        oplogLogError(`[Drive] uploadOplog: update error: ${err.message}`, { code: err.code, status: err.status })
         throw err
       }
     } else {
+      oplogLogInfo('[Drive] uploadOplog: creating new file')
       const res = await drive.files.create({
         requestBody: {
           name: REMOTE_OPLOG_FILE_NAME,
@@ -148,6 +175,7 @@ export class OplogDriveService {
       const newGen = parseInt((res.data.headRevisionId ?? '').replace(/\D/g, ''), 10) || 0
       this.oplogFileId = res.data.id!
       this.oplogFileGeneration = newGen
+      oplogLogInfo(`[Drive] uploadOplog: created, fileId=${res.data.id!}, gen=${newGen}`)
       return { fileId: res.data.id!, generation: newGen }
     }
   }

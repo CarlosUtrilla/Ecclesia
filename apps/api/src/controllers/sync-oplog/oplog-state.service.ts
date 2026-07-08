@@ -4,6 +4,7 @@ import { load, save, type Doc } from '@automerge/automerge'
 import { getSyncDir } from '../sync/sync.config'
 import { writeJson, readJsonSafe } from '../sync/sync.utils'
 import type { OplogDocument, ReplayState, OplogConfig } from './oplog.types'
+import { oplogLogInfo, oplogLogWarn } from './oplog-logger'
 
 const OPLOG_FILE_NAME = 'oplog.bin'
 const REPLAY_STATE_FILE_NAME = 'oplog-replay-state.json'
@@ -28,40 +29,59 @@ export class OplogStateService {
 
   async readOplogBinary(): Promise<Uint8Array | null> {
     try {
-      const buf = await fs.readFile(oplogFilePath())
+      const filePath = oplogFilePath()
+      const buf = await fs.readFile(filePath)
+      oplogLogInfo(`[OplogState] readOplogBinary: ${buf.length} bytes from ${filePath}`)
       return new Uint8Array(buf)
-    } catch {
+    } catch (e: any) {
+      oplogLogInfo(`[OplogState] readOplogBinary: file not found (${e.message})`)
       return null
     }
   }
 
   async writeOplogBinary(data: Uint8Array): Promise<void> {
     await this.ensureSyncDir()
-    await fs.writeFile(oplogFilePath(), Buffer.from(data))
+    const filePath = oplogFilePath()
+    await fs.writeFile(filePath, Buffer.from(data))
+    oplogLogInfo(`[OplogState] writeOplogBinary: ${data.length} bytes to ${filePath}`)
   }
 
   async deleteOplogBinary(): Promise<void> {
     try {
-      await fs.remove(oplogFilePath())
-    } catch { /* ignore */ }
+      const filePath = oplogFilePath()
+      await fs.remove(filePath)
+      oplogLogInfo(`[OplogState] deleteOplogBinary: removed ${filePath}`)
+    } catch (e: any) {
+      oplogLogInfo(`[OplogState] deleteOplogBinary: ${e.message}`)
+    }
   }
 
   async readReplayState(): Promise<ReplayState | null> {
-    return readJsonSafe<ReplayState>(replayStateFilePath())
+    const filePath = replayStateFilePath()
+    const result = await readJsonSafe<ReplayState>(filePath)
+    oplogLogInfo(`[OplogState] readReplayState: ${result ? JSON.stringify(result) : 'null'} from ${filePath}`)
+    return result
   }
 
   async writeReplayState(state: ReplayState): Promise<void> {
     await this.ensureSyncDir()
-    await writeJson(replayStateFilePath(), state)
+    const filePath = replayStateFilePath()
+    await writeJson(filePath, state)
+    oplogLogInfo(`[OplogState] writeReplayState: to ${filePath}`)
   }
 
   async readConfig(): Promise<OplogConfig | null> {
-    return readJsonSafe<OplogConfig>(configFilePath())
+    const filePath = configFilePath()
+    const result = await readJsonSafe<OplogConfig>(filePath)
+    oplogLogInfo(`[OplogState] readConfig: ${result ? JSON.stringify(result) : 'null'} from ${filePath}`)
+    return result
   }
 
   async writeConfig(config: OplogConfig): Promise<void> {
     await this.ensureSyncDir()
-    await writeJson(configFilePath(), config)
+    const filePath = configFilePath()
+    await writeJson(filePath, config)
+    oplogLogInfo(`[OplogState] writeConfig: to ${filePath}`)
   }
 }
 

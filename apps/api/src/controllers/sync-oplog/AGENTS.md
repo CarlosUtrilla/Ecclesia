@@ -18,12 +18,28 @@ Ver diseño completo en: `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`
 | `oplog-state.service.ts` | Persistencia local del OpLog binario + replay state |
 | `oplog-drive.service.ts` | Operaciones Drive con ifGenerationMatch (optimistic lock) |
 | `oplog-utils.ts` | Utilidades: DMMF field filtering, computeSchemaHash |
-| `oplog-replay.service.ts` | Replay Engine: aplica eventos a Prisma + filesystem |
-| `oplog-blob.service.ts` | Blob sync: download/upload/delete/move + GC |
+| `oplog-replay.service.ts` | Replay Engine: aplica eventos a Prisma + filesystem; también genera blob deletes para media thumbnails/fallback cuando el último registro asociado se elimina |
+| `oplog-blob.service.ts` | Blob sync: download/upload/delete/move + GC. Validates local blob existence by filesystem path and prunes stale manifest entries when files are missing. |
 | `oplog-compaction.service.ts` | Compactación: squash de eventos a snapshot |
 | `oplog-migration.service.ts` | Bootstrap: migración desde DB actual al OpLog |
 | `oplog.service.ts` | Orquestación: pull/push/syncCycle con Automerge merge |
 | `oplog.controller.ts` | Endpoints Express para el nuevo sync |
+| `oplog-logger.ts` | Logger dedicado que escribe a archivo + stderr (no eliminado por terser) |
+
+## Logging en producción
+
+El logger `oplog-logger.ts` escribe logs a **dos destinos simultáneamente**:
+1. Archivo: `%TEMP%/ecclesia-oplog-sync.log` (Windows) o `/tmp/ecclesia-oplog-sync.log` (macOS/Linux)
+2. `process.stderr` (visible en logs de Electron)
+
+Esto asegura que los logs **no sean eliminados por terser** (que usa `drop_console: true` y `pure_funcs: ['console.log', 'console.info']`).
+
+Funciones disponibles:
+- `oplogLogInfo(message, data?)` — info informativo
+- `oplogLogWarn(message, data?)` — advertencia
+- `oplogLogError(message, data?)` — error con stack trace
+
+Todos los archivos del módulo oplog usan este logger además de `electron-log` para máxima visibilidad en producción.
 
 ## Archivos externos relacionados
 
@@ -48,6 +64,177 @@ Ver diseño completo en: `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`
 - Lee config desde `oplogStateService` o desde sync legacy
 - Notifica progreso via Socket.IO `syncProgress`
 - Ignora ciclos si ya hay uno en curso (`isSyncing` flag)
+
+## Bug: `i is not defined` en backfillChecksums()
+
+La función `tryFillChecksum()` usaba `updates.get(i)` donde `i` era capturada por closure desde el
+`for (let i = 0; ...)` loop. Terser (minificador) rompía la closure causando `ReferenceError: i is not defined`.
+
+**Fix:** Se agregó `opIndex` como primer parámetro de `tryFillChecksum()` en lugar de confiar en la closure,
+y se eliminó la función helper `resolvePath()` (inline `dataPath || blobPath`).
+
+## Fallback backfill checksums (syncBlobs)
+
+El fallback loop en `syncBlobs()` computa checksums para thumbnails/fallbacks/main files que no tienen
+`thumbnailChecksum` en el evento. Originalmente subía los blobs a Drive pero **NUNCA persistía el checksum
+de vuelta en el evento de Automerge**, causando que PC2 recibiera eventos sin `thumbnailChecksum` y no
+generara download blob ops para thumbnails.
+
+**Fix (oplog.service.ts):**
+1. `enqueueFallback()` ahora acepta `idx` del evento y acumula los checksums computados en un Map
+   `fallbackUpdates` keyeado por índice del evento.
+2. Después del loop, se aplica `change(this.localDoc, 'fallback-backfill', ...)` que escribe los
+   checksums en los eventos del doc de Automerge, seguido de `persistLocal()`.
+3. `backfillChecksums()` ahora corre al final de `init()` para cubrir los paths de Drive download
+   y bootstrap (antes solo corría en el path de "loaded from local file").
+4. Tanto `thumbnailChecksum` como `thumbnailBlobPath` se persisten juntos (y análogamente para
+   `checksum`/`blobPath` y `fallbackChecksum`/`fallbackBlobPath`).
+
+Esto asegura que el próximo `push()` incluya los checksums en los eventos, y PC2 pueda generar
+download blob ops para thumbnails via `applyEvents()`.
+
+### Diagnóstico fallback (session actual)
+
+Se agregaron contadores detallados en `syncBlobs()` dentro del fallback:
+- `fbChecksumCount`: ops main file sin checksum
+- `fbThumbnailChecksumCount`: media ops sin thumbnailChecksum pero con `data.thumbnail`
+- `fbFallbackChecksumCount`: media ops sin fallbackChecksum pero con `data.fallback`
+- `fbCacheHitCount`: hits en `checksumCache` que generaron upload
+- `fbFileFoundCount`: archivos encontrados en disco que generaron checksum
+- `fbFileMissingCount`: archivos NO encontrados en disco
+- `fbAlreadySeenCount`: checksum ya visto (no se añade a `fallbackUpdates` / `toUpload`)
+
+La línea de diagnóstico: `[Blob-DIAG] Fallback: ...` aparece en el log justo antes de la decisión
+de persistir `fallbackUpdates`.
+
+## Thumbnail regeneration (syncBlobs)
+
+Cuando un evento media upsert no tiene `thumbnailChecksum`, ni `data.thumbnail`, ni `thumbnailBlobPath`
+pero el source file (via `data.filePath` / `blobPath`) existe en disco, `syncBlobs()` regenera el
+thumbnail usando `generateImageThumbnail()` / `generateVideoThumbnail()` desde `mediaThumbnails.ts`.
+
+**Flujo:**
+1. Corre **cada ciclo** (no solo el fallback inicial) porque source files pueden llegar en ciclos posteriores
+2. Usa `buildThumbnailFileName()` con `randomBytes(8).toString('hex')` para evitar colisiones de nombre
+3. Calcula checksum del thumbnail generado, lo agrega a `toUpload` y persiste `thumbnailChecksum` +
+   `thumbnailBlobPath` + `data.thumbnail` en el evento via `change()`
+4. Determina imagen vs video por extensión del `filePath` (misma lógica que `SUPPORTED_IMAGE_FORMATS`)
+
+**Logging:** `[Blob] Regenerated N thumbnails from source files`
+
+## Pruning de eventos soft-deleted (syncBlobs)
+
+Después de GC, se podan eventos del OpLog para media soft-deleted sin blob data asociado.
+
+**Criterio de poda:**
+- `op.op === 'upsert'` AND `op.entityType === 'media'`
+- `data.deletedAt` es truthy (registro soft-deleted)
+- Ningún campo blob tiene valor: `checksum`, `blobPath`, `thumbnailChecksum`, `thumbnailBlobPath`,
+  `fallbackChecksum`, `fallbackBlobPath`
+
+Se recopilan todos los `entityId` que cumplen el criterio y se eliminan **todos** los eventos de esas
+entidades (porque si el registro fue soft-deleted sin blob data, ningún evento de ese entity es útil).
+Los blobs de eventos pruned que sí tenían checksum quedan en `activeChecksums` de este ciclo (recopilados
+antes del pruning) y serán GC'd en el próximo ciclo.
+
+**Logging:** `[Blob] Pruned N events for M soft-deleted media records`
+
+## Diagnóstico inicial de thumbnails faltantes (histórico)
+
+En el primer arranque del OpLog en PC1 (Julio 2026):
+- 125 thumbnails existen en disco (cache checksums encontrados por fallback)
+- 139 soft-deleted + 40 registros activos no tienen thumbnail en disco
+- `fbFileMissing=601` total (incluye thumbnails, fallbacks, y main files)
+- `backfillChecksums()` encontró 42 thumbnails en init() que sí existían en disco → checksums subidos
+  a Drive → PC2 los descargó en el próximo ciclo de 5min
+
+Causa raíz: el sync legacy copiaba solo registros DB, no archivos de medios. PC1 nunca tuvo los
+archivos de thumbnail para ~179 registros porque vinieron del snapshot sincronizado sin files.
+
+## Caso "Ratón" — referencia futura
+
+> **Alias:** `raton` — porque un ratón se come los archivos silenciosamente, deja las referencias rotas y
+> la sync se pierde sin que se sepa bien qué pasó ni dónde quedaron las cosas.
+
+### Síntomas
+- En `[Blob-DIAG] Fallback: ...` se ve `File missing` alto (cientos) vs `File found` bajo
+- Thumbnails que no aparecen en PC2 aunque PC1 los tenga en DB
+- `toDownload` crece pero los downloads nunca completan (el checksum no existe en Drive)
+- Con el tiempo, la sync empieza a "perderse": entradas fantasma, referencias a archivos que no están
+- Al abrir la biblioteca de medios, faltan thumbnails o aparecen placeholders
+
+### Causa raíz documentada (Julio 2026)
+
+El **sync legacy** (sistema anterior basado en snapshots JSON + last-write-wins) copiaba solo registros
+de base de datos entre PCs — **no copiaba los archivos de medios** (thumbnails, fallbacks, ni siquiera
+los main files si no estaban cacheados). Cuando un PC se formateaba o se unía uno nuevo al sync:
+
+1. El snapshot traía los registros DB completos (`Media`, `Song`, etc.) con paths de archivos
+2. Pero los archivos físicos (`media/thumbnails/*.jpg`, `media/files/*.mp4`, etc.) nunca se transferían
+3. El nuevo PC quedaba con DB llena de referencias a archivos que **nunca existieron en disco**
+4. El OpLog (nuevo sistema) heredó esos eventos con `data.thumbnail` / `data.filePath` poblados desde DB,
+   pero sin archivos reales — y sin `thumbnailChecksum` porque nunca se computó
+5. El ciclo se auto-alimenta: PC1 reporta eventos sin checksum → PC2 los descarga → replica el mismo
+   estado huérfano → los checksums nunca aparecen en Drive → nadie puede descargar nada
+
+### Lo que el Ratón se come
+
+| ¿Qué falta? | ¿Por qué? | ¿Cuántos? |
+|---|---|---|
+| Thumbnails de registros activos | Vinieron del snapshot legacy sin archivos | ~40 |
+| Thumbnails de registros soft-deleted | Idem + el registro ya no existe | ~139 |
+| Fallbacks de registros activos | Idem | variable |
+| Main files (raro) | Si el PC original los borró | variable |
+
+### Mitigaciones implementadas
+
+1. **Fallback backfill checksums** (`syncBlobs`, primer ciclo): computa checksums de archivos que SÍ
+   existen en disco y los persiste en el evento via `change()`. Esto permite que PC2 los descargue.
+2. **Thumbnail regeneration** (`syncBlobs`, cada ciclo): cuando el source file (`data.filePath`) existe
+   en disco pero el thumbnail no, regenera el thumbnail desde el archivo fuente y sube el checksum a Drive.
+3. **Pruning de eventos soft-deleted** (`syncBlobs`, cada ciclo): remueve eventos de media soft-deleted
+   sin blob data para que no sigan contaminando el OpLog ni generando referencias rotas.
+
+### Cómo diagnosticar "Ratón" en producción
+
+Buscar en los logs de sync:
+
+```
+[Blob-DIAG] Fallback: ... File missing: <alto>
+[Blob-DIAG] Media upsert ops: <total>, with thumbnailChecksum: <bajo>, with path but no checksum: <alto>
+[Blob] To upload: <bajo>, To download: <alto>
+[Blob] Regenerated N thumbnails from source files
+[Blob] Pruned N events for M soft-deleted media records
+```
+
+Si `File missing` es consistentemente alto (cientos) y `toDownload` no se reduce entre ciclos,
+es que los checksums de esos archivos **nunca existieron en Drive** — el Ratón ya pasó.
+
+En ese escenario:
+- Si el source file existe en disco → la regeneración debería resolverlo en 1-2 ciclos
+- Si ni el source file existe → esos registros son huérfanos irrecuperables (solo queda limpiarlos)
+
+### Prevención
+
+- No formatear un PC sin antes verificar que todos los blobs están subidos a Drive
+- En el futuro: el OpLog con CRDT + blob checksums evita que esto se reproduzca porque los checksums
+  se computan y persisten en el evento desde el momento de creación (no a posteriori)
+- Si se agrega un PC nuevo, hacer un pull completo + esperar a que los blobs se descarguen antes de
+  usar la biblioteca de medios
+
+## SyncCycle reentrancy guard
+
+`oplogService.syncCycle()` tiene un flag `private syncing = false` que previene
+ciclos concurrentes desde cualquier origen (scheduler, controller HTTP, o llamada directa).
+
+Si un ciclo ya está en curso (`syncing === true`), la segunda llamada retorna
+inmediatamente con resultado vacío. Esto protege contra:
+
+- Scheduler + controller ejecutando a la vez
+- Dos HTTP requests simultáneos a `POST /api/sync-oplog/syncCycle`
+- Race en startup cuando el scheduler arranca mientras el controller inicia
+
+El flag se libera en el `finally` del try/catch del ciclo.
 
 ## Dependencias
 

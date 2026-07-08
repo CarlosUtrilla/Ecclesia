@@ -18,23 +18,12 @@ import {
 import { setUserDataPath } from './config'
 import { routes } from './routes'
 import Logger from 'electron-log'
-import { setSocketIO } from './sockets/socket.service'
+import { setSocketIO, getSocket } from './sockets/socket.service'
 import { registerSocketHandlers } from './sockets/socket-handlers'
-
-const sseClients = new Set<express.Response>()
-let heartbeatTimer: ReturnType<typeof setInterval> | null = null
-
-export function broadcastToRemoteClients(event: string, data: unknown): void {
-  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-  for (const client of sseClients) {
-    client.write(message)
-  }
-}
 
 export async function initializeHttpServer(
   config?: DatabaseConfig,
   serverPort?: number,
-  onQueryKeys?: (keys: string[][]) => void,
   onLazyFetch?: LazyFetchHandler
 ) {
   const app = express()
@@ -57,8 +46,11 @@ export async function initializeHttpServer(
     })
   )
   registerRoutes(app, (keys) => {
-    broadcastToRemoteClients('query-keys-invalidate', keys)
-    onQueryKeys?.(keys)
+    try {
+      getSocket().emit.queryKeysInvalidate({ keys })
+    } catch {
+      // Socket.IO aún no inicializado — se omite (no debería ocurrir en runtime)
+    }
   })
   registerMediaServerRoutes(app, { lazyFetch: onLazyFetch })
 
@@ -98,35 +90,6 @@ export async function initializeHttpServer(
       res.json({ response: devices })
     } catch (err: any) {
       res.status(500).json({ error: err.message })
-    }
-  })
-
-  // SSE endpoint para broadcasting de eventos a todos los renderers conectados (host + remotos)
-  app.get('/api/remote/events', (req, res) => {
-    res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
-    res.setHeader('Connection', 'keep-alive')
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.flushHeaders()
-
-    res.write(`event: connected\ndata: ${JSON.stringify({ status: 'ok' })}\n\n`)
-
-    sseClients.add(res)
-
-    req.on('close', () => {
-      sseClients.delete(res)
-      if (sseClients.size === 0 && heartbeatTimer) {
-        clearInterval(heartbeatTimer)
-        heartbeatTimer = null
-      }
-    })
-
-    if (sseClients.size === 1) {
-      heartbeatTimer = setInterval(() => {
-        for (const client of sseClients) {
-          client.write(': keepalive\n\n')
-        }
-      }, 30000)
     }
   })
 
@@ -186,4 +149,5 @@ export async function initializeHttpServer(
 
 export type { RoutesTypes } from './routeTypes'
 export type { SocketEventMap } from './sockets/socket.service'
+export { getSocket } from './sockets/socket.service'
 export * from '@prisma/client'
