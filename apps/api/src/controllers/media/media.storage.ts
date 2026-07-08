@@ -249,7 +249,9 @@ export function listMediaFolders(parentFolder?: string): string[] {
   }
 
   const items = fs.readdirSync(targetPath, { withFileTypes: true })
-  return items.filter((item) => item.isDirectory()).map((item) => item.name)
+  return items
+    .filter((item) => item.isDirectory() && !item.name.startsWith('__'))
+    .map((item) => item.name)
 }
 
 export function moveMediaPath(

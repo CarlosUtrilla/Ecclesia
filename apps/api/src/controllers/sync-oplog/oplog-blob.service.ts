@@ -267,7 +267,7 @@ export class OplogBlobService {
         q: `name starts with '${BLOB_FILE_PREFIX}' and '${folderId}' in parents and trashed=false`,
         spaces: 'drive',
         fields: 'nextPageToken, files(id, name, modifiedTime)',
-        pageSize: 100,
+        pageSize: 1000,
         pageToken,
       })
 

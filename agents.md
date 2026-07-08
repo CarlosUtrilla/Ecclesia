@@ -44,6 +44,7 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 
 ### In Progress
 - **Importación PDF**: Backend completo — `importPdf` endpoint que convierte cada página del PDF a IMAGE via `pdfjs-dist` v3 + `@napi-rs/canvas`, almacena en `__pdf/` oculto, crea Presentation one-slide-per-page y un Media PDF con `presentationId`. **Frontend completo**: `MediaCard` muestra icono PDF + placeholder, drag-and-drop acepta `.pdf`, file picker filtro incluido. **Live redirect**: cuando un Media PDF se envía a live, resuelve su Presentation vinculada y muestra las diapositivas.
+- **Fallback regeneration en `syncBlobs()`**: extendido bucle de regeneración de thumbnails para también generar fallback de videos cuando `fallbackChecksum`/`data.fallback` está vacío. Nuevos fallbacks se checksumean, suben a Drive, y persisten en el evento OpLog.
 
 ### Known Issues
 - `invalid_client` en sync OAuth: error de configuración — faltan credenciales válidas de Google OAuth en `.env`.

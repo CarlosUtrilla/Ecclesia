@@ -18,7 +18,7 @@ import { getAppInstanceIdFilePath, getMediaDir } from '../sync/sync.config'
 import { getSocket } from '../../sockets/socket.service'
 import log from 'electron-log'
 import { oplogLogInfo, oplogLogWarn, oplogLogError } from './oplog-logger'
-import { buildThumbnailFileName, generateImageThumbnail, generateVideoThumbnail } from '../../mediaThumbnails'
+import { buildThumbnailFileName, generateImageThumbnail, generateVideoThumbnail, buildFallbackFileName, generateVideoFallback } from '../../mediaThumbnails'
 import type {
   OplogDocument, OplogEvent, OplogConfig, EntityType,
   SyncCycleResult, SyncProgress,
@@ -941,10 +941,16 @@ export class OplogService {
       }
     }
 
-    // Regenerar thumbnails desde source files (cada ciclo)
+    // Regenerar thumbnails y fallbacks desde source files (cada ciclo)
     const regenOps = this.localDoc?.ops ?? []
-    const generatedThumbnails = new Map<number, { checksum: string; blobPath: string }>()
+    const generatedThumbnails = new Map<number, {
+      checksum: string
+      blobPath: string
+      fallbackChecksum?: string
+      fallbackBlobPath?: string
+    }>()
     let thumbRegenerated = 0
+    let fallbackRegenerated = 0
 
     for (let idx = 0; idx < regenOps.length; idx++) {
       const op = regenOps[idx]
@@ -965,11 +971,12 @@ export class OplogService {
 
       const originalName = path.basename(filePath, ext)
       const hash = randomBytes(8).toString('hex')
-      const thumbFileName = buildThumbnailFileName(originalName, hash)
       const thumbDir = path.join(mediaRoot, 'thumbnails')
-      const thumbFullPath = path.join(thumbDir, thumbFileName)
 
       await fs.ensureDir(thumbDir)
+
+      const thumbFileName = buildThumbnailFileName(originalName, hash)
+      const thumbFullPath = path.join(thumbDir, thumbFileName)
 
       try {
         if (isImage) {
@@ -982,32 +989,64 @@ export class OplogService {
         continue
       }
 
-      const checksum = await oplogBlobService.computeChecksum(thumbFullPath)
-      const relPath = `thumbnails/${thumbFileName}`
+      const thumbChecksum = await oplogBlobService.computeChecksum(thumbFullPath)
+      const thumbRelPath = `thumbnails/${thumbFileName}`
+      const entry: {
+        checksum: string
+        blobPath: string
+        fallbackChecksum?: string
+        fallbackBlobPath?: string
+      } = { checksum: thumbChecksum, blobPath: thumbRelPath }
 
-      if (!seenChecksums.has(checksum)) {
-        seenChecksums.add(checksum)
-        activeChecksums.add(checksum)
-        generatedThumbnails.set(idx, { checksum, blobPath: relPath })
-        toUpload.push({ checksum, localPath: thumbFullPath })
+      if (!seenChecksums.has(thumbChecksum)) {
+        seenChecksums.add(thumbChecksum)
+        activeChecksums.add(thumbChecksum)
+        toUpload.push({ checksum: thumbChecksum, localPath: thumbFullPath })
         thumbRegenerated++
       }
+
+      if (isVideo) {
+        const fallbackFileName = buildFallbackFileName(originalName, hash)
+        const fallbackFullPath = path.join(thumbDir, fallbackFileName)
+        try {
+          await generateVideoFallback(sourceFullPath, fallbackFullPath)
+        } catch (err: any) {
+          oplogLogWarn(`[Blob] Regenerate fallback failed for ${filePath}: ${err.message}`)
+        }
+        if (await fs.pathExists(fallbackFullPath)) {
+          const fallbackChecksum = await oplogBlobService.computeChecksum(fallbackFullPath)
+          const fallbackRelPath = `thumbnails/${fallbackFileName}`
+          if (!seenChecksums.has(fallbackChecksum)) {
+            seenChecksums.add(fallbackChecksum)
+            activeChecksums.add(fallbackChecksum)
+            toUpload.push({ checksum: fallbackChecksum, localPath: fallbackFullPath })
+            fallbackRegenerated++
+          }
+          entry.fallbackChecksum = fallbackChecksum
+          entry.fallbackBlobPath = fallbackRelPath
+        }
+      }
+
+      generatedThumbnails.set(idx, entry)
     }
 
     if (generatedThumbnails.size > 0) {
-      this.localDoc = change(this.localDoc!, 'regenerate-thumbnails', (d) => {
+      this.localDoc = change(this.localDoc!, 'regenerate-media-assets', (d) => {
         for (const [idx, update] of generatedThumbnails) {
           const target = d.ops[idx]
           if (!target) continue
           target.thumbnailChecksum = update.checksum
           target.thumbnailBlobPath = update.blobPath
+          if (update.fallbackChecksum) target.fallbackChecksum = update.fallbackChecksum
+          if (update.fallbackBlobPath) target.fallbackBlobPath = update.fallbackBlobPath
           if (target.data) {
             target.data.thumbnail = update.blobPath
+            if (update.fallbackBlobPath) target.data.fallback = update.fallbackBlobPath
           }
         }
       })
       await this.persistLocal()
-      oplogLogInfo(`[Blob] Regenerated ${thumbRegenerated} thumbnails from source files`)
+      oplogLogInfo(`[Blob] Regenerated ${thumbRegenerated} thumbnails and ${fallbackRegenerated} fallbacks from source files`)
     }
 
     const blobOps: Array<any> = [
@@ -1076,18 +1115,21 @@ export class OplogService {
       for (const op of liveOps) {
         if (op.op !== 'upsert' || op.entityType !== 'media') continue
         if (op.data?.thumbnail) validThumbs.add(op.data.thumbnail as string)
+        if (op.data?.fallback) validThumbs.add(op.data.fallback as string)
         if (op.thumbnailBlobPath) validThumbs.add(op.thumbnailBlobPath)
+        if (op.fallbackBlobPath) validThumbs.add(op.fallbackBlobPath)
       }
 
-      // thumbnails referenciados por registros activos en DB
+      // thumbnails/fallbacks referenciados por registros activos en DB
       try {
         const prisma = getPrisma()
-        const dbThumbs = await prisma.media.findMany({
-          where: { deletedAt: null, thumbnail: { not: null } },
-          select: { thumbnail: true },
+        const dbMediaThumbs = await prisma.media.findMany({
+          where: { deletedAt: null, OR: [{ thumbnail: { not: null } }, { fallback: { not: null } }] },
+          select: { thumbnail: true, fallback: true },
         })
-        for (const m of dbThumbs) {
+        for (const m of dbMediaThumbs) {
           if (m.thumbnail) validThumbs.add(m.thumbnail)
+          if (m.fallback) validThumbs.add(m.fallback)
         }
       } catch { /* DB no disponible */ }
 

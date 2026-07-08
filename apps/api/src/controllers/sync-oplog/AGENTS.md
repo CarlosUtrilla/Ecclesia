@@ -222,6 +222,30 @@ En ese escenario:
 - Si se agrega un PC nuevo, hacer un pull completo + esperar a que los blobs se descarguen antes de
   usar la biblioteca de medios
 
+## Bug: Orphan cleanup no consideraba fallbacks
+
+El orphan cleanup de thumbnails (`syncBlobs()`, sección "Limpiar thumbnails huérfanos")
+solo verificaba `op.data.thumbnail` y `op.thumbnailBlobPath` — pero NO verificaba
+`op.data.fallback` ni `op.fallbackBlobPath`. Como resultado, los fallbacks descargados
+de Drive se eliminaban inmediatamente como huérfanos.
+
+**Síntoma en logs:**
+```
+[Blob] Process result: 27 downloaded, 184 uploaded
+[Blob] Eliminado thumbnail huérfano local: thumbnails/fallback-xxx.jpg
+... (26 archivos)
+[Blob] Eliminados 26 thumbnails huérfanos locales
+```
+
+Los 27 archivos descargados eran fallbacks. El thumbnail (`thumb-CARTA_A_LOS_ROMANOS...`)
+no fue eliminado porque `op.data.thumbnail` SÍ se verificaba.
+
+**Fix (oplog.service.ts):**
+- Agregar `op.data?.fallback` y `op.fallbackBlobPath` al Set de thumbnails válidos
+- La DB query ahora usa `OR: [{ thumbnail: { not: null } }, { fallback: { not: null } }]`
+  y selecciona ambos campos
+- En el próximo ciclo, estos fallbacks se descargarán de nuevo y ya no serán eliminados
+
 ## SyncCycle reentrancy guard
 
 `oplogService.syncCycle()` tiene un flag `private syncing = false` que previene
