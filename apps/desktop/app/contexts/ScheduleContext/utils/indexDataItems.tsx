@@ -533,6 +533,7 @@ export const useIndexDataItems = (
   return {
     songs,
     media,
+    presentations,
     getScheduleItemIcon,
     getScheduleItemLabel,
     getScheduleItemContentScreen

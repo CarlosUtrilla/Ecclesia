@@ -2,6 +2,7 @@ import { Media, ScheduleItem, ScheduleItemType } from '@ecclesia/api'
 import { ThemeWithMedia } from '@ecclesia/api/src/controllers/themes/themes.dto'
 import { ScheduleSchemaType } from './schema'
 import { SongResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
+import { PresentationResponseDTO } from '@ecclesia/api/src/controllers/presentations/presentations.dto'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { DisplayWithUsage } from '@/hooks/useDisplays'
 import { UseFormReturn } from 'react-hook-form'
@@ -58,6 +59,7 @@ type IScheduleContext = {
   ) => Promise<ContentScreen>
   songs: SongResponseDTO[]
   media: Media[]
+  presentations: PresentationResponseDTO[]
   addItemToSchedule: (item: AddItemToSchedule) => void
   deleteItemFromSchedule: (index: number) => void
   reorderItems: (activeId: string, overId: string) => void

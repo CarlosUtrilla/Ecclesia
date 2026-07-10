@@ -1,4 +1,4 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ContentScreen, ILiveContext } from '../types'
 import { useSchedule } from '..'
 import { DisplayWithUsage, useDisplays } from '../../displayContext'
@@ -17,7 +17,7 @@ const LiveContext = createContext({} as ILiveContext)
 
 export const LiveProvider = ({ children }: PropsWithChildren) => {
   const { isRemoteMode } = useRemoteMode()
-  const { getScheduleItemContentScreen, itemOnLive, selectedTheme, setItemOnLive, currentSchedule, getScheduleItemLabel } = useSchedule()
+  const { getScheduleItemContentScreen, itemOnLive, selectedTheme, setItemOnLive, currentSchedule, songs, media, presentations } = useSchedule()
   const { themes } = useThemes()
 
   // Stub para sincronización de media (debe implementarse con IPC)
@@ -238,6 +238,27 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     }
   }, [socketReconnectKey])
 
+  // Label reactivo del item en vivo (se actualiza cuando cambian songs/media/presentations)
+  const itemOnLiveLabel = useMemo(() => {
+    if (!itemOnLive) return null
+    switch (itemOnLive.type) {
+      case 'SONG': {
+        const song = songs.find((s) => s.id === parseInt(itemOnLive.accessData))
+        return song?.title ?? null
+      }
+      case 'MEDIA': {
+        const med = media.find((m) => m.id === parseInt(itemOnLive.accessData))
+        return med?.name ?? null
+      }
+      case 'PRESENTATION': {
+        const p = presentations.find((p) => p.id === parseInt(itemOnLive.accessData))
+        return p?.title ?? null
+      }
+      default:
+        return null
+    }
+  }, [itemOnLive, songs, media, presentations])
+
   // Broadcast estado actual a clientes remotos cuando cambia
   // Se emite incluso cuando showLiveScreen es false para que los remotos
   // sepan que el host apagó la proyección.
@@ -250,15 +271,13 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     }
 
     if (showLiveScreen) {
-      const labelPromise = itemOnLive && !isRemoteMode
-        ? getScheduleItemLabel(itemOnLive).then((l) => (typeof l === 'string' ? l : String(l)))
-        : Promise.resolve(null)
+      const itemLabel =
+        itemOnLive && !isRemoteMode ? (itemOnLiveLabel ?? itemOnLive.accessData) : null
 
-      labelPromise.then((itemLabel) => {
-        Api.socket.emit.liveStateUpdate({
-          itemOnLive: itemOnLive
-            ? { id: itemOnLive.id, type: itemOnLive.type, accessData: itemOnLive.accessData, label: itemLabel }
-            : null,
+      Api.socket.emit.liveStateUpdate({
+        itemOnLive: itemOnLive
+          ? { id: itemOnLive.id, type: itemOnLive.type, accessData: itemOnLive.accessData, label: itemLabel }
+          : null,
           itemIndex,
           slideCount: contentScreen?.content.length ?? 0,
           hideTextOnLive,
@@ -279,7 +298,6 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
             aspectRatioCss: s.aspectRatioCss
           }))
         })
-      })
     } else {
       Api.socket.emit.liveStateUpdate({
         itemOnLive: null,
@@ -307,7 +325,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     appliedTheme,
     socketReconnectKey,
     isRemoteMode,
-    getScheduleItemLabel
+    itemOnLiveLabel
   ])
 
   useEffect(() => {

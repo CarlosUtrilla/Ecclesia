@@ -70,10 +70,6 @@ export function CopyrightTextRender({
     return songMeta.title || line2
   }, [songMeta])
 
-  if (!showCopyright || !copyrightText || (hideTextInLive && !isPreview)) {
-    return null
-  }
-
   const safePresentationHeight =
     Number.isFinite(presentationHeight) && presentationHeight > 0
       ? presentationHeight
@@ -157,6 +153,13 @@ export function CopyrightTextRender({
     } as React.CSSProperties
   }, [safePresentationHeight, theme.textStyle, textStyle, scaleFactor, themeTextStyle])
 
+  const dragRef = useRef({ startX: 0, startY: 0, startTranslateX: 0, startTranslateY: 0 })
+  const isDraggingRef = useRef(false)
+
+  if (!showCopyright || !copyrightText || (hideTextInLive && !isPreview)) {
+    return null
+  }
+
   const copyrightEdgeOffsetPx = `${(safePresentationHeight * COPYRIGHT_EDGE_OFFSET_BASE) / BASE_PRESENTATION_HEIGHT}px`
 
   const copyrightTranslateX = toFiniteNumber(themeTextStyle.copyrightTranslateX) ?? 0
@@ -185,9 +188,6 @@ export function CopyrightTextRender({
       : {}),
     ...copyrightOverrideStyle
   }
-
-  const dragRef = useRef({ startX: 0, startY: 0, startTranslateX: 0, startTranslateY: 0 })
-  const isDraggingRef = useRef(false)
 
   const lines = animationType === 'split' ? splitHtmlForWordAnimation(copyrightText) : null
 

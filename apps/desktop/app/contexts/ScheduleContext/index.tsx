@@ -103,7 +103,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
   const formData = form.watch()
 
-  const { getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen, songs, media } =
+  const { getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen, songs, media, presentations } =
     useIndexDataItems(formData, selectedTheme)
 
   useEffect(() => {
@@ -327,6 +327,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         getScheduleItemContentScreen,
         songs,
         media,
+        presentations,
         addItemToSchedule,
         deleteItemFromSchedule,
         reorderItems,

@@ -1,22 +1,32 @@
 import { useSchedule } from '..'
 import type { ScheduleItem } from '@ecclesia/api'
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 
 interface LibraryItemPreviewProps {
   item: ScheduleItem
 }
 
 export default function LibraryItemPreview({ item }: LibraryItemPreviewProps) {
-  const { getScheduleItemLabel, getScheduleItemIcon } = useSchedule()
-  const [label, setLabel] = useState('')
+  const { getScheduleItemIcon, songs, media, presentations } = useSchedule()
 
-  useEffect(() => {
-    const fetchLabel = async () => {
-      const lbl = await getScheduleItemLabel(item)
-      setLabel(lbl as string)
+  const label = useMemo(() => {
+    switch (item.type) {
+      case 'SONG': {
+        const song = songs.find((s) => s.id === parseInt(item.accessData))
+        return song?.title ?? ''
+      }
+      case 'MEDIA': {
+        const med = media.find((m) => m.id === parseInt(item.accessData))
+        return med?.name ?? ''
+      }
+      case 'PRESENTATION': {
+        const p = presentations.find((p) => p.id === parseInt(item.accessData))
+        return p?.title ?? ''
+      }
+      default:
+        return ''
     }
-    fetchLabel()
-  }, [item, getScheduleItemLabel])
+  }, [item, songs, media, presentations])
 
   // Para grupos, mostrar el nombre y color
   if (item.type === 'GROUP') {

@@ -13,11 +13,13 @@ import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import type { ScheduleItem } from '@ecclesia/api'
 import { Radio, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Api } from '@ecclesia/queries'
 import { Tooltip } from '@/ui/tooltip'
 import PreviewSchedule from './previewSchedule'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
+import { parseBibleAccessData } from '../../library/bible/accessData'
+import useBibleSchema from '@/hooks/useBibleSchema'
 
 type Props = {
   setSelectedItem?: (item: ScheduleItem | null) => void
@@ -54,29 +56,83 @@ export function ScheduleItemComponent({
   })
   const {
     getScheduleItemIcon,
-    getScheduleItemLabel,
     deleteItemFromSchedule,
     currentSchedule,
     getScheduleItemContentScreen,
-    selectedTheme
+    selectedTheme,
+    songs,
+    media,
+    presentations
   } = useSchedule()
 
+  const { getCompleteNameById } = useBibleSchema()
   const { showItemOnLiveScreen } = useLive()
-  const [label, setLabel] = useState('')
   const [groupTemplate, setGroupTemplate] = useState<any>(null)
   const [groupColor, setGroupColor] = useState<string | undefined>(undefined)
   const { scheduleGroupTemplates } = useScheduleGroupTemplates()
 
   const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
+  const [fallbackLabel, setFallbackLabel] = useState<string | null>(null)
+
+  // Label reactivo: se actualiza cuando cambian songs/media/presentations
+  const label = useMemo(() => {
+    switch (item.type) {
+      case 'SONG': {
+        const song = songs.find((s) => s.id === parseInt(item.accessData))
+        return song?.title ?? fallbackLabel ?? '...'
+      }
+      case 'MEDIA': {
+        const med = media.find((m) => m.id === parseInt(item.accessData))
+        return med?.name ?? fallbackLabel ?? '...'
+      }
+      case 'PRESENTATION': {
+        const p = presentations.find((p) => p.id === parseInt(item.accessData))
+        return p?.title ?? fallbackLabel ?? '...'
+      }
+      case 'BIBLE': {
+        const parsed = parseBibleAccessData(item.accessData)
+        if (!parsed) return item.accessData
+        return `${getCompleteNameById(parsed.bookId) || parsed.bookId} ${parsed.chapter}:${parsed.verseRange}`
+      }
+      default:
+        return item.accessData
+    }
+  }, [item, songs, media, presentations, fallbackLabel, getCompleteNameById])
+
+  // Fallback: fetch individual si no está en songs/media/presentations, solo al montar
   useEffect(() => {
-    const fetchLabel = async () => {
-      const lbl = await getScheduleItemLabel(item)
-      setLabel(lbl as string)
+    if (item.type === 'GROUP') return
+    if ((item.type === 'SONG' && songs.some((s) => s.id === parseInt(item.accessData))) ||
+        (item.type === 'MEDIA' && media.some((m) => m.id === parseInt(item.accessData))) ||
+        (item.type === 'PRESENTATION' && presentations.some((p) => p.id === parseInt(item.accessData)))) {
+      return
+    }
+    const fetchFallback = async () => {
+      try {
+        if (item.type === 'SONG') {
+          const res = await Api.fetch.songs.getSongById({ body: { id: parseInt(item.accessData) } })
+          if (res) setFallbackLabel(res.title)
+        } else if (item.type === 'MEDIA') {
+          const res = await Api.fetch.media.getMediaByIds({ body: { ids: [parseInt(item.accessData)] } })
+          if (res?.[0]) setFallbackLabel(res[0].name)
+        } else if (item.type === 'PRESENTATION') {
+          const res = await Api.fetch.presentations.getPresentationById({ body: { id: parseInt(item.accessData) } })
+          if (res) setFallbackLabel(res.title)
+        }
+      } catch {
+        // ignorar
+      }
+    }
+    fetchFallback()
+  }, [])
+
+  useEffect(() => {
+    const fetchContent = async () => {
       const content = await getScheduleItemContentScreen(item)
       setItemContent(content.content)
     }
-    fetchLabel()
-  }, [getScheduleItemLabel, item])
+    fetchContent()
+  }, [getScheduleItemContentScreen, item])
 
   useEffect(() => {
     if (item.type === 'GROUP' && item.accessData) {

@@ -33,8 +33,10 @@ vi.mock('..', () => ({
     get itemOnLive() { return _itemOnLive },
     selectedTheme: selectedThemeMock,
     setItemOnLive: setItemOnLiveMock,
-    getScheduleItemLabel: vi.fn().mockResolvedValue(''),
-    currentSchedule: []
+    currentSchedule: [],
+    songs: [],
+    media: [],
+    presentations: []
   })
 }))
 

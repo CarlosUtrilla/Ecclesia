@@ -396,3 +396,8 @@ Renderiza texto genérico del slide con animaciones:
     - `app/screens/editors/presentationEditor/components/textCanvasItem.tsx` (línea ~510)
     - `app/screens/editors/presentationEditor/components/textCanvasItem.test.ts` (tests agregados)
   - **Validación**: Tests unitarios confirman cálculo consistente entre editor (720px base) y live screen (1080px real / 720px base = 1.5x escala).
+
+- **Fix: F9 hideTextInLive crash en CopyrightTextRender** (2026-07-08): `CopyrightTextRender.tsx` tenía un early return en línea 73 que retornaba `null` cuando `hideTextInLive && !isPreview`, pero lo hacía DESPUÉS de `useMemo(copyrightText)` pero ANTES de `useMemo(copyrightOverrideStyle)`, `useRef(dragRef)` y `useRef(isDraggingRef)`. Esto violaba las reglas de hooks de React: al presionar F9 mientras un SONG con metadata de copyright estaba en vivo, el número de hooks cambiaba entre renders, causando "Rendered fewer hooks than expected" y rompiendo la app.
+  - **Solución**: Mover `safePresentationHeight`, `themeTextStyle`, `useMemo(copyrightOverrideStyle)`, `useRef(dragRef)` y `useRef(isDraggingRef)` ANTES del early return, preservando el orden consistente de hooks.
+  - **Por qué "a veces"**: El crash solo ocurría cuando había una canción con copyright/author en la pantalla en vivo al presionar F9.
+  - **Archivo**: `app/ui/PresentationView/components/CopyrightTextRender.tsx`

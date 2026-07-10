@@ -84,7 +84,19 @@ initializeApi(queryClient).then(() => {
   // Invalidar queries via Socket.IO (post-mutación + OpLog sync)
   Api.socket.listen.queryKeysInvalidate(({ keys }) => {
     if (keys && keys.length > 0) {
-      keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))
+      keys.forEach((key) => {
+        queryClient.invalidateQueries({ queryKey: key })
+      })
+      // Forzar refetch de queries del schedule (songsByIds, mediaByIds, presentationsByIds)
+      // porque invalidateQueries a veces no dispara refetch si la query no tiene observer activo
+      for (const key of keys) {
+        if (
+          key.length > 0 &&
+          (key[0] === 'songsByIds' || key[0] === 'mediaByIds' || key[0] === 'presentationsByIds')
+        ) {
+          queryClient.refetchQueries({ queryKey: key, type: 'all' })
+        }
+      }
     } else {
       queryClient.invalidateQueries()
     }

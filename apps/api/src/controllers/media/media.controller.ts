@@ -114,6 +114,7 @@ export class MediaController {
     return await this.mediaService.cleanupTempPath(body.targetPath)
   }
 
+  @UpdateQueryKey(['media'], ['mediaByIds'])
   async update({ body }: RequestHandler<{ id: string; data: UpdateMediaDto }>) {
     return await this.mediaService.update(parseInt(body.id), body.data)
   }
