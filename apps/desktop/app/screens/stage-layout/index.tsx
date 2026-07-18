@@ -337,7 +337,7 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
 
         <Card
           className={cn(
-            'flex min-h-0 flex-1 flex-col',
+            'flex flex-1 flex-col overflow-y-auto',
             embedded ? 'border-0 shadow-none' : undefined
           )}
         >
@@ -349,18 +349,18 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_340px]">
+          <CardContent className="grid flex-1 gap-4 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
             {stageScreens.length === 0 ? (
               <p className="text-sm text-muted-foreground">No hay pantallas stage configuradas.</p>
             ) : (
               <>
-                <div className="flex min-h-0 flex-col gap-3">
-                  <div className="text-xs text-muted-foreground">
+                <div className="flex flex-col gap-3">
+                  <div className="text-xs text-muted-foreground shrink-0">
                     Editando layout global. Preview automático:{' '}
                     {selectedScreen?.screenName ?? 'Ninguna'}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <Button
                       size="sm"
                       variant={showLivePreview ? 'default' : 'outline'}
@@ -370,10 +370,12 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
                     </Button>
                   </div>
 
-                  <div
-                    ref={canvasRef}
-                    className="relative aspect-video w-full overflow-hidden rounded-md border bg-black/95"
-                  >
+                  <div className="w-full shrink-0 overflow-hidden rounded-md border bg-black/95">
+                    <div
+                      ref={canvasRef}
+                      className="relative w-full"
+                      style={{ aspectRatio: '16 / 9' }}
+                    >
                     {showLivePreview ? (
                       <div className="absolute inset-0 z-0">
                         <PresentationView
@@ -486,9 +488,10 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
                         </button>
                       )
                     })}
+                    </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <Button
                       onClick={handleSaveLayout}
                       disabled={isPending || stageScreens.length === 0}

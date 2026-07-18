@@ -5,7 +5,7 @@ import t from '@locales'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { SongsListResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, Music, Plus } from 'lucide-react'
+import { Search, Music, Plus, Tags } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Tooltip } from '@/ui/tooltip'
 import { ScrollArea } from '@/ui/scroll-area'
@@ -131,6 +131,11 @@ export default function SongsPanelLibrary() {
             </Button>
           </Tooltip>
           <SongImporter />
+          <Tooltip content={t('songsPanelLibrary.manageTags')}>
+            <Button size="icon" variant="ghost" onClick={() => window.windowAPI.openTagSongsWindow()}>
+              <Tags className="h-4 w-4" />
+            </Button>
+          </Tooltip>
         </div>
 
         {/* Lista de canciones */}

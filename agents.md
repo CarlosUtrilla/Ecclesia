@@ -194,6 +194,7 @@ React Component
 
 ### Idioma
 
+- **Comunicacion:** SIEMPRE responder en espanol. Nunca en ingles.
 - **Codigo (identificadores):** Ingles para modelos, controllers, services, tipos, props, hooks. Ej: `SongsController`, `useThemes`, `PresentationView`.
 - **UI (textos visibles):** Espanol. Ej: `"Añadir canción al cronograma"`, `"Guardar"`.
 - **Comentarios:** Espanol preferido, ingles aceptable.

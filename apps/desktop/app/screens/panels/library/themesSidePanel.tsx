@@ -169,7 +169,7 @@ export function ThemesSidePanel() {
                       <Edit /> Editar tema
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => handleExportarTema(theme.id)}>
-                      <Download /> Exportar tema (.zip)
+                      <Upload /> Exportar tema (.zip)
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => handleEliminarTema(theme.id)}>
                       <Trash2 className="text-destructive" /> Borrar tema
@@ -211,7 +211,7 @@ export function ThemesSidePanel() {
                 title="Importar tema (.zip)"
                 onClick={handleImportarTemas}
               >
-                <Upload className="w-4 h-4" />
+                <Download className="w-4 h-4" />
               </Button>
               <PopoverTrigger asChild>
                 <Button size="icon" variant="ghost" title="Ver temas expandido">

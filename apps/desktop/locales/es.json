@@ -12,7 +12,8 @@
     "addFirstSong": "Agrega tu primera canción",
     "song": "canción",
     "songs": "canciones",
-    "addSong": "Agregar canción"
+    "addSong": "Agregar canción",
+    "manageTags": "Gestionar etiquetas"
   },
   "songEditor": {
     "newSong": "Nueva canción",

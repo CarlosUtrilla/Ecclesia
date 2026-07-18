@@ -13,7 +13,8 @@
     "addFirstSong": "Add your first song",
     "song": "song",
     "songs": "songs",
-    "addSong": "Add song"
+    "addSong": "Add song",
+    "manageTags": "Manage tags"
   },
   "songEditor": {
     "newSong": "New song",
