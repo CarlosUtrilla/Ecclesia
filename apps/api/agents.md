@@ -97,6 +97,7 @@ src/
 │   │   ├── oplog-compaction.service.ts
 │   │   ├── oplog-migration.service.ts
 │   │   ├── oplog.service.ts
+│   │   ├── oplog-purge.service.ts  # Poda de registros soft-deleted (age + push/pull timestamps, 24h interval)
 │   │   ├── oplog.controller.ts
 │   │   └── oplog-logger.ts
 │   └── selectedScreens/
@@ -137,7 +138,7 @@ Definidos en `routes.ts`:
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
 | `fonts` | FontsController | `addFont`, `getAllFonts`, `uploadFont` (multipart HTTP), `deleteFont`, `getSystemFonts` (vía `font-list`) |
 | `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
-| `oplog` | OplogController | **Sync:** `pull`, `push`, `syncCycle`, `getSyncStatus`, `configure`, `connect`, `disconnect`, `getAuthUrl`, `exchangeOAuthCode` · **Oplog:** `getStatus`, `bootstrap`, `getEvents`, `getPending`, `getPendingOps`, `compact`, `migrate`, `clear`, `reset`, `deleteOplogFile` |
+| `oplog` | OplogController | **Sync:** `pull`, `push`, `syncCycle`, `purge`, `getSyncStatus`, `configure`, `connect`, `disconnect`, `getAuthUrl`, `exchangeOAuthCode` · **Oplog:** `getStatus`, `bootstrap`, `getEvents`, `getPending`, `getPendingOps`, `compact`, `migrate`, `clear`, `reset`, `deleteOplogFile` |
 
 **Nota:** El namespace `setttings` tiene un typo historico (3 t's). No cambiar sin actualizar todos los puntos de referencia.
 

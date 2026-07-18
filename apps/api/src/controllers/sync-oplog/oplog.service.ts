@@ -12,6 +12,7 @@ import { oplogDriveService, OplogConcurrencyError } from './oplog-drive.service'
 import { oplogReplayService } from './oplog-replay.service'
 import { oplogBlobService } from './oplog-blob.service'
 import { oplogMigrationService } from './oplog-migration.service'
+import { oplogPurgeService } from './oplog-purge.service'
 import { computeSchemaHash } from './oplog-utils'
 import { readJsonSafe, getAppInstanceIdFilePath, getMediaDir } from './oplog-shared'
 import { getSocket } from '../../sockets/socket.service'
@@ -83,6 +84,14 @@ export class OplogService {
     this.onAppendEventCallback = cb
   }
 
+  async purge(retentionDays?: number): Promise<{ purged: Record<string, number>; totalPurged: number }> {
+    if (!this.config) throw new Error('Oplog not initialized')
+    const result = await oplogPurgeService.purgeSoftDeleted(this.config, retentionDays)
+    this.config.lastPurgeAt = new Date().toISOString()
+    await oplogStateService.writeConfig(this.config)
+    return result
+  }
+
   private emitProgress(phase: SyncProgress['phase'], progress: number, message: string): void {
     this.onProgress?.({ phase, progress, message })
   }
@@ -116,6 +125,7 @@ export class OplogService {
       lastPullAt: null,
       lastSyncAt: null,
       lastRemoteGeneration: null,
+      lastPurgeAt: null,
     }
 
     const existing = await oplogStateService.readOplogBinary()
@@ -1164,6 +1174,30 @@ export class OplogService {
     }
   }
 
+  private async runPurge(): Promise<void> {
+    if (!this.config) return
+    if (!oplogPurgeService.isPurgeDue(this.config)) {
+      oplogLogInfo('[Purge] Not due yet, skipping')
+      return
+    }
+
+    oplogLogInfo('[Purge] Starting soft-delete purge')
+    try {
+      const result = await oplogPurgeService.purgeSoftDeleted(this.config)
+      this.config.lastPurgeAt = new Date().toISOString()
+      await oplogStateService.writeConfig(this.config)
+
+      if (result.totalPurged > 0) {
+        oplogLogInfo(`[Purge] Completed: ${JSON.stringify(result.purged)} (${result.totalPurged} total)`)
+        this.emitProgress('purge', 100, `Purgados ${result.totalPurged} registros`)
+      } else {
+        oplogLogInfo('[Purge] No records to purge')
+      }
+    } catch (err: any) {
+      oplogLogWarn(`[Purge] Error: ${err.message}`)
+    }
+  }
+
   private syncing = false
 
   async syncCycle(): Promise<SyncCycleResult> {
@@ -1185,22 +1219,25 @@ export class OplogService {
     const result: SyncCycleResult = { pulled: 0, pushed: 0, blobsDownloaded: 0, blobsUploaded: 0, errors: [] }
 
     try {
-      oplogLogInfo('[SyncCycle] Phase 1/3: Pull')
-      const pullResult = await this.runMappedPhase('pull', '1/3 Pull', 0, 33, () => this.pull())
+      oplogLogInfo('[SyncCycle] Phase 1/4: Pull')
+      const pullResult = await this.runMappedPhase('pull', '1/4 Pull', 0, 28, () => this.pull())
       result.pulled = pullResult.newEventsCount
       oplogLogInfo(`[SyncCycle] Pull result: ${pullResult.newEventsCount} new events, remoteGen=${pullResult.remoteGeneration}`)
 
-      oplogLogInfo('[SyncCycle] Phase 2/3: Blobs')
-      const blobResult = await this.runMappedPhase('blob', '2/3 Blobs', 33, 66, () => this.syncBlobs())
+      oplogLogInfo('[SyncCycle] Phase 2/4: Blobs')
+      const blobResult = await this.runMappedPhase('blob', '2/4 Blobs', 28, 56, () => this.syncBlobs())
       result.blobsDownloaded = blobResult.downloaded
       result.blobsUploaded = blobResult.uploaded
       oplogLogInfo(`[SyncCycle] Blob result: ${blobResult.downloaded} downloaded, ${blobResult.uploaded} uploaded, ${blobResult.deleted} deleted`)
 
-      oplogLogInfo('[SyncCycle] Phase 3/3: Push')
-      const pushResult = await this.runMappedPhase('push', '3/3 Push', 66, 100, () => this.push())
+      oplogLogInfo('[SyncCycle] Phase 3/4: Push')
+      const pushResult = await this.runMappedPhase('push', '3/4 Push', 66, 88, () => this.push())
       result.blobsDownloaded = blobResult.downloaded
       result.blobsUploaded = blobResult.uploaded
-      oplogLogInfo(`[SyncCycle] Blob result: ${blobResult.downloaded} downloaded, ${blobResult.uploaded} uploaded, ${blobResult.deleted} deleted`)
+      oplogLogInfo(`[SyncCycle] Push result: pushed=${pushResult.pushed}`)
+
+      oplogLogInfo('[SyncCycle] Phase 4/4: Purge')
+      await this.runMappedPhase('purge', '4/4 Purge', 88, 100, () => this.runPurge())
     } catch (err: any) {
       oplogLogError(`[SyncCycle] Error during cycle: ${err.message}`, { stack: err.stack })
       result.errors.push(err.message)

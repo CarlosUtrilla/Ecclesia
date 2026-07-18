@@ -94,6 +94,13 @@ export class OplogController {
     return oplogService.push()
   }
 
+  async purge({ body }: { body?: { retentionDays?: number } } = {}): Promise<{
+    purged: Record<string, number>
+    totalPurged: number
+  }> {
+    return oplogService.purge(body?.retentionDays)
+  }
+
   // --- OAuth / Drive connection methods ---
 
   async getSyncStatus(): Promise<SyncStatus> {

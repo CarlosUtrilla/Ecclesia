@@ -77,6 +77,7 @@ export interface OplogConfig {
   lastPullAt: string | null
   lastSyncAt: string | null
   lastRemoteGeneration: number | null
+  lastPurgeAt: string | null
 }
 
 export interface SyncCycleResult {
@@ -88,7 +89,7 @@ export interface SyncCycleResult {
 }
 
 export interface SyncProgress {
-  phase: 'pull' | 'push' | 'blob' | 'gc' | 'idle'
+  phase: 'pull' | 'push' | 'blob' | 'gc' | 'purge' | 'idle'
   progress: number
   message: string
 }

@@ -24,8 +24,9 @@ Ver diseño completo en: `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`
 | `oplog-blob.service.ts` | Blob sync: download/upload/delete/move + GC. Validates local blob existence by filesystem path and prunes stale manifest entries when files are missing. |
 | `oplog-compaction.service.ts` | Compactación: squash de eventos a snapshot |
 | `oplog-migration.service.ts` | Bootstrap: migración desde DB actual al OpLog |
-| `oplog.service.ts` | Orquestación: pull/push/syncCycle con Automerge merge |
-| `oplog.controller.ts` | Endpoints Express: sync (pull/push/syncCycle) + OAuth (configure/connect/disconnect/getSyncStatus/getAuthUrl/exchangeOAuthCode) + oplog (getStatus/bootstrap/getEvents/getPending/getPendingOps/compaction/migration/clear/reset/deleteOplogFile) |
+| `oplog-purge.service.ts` | Poda de registros soft-deleted: `isPurgeDue()`, `purgeSoftDeleted()` con elegibilidad (age + push/pull timestamps), procesamiento por lotes de 50 |
+| `oplog.service.ts` | Orquestación: pull/push/syncCycle con Automerge merge + purge automático (4ª fase cada 24h) |
+| `oplog.controller.ts` | Endpoints Express: sync (pull/push/syncCycle/purge) + OAuth (configure/connect/disconnect/getSyncStatus/getAuthUrl/exchangeOAuthCode) + oplog (getStatus/bootstrap/getEvents/getPending/getPendingOps/compaction/migration/clear/reset/deleteOplogFile) |
 | `oplog-logger.ts` | Logger dedicado que escribe a archivo + stderr (no eliminado por terser) |
 
 ## Logging en producción

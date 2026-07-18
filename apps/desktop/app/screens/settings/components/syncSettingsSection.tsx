@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { AlertCircle, CheckCircle2, Download, Link2, Upload } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Download, Link2, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Label } from '@/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ui/card'
@@ -177,6 +177,22 @@ export default function SyncSettingsSection() {
     }
   }
 
+  const handlePurge = async () => {
+    setIsProcessing(true)
+    setStatusMessage('Purgando registros eliminados...')
+    try {
+      const result = await Api.fetch.oplog.purge()
+      const msg = result.totalPurged > 0
+        ? `Purgados ${result.totalPurged} registros eliminados`
+        : 'No hay registros para purgar'
+      setStatusMessage(msg)
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'No se pudo purgar registros')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   useEffect(() => {
     refreshStatus().catch(() => {
       setStatusMessage('No se pudo consultar el estado de sincronización')
@@ -337,6 +353,13 @@ export default function SyncSettingsSection() {
           onClick={handlePushBackup}
         >
           <Upload className="size-4" /> Subir
+        </Button>
+        <Button
+          variant="outline"
+          disabled={isProcessing || isSyncing}
+          onClick={handlePurge}
+        >
+          <Trash2 className="size-4" /> Purgar
         </Button>
         <Button
           disabled={isProcessing || isSyncing || !status?.connected || !isSyncEnabled}
