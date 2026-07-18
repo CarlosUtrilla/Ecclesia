@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import path from 'path'
 import os from 'os'
 import * as fs from 'fs-extra'
-import * as syncConfig from '../sync/sync.config'
+import * as syncConfig from './oplog-shared'
 import { OplogBlobService } from './oplog-blob.service'
 
 describe('OplogBlobService', () => {

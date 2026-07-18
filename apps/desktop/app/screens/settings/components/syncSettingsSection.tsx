@@ -70,11 +70,11 @@ export default function SyncSettingsSection() {
     localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(values))
     // No enviamos `enabled` — ese campo solo lo gestiona connect/disconnect
     const { enabled: _enabled, ...configWithoutEnabled } = values
-    await Api.fetch.sync.configure({ body: configWithoutEnabled as SyncSettingsForm })
+    await Api.fetch.oplog.configure({ body: configWithoutEnabled as SyncSettingsForm })
   }, [])
 
   const refreshStatus = async () => {
-    const nextStatus = await Api.fetch.sync.getStatus()
+    const nextStatus = await Api.fetch.oplog.getSyncStatus()
     setStatus(nextStatus)
     return nextStatus
   }
@@ -90,7 +90,7 @@ export default function SyncSettingsSection() {
           'Se abrió la ventana de autenticación de Google. Completa el proceso allí.'
         )
       } else {
-        await Api.fetch.sync.connect({ body: {
+        await Api.fetch.oplog.connect({ body: {
           enabled: values.enabled,
           conflictStrategy: values.conflictStrategy,
           primaryDeviceName: values.primaryDeviceName,
@@ -134,7 +134,7 @@ export default function SyncSettingsSection() {
   const handleDisconnect = async () => {
     setIsProcessing(true)
     try {
-      await Api.fetch.sync.disconnect()
+      await Api.fetch.oplog.disconnect()
       await refreshStatus()
       setStatusMessage('Sesión de Google Drive cerrada')
     } catch (error) {

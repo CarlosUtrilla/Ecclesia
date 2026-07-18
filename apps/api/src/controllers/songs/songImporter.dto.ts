@@ -27,3 +27,12 @@ export type HolyricsSongDTO = {
   streaming: { audio: any; backing_track: any }
   extras: { extra: string }
 }
+
+export type OpenLpSongDTO = {
+  title: string
+  author: string
+  lyrics: {
+    verseName: string
+    lines: string
+  }[]
+}

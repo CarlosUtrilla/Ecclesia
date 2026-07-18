@@ -13,7 +13,9 @@ Ver diseño completo en: `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`
 
 | Archivo | Propósito |
 |---------|-----------|
-| `oplog.types.ts` | Tipos compartidos (OplogEvent, EntityType, BlobOperation, etc.) |
+| `oplog-types.ts` | Tipos compartidos (OplogEvent, EntityType, BlobOperation, etc.) |
+| `oplog-shared.ts` | Utilities compartidas: path helpers (`getSyncDir`, `getTokenFilePath`, etc.), JSON I/O (`readJsonSafe`, `writeJson`), tipos (`PersistedSyncConfig`, `SyncStatus`, `GoogleDriveSyncConfig`) |
+| `oplog-drive-client.service.ts` | DriveClientService: cliente Google Drive con OAuth, singleton `driveClientService` |
 | `oplog.config.ts` | Constantes de nombres de archivo en Drive |
 | `oplog-state.service.ts` | Persistencia local del OpLog binario + replay state |
 | `oplog-drive.service.ts` | Operaciones Drive con ifGenerationMatch (optimistic lock) |
@@ -23,7 +25,7 @@ Ver diseño completo en: `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`
 | `oplog-compaction.service.ts` | Compactación: squash de eventos a snapshot |
 | `oplog-migration.service.ts` | Bootstrap: migración desde DB actual al OpLog |
 | `oplog.service.ts` | Orquestación: pull/push/syncCycle con Automerge merge |
-| `oplog.controller.ts` | Endpoints Express para el nuevo sync |
+| `oplog.controller.ts` | Endpoints Express: sync (pull/push/syncCycle) + OAuth (configure/connect/disconnect/getSyncStatus/getAuthUrl/exchangeOAuthCode) + oplog (getStatus/bootstrap/getEvents/getPending/getPendingOps/compaction/migration/clear/reset/deleteOplogFile) |
 | `oplog-logger.ts` | Logger dedicado que escribe a archivo + stderr (no eliminado por terser) |
 
 ## Logging en producción

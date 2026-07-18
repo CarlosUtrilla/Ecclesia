@@ -44,56 +44,36 @@ export async function checkApiHealth(): Promise<boolean> {
   }
 }
 
-// --- New sync API methods (delegate to SyncController via Express) ---
+// --- Sync API methods (oplog namespace) ---
 
 export function syncStatus(): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/getStatus')
+  return apiRequest('POST', '/api/oplog/getSyncStatus')
 }
 
 export function syncConfigure(config: Record<string, unknown>): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/configure', config)
+  return apiRequest('POST', '/api/oplog/configure', config)
 }
 
 export function syncConnect(config: Record<string, unknown>): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/connect', config)
+  return apiRequest('POST', '/api/oplog/connect', config)
 }
 
 export function syncDisconnect(): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/disconnect')
+  return apiRequest('POST', '/api/oplog/disconnect')
 }
 
 export function syncPush(): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/push', { reason: 'manual-push' })
+  return apiRequest('POST', '/api/oplog/push')
 }
 
 export function syncPull(): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/pull', { reason: 'manual-pull' })
-}
-
-export function syncReconcile(): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/reconcile')
-}
-
-export function syncGetRemoteData(): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/getRemoteData')
-}
-
-export function syncDiagnose(): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/diagnose')
-}
-
-export function syncHeal(diagnostic: unknown): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/heal', { diagnostic })
-}
-
-export function syncCleanupMedia(): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/cleanupMedia')
+  return apiRequest('POST', '/api/oplog/pull')
 }
 
 export function syncGetAuthUrl(redirectUri?: string): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/getAuthUrl', { redirectUri })
+  return apiRequest('POST', '/api/oplog/getAuthUrl', { redirectUri })
 }
 
 export function syncExchangeOAuthToken(code: string): Promise<unknown> {
-  return apiRequest('POST', '/api/sync/exchangeOAuthCode', { code })
+  return apiRequest('POST', '/api/oplog/exchangeOAuthCode', { code })
 }

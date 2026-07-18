@@ -43,4 +43,19 @@ export type SongsListResponseDTO = {
 export type ImportSongsFromFileDTO = {
   filesPath: string[]
   source: string
+  createTags?: boolean
+}
+
+export type PreviewMissingTagsDTO = {
+  filesPath: string[]
+  source: string
+}
+
+export type MissingTagPreview = {
+  verseName: string
+  color: string
+}
+
+export type PreviewMissingTagsResponseDTO = {
+  missingTags: MissingTagPreview[]
 }

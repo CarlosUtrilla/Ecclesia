@@ -18,7 +18,9 @@ app/screens/panels/library/
 ├── songs/
 │   ├── index.tsx              # SongsPanel: lista de canciones con busqueda
 │   ├── songItem.tsx           # SongItem: un item de cancion (draggable)
-│   └── previewSong.tsx        # PreviewSong: preview lateral de cancion seleccionada
+│   ├── previewSong.tsx        # PreviewSong: preview lateral de cancion seleccionada
+│   ├── songImporter.tsx       # SongImporter: dialog de importación de canciones (Holyrics/OpenLP)
+│   └── TagPreviewDialog.tsx   # TagPreviewDialog: dialog para crear etiquetas faltantes antes de importar
 ├── media/
 │   ├── index.tsx              # MediaLibrary: gestion completa de medios (514 lineas)
 │   ├── MediaGrid.tsx          # Grilla de medios (cards)
@@ -72,6 +74,22 @@ app/screens/panels/library/
 - Muestra vista previa de letras de la cancion seleccionada.
 - Usa `RenderSongLyricList` para mostrar las estrofas con tags de color.
 - Resetea `selectedIndex` a 0 cuando cambia la cancion (patron render-time reset con ref).
+
+### SongImporter (`songs/songImporter.tsx`)
+
+- Dialog de importación de canciones desde Holyrics (JSON) o OpenLP (XML).
+- Flujo: seleccionar app → elegir archivos → click Importar.
+- Antes de importar, llama a `previewMissingTags` para detectar etiquetas de verso que no existen aún en la BD.
+- Si hay etiquetas faltantes, abre `TagPreviewDialog` para que el usuario revise/edite/elimine las etiquetas antes de crearlas.
+- Una vez confirmadas las etiquetas, las crea via `Api.fetch.tagSongs.createTagSongs` y luego ejecuta `importSongsFromFile`.
+
+### TagPreviewDialog (`songs/TagPreviewDialog.tsx`)
+
+- Dialog que muestra etiquetas faltantes antes de importar canciones.
+- Cada etiqueta es editable: nombre (Input) + color (ColorPicker).
+- Permite eliminar etiquadas individuales con botón de basura.
+- Botón "Crear (N) e importar" confirma y dispara la creación + importación.
+- Se cierra sin crear nada si el usuario cancela.
 
 ## Media (Medios)
 

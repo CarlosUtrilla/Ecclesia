@@ -34,7 +34,7 @@ src/
 │                      # Rutas HTTP adicionales:
 │                      #   GET  /api/remote/info   → info de instancia (hostname, version) para descubrimiento LAN
 │                      # initializeHttpServer emite queryKeysInvalidate via Socket.IO en vez de IPC
-│                      # Arranca sync-scheduler.service (pull check 2min + event-driven micro-push) y udp-discovery.service tras listen
+│                      # Arranca oplog-scheduler.service (sync cada 5min + event-driven micro-push) y udp-discovery.service tras listen
 │                      # Nuevos endpoints HTTP:
 │                      #   GET  /api/remote/discover-lan → descubrimiento UDP LAN
 ├── prisma.ts          # setPrismaClient, getPrisma, injectables (bibles path)
@@ -84,23 +84,21 @@ src/
 │   │   ├── settings.controller.ts
 │   │   ├── settings.service.ts
 │   │   └── settings.dto.d.ts
-│   ├── sync/
-│   │   ├── sync.controller.ts
-│   │   ├── sync.service.ts
-│   │   ├── sync.dto.d.ts
-│   │   ├── sync.config.ts
-│   │   ├── sync.utils.ts
-│   │   ├── sync-drive-ops.service.ts
-│   │   ├── sync-drive-client.service.ts
-│   │   ├── sync-state.service.ts
-│   │   ├── sync-snapshot.service.ts
-│   │   ├── sync-media.service.ts
-│   │   ├── sync-bible.service.ts
-│   │   ├── sync-push.service.ts
-│   │   ├── sync-pull.service.ts
-│   │   ├── sync-diagnostic.service.ts
-│   │   ├── sync-cleanup.service.ts
-│   │   └── sync-lazy-fetch.service.ts
+│   ├── sync-oplog/
+│   │   ├── oplog.types.ts
+│   │   ├── oplog-shared.ts        # Path helpers, JSON I/O, types (PersistedSyncConfig, SyncStatus, etc.)
+│   │   ├── oplog-drive-client.service.ts  # DriveClientService (Google Drive OAuth client)
+│   │   ├── oplog.config.ts
+│   │   ├── oplog-state.service.ts
+│   │   ├── oplog-drive.service.ts
+│   │   ├── oplog-utils.ts
+│   │   ├── oplog-replay.service.ts
+│   │   ├── oplog-blob.service.ts
+│   │   ├── oplog-compaction.service.ts
+│   │   ├── oplog-migration.service.ts
+│   │   ├── oplog.service.ts
+│   │   ├── oplog.controller.ts
+│   │   └── oplog-logger.ts
 │   └── selectedScreens/
 │       ├── index.ts
 │       ├── selectedScreens.controller.ts
@@ -112,7 +110,6 @@ src/
 │   │   ├── stageScreenConfig.service.ts
 │   │   └── stageScreenConfig.dto.d.ts
 ├── services/
-│   ├── sync-scheduler.service.ts  # Scheduler event-driven: micro snapshot push, pull check remoto (2min), notifica via Socket.IO
 │   ├── oplog-scheduler.service.ts # Scheduler OpLog: arranca ciclo startup, periodic sync 5min, event-driven en cambios locales
 │   └── udp-discovery.service.ts   # Listener UDP + discoverLanDevices() para descubrimiento LAN
 ├── utils/
@@ -129,7 +126,7 @@ Definidos en `routes.ts`:
 
 | Namespace | Controller | Metodos principales |
 | --------- | ---------- | ------------------- |
-| `songs` | SongsController | `createSong`, `getSongs`, `getSongById`, `getSongsByIds`, `updateSong`, `deleteSong` |
+| `songs` | SongsController | `createSong`, `getSongs`, `getSongById`, `getSongsByIds`, `updateSong`, `deleteSong`, `importSongsFromFile`, `previewMissingTags` |
 | `themes` | ThemesController | `createTheme`, `getAllThemes`, `getThemeById`, `updateTheme`, `deleteTheme`, `exportThemeToZip`, `importThemeFromZip` |
 | `media` | MediaController | `importMedia`, `getAllMedia`, `getMediaByIds`, `deleteMedia`, `moveMedia`, `renameMedia`, `createFolder`, `renameFolder`, `deleteFolder`, `verifyFiles`, `cleanupOrphans`, `extractZipMp4` (multipart HTTP, extrae ZIP Canva e importa MP4s) |
 | `tagSongs` | TagSongsController | `createTagSong`, `getAllTagSongs`, `updateTagSong`, `deleteTagSong` |
@@ -140,7 +137,7 @@ Definidos en `routes.ts`:
 | `selectedScreens` | SelectedScreensController | `getSelectedScreens`, `updateSelectedScreens` |
 | `fonts` | FontsController | `addFont`, `getAllFonts`, `uploadFont` (multipart HTTP), `deleteFont`, `getSystemFonts` (vía `font-list`) |
 | `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
-| `sync` | SyncController | `getSyncState`, `upsertSyncState`, `appendOutboxChange`, `getPendingOutboxChanges`, `acknowledgeOutboxChanges`, `ingestRemoteChanges`, `getPendingInboxChanges`, `markInboxChangesApplied`, `applyPendingInboxBatch`, `applySnapshotRows`, `getStatus`, `configure`, `connect`, `disconnect`, `push`, `pull`, `reconcile`, `getRemoteData`, `diagnose`, `heal`, `cleanupMedia` |
+| `oplog` | OplogController | **Sync:** `pull`, `push`, `syncCycle`, `getSyncStatus`, `configure`, `connect`, `disconnect`, `getAuthUrl`, `exchangeOAuthCode` · **Oplog:** `getStatus`, `bootstrap`, `getEvents`, `getPending`, `getPendingOps`, `compact`, `migrate`, `clear`, `reset`, `deleteOplogFile` |
 
 **Nota:** El namespace `setttings` tiene un typo historico (3 t's). No cambiar sin actualizar todos los puntos de referencia.
 
@@ -209,18 +206,13 @@ export interface CreateSongDTO {
 - Cada slide de `presentations.slides` puede incluir metadatos opcionales de importación Canva (`canvaSourceKey`, `canvaSlideNumber`) para que el renderer pueda reimportar ZIPs y actualizar diapositivas existentes por número de slide en lugar de duplicarlas.
 - `schedule.updateSchedule` usa `dateFrom` y `dateTo` (no `date`) para mantener consistencia con el modelo Prisma y el estado del formulario en frontend.
 - `schedule.updateSchedule` aplica soft-delete + recreación de items en una sola `schedule.update` con mutaciones anidadas (`items.updateMany` + `items.create`), evitando transacciones interactivas largas en SQLite que podían cerrar por timeout (`P2028`).
-- El módulo `sync` implementa sincronización basada en **instantáneas (snapshots)**: cada dispositivo exporta todos los registros de SNAPSHOT_MODELS a un JSON, lo sube a Drive, y al hacer pull descarga los snapshots de todos los demás dispositivos aplicando filas por `lastWriteWins` (updatedAt). Las tablas `SyncOutboxChange`/`SyncInboxChange` siguen en el schema pero ya no son el mecanismo principal de sync.
-- `applySnapshotRows(tables, workspaceId, remoteDeviceId)` en `SyncService` aplica las filas de un snapshot remoto a la BD local con `runWithoutSyncOutboxTracking` y `lastWriteWins` por `updatedAt`; preserva el `updatedAt` remoto en `create/update` via Prisma (sin SQL crudo) para evitar falsos `stale` por desfase de reloj entre PCs. Al finalizar, actualiza `SyncState.lastAppliedSnapshotAt` y `snapshotApplySequence` para rastrear aplicación de snapshots remotos.
-- El outbox middleware en `prisma.ts` sigue activo pero los datos que escribe en `SyncOutboxChange` no se usan en el flujo principal de sync (se conserva para posible tracking de deletes futuro).
-- **Arquitectura sync**: Toda la lógica de sync con Drive vive en `apps/api/src/controllers/sync/`. El **scheduler** (event-driven con pull check cada 2 min) se ejecuta en el API como `sync-scheduler.service.ts`, iniciado desde `initializeHttpServer`. Electron solo mantiene: OAuth BrowserWindow, `sync-init.ts` helpers (close flow, getIsSyncing, executeSyncCycle), y `syncBridge.ts` (HTTP helpers para que `windowManager.ts` haga sync al cerrar).
-  - **Event-driven push**: Cuando cualquier modelo de `SNAPSHOT_MODELS` cambia, el middleware outbox dispara un micro-snapshot-push (solo snapshot, sin media/bible). Si el cambio es Media o Font, se dispara un micro-media-push (snapshot + media + bible).
-  - **Pull check (2 min)**: Timer que compara `lastSyncAt` del manifiesto remoto de Drive con el estado local. Si el remoto es más reciente, ejecuta ciclo completo (pull → push → heal → cleanup). Si no hay cambios, salta el ciclo.
-- La suite `database/controllers/sync/sync.service.test.ts` valida casos críticos de seguridad de merge (stale remoto, conflictos pendientes, payload inválido y deduplicación por `P2002`) para reducir regresiones.
-- **`sync.service.ts` NO usa `electron-log`**: Este archivo se bundlea en el preload (renderer). Usar `console.warn`/`console.error` únicamente. `electron-log` solo puede importarse en archivos bajo `electron/main/`.
+- El módulo `sync-oplog` implementa sincronización basada en **OpLog (Operation Log) + Automerge CRDT**: cada dispositivo mantiene un log de eventos ordenados que se mergean automáticamente entre dispositivos. Reemplaza el sistema anterior de snapshots + last-write-wins.
+- **Arquitectura sync**: Toda la lógica de sync con Drive vive en `apps/api/src/controllers/sync-oplog/`. El controller expone tanto endpoints de sync (`pull`, `push`, `syncCycle`) como de OAuth (`configure`, `connect`, `disconnect`, `getAuthUrl`, `exchangeOAuthCode`). El **scheduler** (`oplog-scheduler.service.ts`) ejecuta `syncCycle()` en startup y periódicamente cada 5 min, con micro-push event-driven en cambios locales. Electron mantiene: OAuth BrowserWindow, `sync-init.ts` helpers, y `syncBridge.ts` (HTTP helpers contra `/api/oplog/*`).
+- La suite `oplog-blob.service.test.ts` valida casos de blob sync y GC.
 - **NO usar `console.log/warn/error` en código que corre en el proceso principal** (controllers, services, middleware, schedulers). Estas llamadas son eliminadas por terser (`drop_console: true`, `pure_funcs: ['console.log', 'console.info']`), dejando el logging invisible en producción y dificultando el debugging. Usar `import log from 'electron-log'` y `log.info/warn/error` en su lugar. Excepción: `console.log` está permitido en archivos de test (`*.test.ts`).
 - El módulo `settings` acepta claves string públicas (`LOGO_FALLBACK_*`, `BIBLE_LIVE_CHUNK_MODE`, etc.) y las mapea a valores persistidos en DB (`logo.fallback.*`, `bible.live.chunkMode`) con SQL directo, evitando errores cuando una instalación tiene el cliente Prisma con enums desactualizados.
 - `AddScheduleItemDto` omite `id`, `scheduleId` y `updatedAt`; en `ScheduleService` los creates deben mapear items sin desestructurar esos campos y generar `id` nuevo con `crypto.randomUUID()`.
-- `songImporter.service.ts` debe retornar boolean en todos los caminos de `holyricsImporter` (`true` si hubo imports fulfilled, `false` en caso contrario) para cumplir tipado estricto.
+- `songImporter.service.ts` debe retornar boolean en todos los caminos de `holyricsImporter` y `openlpImporter` (`true` si hubo imports fulfilled, `false` en caso contrario) para cumplir tipado estricto. El importer OpenLP parsea XML con formato OpenLyrics (`<verse name="..."><lines>...</lines></verse>`) usando regex, extrayendo título, autor y versos.
 - `selectedScreens.createSelectedScreen` usa `upsert` por `screenId` (BigInt) para evitar `P2002` cuando el display ya existe y solo cambian `screenName` o `rol`.
 - `songs` persiste letras en `Song.lyrics` como JSON string (`[{ content, tagSongsId }]`) y el service entrega `lyrics` parseado al renderer (`SongResponseDTO`) para evitar parseos repetidos en frontend.
 - `songs.updateSong` sobrescribe `Song.lyrics` completo en una sola mutación de `Song`, evitando inconsistencias de sincronización por filas hijas.

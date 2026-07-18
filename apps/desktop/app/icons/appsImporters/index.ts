@@ -1,4 +1,5 @@
 import holyricsIcon from './holyrics.png'
+import openlpIcon from "./openlp.png"
 
 export const AppsImportersIcons = [
   {
@@ -6,5 +7,11 @@ export const AppsImportersIcons = [
     icon: holyricsIcon,
     id: 'holyrics',
     files: 'application/json'
+  },
+  {
+    name: 'OpenLP',
+    icon: openlpIcon,
+    id: 'openlp',
+    files: '.xml'
   }
 ]

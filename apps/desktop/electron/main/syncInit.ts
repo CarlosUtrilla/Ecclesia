@@ -1,8 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
-import { syncPush, syncPull, syncStatus, syncGetAuthUrl, syncExchangeOAuthToken } from '../syncBridge'
+import { syncPush, syncPull, syncStatus, syncGetAuthUrl, syncExchangeOAuthToken } from './syncBridge'
 
-// Para notificar al renderer cuando OAuth se complete exitosamente
 function notifyWindowsOAuthComplete(): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
@@ -62,7 +61,6 @@ export async function showOAuthWindow(): Promise<void> {
 
   authWindow.loadURL(authUrl)
 
-  // Interceptar redirect OAuth vía webRequest (más confiable que will-redirect/will-navigate)
   const filter = { urls: ['http://127.0.0.1/*'] }
   authWindow.webContents.session.webRequest.onBeforeRequest(filter, async (details, callback) => {
     const url = new URL(details.url)

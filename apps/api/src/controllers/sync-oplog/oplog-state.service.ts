@@ -1,8 +1,7 @@
 import path from 'path'
 import fs from 'fs-extra'
 import { load, save, type Doc } from '@automerge/automerge'
-import { getSyncDir } from '../sync/sync.config'
-import { writeJson, readJsonSafe } from '../sync/sync.utils'
+import { getSyncDir, writeJson, readJsonSafe } from './oplog-shared'
 import type { OplogDocument, ReplayState, OplogConfig } from './oplog.types'
 import { oplogLogInfo, oplogLogWarn } from './oplog-logger'
 

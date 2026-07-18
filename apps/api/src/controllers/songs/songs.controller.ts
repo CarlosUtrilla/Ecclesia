@@ -3,6 +3,7 @@ import type {
   CreateSongDTO,
   GetSongsDTO,
   ImportSongsFromFileDTO,
+  PreviewMissingTagsDTO,
   SongsListResponseDTO,
   UpdateSongBody
 } from './songs.dto'
@@ -47,9 +48,16 @@ class SongsController {
   }
 
   async importSongsFromFile({
-    body: { filesPath, source }
+    body: { filesPath, source, createTags }
   }: RequestHandler<ImportSongsFromFileDTO>) {
-    return this.songImporter.importSongsFromFile(filesPath, source)
+    return this.songImporter.importSongsFromFile(filesPath, source, createTags)
+  }
+
+  async previewMissingTags({
+    body: { filesPath, source }
+  }: RequestHandler<PreviewMissingTagsDTO>) {
+    const missingTags = await this.songImporter.previewMissingTags(filesPath, source)
+    return { missingTags }
   }
 
   async deleteSongsNoLyrics() {

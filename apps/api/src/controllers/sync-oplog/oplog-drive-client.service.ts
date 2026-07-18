@@ -7,9 +7,10 @@ import {
   getConfigFilePath,
   getTokenFilePath,
   DRIVE_FOLDER_NAME,
-  PersistedSyncConfig
-} from './sync.config'
-import { writeJson, readJsonSafe } from './sync.utils'
+  PersistedSyncConfig,
+  readJsonSafe,
+  writeJson
+} from './oplog-shared'
 
 const DEFAULT_REDIRECT_URI = 'http://127.0.0.1'
 
@@ -17,7 +18,6 @@ export class DriveClientService {
   private cachedFolderId: string | null = null
   private folderCreationPromise: Promise<string> | null = null
 
-  // Estado pendiente entre getAuthUrl() y exchangeAuthCode()
   private pendingOAuthClient: OAuth2Client | null = null
   private pendingCodeVerifier: string | null = null
   private pendingRedirectUri: string | null = null
@@ -44,8 +44,6 @@ export class DriveClientService {
       clientId,
       clientSecret: clientSecret || undefined,
       redirectUri: redirectUri || DEFAULT_REDIRECT_URI,
-      // Si no hay client_secret, indicamos explícitamente que no se use
-      // (PKCE + client_id son suficientes para el flujo OAuth)
       clientAuthentication: clientSecret ? undefined : ('None' as any),
     })
   }
@@ -81,7 +79,6 @@ export class DriveClientService {
       redirect_uri: this.pendingRedirectUri,
     })
 
-    // Limpiar estado pendiente
     this.pendingOAuthClient = null
     this.pendingCodeVerifier = null
     this.pendingRedirectUri = null

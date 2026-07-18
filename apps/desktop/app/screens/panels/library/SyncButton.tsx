@@ -9,8 +9,8 @@ export default function SyncButton() {
   const [syncProgress, setSyncProgress] = useState(0)
 
   const refreshStatus = useCallback(() => {
-    Api.fetch.sync
-      .getStatus()
+    Api.fetch.oplog
+      .getSyncStatus()
       .then((s: { connected?: boolean } | null) => setIsConnected(!!s?.connected))
       .catch(() => {})
   }, [])

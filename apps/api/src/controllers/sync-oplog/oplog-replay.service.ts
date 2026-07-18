@@ -4,7 +4,7 @@ import type { OplogEvent, EntityType, BlobOperation } from './oplog.types'
 import { ENTITY_TYPE_TO_PRISMA_MODEL } from './oplog.types'
 import { oplogLogInfo, oplogLogWarn, oplogLogError } from './oplog-logger'
 import { oplogBlobService } from './oplog-blob.service'
-import { getMediaDir } from '../sync/sync.config'
+import { getMediaDir } from './oplog-shared'
 import fs from 'fs-extra'
 import path from 'path'
 

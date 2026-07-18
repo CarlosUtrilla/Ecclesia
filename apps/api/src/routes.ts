@@ -9,7 +9,6 @@ import SelectedScreensController from './controllers/selectedScreens/selectedScr
 import FontsController from './controllers/fonts/fonts.controller'
 import { PresentationsController } from './controllers/presentations/presentations.controller'
 import StageScreenConfigController from './controllers/stageScreenConfig/stageScreenConfig.controller'
-import SyncController from './controllers/sync/sync.controller'
 import { OplogController } from './controllers/sync-oplog/oplog.controller'
 
 export const routes = {
@@ -24,6 +23,5 @@ export const routes = {
   selectedScreens: SelectedScreensController,
   fonts: FontsController,
   stageScreenConfig: StageScreenConfigController,
-  sync: SyncController,
   oplog: OplogController,
 }

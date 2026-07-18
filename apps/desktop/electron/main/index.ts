@@ -39,7 +39,7 @@ if (typeof __GOOGLE_CLIENT_ID__ !== 'undefined' && __GOOGLE_CLIENT_ID__) {
 if (typeof __GOOGLE_CLIENT_SECRET__ !== 'undefined' && __GOOGLE_CLIENT_SECRET__) {
   process.env.GOOGLE_DRIVE_CLIENT_SECRET = __GOOGLE_CLIENT_SECRET__
 }
-import { showOAuthWindow } from './sync/sync-init'
+import { showOAuthWindow } from './syncInit'
 
 let isQuittingAfterStageTimersCleanup = false
 
