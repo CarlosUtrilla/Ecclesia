@@ -68,6 +68,7 @@ MediaServerProvider          (top-level, sin dependencias)
 | `selectedTheme` | `ThemeWithMedia` | Tema activo para presentacion |
 | `songs` | `SongResponseDTO[]` | Canciones cargadas |
 | `media` | `Media[]` | Medios cargados |
+| `presentations` | `PresentationResponseDTO[]` | Presentaciones cargadas |
 | `itemsSortableIndex` | `string[]` | IDs para dnd-kit SortableContext |
 | `isTemporary` | `boolean` | Si es sesion temporal (sin guardar) |
 | `addItemToSchedule(item)` | `function` | Agrega item al cronograma |

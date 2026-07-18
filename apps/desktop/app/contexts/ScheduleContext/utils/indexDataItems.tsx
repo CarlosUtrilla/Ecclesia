@@ -5,8 +5,6 @@ import { BookPlusIcon, FileSliders, FileText, Music, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from '../types'
 import { useCallback } from 'react'
-import { useMemo, useState } from 'react'
-import { SongResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
 import { useMediaServer } from '../../MediaServerContext'
 import {
   attachPresentationBibleChunkParts,
@@ -57,12 +55,9 @@ export const useIndexDataItems = (
   const { getCompleteNameById } = useBibleSchema()
   const { buildMediaUrl } = useMediaServer()
   const { themes } = useThemes()
-  const [directLiveSongs, setDirectLiveSongs] = useState<SongResponseDTO[]>([])
-  const [directLiveMedia, setDirectLiveMedia] = useState<any[]>([])
-  const [directLivePresentations, setDirectLivePresentations] = useState<any[]>([])
   const accessDataKey = currentSchedule?.items.map((item) => parseInt(item.accessData))
 
-  const { data: queriedSongs = [], refetch: refetchSongs } = useQuery({
+  const { data: songs = [], dataUpdatedAt } = useQuery({
     queryKey: ['songsByIds', accessDataKey],
     queryFn: async () => {
       if (!currentSchedule) return []
@@ -75,7 +70,7 @@ export const useIndexDataItems = (
     enabled: !!currentSchedule
   })
 
-  const { data: queriedMedia = [], refetch: refetchMedia } = useQuery({
+  const { data: media = [] } = useQuery({
     queryKey: ['mediaByIds', accessDataKey],
     queryFn: async () => {
       if (!currentSchedule) return []
@@ -88,7 +83,7 @@ export const useIndexDataItems = (
     enabled: !!currentSchedule
   })
 
-  const { data: queriedPresentations = [], refetch: refetchPresentationsByIds } = useQuery({
+  const { data: presentations = [] } = useQuery({
     queryKey: ['presentationsByIds', accessDataKey],
     queryFn: async () => {
       if (!currentSchedule) return []
@@ -103,27 +98,6 @@ export const useIndexDataItems = (
     },
     enabled: !!currentSchedule
   })
-
-  const songs = useMemo(() => {
-    const byId = new Map<number, SongResponseDTO>()
-    queriedSongs.forEach((song) => byId.set(song.id, song))
-    directLiveSongs.forEach((song) => byId.set(song.id, song))
-    return Array.from(byId.values())
-  }, [queriedSongs, directLiveSongs])
-
-  const media = useMemo(() => {
-    const byId = new Map<number, any>()
-    queriedMedia.forEach((mediaItem) => byId.set(mediaItem.id, mediaItem))
-    directLiveMedia.forEach((mediaItem) => byId.set(mediaItem.id, mediaItem))
-    return Array.from(byId.values())
-  }, [queriedMedia, directLiveMedia])
-
-  const presentations = useMemo(() => {
-    const byId = new Map<number, any>()
-    queriedPresentations.forEach((presentation) => byId.set(presentation.id, presentation))
-    directLivePresentations.forEach((presentation) => byId.set(presentation.id, presentation))
-    return Array.from(byId.values())
-  }, [queriedPresentations, directLivePresentations])
 
   const getScheduleItemIcon = (item: ScheduleItem) => {
     const { accessData, type } = item
@@ -287,14 +261,11 @@ export const useIndexDataItems = (
         let song = songs.find((s) => s.id === songId)
         if (!song) {
           // si no esta en cache puede ser un item mandado a live directamente
-          const loadedSong = await Api.fetch.songs.getSongById({
+          const fetchedSong = await Api.fetch.songs.getSongById({
             body: { id: songId }
           })
-          if (loadedSong) {
-            song = loadedSong as SongResponseDTO
-            setDirectLiveSongs((previous) =>
-              previous.some((record) => record.id === song!.id) ? previous : [...previous, song!]
-            )
+          if (fetchedSong) {
+            song = fetchedSong
           }
         }
 
@@ -310,9 +281,12 @@ export const useIndexDataItems = (
           text: lyric.content,
           tagSongId: lyric.tagSongsId,
           resourceType: item.type,
-          songMeta: hasSongMeta ? { title: song.title, author: song.author, copyright: song.copyright } : undefined
+          songMeta: hasSongMeta
+            ? { title: song.title, author: song.author, copyright: song.copyright }
+            : undefined
         }))
 
+        console.log('CONTENT TO SENT SCHEDULE', content)
         return {
           title: song.title,
           content
@@ -327,13 +301,6 @@ export const useIndexDataItems = (
             body: { ids: [mediaId] }
           })
           mediaItem = loaded?.[0]
-          if (mediaItem) {
-            setDirectLiveMedia((previous) =>
-              previous.some((record) => record.id === mediaItem.id)
-                ? previous
-                : [...previous, mediaItem]
-            )
-          }
         }
 
         // PDF media redirects to its linked presentation
@@ -342,27 +309,26 @@ export const useIndexDataItems = (
             body: { id: mediaItem.presentationId }
           })
           if (pres) {
-            const mediaIds = pres.slides?.flatMap((slide: any) => {
-              if (Array.isArray(slide.items)) {
-                return slide.items
-                  .filter((item: any) => item.type === 'MEDIA' && item.accessData)
-                  .map((item: any) => Number(item.accessData))
-                  .filter((id: number) => Number.isFinite(id))
-              }
-              if (slide.type === 'MEDIA' && slide.mediaId) {
-                return [Number(slide.mediaId)]
-              }
-              return []
-            }) ?? []
+            const mediaIds =
+              pres.slides?.flatMap((slide: any) => {
+                if (Array.isArray(slide.items)) {
+                  return slide.items
+                    .filter((item: any) => item.type === 'MEDIA' && item.accessData)
+                    .map((item: any) => Number(item.accessData))
+                    .filter((id: number) => Number.isFinite(id))
+                }
+                if (slide.type === 'MEDIA' && slide.mediaId) {
+                  return [Number(slide.mediaId)]
+                }
+                return []
+              }) ?? []
             const slideMediaItems =
               mediaIds.length > 0
                 ? await Api.fetch.media.getMediaByIds({
                     body: { ids: Array.from(new Set(mediaIds)) }
                   })
                 : []
-            const mediaById = new Map(
-              slideMediaItems.map((m: any) => [m.id, m])
-            )
+            const mediaById = new Map(slideMediaItems.map((m: any) => [m.id, m]))
             const themeById = new Map(themes.map((t: any) => [t.id, t]))
 
             const content = (pres.slides ?? []).map((slide: any) =>
@@ -386,21 +352,18 @@ export const useIndexDataItems = (
 
         if (!presentation) {
           console.log(`presentation id: ${presentationId}`)
-          presentation = await Api.fetch.presentations.getPresentationById({
+          const presentationFetched = await Api.fetch.presentations.getPresentationById({
             body: { id: presentationId }
           })
+          if (presentationFetched) {
+            presentation = presentationFetched
+          }
           if (!presentation) {
             return {
               title: 'Presentación',
               content: []
             }
           }
-
-          setDirectLivePresentations((previous) =>
-            previous.some((record) => record.id === presentation!.id)
-              ? previous
-              : [...previous, presentation!]
-          )
         }
 
         const mediaIds = presentation.slides.flatMap((slide: any) => {
@@ -527,7 +490,7 @@ export const useIndexDataItems = (
         content: [{ text: accessData, resourceType: item.type }]
       }
     },
-    [media, presentations, songs, themes, buildMediaUrl]
+    [media, presentations, songs, themes, buildMediaUrl, dataUpdatedAt]
   )
 
   return {

@@ -38,8 +38,8 @@ const EMPTY_STAGE_STATE: StageState = {
   timers: [],
   timerVisualMode: 'broadcast',
   clock: {
-    hourFormat: '24',
-    showMeridiem: false
+    hourFormat: '12',
+    showMeridiem: true
   },
   focusMode: false
 }
@@ -56,8 +56,8 @@ function safeParseState(raw: string | undefined): StageState {
       timers: Array.isArray(parsed.timers) ? parsed.timers.slice(0, MAX_STAGE_TIMERS) : [],
       timerVisualMode: parsed.timerVisualMode === 'compact' ? 'compact' : 'broadcast',
       clock: {
-        hourFormat: parsed.clock?.hourFormat === '12' ? '12' : '24',
-        showMeridiem: Boolean(parsed.clock?.showMeridiem)
+        hourFormat: parsed.clock?.hourFormat === '24' ? '24' : '12',
+        showMeridiem: parsed.clock ? Boolean(parsed.clock.showMeridiem) : true
       },
       focusMode: Boolean(parsed.focusMode)
     }
@@ -222,8 +222,8 @@ export default function StageControlsPanel() {
       state: {
         ...selectedState,
         clock: {
-          hourFormat: next.hourFormat ?? selectedClock.hourFormat ?? '24',
-          showMeridiem: next.showMeridiem ?? selectedClock.showMeridiem ?? false
+          hourFormat: next.hourFormat ?? selectedClock.hourFormat ?? '12',
+          showMeridiem: next.showMeridiem ?? selectedClock.showMeridiem ?? true
         }
       }
     })

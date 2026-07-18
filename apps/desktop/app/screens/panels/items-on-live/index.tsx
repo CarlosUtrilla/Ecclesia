@@ -21,7 +21,8 @@ function getInitialViewMode(): ViewModeTypes {
 }
 
 export default function LivePanel() {
-  const { itemOnLive, getScheduleItemContentScreen, media } = useSchedule()
+  const { itemOnLive, getScheduleItemContentScreen, songs, media, presentations } =
+    useSchedule()
   const {
     liveContentVersion,
     itemIndex,
@@ -37,7 +38,7 @@ export default function LivePanel() {
     localStorage.setItem(LIVE_VIEW_MODE_KEY, viewMode)
   }, [viewMode])
 
-  const { data } = useQuery({
+  const { data, refetch } = useQuery({
     queryKey: [
       'liveItemContent',
       itemOnLive?.accessData,
@@ -51,6 +52,11 @@ export default function LivePanel() {
     },
     enabled: !!itemOnLive
   })
+
+  useEffect(() => {
+    if (!itemOnLive) return
+    refetch()
+  }, [songs, media, presentations, itemOnLive, refetch])
 
   const slideCount = useMemo(() => {
     if (!Array.isArray(data?.content)) return 0

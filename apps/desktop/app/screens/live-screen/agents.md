@@ -51,4 +51,4 @@ Modulo encargado de la ventana de proyeccion en vivo y su sincronizacion por IPC
 - Al pasar de estado vacío a primer item en live, mantiene temporalmente el fallback visible durante `delay + duration` de la transición de tema; luego lo oculta para evitar entrada brusca.
 - Si hay item en vivo (incluyendo transiciones), el fondo del contenedor fuerza negro para evitar mostrar el fallback del usuario entre items.
 - El contenido de `PresentationView` se renderiza en un wrapper `z-10` encima del fondo.
-- Si el recurso es VIDEO, se usa `<video autoPlay loop muted>`. Si es IMAGE, se usa `<img>` con el thumbnail o la ruta directa.
+- Si el recurso es VIDEO, se usa `<video autoPlay muted playsInline>` con `loop` controlado por `LOGO_FALLBACK_VIDEO_LOOP` (por defecto `true`). Si es IMAGE, se usa `<img>` con el thumbnail o la ruta directa.

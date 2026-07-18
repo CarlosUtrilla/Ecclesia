@@ -84,6 +84,12 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - El cambio de versión preserva rangos no contiguos del `verseRange` (ej: `1-3,8,12`) sin colapsarlos a un rango continuo, y la preview del selector usa la lista exacta de versos seleccionados.
 - Las versiones disponibles se obtienen de `useBibleVersions()` (`window.api.bible.getAvailableBibles()`); el campo relevante es `v.version` (nombre del archivo `.ebbl` sin extensión).
 
+## Refetch automático al editar songs/media/presentations
+
+- `index.tsx` incluye `useEffect` con dependencias `[songs, media, presentations, itemOnLive, refetch]` que llama `refetch()` sobre la `useQuery` de `liveItemContent` cuando los arrays de contexto cambian.
+- Esto resuelve el problema de timing: el refetch por Socket.IO (`main.tsx`) ocurría antes de que `songs`/`media`/`presentations` se actualizaran en el contexto, por lo que `getScheduleItemContentScreen` resolvía con datos stale.
+- Flujo correcto: (1) Socket.IO → `songsByIds` refetch → (2) contexto actualiza `songs` → (3) `items-on-live` re-renderiza → (4) `useEffect` detecta cambio de `songs` → (5) `refetch()` con `queryFn` fresca (nuevo closure de `getScheduleItemContentScreen`).
+
 ## Nota Stage
 
 - Los controles operativos stage fueron movidos a ventanas dedicadas (`/stage-control` y `/stage-layout`) para no mezclar responsabilidades en este panel.

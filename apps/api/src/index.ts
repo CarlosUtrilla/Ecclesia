@@ -46,10 +46,14 @@ export async function initializeHttpServer(
     })
   )
   registerRoutes(app, (keys) => {
+    Logger.info(`[DEBUG] onQueryKeys called with keys:`, JSON.stringify(keys))
     try {
-      getSocket().emit.queryKeysInvalidate({ keys })
-    } catch {
-      // Socket.IO aún no inicializado — se omite (no debería ocurrir en runtime)
+      const socket = getSocket()
+      Logger.info(`[DEBUG] Socket instance exists:`, !!socket, `io exists:`, !!(socket as any)?.io?.sockets)
+      socket.emit.queryKeysInvalidate({ keys })
+      Logger.info(`[DEBUG] queryKeysInvalidate emitted successfully`)
+    } catch (err: any) {
+      Logger.error(`[DEBUG] Failed to emit queryKeysInvalidate:`, err?.message)
     }
   })
   registerMediaServerRoutes(app, { lazyFetch: onLazyFetch })

@@ -3,17 +3,17 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { ImageIcon, Trash2, Video } from 'lucide-react'
 import { Button } from '@/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
-import { Separator } from '@/ui/separator'
 import { Switch } from '@/ui/switch'
 import { ColorPicker } from '@/ui/colorPicker'
 import { MediaPicker, type Media } from '@/screens/panels/library/media/exports'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { Api } from '@ecclesia/queries'
 
-type LogoFallbackSettingKey = 'LOGO_FALLBACK_MEDIA_ID' | 'LOGO_FALLBACK_COLOR'
+type LogoFallbackSettingKey = 'LOGO_FALLBACK_MEDIA_ID' | 'LOGO_FALLBACK_COLOR' | 'LOGO_FALLBACK_VIDEO_LOOP'
 
 const FALLBACK_MEDIA_KEY: LogoFallbackSettingKey = 'LOGO_FALLBACK_MEDIA_ID'
 const FALLBACK_COLOR_KEY: LogoFallbackSettingKey = 'LOGO_FALLBACK_COLOR'
+const FALLBACK_VIDEO_LOOP_KEY: LogoFallbackSettingKey = 'LOGO_FALLBACK_VIDEO_LOOP'
 const DEFAULT_FALLBACK_COLOR = '#000000'
 
 export default function LogoFallbackSection() {
@@ -22,7 +22,7 @@ export default function LogoFallbackSection() {
 
   const { data: settings } = useQuery({
     ...Api.query.settings.getSettings({
-      body: { settings: [FALLBACK_MEDIA_KEY, FALLBACK_COLOR_KEY] }
+      body: { settings: [FALLBACK_MEDIA_KEY, FALLBACK_COLOR_KEY, FALLBACK_VIDEO_LOOP_KEY, 'SHOW_COPYRIGHT_ON_LIVE'] }
     }),
     staleTime: Infinity
   })
@@ -30,6 +30,10 @@ export default function LogoFallbackSection() {
   const fallbackMediaId = settings?.find((s) => s.key === FALLBACK_MEDIA_KEY)?.value ?? null
   const fallbackColor =
     settings?.find((s) => s.key === FALLBACK_COLOR_KEY)?.value ?? DEFAULT_FALLBACK_COLOR
+  const fallbackVideoLoop =
+    settings?.find((s) => s.key === FALLBACK_VIDEO_LOOP_KEY)?.value !== 'false'
+  const showCopyright =
+    settings?.find((s) => s.key === 'SHOW_COPYRIGHT_ON_LIVE')?.value === 'true'
 
   const { data: mediaRecord } = useQuery({
     ...Api.query.media.getMediaByIds({ body: { ids: [parseInt(fallbackMediaId!)] } }),
@@ -54,6 +58,10 @@ export default function LogoFallbackSection() {
 
   const handleColorChange = (color: string) => {
     saveSettings({ body: { settings: [{ key: FALLBACK_COLOR_KEY, value: color }] } })
+  }
+
+  const handleVideoLoopChange = (checked: boolean) => {
+    saveSettings({ body: { settings: [{ key: FALLBACK_VIDEO_LOOP_KEY, value: checked ? 'true' : 'false' }] } })
   }
 
   const thumbnailSrc = media ? buildMediaUrl(media.thumbnail ?? media.filePath) : null
@@ -131,11 +139,46 @@ export default function LogoFallbackSection() {
             <span className="text-sm text-muted-foreground font-mono">{fallbackColor}</span>
           </div>
         </div>
+
+        {/* Repetir video (solo cuando el recurso es VIDEO) */}
+        {media?.type === 'VIDEO' && (
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div>
+              <label htmlFor="video-loop-toggle" className="font-medium text-sm">
+                Repetir video
+              </label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Activa o desactiva la reproducción en bucle del video de fondo
+              </p>
+            </div>
+            <Switch
+              id="video-loop-toggle"
+              checked={fallbackVideoLoop}
+              onCheckedChange={handleVideoLoopChange}
+            />
+          </div>
+        )}
+
+        {/* Mostrar créditos en vivo */}
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div>
+            <label htmlFor="show-copyright-toggle" className="font-medium text-sm">
+              Mostrar créditos en vivo
+            </label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Muestra el aviso de derechos de autor en la parte inferior de las presentaciones de canciones
+            </p>
+          </div>
+          <Switch
+            id="show-copyright-toggle"
+            checked={showCopyright}
+            onCheckedChange={(checked) => {
+              saveSettings({ body: { settings: [{ key: 'SHOW_COPYRIGHT_ON_LIVE', value: checked ? 'true' : 'false' }] } })
+            }}
+          />
+        </div>
       </CardContent>
 
-      <Separator />
-
-      <CopyrightToggle />
       <MediaPicker
         open={isPickerOpen}
         onOpenChange={setIsPickerOpen}
@@ -143,40 +186,5 @@ export default function LogoFallbackSection() {
         title="Seleccionar logo / pantalla de fondo"
       />
     </Card>
-  )
-}
-
-function CopyrightToggle() {
-  const { data: settings } = useQuery({
-    ...Api.query.settings.getSettings({
-      body: { settings: ['SHOW_COPYRIGHT_ON_LIVE'] }
-    }),
-    staleTime: Infinity
-  })
-
-  const { mutate: saveSettings } = useMutation({
-    ...Api.mutation.settings.updateSettings
-  })
-
-  const isEnabled = settings?.find((s: { key: string }) => s.key === 'SHOW_COPYRIGHT_ON_LIVE')?.value === 'true'
-
-  return (
-    <div className="flex items-center justify-between rounded-lg border p-4">
-      <div>
-        <label htmlFor="show-copyright-toggle" className="font-medium text-sm">
-          Mostrar créditos en vivo
-        </label>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Muestra el aviso de derechos de autor en la parte inferior de las presentaciones de canciones
-        </p>
-      </div>
-      <Switch
-        id="show-copyright-toggle"
-        checked={isEnabled}
-        onCheckedChange={(checked) => {
-          saveSettings({ body: { settings: [{ key: 'SHOW_COPYRIGHT_ON_LIVE', value: checked ? 'true' : 'false' }] } })
-        }}
-      />
-    </div>
   )
 }

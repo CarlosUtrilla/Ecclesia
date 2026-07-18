@@ -290,6 +290,9 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 
 ### Antes de modificar codigo
 
+> **REGLA OBLIGATORIA — Codebase Memory MCP primero:**
+> SIEMPRE usar las herramientas MCP del codebase memory (`search_graph`, `trace_path`, `get_code_snippet`, `query_graph`, `get_architecture`) ANTES de caer en `grep`, `glob`, `read` o `task` exploratoria. Las herramientas MCP ofrecen grafo de conocimiento索引索引, relaciones entre funciones, y código fuente directo — son más rápidas, más precisas y evitan duplicar búsquedas. Solo usar `grep`/`glob`/`read` como fallback cuando el MCP no devuelva resultados suficientes o para archivos no indexados (configs, Dockerfiles, scripts sueltos).
+
 *   NUNCA proponer cambios a codigo que no se haya leido primero. Leer el archivo antes de modificarlo.
 *   NUNCA asumir que una libreria esta disponible. Verificar en `package.json` o en archivos cercanos que ya se usa.
 *   Cuando se cree un componente nuevo, revisar componentes existentes similares para seguir el mismo patron (framework, naming, typing).

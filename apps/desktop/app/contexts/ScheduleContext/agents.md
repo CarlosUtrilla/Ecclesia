@@ -162,6 +162,14 @@ const {
 
 ---
 
+## Cambios recientes (2026-07-09)
+
+- **`presentations` expuesto en el contexto**: `useIndexDataItems` ahora retorna `presentations` (era solo `songs` y `media`). Se agregó a `ScheduleContext.Provider` value y al tipo `IScheduleContext` en `types.d.ts` como `PresentationResponseDTO[]`.
+- **Label reactivo en `scheduleItem.tsx`**: Reemplazado `useEffect` + `getScheduleItemLabel()` async por `useMemo` que deriva labels directamente de `songs`/`media`/`presentations`. Incluye fallback fetch al montar para items no presentes en esos arrays.
+- **Label reactivo en `LibraryItemPreview.tsx`**: Mismo patrón — `useMemo` en vez de `useEffect` + `getScheduleItemLabel()`.
+- **Label reactivo en `liveContext.tsx`**: Agregado `itemOnLiveLabel` (useMemo) derivado de `songs`/`media`/`presentations`. Reemplazado el `getScheduleItemLabel` promise en el efecto `liveStateUpdate`.
+- **Items-on-live reactivity (**``liveItemContent`** query)**: El query local en `items-on-live/index.tsx` no se refetcheaba cuando `songs`/`media`/`presentations` se actualizaban. Solución: `main.tsx` ahora invalida `['liveItemContent']` cuando recibe invalidation de `songsByIds`/`mediaByIds`/`presentationsByIds`.
+
 ## Última actualización
 
-2026-07-04
+2026-07-09

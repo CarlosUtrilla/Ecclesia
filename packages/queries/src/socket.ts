@@ -37,6 +37,18 @@ function getOrCreateSocket(apiUrl: string, port: number): Socket {
       transports: ['websocket', 'polling'],
       reconnection: true,
     })
+
+    // Debug: track connection status
+    socketInstance.on('connect', () => {
+      console.warn(`[DEBUG-SOCKET] Connected: ${socketInstance?.id}`)
+    })
+    socketInstance.on('disconnect', (reason) => {
+      console.warn(`[DEBUG-SOCKET] Disconnected: ${reason}`)
+    })
+    socketInstance.on('connect_error', (err) => {
+      console.warn(`[DEBUG-SOCKET] Connection error: ${err.message}`)
+    })
+
     socketReconnectListeners.forEach((cb) => cb())
   }
   return socketInstance
@@ -54,6 +66,7 @@ export function createSocketProxy(apiUrl: string, port: number): SocketShape {
 
   const emit = new Proxy({} as any, {
     get: (_, eventName) => (data?: any) => {
+      console.warn(`[DEBUG-SOCKET] Emitting event: ${eventName}`, data)
       socket.emit(eventName as string, data)
     },
   }) as SocketEmitShape

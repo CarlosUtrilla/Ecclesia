@@ -15,7 +15,7 @@ Actualmente incluye:
 - Los ajustes de sincronización se persisten automáticamente (debounced) y se reaplican al abrir la pantalla, para mantener activo el scheduler de auto-sync (incluido `autoEvery5Min`) sin depender de acciones manuales adicionales.
 - El control de conexión es un único botón contextual (`Conectar Google` / `Desconectar`) según estado de sesión.
 - El botón principal de acción en el footer es `Sincronizar ahora`: persiste ajustes actuales y ejecuta `pushNow` inmediato cuando hay conexión activa.
-- **Logo / Pantalla de fondo**: permite seleccionar un recurso multimedia (imagen o video) de la biblioteca como fondo permanente en las pantallas en vivo, más un color de respaldo. Persistido en la DB via `window.api.setttings` usando los keys `LOGO_FALLBACK_MEDIA_ID` y `LOGO_FALLBACK_COLOR`.
+- **Logo / Pantalla de fondo**: permite seleccionar un recurso multimedia (imagen o video) de la biblioteca como fondo permanente en las pantallas en vivo, más un color de respaldo. Persistido en la DB via `window.api.setttings` usando los keys `LOGO_FALLBACK_MEDIA_ID`, `LOGO_FALLBACK_COLOR` y `LOGO_FALLBACK_VIDEO_LOOP` (controla si el video de fondo se reproduce en bucle; solo visible cuando el recurso seleccionado es VIDEO, por defecto `true`).
 ## Archivos
 
 ```text

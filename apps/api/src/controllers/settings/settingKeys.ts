@@ -1,6 +1,7 @@
 export const SETTING_STORAGE_KEY_BY_PUBLIC_KEY = {
   LOGO_FALLBACK_MEDIA_ID: 'logo.fallback.mediaId',
   LOGO_FALLBACK_COLOR: 'logo.fallback.color',
+  LOGO_FALLBACK_VIDEO_LOOP: 'logo.fallback.videoLoop',
   SHOW_COPYRIGHT_ON_LIVE: 'show.copyright.onLive'
 } as const
 

@@ -102,9 +102,12 @@ export function ScheduleItemComponent({
   // Fallback: fetch individual si no está en songs/media/presentations, solo al montar
   useEffect(() => {
     if (item.type === 'GROUP') return
-    if ((item.type === 'SONG' && songs.some((s) => s.id === parseInt(item.accessData))) ||
-        (item.type === 'MEDIA' && media.some((m) => m.id === parseInt(item.accessData))) ||
-        (item.type === 'PRESENTATION' && presentations.some((p) => p.id === parseInt(item.accessData)))) {
+    if (
+      (item.type === 'SONG' && songs.some((s) => s.id === parseInt(item.accessData))) ||
+      (item.type === 'MEDIA' && media.some((m) => m.id === parseInt(item.accessData))) ||
+      (item.type === 'PRESENTATION' &&
+        presentations.some((p) => p.id === parseInt(item.accessData)))
+    ) {
       return
     }
     const fetchFallback = async () => {
@@ -113,10 +116,14 @@ export function ScheduleItemComponent({
           const res = await Api.fetch.songs.getSongById({ body: { id: parseInt(item.accessData) } })
           if (res) setFallbackLabel(res.title)
         } else if (item.type === 'MEDIA') {
-          const res = await Api.fetch.media.getMediaByIds({ body: { ids: [parseInt(item.accessData)] } })
+          const res = await Api.fetch.media.getMediaByIds({
+            body: { ids: [parseInt(item.accessData)] }
+          })
           if (res?.[0]) setFallbackLabel(res[0].name)
         } else if (item.type === 'PRESENTATION') {
-          const res = await Api.fetch.presentations.getPresentationById({ body: { id: parseInt(item.accessData) } })
+          const res = await Api.fetch.presentations.getPresentationById({
+            body: { id: parseInt(item.accessData) }
+          })
           if (res) setFallbackLabel(res.title)
         }
       } catch {
@@ -129,10 +136,11 @@ export function ScheduleItemComponent({
   useEffect(() => {
     const fetchContent = async () => {
       const content = await getScheduleItemContentScreen(item)
+      console.log('Fetched content for item', item, content)
       setItemContent(content.content)
     }
     fetchContent()
-  }, [getScheduleItemContentScreen, item])
+  }, [getScheduleItemContentScreen, item, songs, media, presentations])
 
   useEffect(() => {
     if (item.type === 'GROUP' && item.accessData) {

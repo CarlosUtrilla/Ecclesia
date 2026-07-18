@@ -12,6 +12,7 @@ import { Api } from '@ecclesia/queries'
 
 const FALLBACK_MEDIA_KEY = 'LOGO_FALLBACK_MEDIA_ID'
 const FALLBACK_COLOR_KEY = 'LOGO_FALLBACK_COLOR'
+const FALLBACK_VIDEO_LOOP_KEY = 'LOGO_FALLBACK_VIDEO_LOOP'
 
 const getThemeTransitionSignature = (theme: ThemeWithMedia): string => {
   const backgroundMedia = theme.backgroundMedia
@@ -75,6 +76,7 @@ export default function LiveScreen({
 
   const [fallbackColor, setFallbackColor] = useState('#000000')
   const [fallbackMedia, setFallbackMedia] = useState<MediaDto | null>(null)
+  const [fallbackVideoLoop, setFallbackVideoLoop] = useState(true)
   const [keepFallbackDuringThemeEnter, setKeepFallbackDuringThemeEnter] = useState(false)
   const hadLiveItemRef = useRef(false)
   const fallbackDelayTimeoutRef = useRef<number | null>(null)
@@ -86,12 +88,14 @@ export default function LiveScreen({
     const loadFallbackSettings = async () => {
       try {
         const settings = await Api.fetch.settings.getSettings({
-          body: { settings: [FALLBACK_MEDIA_KEY as never, FALLBACK_COLOR_KEY as never] }
+          body: { settings: [FALLBACK_MEDIA_KEY as never, FALLBACK_COLOR_KEY as never, FALLBACK_VIDEO_LOOP_KEY as never] }
         })
         const mediaIdValue = settings.find((s) => s.key === FALLBACK_MEDIA_KEY)?.value
         const colorValue = settings.find((s) => s.key === FALLBACK_COLOR_KEY)?.value
+        const videoLoopValue = settings.find((s) => s.key === FALLBACK_VIDEO_LOOP_KEY)?.value
 
         if (colorValue) setFallbackColor(colorValue)
+        if (videoLoopValue !== undefined) setFallbackVideoLoop(videoLoopValue !== 'false')
 
         if (mediaIdValue) {
           const parsed = parseInt(mediaIdValue)
@@ -235,7 +239,7 @@ export default function LiveScreen({
             <video
               src={fallbackMediaUrl}
               autoPlay
-              loop
+              loop={fallbackVideoLoop}
               muted
               playsInline
               className="w-full h-full object-cover"

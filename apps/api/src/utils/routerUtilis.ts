@@ -25,7 +25,10 @@ const routeHandler =
 
       const normalizedKeys = (queryKeys ?? []).map((k) => (Array.isArray(k) ? k : [k]))
 
+      Logger.info(`[DEBUG] routeHandler completed, normalizedKeys =`, JSON.stringify(normalizedKeys))
+
       if (normalizedKeys.length > 0 && onQueryKeys) {
+        Logger.info(`[DEBUG] Calling onQueryKeys with`, JSON.stringify(normalizedKeys))
         onQueryKeys(normalizedKeys)
       }
       return res.json({ response: result, queryKeys: normalizedKeys })
@@ -64,6 +67,8 @@ export function registerRoutes(app: ReturnType<typeof express>, onQueryKeys?: (k
       const updateQueryKeys = Reflect.getMetadata(UPDATE_QUERY_KEY, proto, method) as
         | string[]
         | undefined
+
+      Logger.info(`[DEBUG] Route ${channel}: updateQueryKeys =`, JSON.stringify(updateQueryKeys))
 
       /**
        * Si usa multer
