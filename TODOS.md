@@ -72,6 +72,16 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 
 1. [X] Conseguir que los apuntadores (los que se usan para poner diapositiva siguiente y anterior) sean compatibles con la app.
 
+### IA para cronogramas (asistente)
+
+- [X] Backend multi-proveedor (OpenAI, Anthropic, Gemini) — `ai.types.ts`, `ai.service.ts`, `ai.controller.ts`
+- [X] Extracción de referencias bíblicas desde texto libre, PDF y DOCX
+- [X] Frontend: dialog con 3 tabs (texto/PDF/DOCX), configuración de provider/API key
+- [X] Inserción directa de referencias extraídas al cronograma
+- [X] Unión automática de versículos consecutivos en rangos (reglas en prompt)
+- [X] Preservación de estado del dialog al cerrar (sin borrar resultados)
+- [X] Botón "Configurar IA" en footer del dialog con link a ajustes
+
 ## Errores encontrados en producción
 
 - [X] Los videos no se sincronizan completamente

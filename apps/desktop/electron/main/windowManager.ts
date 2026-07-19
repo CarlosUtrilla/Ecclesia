@@ -263,8 +263,11 @@ export function createTagsSongWindow(): BrowserWindow {
   return tagSongWindow
 }
 
-export function createSettingsWindow(): BrowserWindow {
+export function createSettingsWindow(section?: string): BrowserWindow {
   if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
+    if (section) {
+      settingsWindowRef.webContents.send('settings-navigate-section', section)
+    }
     return focusExistingWindow(settingsWindowRef)
   }
 
@@ -289,7 +292,7 @@ export function createSettingsWindow(): BrowserWindow {
     settingsWindowRef = null
   })
 
-  loadRoute(settingsWindow, '/settings')
+  loadRoute(settingsWindow, `/settings${section ? `?section=${section}` : ''}`)
   settingsWindowRef = settingsWindow
   return settingsWindow
 }

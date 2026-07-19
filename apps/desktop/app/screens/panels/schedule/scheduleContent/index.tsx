@@ -1,11 +1,12 @@
 import { Button } from '@/ui/button'
 import { AnimatePresence, m, LazyMotion, domAnimation } from 'framer-motion'
 import { useSchedule } from '@/contexts/ScheduleContext'
-import { Save, CalendarSearch, Upload } from 'lucide-react'
+import { Save, CalendarSearch, Upload, Sparkles } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { ScheduleItem } from '@ecclesia/api'
 import GroupTemplateManager from '../components/scheduleGroups/GroupTemplateManagerDialog'
+import AIScheduleDialog from '../components/AIScheduleDialog'
 import { useDndContext, useDroppable } from '@dnd-kit/core'
 import EmptyShcedule from './emptyShcedule'
 import { useRef as useReactRef } from 'react'
@@ -31,6 +32,7 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null)
   const [tooltipRef, setTooltipRef] = useState<HTMLDivElement | null>(null)
   const themeSelectorRef = useReactRef<HTMLDivElement | null>(null)
+  const [showAIDialog, setShowAIDialog] = useState(false)
 
   useLayoutEffect(() => {
     const el = document.getElementById('theme-selector') as HTMLDivElement
@@ -117,6 +119,10 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
           )}
           {/* Botones secundarios debajo */}
           <div className="flex items-center gap-2 flex-wrap justify-end mt-1">
+            <Button size="sm" variant="outline" onClick={() => setShowAIDialog(true)}>
+              <Sparkles className="h-4 w-4" />
+              Asistente IA
+            </Button>
             <GroupTemplateManager>
               <Button size="sm">Grupos</Button>
             </GroupTemplateManager>
@@ -198,6 +204,8 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
           </div>
         </ScrollArea>
       </div>
+
+      <AIScheduleDialog open={showAIDialog} onOpenChange={setShowAIDialog} />
     </>
   )
 }

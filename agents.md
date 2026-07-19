@@ -41,10 +41,12 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 - **Refactor Fase 4.2:** Outbox middleware extraído de `prisma-init.ts` → `apps/api/src/middleware/outbox.ts`. `registerOutboxMiddleware`, `setOnOutboxWriteCallback`, `setOnMediaChangeCallback` re-exportados desde `prisma-init.ts`.
 - **Refactor Fase 4.3:** Creado `ipcHelpers.ts` (`onIpc`, `onIpcFromWindow`, `handleIpc`) en `apps/desktop/electron/main/`. Aplicado a 11 handlers locales de `index.ts`.
 - **Nuevo sistema de sync (OpLog + Automerge CRDT):** Diseño completo en `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`. Implementación core en `apps/api/src/controllers/sync-oplog/`. Integración via Prisma middleware (`apps/api/src/middleware/oplog.ts`). Scheduler nuevo (`apps/api/src/services/oplog-scheduler.service.ts`) activo en `index.ts`. Pendiente: desactivar snapshot sync legacy.
+- **Integración IA para cronogramas (MVP):** Multi-proveedor configurable (OpenAI/Anthropic), extracción de referencias bíblicas desde texto libre o PDF, dialog modal con tabs (texto/PDF), inserción directa al cronograma. Backend en `apps/api/src/controllers/ai/`, frontend en `AIScheduleDialog.tsx`. Configuración de API key en Ajustes.
 
 ### In Progress
 - **Importación PDF**: Backend completo — `importPdf` endpoint que convierte cada página del PDF a IMAGE via `pdfjs-dist` v3 + `@napi-rs/canvas`, almacena en `__pdf/` oculto, crea Presentation one-slide-per-page y un Media PDF con `presentationId`. **Frontend completo**: `MediaCard` muestra icono PDF + placeholder, drag-and-drop acepta `.pdf`, file picker filtro incluido. **Live redirect**: cuando un Media PDF se envía a live, resuelve su Presentation vinculada y muestra las diapositivas.
 - **Fallback regeneration en `syncBlobs()`**: extendido bucle de regeneración de thumbnails para también generar fallback de videos cuando `fallbackChecksum`/`data.fallback` está vacío. Nuevos fallbacks se checksumean, suben a Drive, y persisten en el evento OpLog.
+- **Roadmap IA completo**: Ver `AI_FEATURES_ROADMAP.md` en `packages/desktop/app/screens/panels/schedule/` para funcionalidades futuras (sugerencia de grupos, canciones, generación automática de cronogramas).
 
 ### Known Issues
 - `invalid_client` en sync OAuth: error de configuración — faltan credenciales válidas de Google OAuth en `.env`.
@@ -55,6 +57,7 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 
 *   **Frontend:** React 19, TypeScript, Tailwind CSS, Shadcn UI, React Router v7, React Hook Form + Zod, TanStack React Query, TipTap, Framer Motion (LazyMotion), dnd-kit
 *   **Backend:** Electron, Prisma ORM, SQLite (better-sqlite3)
+*   **IA:** OpenAI / Anthropic (configurable), pdfjs-dist para extracción de texto de PDFs
 *   **Package Manager:** pnpm 11 (con `minimum-release-age=1440` y `onlyBuiltDependencies` para proteger contra ataques supply chain)
 *   **Build:** Vite + electron-vite
 *   **Empaquetado macOS:** `dmg.artifactName` incluye `${arch}` para evitar colisiones cuando se generan arm64 y x64 en la misma ejecución.
@@ -163,7 +166,7 @@ packages/desktop/app/main.tsx (entry point React)
 │   │   │   ├── prisma.ts      # setPrismaClient, getPrisma, setGetBiblesResourcesPath
 │   │   │   ├── routes.ts
 │   │   │   ├── sockets/       # Socket.IO — SocketEventMap (único registro), handlers runtime
-│   │   │   └── controllers/   # Bible, Songs, Media, Themes, etc.
+│   │   │   └── controllers/   # Bible, Songs, Media, Themes, AI, etc.
 │   │   └── package.json
 │   └── desktop/               # @ecclesia/desktop — app Electron + React
 │       ├── app/               # Frontend React (main, screens, UI)
@@ -341,7 +344,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 │   │   │   ├── prisma-init.ts    <- initializeDatabase(), migraciones, backup
 │   │   │   ├── routes.ts
 │   │   │   ├── outboxPayload.ts  <- serializeOutboxPayload() BigInt-safe
-│   │   │   └── controllers/      <- Bible, Songs, Media, Themes, etc.
+│   │   │   └── controllers/      <- Bible, Songs, Media, Themes, AI, etc.
 │   │   ├── prisma/
 │   │   │   ├── schema.prisma
 │   │   │   └── migrations/

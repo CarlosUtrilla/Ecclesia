@@ -34,10 +34,11 @@ const windowAPI = {
   openPresentationWindow: (presentationId?: number) =>
     ipcRenderer.send('open-presentation-window', presentationId),
   openTagSongsWindow: () => ipcRenderer.send('open-tag-songs-window'),
-  openSettingsWindow: () => ipcRenderer.send('open-settings-window'),
+  openSettingsWindow: (section?: string) => ipcRenderer.send('open-settings-window', section),
   openStageControlWindow: () => ipcRenderer.send('open-stage-control-window'),
   openOAuthWindow: () => ipcRenderer.send('open-oauth-window'),
   closeCurrentWindow: () => ipcRenderer.send('close-current-window'),
+  openExternal: (url: string) => ipcRenderer.send('open-external', url),
   confirmClose: () => ipcRenderer.send('app-close-confirm'),
   cancelClose: () => ipcRenderer.send('app-close-cancel'),
   skipSyncAndClose: () => ipcRenderer.send('app-close-skip-sync'),

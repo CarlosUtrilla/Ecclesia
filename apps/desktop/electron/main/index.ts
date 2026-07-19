@@ -1,5 +1,5 @@
 import { initializeLiveMediaManager } from './liveMediaController/liveMediaController'
-import { app, BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, session, shell } from 'electron'
 import { onIpc, onIpcFromWindow } from './ipcHelpers'
 import path, { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
@@ -203,11 +203,17 @@ app.whenReady().then(async () => {
     createPresentationWindow(presentationId)
   )
   onIpc('open-tag-songs-window', () => createTagsSongWindow())
-  onIpc('open-settings-window', () => createSettingsWindow())
+  onIpc('open-settings-window', (section?: string) => createSettingsWindow(section))
   onIpc('open-stage-control-window', () => createStageControlWindow())
   onIpc('open-oauth-window', () => showOAuthWindow())
 
   onIpcFromWindow('close-current-window', (win) => win.close())
+
+  onIpc('open-external', (url: string) => {
+    if (typeof url === 'string' && url.startsWith('https://')) {
+      shell.openExternal(url)
+    }
+  })
 
   onIpc('window:trigger-close', () => {
     const win = getMainWindow()

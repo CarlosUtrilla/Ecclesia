@@ -16,6 +16,7 @@ Actualmente incluye:
 - El control de conexión es un único botón contextual (`Conectar Google` / `Desconectar`) según estado de sesión.
 - El botón principal de acción en el footer es `Sincronizar ahora`: persiste ajustes actuales y ejecuta `pushNow` inmediato cuando hay conexión activa.
 - **Logo / Pantalla de fondo**: permite seleccionar un recurso multimedia (imagen o video) de la biblioteca como fondo permanente en las pantallas en vivo, más un color de respaldo. Persistido en la DB via `window.api.setttings` usando los keys `LOGO_FALLBACK_MEDIA_ID`, `LOGO_FALLBACK_COLOR` y `LOGO_FALLBACK_VIDEO_LOOP` (controla si el video de fondo se reproduce en bucle; solo visible cuando el recurso seleccionado es VIDEO, por defecto `true`).
+- **Asistente IA**: configuración de proveedor de IA (OpenAI/Anthropic), API key y modelo. Permite probar la conexión.
 ## Archivos
 
 ```text
@@ -27,6 +28,7 @@ app/screens/settings/
 │   ├── syncSettingsSection.tsx     # Lógica/UI del menú Sincronización
 │   ├── logoFallbackSection.tsx     # Lógica/UI del menú Logo / Pantalla de fondo
 │   ├── remoteControl.tsx          # Control remoto LAN: descubre y conecta otras instancias
+│   ├── aiSettingsSection.tsx      # Configuración de proveedor IA (OpenAI/Anthropic)
 │   └── aboutSection.tsx           # Versión de la app, icono y estado de actualizaciones
 └── agents.md
 ```

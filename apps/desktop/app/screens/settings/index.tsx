@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/ui/button'
-import { Bug, CloudCog, ImagePlay, Info, MonitorUp, Palette, Settings, X } from 'lucide-react'
+import { Bug, CloudCog, ImagePlay, Info, MonitorUp, Palette, Settings, Sparkles, X } from 'lucide-react'
 import ColorSettingsSection from './components/colorSettingsSection'
 import SyncSettingsSection from './components/syncSettingsSection'
 import LogoFallbackSection from './components/logoFallbackSection'
 import AboutSection from './components/aboutSection'
 import RemoteControl from './components/remoteControl'
 import DevSection from './components/devSection'
+import AISettingsSection from './components/aiSettingsSection'
 
 type SettingsSection =
   | ''
@@ -16,9 +17,33 @@ type SettingsSection =
   | 'about'
   | 'remoteControlMode'
   | 'dev'
+  | 'ai'
 
 export default function SettingsScreen() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('colors')
+  const [activeSection, setActiveSection] = useState<SettingsSection>(() => {
+    const hash = window.location.hash
+    const queryIdx = hash.indexOf('?')
+    if (queryIdx !== -1) {
+      const params = new URLSearchParams(hash.slice(queryIdx))
+      const section = params.get('section')
+      if (section && ['colors', 'sync', 'logoFallback', 'about', 'remoteControlMode', 'dev', 'ai'].includes(section)) {
+        return section as SettingsSection
+      }
+    }
+    return 'colors'
+  })
+
+  useEffect(() => {
+    const handler = (_e: Electron.IpcRendererEvent, section: string) => {
+      if (['colors', 'sync', 'logoFallback', 'about', 'remoteControlMode', 'dev', 'ai'].includes(section)) {
+        setActiveSection(section as SettingsSection)
+      }
+    }
+    window.electron.ipcRenderer.on('settings-navigate-section', handler)
+    return () => {
+      window.electron.ipcRenderer.removeListener('settings-navigate-section', handler)
+    }
+  }, [])
 
   return (
     <div className="h-screen bg-background text-foreground flex">
@@ -60,6 +85,14 @@ export default function SettingsScreen() {
         </Button>
 
         <Button
+          variant={activeSection === 'ai' ? 'secondary' : 'ghost'}
+          className="justify-start"
+          onClick={() => setActiveSection('ai')}
+        >
+          <Sparkles className="size-4" /> Asistente IA
+        </Button>
+
+        <Button
           variant={activeSection === 'dev' ? 'secondary' : 'ghost'}
           className="justify-start"
           onClick={() => setActiveSection('dev')}
@@ -93,6 +126,7 @@ export default function SettingsScreen() {
           {activeSection === 'logoFallback' ? <LogoFallbackSection /> : null}
           {activeSection === 'about' ? <AboutSection /> : null}
           {activeSection === 'remoteControlMode' ? <RemoteControl /> : null}
+          {activeSection === 'ai' ? <AISettingsSection /> : null}
           {activeSection === 'dev' ? <DevSection /> : null}
         </div>
       </main>

@@ -10,6 +10,7 @@ import FontsController from './controllers/fonts/fonts.controller'
 import { PresentationsController } from './controllers/presentations/presentations.controller'
 import StageScreenConfigController from './controllers/stageScreenConfig/stageScreenConfig.controller'
 import { OplogController } from './controllers/sync-oplog/oplog.controller'
+import AiController from './controllers/ai/ai.controller'
 
 export const routes = {
   settings: SettingsController,
@@ -24,4 +25,5 @@ export const routes = {
   fonts: FontsController,
   stageScreenConfig: StageScreenConfigController,
   oplog: OplogController,
+  ai: AiController,
 }
