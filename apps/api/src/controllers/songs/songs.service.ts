@@ -219,6 +219,41 @@ class SongsService {
     })
     return 'Songs deleteted'
   }
+
+  async exportSongsToJson(ids: number[]) {
+    const songs = await this.prisma.song.findMany({
+      where: {
+        deletedAt: null,
+        id: { in: ids }
+      }
+    })
+
+    const tags = await this.prisma.tagSongs.findMany()
+    const tagMap = new Map(tags.map((t) => [t.id, t]))
+
+    const exportSongs = songs.map((song) => {
+      const parsedLyrics = this.parseLyrics(song.lyrics)
+      return {
+        title: song.title,
+        author: song.author ?? '',
+        copyright: song.copyright ?? '',
+        lyrics: parsedLyrics.map((lyric) => {
+          const tag = lyric.tagSongsId ? tagMap.get(lyric.tagSongsId) : null
+          return {
+            content: lyric.content,
+            tagName: tag?.name ?? null,
+            tagColor: tag?.color ?? null
+          }
+        })
+      }
+    })
+
+    return {
+      version: '1.0',
+      format: 'ecclesia-songs',
+      songs: exportSongs
+    }
+  }
 }
 
 export default SongsService

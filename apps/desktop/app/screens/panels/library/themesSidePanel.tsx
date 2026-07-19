@@ -39,7 +39,11 @@ export function ThemesSidePanel() {
   const handleExportarTema = async (themeId: number) => {
     try {
       const result = await Api.fetch.themes.exportThemeToZip({ body: { id: themeId } })
-      window.alert(`Tema exportado correctamente en:\n${result.outputPath}`)
+      const dir = await window.mediaAPI.selectDirectory()
+      if (dir) {
+        await window.mediaAPI.copyFileToDir(result.outputPath, dir, `${result.themeName}.zip`)
+        window.alert(`Tema exportado correctamente en:\n${dir}`)
+      }
     } catch (error: any) {
       window.alert(error?.message ?? 'No se pudo exportar el tema')
     }

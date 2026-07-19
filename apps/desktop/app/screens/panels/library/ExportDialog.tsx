@@ -68,14 +68,30 @@ export default function ExportDialog({ open, onOpenChange, resourceType }: Expor
     setIsExporting(true)
     try {
       if (resourceType === 'themes') {
-        // Export each selected theme as ZIP
-        for (const id of selectedIds) {
-          await Api.fetch.themes.exportThemeToZip({ body: { id } })
+        const dir = await window.mediaAPI.selectDirectory()
+        if (!dir) {
+          setIsExporting(false)
+          return
         }
-        window.alert(`Se exportaron ${selectedIds.length} tema(s) correctamente.`)
+        for (const id of selectedIds) {
+          const result = await Api.fetch.themes.exportThemeToZip({ body: { id } })
+          await window.mediaAPI.copyFileToDir(result.outputPath, dir, `${result.themeName}.zip`)
+        }
+        window.alert(`Se exportaron ${selectedIds.length} tema(s) correctamente en:\n${dir}`)
       } else if (resourceType === 'songs') {
-        // TODO: Implement song export
-        window.alert('Exportación de canciones próximamente')
+        const result = await Api.fetch.songs.exportSongsToJson({ body: { ids: selectedIds } })
+        const dir = await window.mediaAPI.selectDirectory()
+        if (!dir) {
+          setIsExporting(false)
+          return
+        }
+        for (const song of result.songs) {
+          const songJson = { version: '1.0', format: 'ecclesia-songs', songs: [song] }
+          const jsonStr = JSON.stringify(songJson, null, 2)
+          const safeName = song.title.replace(/[^a-zA-Z0-9áéíóúñüÁÉÍÓÚÑÜ\s-]/g, '').replace(/\s+/g, '-')
+          await window.mediaAPI.writeFileToDir(dir, `${safeName}.json`, jsonStr)
+        }
+        window.alert(`Se exportaron ${selectedIds.length} canción(es) correctamente en:\n${dir}`)
       }
       onOpenChange(false)
     } catch (error) {

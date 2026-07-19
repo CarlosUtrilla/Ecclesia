@@ -43,6 +43,7 @@ class BibleController {
   }
 
   @UsingMulter({ fieldName: 'file', maxFiles: 10 })
+  @UpdateQueryKey(['bible'])
   async importBible({
     file,
     files

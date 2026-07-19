@@ -29,6 +29,9 @@ class SongsController {
     if (source === 'openlp') {
       return this.openlpImporter(filesPath)
     }
+    if (source === 'ecclesia') {
+      return this.ecclesiaImporter(filesPath, createTags)
+    }
     throw new Error('Source not supported')
   }
 
@@ -154,6 +157,76 @@ class SongsController {
     if (response.some((res) => res.status === 'rejected')) {
       console.error(
         'Error importing OpenLP songs:',
+        response.filter((res) => res.status === 'rejected')
+      )
+    }
+    if (response.some((res) => res.status === 'fulfilled')) {
+      return true
+    }
+
+    return false
+  }
+
+  private async ecclesiaImporter(filesPath: string[], createTags: boolean) {
+    const allSongs: { title: string; author: string; copyright: string; lyrics: { content: string; tagName: string | null; tagColor: string | null }[] }[] = []
+
+    for (const filePath of filesPath) {
+      const fileContent = readFileSync(filePath, 'utf-8')
+      const data = JSON.parse(fileContent)
+      if (data.format === 'ecclesia-songs' && Array.isArray(data.songs)) {
+        allSongs.push(...data.songs)
+      }
+    }
+
+    const tags = createTags ? await this.prisma.tagSongs.findMany() : []
+    const tagMap = new Map(tags.map((t) => [t.name.toLowerCase(), t]))
+
+    const response = await Promise.allSettled(
+      allSongs.map(async (songData) => {
+        const { title, author, copyright, lyrics } = songData
+        const resolvedLyrics: { content: string; tagSongsId: number | null }[] = []
+
+        for (const lyric of lyrics) {
+          let tagId: number | null = null
+          if (createTags && lyric.tagName) {
+            const existing = tagMap.get(lyric.tagName.toLowerCase())
+            if (existing) {
+              tagId = existing.id
+            } else {
+              const shortName =
+                lyric.tagName
+                  .trim()
+                  .split(/\s+/)
+                  .map((w: string) => w.charAt(0).toUpperCase())
+                  .join('')
+                  .substring(0, 4) || 'TAG'
+              const newTag = await this.prisma.tagSongs.create({
+                data: {
+                  name: lyric.tagName,
+                  shortName,
+                  color: lyric.tagColor ?? '#3b82f6',
+                  deletedAt: null
+                }
+              })
+              tagMap.set(lyric.tagName.toLowerCase(), newTag)
+              tagId = newTag.id
+            }
+          }
+          resolvedLyrics.push({ content: lyric.content, tagSongsId: tagId })
+        }
+
+        await this.songService.createSong({
+          title,
+          author,
+          copyright,
+          lyrics: resolvedLyrics
+        })
+      })
+    )
+
+    if (response.some((res) => res.status === 'rejected')) {
+      console.error(
+        'Error importing Ecclesia songs:',
         response.filter((res) => res.status === 'rejected')
       )
     }

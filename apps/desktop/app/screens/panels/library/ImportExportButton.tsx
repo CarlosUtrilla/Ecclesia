@@ -13,6 +13,7 @@ import { ArrowDownUp, Music, Palette, BookOpen, Download, Upload } from 'lucide-
 import { useState } from 'react'
 import { Tooltip } from '@/ui/tooltip'
 import ExportDialog from './ExportDialog'
+import SongImporter from './songs/songImporter'
 
 type ExportResourceType = 'songs' | 'themes'
 
@@ -20,22 +21,71 @@ export default function ImportExportButton() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const [exportType, setExportType] = useState<ExportResourceType>('songs')
-
-  const handleImportSongs = () => {
-    // TODO: Open SongImporter dialog
-    window.alert('Importar canciones - Próximamente')
-    setIsDropdownOpen(false)
-  }
+  const [songImporterOpen, setSongImporterOpen] = useState(false)
 
   const handleImportThemes = async () => {
-    // TODO: Open file picker for .zip files
-    window.alert('Importar temas - Próximamente')
+    const selectedFiles = await window.mediaAPI.selectFiles('all')
+    const zipFiles = selectedFiles.filter((f) => f.fileName.toLowerCase().endsWith('.zip'))
+
+    if (zipFiles.length === 0) {
+      window.alert('Selecciona al menos un archivo .zip válido para importar.')
+      setIsDropdownOpen(false)
+      return
+    }
+
+    try {
+      const { Api } = await import('@ecclesia/queries')
+      const results = await Promise.allSettled(
+        zipFiles.map(async (zf) => {
+          const formData = new FormData()
+          const blob = new Blob([zf.bytes])
+          formData.append('file', blob, zf.fileName)
+          const res = await fetch('http://localhost:7777/api/themes/importThemeZip', {
+            method: 'POST',
+            body: formData
+          })
+          if (!res.ok) throw new Error(await res.text())
+          const data = await res.json()
+          return data[0]
+        })
+      )
+
+      const successCount = results.filter((item) => item.status === 'fulfilled').length
+      if (successCount > 0) {
+        window.alert(`Se importaron ${successCount} tema(s) correctamente.`)
+      } else {
+        window.alert('No se pudieron importar los temas.')
+      }
+    } catch {
+      window.alert('Error al importar temas.')
+    }
     setIsDropdownOpen(false)
   }
 
   const handleImportBible = async () => {
-    // TODO: Open file picker for .ebbl files
-    window.alert('Importar biblia - Próximamente')
+    const selectedFiles = await window.mediaAPI.selectFiles('all')
+    const ebblFiles = selectedFiles.filter((f) => f.fileName.toLowerCase().endsWith('.ebbl'))
+
+    if (ebblFiles.length === 0) {
+      window.alert('Selecciona al menos un archivo .ebbl válido para importar.')
+      setIsDropdownOpen(false)
+      return
+    }
+
+    try {
+      for (const ef of ebblFiles) {
+        const formData = new FormData()
+        const blob = new Blob([ef.bytes])
+        formData.append('file', blob, ef.fileName)
+        await fetch('http://localhost:7777/api/bible/importBible', {
+          method: 'POST',
+          body: formData
+        })
+      }
+      window.alert('Biblia(s) importada(s) correctamente.')
+    } catch {
+      window.alert('Error al importar la biblia.')
+    }
     setIsDropdownOpen(false)
   }
 
@@ -63,7 +113,7 @@ export default function ImportExportButton() {
               <span>Canciones</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              <DropdownMenuItem onClick={handleImportSongs}>
+              <DropdownMenuItem onClick={() => { setSongImporterOpen(true); setIsDropdownOpen(false) }}>
                 <Download className="mr-2 h-4 w-4" />
                 Importar
               </DropdownMenuItem>
@@ -113,6 +163,8 @@ export default function ImportExportButton() {
         onOpenChange={setExportDialogOpen}
         resourceType={exportType}
       />
+
+      <SongImporter forceOpen={songImporterOpen} onOpenChange={setSongImporterOpen} />
     </>
   )
 }

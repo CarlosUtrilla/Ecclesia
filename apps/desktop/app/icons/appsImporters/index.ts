@@ -1,7 +1,14 @@
+import ecclesiaIcon from './ecclesia.png'
 import holyricsIcon from './holyrics.png'
-import openlpIcon from "./openlp.png"
+import openlpIcon from './openlp.png'
 
 export const AppsImportersIcons = [
+  {
+    name: 'Ecclesia',
+    icon: ecclesiaIcon,
+    id: 'ecclesia',
+    files: '.json'
+  },
   {
     name: 'Holyrics',
     icon: holyricsIcon,

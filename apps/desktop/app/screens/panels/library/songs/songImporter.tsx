@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Button } from '@/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/ui/dialog'
 import { Tooltip } from '@/ui/tooltip'
@@ -8,8 +8,17 @@ import { Download, FolderOpen, Upload } from 'lucide-react'
 import { Api } from '@ecclesia/queries'
 import { TagPreviewDialog, MissingTag } from './TagPreviewDialog'
 
-export default function SongImporter() {
-  const [openDialog, setOpenDialog] = useState(false)
+interface SongImporterProps {
+  forceOpen?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
+export default function SongImporter({ forceOpen, onOpenChange }: SongImporterProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled = forceOpen !== undefined
+  const openDialog = isControlled ? forceOpen : internalOpen
+  const setOpenDialog = isControlled ? onOpenChange! : setInternalOpen
+
   const [selectedApp, setSelectedApp] = useState<string | null>(null)
   const [selectedPaths, setSelectedPaths] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -17,6 +26,15 @@ export default function SongImporter() {
 
   const [missingTags, setMissingTags] = useState<MissingTag[] | null>(null)
   const [isPreviewing, setIsPreviewing] = useState(false)
+
+  useEffect(() => {
+    if (!openDialog) {
+      setSelectedApp(null)
+      setSelectedPaths([])
+      setMissingTags(null)
+      setError(null)
+    }
+  }, [openDialog])
 
   const doImport = async (tagsToCreate: MissingTag[]) => {
     try {
@@ -68,16 +86,20 @@ export default function SongImporter() {
     setError(null)
     setIsPreviewing(true)
     try {
-      const result = await Api.fetch.songs.previewMissingTags({
-        body: { filesPath: selectedPaths, source: selectedApp }
-      })
-      if (result.missingTags.length > 0) {
-        setMissingTags(result.missingTags)
-      } else {
+      if (selectedApp === 'ecclesia') {
         await doImport([])
+      } else {
+        const result = await Api.fetch.songs.previewMissingTags({
+          body: { filesPath: selectedPaths, source: selectedApp }
+        })
+        if (result.missingTags.length > 0) {
+          setMissingTags(result.missingTags)
+        } else {
+          await doImport([])
+        }
       }
     } catch (err) {
-      console.error('Error previewing tags:', err)
+      console.error('Error importing songs:', err)
       setError('Ocurrió un error al analizar las canciones. Por favor, intenta de nuevo.')
     } finally {
       setIsPreviewing(false)
@@ -85,25 +107,23 @@ export default function SongImporter() {
   }
 
   const handleDialogClose = (isOpen: boolean) => {
-    if (!isOpen) {
-      setSelectedApp(null)
-      setSelectedPaths([])
-      setMissingTags(null)
-      setError(null)
-    }
     setOpenDialog(isOpen)
   }
+
+  const triggerButton = (
+    <Tooltip content="Importar canciones">
+      <DialogTrigger asChild>
+        <Button size="icon">
+          <Download className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+    </Tooltip>
+  )
 
   return (
     <>
       <Dialog open={openDialog} onOpenChange={handleDialogClose}>
-        <Tooltip content="Importar canciones">
-          <DialogTrigger asChild>
-            <Button size="icon">
-              <Download className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-        </Tooltip>
+        {!isControlled && triggerButton}
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Importar canciones</DialogTitle>

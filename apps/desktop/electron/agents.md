@@ -313,7 +313,7 @@ Definidas en `electron/preload/index.ts`:
 | API global | Metodos principales |
 | --- | --- |
 | `window.api` | Namespaces de `@ecclesia/api` (routes.ts) |
-| `window.mediaAPI` | `getMediaServerPort()`, `importMedia()`, `cleanupTempPath()` |
+| `window.mediaAPI` | `getMediaServerPort()`, `selectFiles()`, `getPathForFile()`, `selectBibleFiles()`, `selectDirectory()`, `writeFileToDir()`, `copyFileToDir()`, `saveFile()` |
 | `window.displayAPI` | `getDisplays()`, `showLiveScreen()`, `closeLiveScreen()`, `showStageScreen()`, `closeStageScreen()`, `updateLiveScreenContent()`, `updateLiveScreenTheme()`, `updateStageScreenConfig()` |
 | `window.windowAPI` | `openSongWindow()`, `openThemeWindow()`, `openTagsSongWindow()`, `openStageControlWindow()`, `closeCurrentWindow()` |
 | `window.bibleAPI` | Wrappers del bible manager |

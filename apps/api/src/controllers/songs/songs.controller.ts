@@ -47,6 +47,7 @@ class SongsController {
     return this.songsService.searchSongs(body.query, body.limit)
   }
 
+  @UpdateQueryKey(['songs'], ['songsByIds'])
   async importSongsFromFile({
     body: { filesPath, source, createTags }
   }: RequestHandler<ImportSongsFromFileDTO>) {
@@ -62,6 +63,10 @@ class SongsController {
 
   async deleteSongsNoLyrics() {
     return this.songsService.deleteSongsNoLyrics()
+  }
+
+  async exportSongsToJson({ body }: RequestHandler<{ ids: number[] }>) {
+    return this.songsService.exportSongsToJson(body.ids)
   }
 }
 
