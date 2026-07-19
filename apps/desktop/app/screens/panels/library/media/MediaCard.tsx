@@ -44,7 +44,8 @@ export function MediaCard({
     id: `media-${media.id}`,
     data: {
       type: 'MEDIA',
-      accessData: media.id
+      accessData: media.id,
+      label: media.name
     }
   })
 

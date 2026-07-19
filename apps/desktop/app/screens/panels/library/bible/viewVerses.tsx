@@ -331,6 +331,7 @@ export default function ViewVerses({
                 selectedVerses={verse}
                 selectedChunkKey={selectedChunkKey}
                 bookAccessId={bookAccessId}
+                bookName={bookData?.book}
                 onItemClick={handleItemClick}
                 onAddToSchedule={handleAddToSchedule}
                 onShowOnLive={handleShowOnLive}
@@ -353,6 +354,7 @@ export default function ViewVerses({
               selectedVerses={verse}
               selectedChunkKey={selectedChunkKey}
               bookAccessId={bookAccessId}
+              bookName={bookData?.book}
               onItemClick={handleItemClick}
               onAddToSchedule={handleAddToSchedule}
               onShowOnLive={handleShowOnLive}
@@ -375,6 +377,7 @@ function VerseItem({
   selectedVerses,
   selectedChunkKey,
   bookAccessId,
+  bookName,
   onItemClick,
   onAddToSchedule,
   onShowOnLive,
@@ -390,6 +393,7 @@ function VerseItem({
   selectedVerses: number[]
   selectedChunkKey: string | null
   bookAccessId: number | null
+  bookName?: string
   onItemClick: (
     item: { verseNumber: number; index: number; chunkIndex?: number; isChunk?: boolean },
     e: React.MouseEvent
@@ -416,7 +420,8 @@ function VerseItem({
     id: `verse-${v.verse}-${chapter}-${bookAccessId ?? 'unknown'}-${chunkIndex}`,
     data: {
       type: 'BIBLE',
-      accessData
+      accessData,
+      label: `${bookName || ''} ${chapter}:${verseRange || v.verse}`.trim()
     }
   })
 

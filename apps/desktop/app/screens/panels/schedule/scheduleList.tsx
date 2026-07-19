@@ -5,7 +5,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger
 } from '@/ui/context-menu'
-import { Calendar, Edit, Plus, Trash2, Clock, ClockPlus } from 'lucide-react'
+import { Calendar, Edit, Trash2, ClockPlus, ArrowLeft } from 'lucide-react'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { format } from 'date-fns'
@@ -31,7 +31,7 @@ type ScheduleListProps = {
 }
 
 export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
-  const { createTemporarySchedule, isTemporary, formData, cleanForm, loadSchedule } = useSchedule()
+  const { createTemporarySchedule, isTemporary, formData, loadSchedule } = useSchedule()
 
   // Obtener lista de schedules
   const { data: schedules = [], refetch } = useQuery({
@@ -61,10 +61,6 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
     }
   })
 
-  const handleCreate = () => {
-    cleanForm()
-  }
-
   const handleEdit = (schedule: Schedule) => {
     loadSchedule(schedule.id)
   }
@@ -75,6 +71,8 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
     }
   }
 
+  const hasActiveSchedule = !!formData
+
   return (
     <div className="flex flex-col h-full w-full bg-muted/20 panel-scrollable overflow-hidden">
       {/* Header mejorado */}
@@ -84,67 +82,43 @@ export default function ScheduleList({ onScheduleSelect }: ScheduleListProps) {
             <Calendar className="h-5 w-5 text-primary" />
             Cronogramas
           </h2>
+        </div>
+        <div className="flex gap-2 mb-2">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar cronograma..."
+            className="flex-1 text-xs px-2 py-1 h-8 rounded-md border border-muted focus:border-primary focus:ring-1 focus:ring-primary bg-background"
+            aria-label="Buscar cronograma"
+          />
           <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8"
-            onClick={handleCreate}
-            aria-label="Nuevo cronograma"
+            size="sm"
+            className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 shrink-0"
+            onClick={() => {
+              createTemporarySchedule()
+              onScheduleSelect()
+            }}
           >
-            <Plus className="h-5 w-5" />
+            <ClockPlus className="h-3.5 w-3.5" />
+            Nuevo
           </Button>
         </div>
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar cronograma..."
-          className="w-full mb-2 text-xs px-2 py-1 h-8 rounded-md border border-muted focus:border-primary focus:ring-1 focus:ring-primary bg-background"
-          aria-label="Buscar cronograma"
-        />
-        <Button
-          size="sm"
-          className="w-full text-xs font-semibold flex items-center gap-2"
-          onClick={() => {
-            createTemporarySchedule()
-            onScheduleSelect()
-          }}
-        >
-          <ClockPlus className="h-4 w-4" />
-          Nuevo cronograma
-        </Button>
+        {hasActiveSchedule && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full justify-start gap-2"
+            onClick={onScheduleSelect}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="truncate text-xs font-medium">
+              Regresar a "{formData.title || (isTemporary ? 'Sesión Temporal' : 'cronograma')}"
+            </span>
+          </Button>
+        )}
       </div>
       <ScrollArea className="panel-scroll-content ">
         <div className="flex-1 px-2 py-3 space-y-3">
-          {/* Sesión temporal si está activa */}
-          {isTemporary && formData && (
-            <Card
-              className="p-2 border-amber-500 bg-amber-50 dark:bg-amber-900/20 cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-amber-400 outline-none"
-              tabIndex={0}
-              role="button"
-              aria-label="Volver al cronograma temporal"
-              onClick={onScheduleSelect}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onScheduleSelect()
-                }
-              }}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="h-4 w-4 text-amber-600" />
-                <span className="font-semibold text-sm truncate flex-1">
-                  {formData.title || 'Cronograma temporal'}
-                </span>
-                <Badge
-                  variant="outline"
-                  className="border-amber-500 text-amber-700 bg-amber-100 dark:bg-amber-900/40"
-                >
-                  Temporal
-                </Badge>
-              </div>
-              <span className="text-xs text-muted-foreground">Sin guardar</span>
-            </Card>
-          )}
           <Separator className="my-1" />
           {filteredSchedules.length === 0 && (
             <div className="text-center text-muted-foreground text-xs py-8 select-none">

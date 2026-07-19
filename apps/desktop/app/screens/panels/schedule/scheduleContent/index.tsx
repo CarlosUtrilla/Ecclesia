@@ -100,7 +100,7 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
                 form.clearErrors('title')
                 form.setValue('title', e.target.value, { shouldDirty: true })
               }}
-              placeholder="Sesión Temporal"
+              placeholder="Nombrar sesión"
               maxLength={48}
               aria-label="Nombre del cronograma"
               style={{ minWidth: 180, height: '1.6rem' }}

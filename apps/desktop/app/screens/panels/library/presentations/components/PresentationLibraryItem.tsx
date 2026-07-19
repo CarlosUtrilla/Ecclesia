@@ -34,7 +34,8 @@ export default function PresentationLibraryItem({
     id: `presentation-${presentation.id}`,
     data: {
       type: 'PRESENTATION',
-      accessData: presentation.id
+      accessData: presentation.id,
+      label: presentation.title
     }
   })
 

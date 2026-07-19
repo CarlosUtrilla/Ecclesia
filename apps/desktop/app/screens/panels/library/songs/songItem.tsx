@@ -22,7 +22,8 @@ type Props = {
 export default function SongItem({ song, selectedSong, setSelectedSong, handleDeleteSong }: Props) {
   const dragData = {
     type: 'SONG',
-    accessData: song.id
+    accessData: song.id,
+    label: song.title
   }
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
