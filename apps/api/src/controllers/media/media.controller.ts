@@ -39,6 +39,9 @@ export class MediaController {
         if (ext === '.pdf') {
           return [await this.mediaService.importPdfFromMulter(f, body.folder)]
         }
+        if (ext === '.pptx') {
+          return [await this.mediaService.importPptxFromMulter(f, body.folder)]
+        }
         return [await this.mediaService.importFileFromMulter(f, body.folder)]
       })
     )
@@ -65,6 +68,20 @@ export class MediaController {
     const targetFiles = file ? [file] : (files ?? [])
     const results = await Promise.all(
       targetFiles.map(async (f) => [await this.mediaService.importPdfFromMulter(f, body.folder)])
+    )
+    return results.flat()
+  }
+
+  @UsingMulter({ fieldName: 'file', maxFiles: 10 })
+  @UpdateQueryKey(['media'], ['mediaByIds'], ['folders'])
+  async importPptx({
+    file,
+    files,
+    body
+  }: RequestHandler<{ folder?: string }, Express.Multer.File>) {
+    const targetFiles = file ? [file] : (files ?? [])
+    const results = await Promise.all(
+      targetFiles.map(async (f) => [await this.mediaService.importPptxFromMulter(f, body.folder)])
     )
     return results.flat()
   }

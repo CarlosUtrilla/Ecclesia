@@ -5,10 +5,16 @@ let socketInstance: Socket | null = null
 let currentUrl = ''
 let currentPort = 0
 const socketReconnectListeners = new Set<() => void>()
+const socketChangeListeners = new Set<() => void>()
 
 export function onSocketReconnect(cb: () => void): () => void {
   socketReconnectListeners.add(cb)
   return () => socketReconnectListeners.delete(cb)
+}
+
+export function onSocketChange(cb: () => void): () => void {
+  socketChangeListeners.add(cb)
+  return () => socketChangeListeners.delete(cb)
 }
 
 type SocketListenShape = {
@@ -38,7 +44,6 @@ function getOrCreateSocket(apiUrl: string, port: number): Socket {
       reconnection: true,
     })
 
-    // Debug: track connection status
     socketInstance.on('connect', () => {
       console.warn(`[DEBUG-SOCKET] Connected: ${socketInstance?.id}`)
     })
@@ -49,7 +54,9 @@ function getOrCreateSocket(apiUrl: string, port: number): Socket {
       console.warn(`[DEBUG-SOCKET] Connection error: ${err.message}`)
     })
 
+    // Notify all change listeners that the socket has been replaced
     socketReconnectListeners.forEach((cb) => cb())
+    socketChangeListeners.forEach((cb) => cb())
   }
   return socketInstance
 }

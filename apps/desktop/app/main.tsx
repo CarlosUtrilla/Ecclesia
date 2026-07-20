@@ -81,19 +81,6 @@ async function preloadCurrentRoute(): Promise<void> {
 // - Suspense muestra el Spinner inmediatamente en vez de ventana oscura vacía
 // - React.lazy() comparte la misma Promise del import() → resuelve en cuanto el chunk está listo
 initializeApi(queryClient).then(() => {
-  // Invalidar queries via Socket.IO (post-mutación + OpLog sync)
-  // Invalidar queries via Socket.IO (post-mutación + OpLog sync)
-  Api.socket.listen.queryKeysInvalidate(({ keys }) => {
-    console.warn(`[DEBUG-SOCKET] queryKeysInvalidate received:`, JSON.stringify(keys))
-    if (keys && keys.length > 0) {
-      keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))
-      console.warn(`[DEBUG-SOCKET] Invalidated ${keys.length} query keys`)
-    } else {
-      queryClient.invalidateQueries()
-      console.warn(`[DEBUG-SOCKET] Invalidated all queries`)
-    }
-  })
-
   preloadCurrentRoute()
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

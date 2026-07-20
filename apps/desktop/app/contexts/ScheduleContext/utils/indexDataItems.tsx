@@ -303,8 +303,8 @@ export const useIndexDataItems = (
           mediaItem = loaded?.[0]
         }
 
-        // PDF media redirects to its linked presentation
-        if (mediaItem?.type === 'PDF' && mediaItem.presentationId) {
+        // PDF/PPTX media redirects to its linked presentation
+        if ((mediaItem?.type === 'PDF' || mediaItem?.type === 'PPTX') && mediaItem.presentationId) {
           const pres = await Api.fetch.presentations.getPresentationById({
             body: { id: mediaItem.presentationId }
           })

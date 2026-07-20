@@ -130,7 +130,7 @@ export default function LivePanel() {
         return <RenderBibleLiveControls data={content} />
       case 'MEDIA': {
         const pdfMedia = media.find((m) => m.id === Number(itemOnLive!.accessData))
-        if (pdfMedia?.type === 'PDF') {
+        if (pdfMedia?.type === 'PDF' || pdfMedia?.type === 'PPTX') {
           return <RenderPresentationLiveController data={content} />
         }
         return <RenderMedia />

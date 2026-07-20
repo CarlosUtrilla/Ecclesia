@@ -8,7 +8,6 @@ import {
   EXTRACTION_SYSTEM_PROMPT
 } from './ai.types'
 import * as pdfjsLib from 'pdfjs-dist'
-import log from 'electron-log'
 
 type SettingRow = {
   key: string
@@ -16,6 +15,14 @@ type SettingRow = {
 }
 
 export default class AIService {
+  private log(...args: any[]) {
+    if (typeof process !== 'undefined' && process.versions?.electron) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('electron-log').info('[AI]', ...args)
+      } catch { /* silent fail */ }
+    }
+  }
   private async getRawSetting(key: string): Promise<string | null> {
     const prisma = getPrisma()
     const rows = await prisma.$queryRaw<SettingRow[]>(
@@ -73,7 +80,7 @@ export default class AIService {
     const apiKey = (await this.getRawSetting('ai.apiKey'))!
     const model = config.model
 
-    log.info(`[AI] Extrayendo referencias con ${config.provider}/${model}`)
+    this.log('Extrayendo referencias con', config.provider, '/', model)
 
     const result = await this.callProvider(config.provider, apiKey, model, text)
     return result
@@ -161,7 +168,7 @@ export default class AIService {
 
     if (!response.ok) {
       const error = await response.text()
-      log.error('[AI] OpenAI error:', error)
+      this.log('OpenAI error:', error)
       throw new Error(`Error de OpenAI: ${response.status}`)
     }
 
@@ -198,7 +205,7 @@ export default class AIService {
 
     if (!response.ok) {
       const error = await response.text()
-      log.error('[AI] Anthropic error:', error)
+      this.log('Anthropic error:', error)
       throw new Error(`Error de Anthropic: ${response.status}`)
     }
 
@@ -230,7 +237,7 @@ export default class AIService {
 
     if (!response.ok) {
       const error = await response.text()
-      log.error('[AI] Gemini error:', error)
+      this.log('Gemini error:', error)
       throw new Error(`Error de Gemini: ${response.status}`)
     }
 
@@ -269,7 +276,7 @@ export default class AIService {
           : []
       }
     } catch (e) {
-      log.error('[AI] Error parsing response:', raw)
+      this.log('Error parsing response:', raw)
       throw new Error('No se pudo interpretar la respuesta de la IA')
     }
   }

@@ -24,7 +24,8 @@ const VALID_EXTENSIONS = [
   '.ogg',
   '.mov',
   '.avi',
-  '.pdf'
+  '.pdf',
+  '.pptx'
 ]
 
 const isExternalFile = (e: React.DragEvent) => {

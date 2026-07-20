@@ -87,6 +87,7 @@ enum MediaType {
   IMAGE
   VIDEO
   PDF
+  PPTX
 }
 
 model Media {

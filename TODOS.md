@@ -82,6 +82,15 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 - [X] Preservación de estado del dialog al cerrar (sin borrar resultados)
 - [X] Botón "Configurar IA" en footer del dialog con link a ajustes
 
+### PPTX via app externa (LibreOffice/WPS/PowerPoint)
+
+> Objetivo: no instalar dependencias nuevas y usar la app de oficina que ya tenga el usuario.
+
+- [ ] **Importar PPTX**: Guardar archivo + crear Media tipo PPTX con filePath al original (sin conversión)
+- [ ] **Live de PPTX**: Abrir el PPTX en la app de oficina predeterminada del sistema
+- [ ] **Control slides**: Simular teclas (Space/Flecha derecha = siguiente, etc.) para controlar la app externa
+- [ ] **Fallback**: Si no hay oficina instalada, mostrar un message alerta
+
 ## Errores encontrados en producción
 
 - [X] Los videos no se sincronizan completamente

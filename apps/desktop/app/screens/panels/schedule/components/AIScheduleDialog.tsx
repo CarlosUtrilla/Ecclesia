@@ -9,7 +9,18 @@ import { Api } from '@ecclesia/queries'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { buildBibleAccessData } from '@/screens/panels/library/bible/accessData'
-import { FileText, Upload, Sparkles, AlertCircle, CheckCircle2, Trash2, Plus, Settings, File, FileType2 } from 'lucide-react'
+import {
+  FileText,
+  Upload,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  Trash2,
+  Plus,
+  Settings,
+  File,
+  FileType2
+} from 'lucide-react'
 import type { ExtractedContentDTO, BibleReferenceDTO } from '@ecclesia/api/controllers/ai/ai.dto.d'
 
 interface AIScheduleDialogProps {
@@ -49,7 +60,8 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
 
   useEffect(() => {
     if (open) {
-      Api.fetch.ai.getProviderConfig()
+      Api.fetch.ai
+        .getProviderConfig()
         .then((config) => setAiConfig(config))
         .catch(() => setAiConfig({ hasKey: false }))
     }
@@ -153,9 +165,7 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
         setError(`No se pudo determinar el ID del libro "${ref.book}"`)
         return null
       }
-      const verseRange = ref.verseEnd
-        ? `${ref.verseStart}-${ref.verseEnd}`
-        : String(ref.verseStart)
+      const verseRange = ref.verseEnd ? `${ref.verseStart}-${ref.verseEnd}` : String(ref.verseStart)
       const accessData = buildBibleAccessData({
         bookId: Number(bookId),
         chapter: ref.chapter,
@@ -290,7 +300,7 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
               placeholder="Pegá aquí el texto del sermón, bosquejo o notas del pastor.&#10;&#10;Ejemplo:&#10;Hoy estudiaremos Juan 3:16-21, donde Jesús habla del amor de Dios. También veremos Romanos 8:28 y Salmo 23..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              className="min-h-[150px]"
+              className="min-h-[150px] max-h-[200px] overflow-y-auto"
               disabled={!isConfigured}
             />
             <Button
@@ -425,11 +435,7 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
                       {isAdded ? (
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                       ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleAddReference(ref)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => handleAddReference(ref)}>
                           <Plus className="h-4 w-4" />
                         </Button>
                       )}

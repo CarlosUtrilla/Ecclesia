@@ -62,6 +62,9 @@ importers:
       googleapis:
         specifier: ^171.4.0
         version: 171.4.0
+      libreoffice-convert:
+        specifier: ^1.8.2
+        version: 1.8.2
       mammoth:
         specifier: ^1.12.0
         version: 1.12.0
@@ -4862,6 +4865,10 @@ packages:
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
+
+  libreoffice-convert@1.8.2:
+    resolution: {integrity: sha512-iwSzpoomvQS4ztoZds26Nx/sH/jkLN4nsNPxgu95eTmiF3FVmRQwFQ/2LSErV51vyW8R4w5Q+bqoTL1CaWs4xQ==}
+    engines: {node: '>=6'}
 
   lie@3.3.0:
     resolution: {integrity: sha512-UaiMJzeWRlEujzAuw5LokY1L5ecNQYZKfmyZ9L7wDHb/p5etKaxXhohBcrw0EYby+G/NA52vRSN4N39dxHAIwQ==}
@@ -11617,6 +11624,11 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+
+  libreoffice-convert@1.8.2:
+    dependencies:
+      async: 3.2.6
+      tmp: 0.2.7
 
   lie@3.3.0:
     dependencies:

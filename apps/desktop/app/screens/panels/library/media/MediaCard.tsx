@@ -59,8 +59,8 @@ export function MediaCard({
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
-    // Solo enviar a en vivo si es imagen, video o PDF
-    if (media.type === 'IMAGE' || media.type === 'VIDEO' || media.type === 'PDF') {
+    // Solo enviar a en vivo si es imagen, video, PDF o PPTX
+    if (media.type === 'IMAGE' || media.type === 'VIDEO' || media.type === 'PDF' || media.type === 'PPTX') {
       showItemOnLiveScreen({
         id: generateUniqueId(),
         order: 0,
@@ -102,11 +102,11 @@ export function MediaCard({
         >
           {/* Preview */}
           <div className="aspect-square bg-muted/30 flex items-center justify-center overflow-hidden relative">
-            {media.type === 'PDF' && !media.thumbnail ? (
+            {(media.type === 'PDF' || media.type === 'PPTX') && !media.thumbnail ? (
               <div className="flex flex-col items-center justify-center gap-2 p-4">
                 <FileText className="h-10 w-10 text-muted-foreground/60" />
                 <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-wider">
-                  PDF
+                  {media.type}
                 </span>
               </div>
             ) : (
@@ -119,9 +119,9 @@ export function MediaCard({
                   height={128}
                   loading="lazy"
                 />
-                {media.type === 'PDF' && media.thumbnail && (
+                {(media.type === 'PDF' || media.type === 'PPTX') && media.thumbnail && (
                   <span className="absolute top-1.5 right-1.5 text-[9px] font-bold text-white bg-black/50 px-1 py-0.5 rounded">
-                    PDF
+                    {media.type}
                   </span>
                 )}
               </div>
@@ -146,7 +146,7 @@ export function MediaCard({
                 <div className="w-3 h-3 flex-shrink-0">
                   {media.type === 'IMAGE' ? (
                     <Image className="h-3 w-3 text-white/80" />
-                  ) : media.type === 'PDF' ? (
+                  ) : media.type === 'PDF' || media.type === 'PPTX' ? (
                     <FileText className="h-3 w-3 text-white/80" />
                   ) : (
                     <Video className="h-3 w-3 text-white/80" />
@@ -184,7 +184,7 @@ export function MediaCard({
           <Edit className="h-4 w-4" />
           Renombrar
         </ContextMenuItem>
-        {media.type === 'PDF' && (
+        {(media.type === 'PDF' || media.type === 'PPTX') && media.presentationId && (
           <>
             <ContextMenuItem
               onClick={() => window.windowAPI.openPresentationWindow(media.presentationId!)}

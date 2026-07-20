@@ -17,6 +17,11 @@ export interface RenderedPage {
 
 export async function pdfToPngBuffers(pdfPath: string, scale = 2): Promise<RenderedPage[]> {
   const data = new Uint8Array(fs.readFileSync(pdfPath))
+  return pdfBufferToPngBuffers(data, scale)
+}
+
+export async function pdfBufferToPngBuffers(pdfData: Uint8Array | Buffer, scale = 2): Promise<RenderedPage[]> {
+  const data = pdfData instanceof Buffer ? new Uint8Array(pdfData) : pdfData
 
   // Provide custom canvas factory using @napi-rs/canvas so pdfjs-dist
   // doesn't try to load node-canvas (which would fail without native build)

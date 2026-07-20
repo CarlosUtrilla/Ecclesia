@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useApiConfiguration } from '@ecclesia/queries'
+import { useApiConfiguration, Api, onSocketChange } from '@ecclesia/queries'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 
 export default function RemoteConnectionListener() {
@@ -9,6 +9,26 @@ export default function RemoteConnectionListener() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
+    const registerListener = () => {
+      const unsub = Api.socket.listen.queryKeysInvalidate(({ keys }) => {
+        if (keys && keys.length > 0) {
+          keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }))
+        } else {
+          queryClient.invalidateQueries()
+        }
+      })
+      return unsub
+    }
+
+    const unsubs: (() => void)[] = [registerListener()]
+
+    const unsubChange = onSocketChange(() => {
+      unsubs.forEach((fn) => fn())
+      unsubs.length = 0
+      unsubs.push(registerListener())
+    })
+    unsubs.push(unsubChange)
+
     window.remoteControlAPI.getConnectionState().then(async (state) => {
       if (state) {
         await setApiConfiguration(queryClient, state.url, state.port)
@@ -17,7 +37,7 @@ export default function RemoteConnectionListener() {
       }
     })
 
-    const cleanup = window.remoteControlAPI.onConnectionChanged(async (state) => {
+    const unsubConnection = window.remoteControlAPI.onConnectionChanged(async (state) => {
       if (state) {
         await setApiConfiguration(queryClient, state.url, state.port)
         setMediaServerHost(new URL(state.url).hostname)
@@ -29,7 +49,10 @@ export default function RemoteConnectionListener() {
       }
     })
 
-    return cleanup
+    return () => {
+      unsubs.forEach((fn) => fn())
+      unsubConnection()
+    }
   }, [])
 
   return null
