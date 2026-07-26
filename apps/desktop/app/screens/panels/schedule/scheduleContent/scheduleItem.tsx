@@ -12,7 +12,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import type { ScheduleItem } from '@ecclesia/api'
-import { Radio, Trash2 } from 'lucide-react'
+import { Pencil, Radio, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Api } from '@ecclesia/queries'
 import { Tooltip } from '@/ui/tooltip'
@@ -312,6 +312,21 @@ export function ScheduleItemComponent({
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent>
+            {(item.type === 'SONG' || item.type === 'PRESENTATION') && (
+              <ContextMenuItem
+                onClick={() => {
+                  const id = parseInt(item.accessData)
+                  if (item.type === 'SONG') {
+                    window.windowAPI.openSongWindow(id)
+                  } else if (item.type === 'PRESENTATION') {
+                    window.windowAPI.openPresentationWindow(id)
+                  }
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+                Editar
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               onClick={() => {
                 showItemOnLiveScreen(item, 0)
