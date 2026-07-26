@@ -110,13 +110,15 @@ export const SongGroup = Node.create({
         }
         if (!groupNode) return false
 
-        const isEmpty = groupNode.content.size <= 2
-        const isAtStart = $from.parentOffset === 0 && $from.depth === groupDepth + 1
+        const isAtStartOfGroup = $from.parentOffset === 0 && $from.depth === groupDepth + 1
 
-        if (isAtStart && isEmpty) {
-          const pos = $from.before(groupDepth)
-          editor.chain().focus().deleteRange({ from: pos, to: pos + groupNode.nodeSize }).run()
-          return true
+        if (isAtStartOfGroup) {
+          const firstChild = groupNode.firstChild
+          if (firstChild && $from.pos === $from.before(groupDepth + 1)) {
+            const pos = $from.before(groupDepth)
+            editor.chain().focus().deleteRange({ from: pos, to: pos + groupNode.nodeSize }).run()
+            return true
+          }
         }
         return false
       }
