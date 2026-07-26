@@ -13,17 +13,23 @@ describe('ScheduleService', () => {
     vi.clearAllMocks()
   })
 
-  it('updateSchedule usa una sola mutacion anidada sin transaccion interactiva', async () => {
+  it('updateSchedule usa create individual por item para que el middleware oplog genere eventos', async () => {
+    const updateManyMock = vi.fn().mockResolvedValue({ count: 3 })
+    const createMock = vi.fn().mockResolvedValue({})
     const scheduleUpdateMock = vi.fn().mockResolvedValue({
       id: 1,
+      title: 'Culto Domingo',
       items: []
     })
 
     getPrismaMock.mockReturnValue({
+      scheduleItem: {
+        updateMany: updateManyMock,
+        create: createMock
+      },
       schedule: {
         update: scheduleUpdateMock
-      },
-      $transaction: vi.fn()
+      }
     })
 
     const uuidSpy = vi
@@ -41,46 +47,57 @@ describe('ScheduleService', () => {
       ]
     })
 
+    // 1) Soft-delete existing items via top-level updateMany
+    expect(updateManyMock).toHaveBeenCalledTimes(1)
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { scheduleId: 1, deletedAt: null },
+      data: { deletedAt: expect.any(Date) }
+    })
+
+    // 2) Create each item individually (createMany would not generate oplog events)
+    expect(createMock).toHaveBeenCalledTimes(2)
+    expect(createMock).toHaveBeenNthCalledWith(1, {
+      data: {
+        id: '00000000-0000-4000-8000-000000000001',
+        order: 1,
+        type: 'SONG',
+        accessData: '10',
+        deletedAt: null,
+        scheduleId: 1
+      }
+    })
+    expect(createMock).toHaveBeenNthCalledWith(2, {
+      data: {
+        id: '00000000-0000-4000-8000-000000000002',
+        order: 2,
+        type: 'MEDIA',
+        accessData: '20',
+        deletedAt: null,
+        scheduleId: 1
+      }
+    })
+
+    // 3) Update schedule metadata
     expect(scheduleUpdateMock).toHaveBeenCalledTimes(1)
     expect(scheduleUpdateMock).toHaveBeenCalledWith({
       where: { id: 1 },
-      data: {
-        title: 'Culto Domingo',
-        items: {
-          updateMany: {
-            where: { deletedAt: null },
-            data: { deletedAt: expect.any(Date) }
-          },
-          create: [
-            {
-              id: '00000000-0000-4000-8000-000000000001',
-              order: 1,
-              type: 'SONG',
-              accessData: '10',
-              deletedAt: null
-            },
-            {
-              id: '00000000-0000-4000-8000-000000000002',
-              order: 2,
-              type: 'MEDIA',
-              accessData: '20',
-              deletedAt: null
-            }
-          ]
-        }
-      },
-      include: {
-        items: { where: { deletedAt: null } }
-      }
+      data: { title: 'Culto Domingo' },
+      include: { items: { where: { deletedAt: null } } }
     })
 
     uuidSpy.mockRestore()
   })
 
-  it('updateSchedule mantiene soft-delete aunque no reciba items nuevos', async () => {
+  it('updateSchedule soft-delete items aunque no reciba items nuevos', async () => {
+    const updateManyMock = vi.fn().mockResolvedValue({ count: 2 })
+    const createMock = vi.fn()
     const scheduleUpdateMock = vi.fn().mockResolvedValue({ id: 2, items: [] })
 
     getPrismaMock.mockReturnValue({
+      scheduleItem: {
+        updateMany: updateManyMock,
+        create: createMock
+      },
       schedule: {
         update: scheduleUpdateMock
       }
@@ -92,11 +109,20 @@ describe('ScheduleService', () => {
       title: 'Culto Miercoles'
     })
 
-    const callArg = scheduleUpdateMock.mock.calls[0]?.[0]
-    expect(callArg?.data?.items?.updateMany).toEqual({
-      where: { deletedAt: null },
+    // Soft-delete still runs
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { scheduleId: 2, deletedAt: null },
       data: { deletedAt: expect.any(Date) }
     })
-    expect(callArg?.data?.items?.create).toEqual([])
+
+    // No create calls since items is undefined
+    expect(createMock).not.toHaveBeenCalled()
+
+    // Schedule update still runs with title
+    expect(scheduleUpdateMock).toHaveBeenCalledWith({
+      where: { id: 2 },
+      data: { title: 'Culto Miercoles' },
+      include: { items: { where: { deletedAt: null } } }
+    })
   })
 })

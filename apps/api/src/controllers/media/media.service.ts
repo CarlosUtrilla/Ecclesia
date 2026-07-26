@@ -10,7 +10,6 @@ import {
   importMediaFromSourcePath,
   importClipboardImage,
   importPdfPages,
-  importPptxPages,
   listMediaFolders,
   moveMediaPath,
   renameMediaPath,
@@ -214,58 +213,6 @@ export class MediaService {
     })
 
     return pdfMedia
-  }
-
-  async importPptxFromMulter(file: Express.Multer.File, _folder?: string): Promise<MediaDto> {
-    const prisma = getPrisma()
-    const { pages, pdfFileSize, originalName } = await importPptxPages(file.path, undefined, file.originalname)
-
-    // 1. Create Media records for each page image (IMAGE type, in __pptx/ hidden folder)
-    const pageMediaIds = await Promise.all(
-      pages.map(async (page) => {
-        const { width, height, ...fileData } = page
-        const media = await prisma.media.create({
-          data: { ...fileData, width, height }
-        })
-        return media.id
-      })
-    )
-
-    // 2. Create a Presentation with one slide per page
-    const slides = pageMediaIds.map((mediaId, idx) => ({
-      id: `slide-${idx}`,
-      type: 'MEDIA' as const,
-      mediaId,
-      items: [{
-        id: `item-${idx}-0`,
-        type: 'MEDIA' as const,
-        accessData: String(mediaId),
-        layer: 0
-      }]
-    }))
-
-    const presentation = await prisma.presentation.create({
-      data: {
-        title: `__pptx_${originalName}`,
-        slides: JSON.stringify(slides)
-      }
-    })
-
-    // 3. Create a single PPTX-type Media record linking to the presentation
-    const pptxMedia = await prisma.media.create({
-      data: {
-        name: originalName,
-        type: 'PPTX',
-        format: 'pptx',
-        filePath: `presentation://${presentation.id}`,
-        fileSize: pdfFileSize,
-        folder: undefined,
-        presentationId: presentation.id,
-        thumbnail: pages[0]?.thumbnail ?? null
-      }
-    })
-
-    return pptxMedia
   }
 
   async createFolder(folderPath: string) {

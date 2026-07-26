@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Plus,
   Search,
+  FileText,
   FolderPlus,
   LayoutGrid,
   List,
@@ -165,6 +166,16 @@ export default function MediaLibrary() {
       }
     } catch (error) {
       toast.error('Error al importar archivo', {
+        description: error instanceof Error ? error.message : 'Error desconocido'
+      })
+    }
+  }
+
+  const handleImportPptx = async () => {
+    try {
+      await window.mediaAPI.importPptxFile()
+    } catch (error) {
+      toast.error('Error al importar presentación PPTX', {
         description: error instanceof Error ? error.message : 'Error desconocido'
       })
     }
@@ -485,6 +496,11 @@ export default function MediaLibrary() {
           <Tooltip content="Importar medios">
             <Button onClick={handleImport} size="sm" className="h-8 w-8 p-0" disabled={loading}>
               <Plus className="h-6 w-6" />
+            </Button>
+          </Tooltip>
+          <Tooltip content="Importar presentación PPTX...">
+            <Button onClick={handleImportPptx} size="sm" className="h-8 w-8 p-0" disabled={loading}>
+              <FileText className="h-6 w-6" />
             </Button>
           </Tooltip>
         </div>

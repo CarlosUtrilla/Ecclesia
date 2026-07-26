@@ -21,22 +21,22 @@ export class ScheduleService {
       }
     })
   }
-  createNewSchedule(name: string, dateFrom?: Date, dateTo?: Date, items?: AddScheduleItemDto[]) {
-    return this.prisma.schedule.create({
-      data: {
-        title: name,
-        dateFrom,
-        dateTo,
-        items:
-          items && items.length > 0
-            ? {
-                create: items.map((item) => ({ ...item, id: crypto.randomUUID() }))
-              }
-            : undefined
-      },
-      include: {
-        items: { where: { deletedAt: null } }
-      }
+  async createNewSchedule(name: string, dateFrom?: Date, dateTo?: Date, items?: AddScheduleItemDto[]) {
+    const schedule = await this.prisma.schedule.create({
+      data: { title: name, dateFrom, dateTo }
+    })
+
+    // Create items individually — createMany returns { count } not rows,
+    // so the oplog middleware cannot generate events from it.
+    for (const item of items ?? []) {
+      await this.prisma.scheduleItem.create({
+        data: { ...item, id: crypto.randomUUID(), scheduleId: schedule.id }
+      })
+    }
+
+    return this.prisma.schedule.findFirst({
+      where: { id: schedule.id, deletedAt: null },
+      include: { items: { where: { deletedAt: null } } }
     })
   }
 
@@ -58,20 +58,27 @@ export class ScheduleService {
     })
   }
 
-  updateSchedule(id: number, data: UpdateScheduleDto) {
+  async updateSchedule(id: number, data: UpdateScheduleDto) {
     const { items, ...rest } = data
+
+    // Soft-delete existing items (top-level op so oplog middleware captures it)
+    await this.prisma.scheduleItem.updateMany({
+      where: { scheduleId: id, deletedAt: null },
+      data: { deletedAt: new Date() }
+    })
+
+    // Create items individually — createMany returns { count } not rows,
+    // so the oplog middleware cannot generate events from it.
+    for (const item of items ?? []) {
+      await this.prisma.scheduleItem.create({
+        data: { ...item, id: crypto.randomUUID(), scheduleId: id }
+      })
+    }
+
+    // Update schedule metadata
     return this.prisma.schedule.update({
       where: { id },
-      data: {
-        ...rest,
-        items: {
-          updateMany: {
-            where: { deletedAt: null },
-            data: { deletedAt: new Date() }
-          },
-          create: (items ?? []).map((item) => ({ ...item, id: crypto.randomUUID() }))
-        }
-      },
+      data: rest,
       include: {
         items: { where: { deletedAt: null } }
       }
@@ -86,15 +93,12 @@ export class ScheduleService {
   }
 
   async addItemToSchedule(scheduleId: number, itemData: AddScheduleItemDto) {
-    await this.prisma.schedule.update({
-      where: { id: scheduleId },
+    // Top-level create so oplog middleware captures the ScheduleItem event
+    await this.prisma.scheduleItem.create({
       data: {
-        items: {
-          create: {
-            ...itemData,
-            id: crypto.randomUUID()
-          }
-        }
+        ...itemData,
+        id: crypto.randomUUID(),
+        scheduleId
       }
     })
   }

@@ -9,6 +9,7 @@ import type { ScheduleItemType } from '@ecclesia/api'
 import { SongResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
 import { CalendarPlus, Edit2, Music, Radio, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
+import useTagSongs from '@/hooks/useTagSongs'
 
 type Props = {
   song?: SongResponseDTO | null
@@ -18,6 +19,7 @@ type Props = {
 export default function PreviewSong({ song, onDelete }: Props) {
   const { addItemToSchedule } = useSchedule()
   const { showItemOnLiveScreen } = useLive()
+  const { tagSongs } = useTagSongs()
   const [selectedIndex, setSelectedIndex] = useState(0)
   const prevSongIdRef = useRef(song?.id)
   if (prevSongIdRef.current !== song?.id) {
@@ -97,6 +99,7 @@ export default function PreviewSong({ song, onDelete }: Props) {
           song={song}
           selectedLyricIndex={selectedIndex}
           setSelectedLyricIndex={setSelectedIndex}
+          tagSongs={tagSongs}
           onDoubleClick={(_, index) => showItemOnLiveScreen(dataForLive, index)}
         />
       </ScrollArea>

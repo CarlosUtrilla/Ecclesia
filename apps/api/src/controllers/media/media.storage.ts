@@ -448,47 +448,6 @@ export async function importPdfPages(
   }
 }
 
-export async function importPptxPages(
-  sourcePath: string,
-  _folder?: string,
-  originalFileName?: string
-): Promise<PdfImportResult> {
-  const { pptxToPdfBuffer } = await import('../../pptxConverter')
-  const { pdfBufferToPngBuffers, createTempDir, writePagesToTemp, cleanupTempDir } = await import(
-    '../../pdfConverter'
-  )
-
-  const originalName = sanitizeFileName(
-    originalFileName ? path.basename(originalFileName, '.pptx') : path.basename(sourcePath, '.pptx')
-  )
-
-  const stats = fs.statSync(sourcePath)
-  const pdfBuffer = await pptxToPdfBuffer(sourcePath)
-  const pages = await pdfBufferToPngBuffers(pdfBuffer)
-  const tempDir = createTempDir()
-  const pagePaths = writePagesToTemp(pages, tempDir)
-
-  const hiddenFolder = `__pptx/${originalName}`
-
-  try {
-    const results = await Promise.all(
-      pagePaths.map(async (pagePath, idx) => {
-        const page = pages[idx]
-        const pageFileName = `${originalName}-pagina-${page.pageNumber}`
-        const result = await importMediaFromSourcePath(pagePath, hiddenFolder, `${pageFileName}.png`)
-        return {
-          ...result,
-          width: page.width,
-          height: page.height
-        }
-      })
-    )
-    return { pages: results, pdfFileSize: stats.size, originalName }
-  } finally {
-    cleanupTempDir(tempDir)
-  }
-}
-
 function getImageExtensionFromMimeType(mimeType: string): string {
   if (mimeType === 'image/png') return '.png'
   if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') return '.jpg'

@@ -15,7 +15,9 @@
     "**/*.spec.ts",
     "**/*.test.ts",
     "**/.vite",
-    "**/generated"
+    "**/generated",
+    "../../apps/api/src/pptxConverter.ts",
+    "../../apps/api/src/pdfConverter.ts"
   ],
   "compilerOptions": {
     "composite": true,

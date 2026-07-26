@@ -26,5 +26,7 @@ export const mediaAPI = {
     defaultName: string,
     sourcePath?: string
   ): Promise<string | null> =>
-    ipcRenderer.invoke('media:save-file', { content, defaultName, sourcePath })
+    ipcRenderer.invoke('media:save-file', { content, defaultName, sourcePath }),
+  importPptxFile: (): Promise<unknown> =>
+    ipcRenderer.invoke('media:import-pptx-file')
 }

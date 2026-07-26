@@ -2,6 +2,7 @@ import { initializeLiveMediaManager } from './liveMediaController/liveMediaContr
 import { app, BrowserWindow, session, shell } from 'electron'
 import { onIpc, onIpcFromWindow } from './ipcHelpers'
 import path, { join } from 'path'
+import fs from 'fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { initializeHttpServer } from '@ecclesia/api'
 import { setCrashLogPath } from '@ecclesia/api/src/utils/crashLogger'
@@ -218,6 +219,39 @@ app.whenReady().then(async () => {
   onIpc('window:trigger-close', () => {
     const win = getMainWindow()
     if (win) win.close()
+  })
+
+  onIpc('media:import-pptx-file', async () => {
+    const { dialog } = require('electron') as typeof import('electron')
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Presentaciones PPTX', extensions: ['pptx'] }]
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const pptxPath = result.filePaths[0]
+    const { importPptxToPresentation } = await import(
+      '@ecclesia/api/src/pptxConverter'
+    )
+    const pptxResult = await importPptxToPresentation(pptxPath)
+
+    const { getPrisma } = await import('@ecclesia/api/src/prisma')
+    const prisma = getPrisma()
+
+    const pptxMedia = await prisma.media.create({
+      data: {
+        name: pptxResult.originalName,
+        type: 'PPTX',
+        format: 'pptx',
+        filePath: `presentation://${pptxResult.presentationId}`,
+        fileSize: fs.statSync(pptxPath).size,
+        folder: undefined,
+        presentationId: pptxResult.presentationId,
+        thumbnail: pptxResult.slideMediaRecords[0]?.thumbnail ?? null,
+      },
+    })
+
+    return pptxMedia
   })
 
   onIpcFromWindow('theme-close-confirm', (win) => {
