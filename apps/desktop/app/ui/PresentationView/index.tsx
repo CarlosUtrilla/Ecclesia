@@ -257,7 +257,7 @@ function PresentationViewComponent({
           aspectRatio: screenSize.aspectRatio
         }}
         className={cn(
-          'relative w-full h-full overflow-hidden',
+          'relative w-full overflow-hidden',
           {
             'outline-[3px] outline-secondary transition-colors': selected,
             'cursor-pointer': onClick !== undefined || onDoubleClick !== undefined,
