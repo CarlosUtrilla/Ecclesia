@@ -12,8 +12,15 @@ function notifyWindowsOAuthComplete(): void {
 
 let isSyncing = false
 
-export function getIsSyncing(): boolean {
-  return isSyncing
+export async function getIsSyncing(): Promise<boolean> {
+  if (isSyncing) return true
+  try {
+    const status = (await syncStatus()) as any
+    const cfg = status?.response ?? status
+    return !!(cfg?.syncing)
+  } catch {
+    return false
+  }
 }
 
 export async function executeSyncCycle(reason: string): Promise<void> {

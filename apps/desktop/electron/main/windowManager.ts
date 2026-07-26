@@ -163,19 +163,32 @@ export function createMainWindow(): BrowserWindow {
       executeSyncCycle('close')
         .catch(() => {})
         .finally(() => {
-          if (getIsSyncing()) {
-            skipSyncInterval = setInterval(() => {
-              if (!getIsSyncing()) {
-                if (skipSyncInterval) clearInterval(skipSyncInterval)
-                skipSyncInterval = null
-                ipcMain.removeListener('app-close-skip-sync', handleSkipSync)
+          const pollForSyncDone = () => {
+            getIsSyncing()
+              .then((syncing) => {
+                if (syncing) {
+                  skipSyncInterval = setInterval(() => {
+                    getIsSyncing()
+                      .then((stillSyncing) => {
+                        if (!stillSyncing) {
+                          if (skipSyncInterval) clearInterval(skipSyncInterval)
+                          skipSyncInterval = null
+                          ipcMain.removeListener('app-close-skip-sync', handleSkipSync)
+                          closeApp()
+                        }
+                      })
+                      .catch(() => {})
+                  }, 300)
+                } else {
+                  ipcMain.removeListener('app-close-skip-sync', handleSkipSync)
+                  closeApp()
+                }
+              })
+              .catch(() => {
                 closeApp()
-              }
-            }, 300)
-          } else {
-            ipcMain.removeListener('app-close-skip-sync', handleSkipSync)
-            closeApp()
+              })
           }
+          pollForSyncDone()
         })
     }
 
