@@ -111,7 +111,7 @@ export const SongGroup = Node.create({
         if (!groupNode) return false
 
         const isEmpty = groupNode.content.size <= 2
-        const isAtStart = $from.parentOffset === 0 && groupDepth === $from.depth
+        const isAtStart = $from.parentOffset === 0 && $from.depth === groupDepth + 1
 
         if (isAtStart && isEmpty) {
           const pos = $from.before(groupDepth)
