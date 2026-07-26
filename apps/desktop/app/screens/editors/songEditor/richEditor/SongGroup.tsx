@@ -93,6 +93,26 @@ export const SongGroup = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(SongGroupView)
   },
+  addKeyboardShortcuts() {
+    return {
+      Backspace: ({ editor }) => {
+        const { state } = editor
+        const { $from } = state.selection
+        const node = $from.node($from.depth)
+        if (node?.type.name !== 'songGroup') return false
+
+        const isEmpty = node.content.size <= 2
+        const isAtStart = $from.parentOffset === 0
+
+        if (isAtStart && isEmpty) {
+          const pos = $from.before($from.depth)
+          editor.chain().focus().deleteRange({ from: pos, to: pos + node.nodeSize }).run()
+          return true
+        }
+        return false
+      }
+    }
+  },
   addCommands() {
     return {
       setSongGroup:
