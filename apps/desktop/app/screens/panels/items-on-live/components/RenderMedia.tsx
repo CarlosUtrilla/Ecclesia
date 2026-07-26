@@ -1,12 +1,27 @@
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useMediaServer } from '@/contexts/MediaServerContext'
+import { useQuery } from '@tanstack/react-query'
+import { Api } from '@ecclesia/queries'
 import VideoLiveControls from './VideoLiveControls'
 
 export const RenderMedia = () => {
   const { itemOnLive, media } = useSchedule()
-  const { sendLiveMediaState, liveScreensReady } = useLive() // Debe implementarse para sincronizar estado
+  const { sendLiveMediaState, liveScreensReady } = useLive()
+
+  const mediaId = itemOnLive?.type === 'MEDIA' ? Number(itemOnLive.accessData) : null
+  const contextMediaItem = useMemo(
+    () => (mediaId != null ? media.find((m) => m.id === mediaId) : undefined),
+    [media, mediaId]
+  )
+
+  const { data: fetchedMedia } = useQuery({
+    ...Api.query.media.getMediaByIds({ body: { ids: mediaId != null ? [mediaId] : [] } }),
+    enabled: mediaId != null && contextMediaItem == null
+  })
+
+  const resolvedMediaItem = contextMediaItem ?? fetchedMedia?.[0]
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -83,15 +98,15 @@ export const RenderMedia = () => {
     )
   }
 
-  const mediaItem = media.find((m) => m.id === Number(itemOnLive.accessData))
-
-  if (!mediaItem) {
+  if (!resolvedMediaItem) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        No se encontró el medio seleccionado.
+        Cargando medio...
       </div>
     )
   }
+
+  const mediaItem = resolvedMediaItem
 
   if (mediaItem.type === 'IMAGE') {
     return (

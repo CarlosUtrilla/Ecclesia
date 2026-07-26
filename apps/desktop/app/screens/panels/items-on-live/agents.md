@@ -27,6 +27,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - Si el item es un video, se muestra un reproductor con controles (play, pausa, reinicio, seek) y sincronización multi-display usando IPC (`live-media-state`).
 - El componente principal es `RenderMedia.tsx`.
 - Los controles visuales se componen con `VideoLiveControls.tsx` para mantener consistencia de UI (volumen, progreso, play/pause, reinicio y autorewind opcional).
+- `RenderMedia` usa un fallback de `useQuery` (`Api.query.media.getMediaByIds`) cuando el media no se encuentra en el array `media` del contexto (`useSchedule`). Esto resuelve el caso de envío directo a live desde la biblioteca (doble-click), donde el media no pertenece al cronograma y no está en el cache del contexto.
 
 ## Soporte de PRESENTATION en items-on-live
 

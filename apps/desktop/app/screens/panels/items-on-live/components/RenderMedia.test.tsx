@@ -29,6 +29,14 @@ vi.mock('@/contexts/MediaServerContext', () => ({
   })
 }))
 
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: vi.fn().mockReturnValue({ data: undefined })
+}))
+
+vi.mock('@ecclesia/queries', () => ({
+  Api: { query: { media: { getMediaByIds: vi.fn().mockReturnValue({}) } } }
+}))
+
 describe('RenderMedia', () => {
   beforeEach(() => {
     useScheduleMock.mockReset()

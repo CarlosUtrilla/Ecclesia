@@ -1,6 +1,6 @@
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { cn } from '@/lib/utils'
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 
 type Props = {
   book: number
@@ -27,24 +27,22 @@ export default function VerseSearch({
   const [cap, setCap] = useState('')
   const [vers, setVers] = useState('')
 
-  const prevPropsRef = useRef({ initialBook, initialCap, initialVers })
-  if (prevPropsRef.current.initialBook !== initialBook) {
-    prevPropsRef.current.initialBook = initialBook
+  useEffect(() => {
     if (initialBook && bibleSchema.length > 0) {
       const foundBook = bibleSchema.find((b) => b.book_id === initialBook)
       setBook(foundBook?.book || '')
-    } else {
+    } else if (!initialBook) {
       setBook('')
     }
-  }
-  if (prevPropsRef.current.initialCap !== initialCap) {
-    prevPropsRef.current.initialCap = initialCap
+  }, [initialBook, bibleSchema])
+
+  useEffect(() => {
     setCap(initialCap || '')
-  }
-  if (prevPropsRef.current.initialVers !== initialVers) {
-    prevPropsRef.current.initialVers = initialVers
+  }, [initialCap])
+
+  useEffect(() => {
     setVers(initialVers || '')
-  }
+  }, [initialVers])
 
   const normalizeString = (str: string) => {
     return str
