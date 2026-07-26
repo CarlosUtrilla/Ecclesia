@@ -55,7 +55,7 @@ export default function ThemeSelector({ selectedTheme, setSelectedTheme }: Props
         )}
         {filteredThemes.map((theme) => (
           <PresentationView
-            className="w-full"
+            className="w-full shrink-0"
             theme={theme}
             items={[{ resourceType: 'TEXT' as const, text: theme.name }]}
             onClick={() => setSelectedTheme(theme)}
