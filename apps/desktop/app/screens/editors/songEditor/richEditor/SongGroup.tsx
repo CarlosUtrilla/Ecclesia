@@ -110,17 +110,13 @@ export const SongGroup = Node.create({
         }
         if (!groupNode) return false
 
-        const isAtStartOfGroup = $from.parentOffset === 0 && $from.depth === groupDepth + 1
+        if (groupNode.textContent.trim() !== '') return false
 
-        if (isAtStartOfGroup) {
-          const firstChild = groupNode.firstChild
-          if (firstChild && $from.pos === $from.before(groupDepth + 1)) {
-            const pos = $from.before(groupDepth)
-            editor.chain().focus().deleteRange({ from: pos, to: pos + groupNode.nodeSize }).run()
-            return true
-          }
-        }
-        return false
+        const groupFrom = $from.before(groupDepth)
+        if ($from.pos > groupFrom + 1) return false
+
+        editor.chain().focus().deleteRange({ from: groupFrom, to: groupFrom + groupNode.nodeSize }).run()
+        return true
       }
     }
   },
