@@ -27,7 +27,7 @@ export default function ThemeSelector({ selectedTheme, setSelectedTheme }: Props
   )
 
   return (
-    <div className="bg-sidebar border-b shadow-sm max-w-52">
+    <div className="bg-sidebar border-b shadow-sm max-w-52 flex flex-col h-full">
       <div className="px-4 py-2 border-b border-border/40">
         <div className="flex items-center gap-3 flex-1">
           <div className="flex-1">
@@ -46,7 +46,7 @@ export default function ThemeSelector({ selectedTheme, setSelectedTheme }: Props
       </div>
       <div
         className={cn(
-          'p-3 overflow-x-auto flex items-center flex-col gap-2',
+          'p-3 overflow-y-auto flex items-center flex-col gap-2 min-h-0 flex-1',
           'scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent'
         )}
       >
