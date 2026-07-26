@@ -35,8 +35,8 @@ export function useUpdateNotification(): UseUpdateNotificationReturn {
     const offDownloaded = window.updaterAPI.onUpdateDownloaded(() => {
       setStatus('downloaded')
       setDownloadPercent(100)
-      // Una vez descargada, disparar el flujo de cierre automáticamente
-      window.windowAPI.triggerClose()
+      // Instalar y reiniciar: updater:install hace cleanup + quitAndInstall
+      window.updaterAPI.installUpdate()
     })
 
     return () => {
@@ -51,7 +51,7 @@ export function useUpdateNotification(): UseUpdateNotificationReturn {
       setStatus('downloading')
       window.updaterAPI.downloadUpdate()
     } else if (status === 'downloaded') {
-      window.windowAPI.triggerClose()
+      window.updaterAPI.installUpdate()
     }
   }
 
