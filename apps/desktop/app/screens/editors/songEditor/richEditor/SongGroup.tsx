@@ -98,15 +98,24 @@ export const SongGroup = Node.create({
       Backspace: ({ editor }) => {
         const { state } = editor
         const { $from } = state.selection
-        const node = $from.node($from.depth)
-        if (node?.type.name !== 'songGroup') return false
 
-        const isEmpty = node.content.size <= 2
-        const isAtStart = $from.parentOffset === 0
+        let groupNode: any = null
+        let groupDepth = 0
+        for (let d = $from.depth; d >= 0; d--) {
+          if ($from.node(d).type.name === 'songGroup') {
+            groupNode = $from.node(d)
+            groupDepth = d
+            break
+          }
+        }
+        if (!groupNode) return false
+
+        const isEmpty = groupNode.content.size <= 2
+        const isAtStart = $from.parentOffset === 0 && groupDepth === $from.depth
 
         if (isAtStart && isEmpty) {
-          const pos = $from.before($from.depth)
-          editor.chain().focus().deleteRange({ from: pos, to: pos + node.nodeSize }).run()
+          const pos = $from.before(groupDepth)
+          editor.chain().focus().deleteRange({ from: pos, to: pos + groupNode.nodeSize }).run()
           return true
         }
         return false
