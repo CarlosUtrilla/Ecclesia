@@ -627,7 +627,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
 
   const showItemOnLiveScreen = async (item: ScheduleItem, index?: number) => {
     setItemOnLive({ ...item })
-    setAppliedTheme(resolveAppliedLiveTheme(item, selectedTheme))
+    setAppliedTheme(resolveAppliedLiveTheme(item, selectedTheme, themes))
     setPresentationVerseBySlideKeyState({})
     setPresentationBibleOverrideByKeyState({})
     setItemIndex(typeof index === 'number' ? index : 0)

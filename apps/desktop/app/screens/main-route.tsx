@@ -5,6 +5,7 @@ import LiveScreens from './panels/live-screens'
 import { ScheduleProvider } from '@/contexts/ScheduleContext'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/ui/resizable'
 import { ThemesSidePanel } from './panels/library/themesSidePanel'
+import AppMenubar from './components/AppMenubar'
 
 type GroupLayout = Record<string, number>
 
@@ -70,12 +71,15 @@ export default function MainRoute() {
 
   return (
     <ScheduleProvider>
-      <ResizablePanelGroup
-        id="main-group-vertical"
-        direction="vertical"
-        defaultLayout={defaultVerticalLayout}
-        onLayoutChanged={(layout) => persistLayout(MAIN_LAYOUT_VERTICAL_KEY, layout)}
-      >
+      <div className="flex h-full flex-col">
+        <AppMenubar />
+        <div className="flex-1 min-h-0">
+          <ResizablePanelGroup
+            id="main-group-vertical"
+            direction="vertical"
+            defaultLayout={defaultVerticalLayout}
+            onLayoutChanged={(layout) => persistLayout(MAIN_LAYOUT_VERTICAL_KEY, layout)}
+          >
         <ResizablePanel id="main-top" defaultSize={65} minSize={'50%'}>
           <ResizablePanelGroup
             id="main-group-horizontal"
@@ -113,7 +117,9 @@ export default function MainRoute() {
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
-      </ResizablePanelGroup>
+          </ResizablePanelGroup>
+        </div>
+      </div>
     </ScheduleProvider>
   )
 }

@@ -4,6 +4,7 @@ import { AnimationType } from '@/lib/animations'
 import { AnimatedText } from './AnimatedText'
 import { BibleTextRender } from './BibleTextRender'
 import PresentationRender from './PresentationRender'
+import { TimerRender } from './TimerRender'
 import { PresentationViewProps, TextBoundsValues } from '../types'
 
 type Props = {
@@ -150,6 +151,17 @@ function ResourceContentComponent({
         blockBgStyle={blockBgStyle}
         blockBgPadding={blockBgPadding}
         animationDuration={animationDuration}
+      />
+    )
+  }
+
+  if (currentItem.resourceType === 'TIMER') {
+    return (
+      <TimerRender
+        item={currentItem}
+        theme={theme}
+        isPreview={!isLive}
+        presentationHeight={presentationHeight}
       />
     )
   }

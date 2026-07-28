@@ -85,6 +85,18 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - El cambio de versión preserva rangos no contiguos del `verseRange` (ej: `1-3,8,12`) sin colapsarlos a un rango continuo, y la preview del selector usa la lista exacta de versos seleccionados.
 - Las versiones disponibles se obtienen de `useBibleVersions()` (`window.api.bible.getAvailableBibles()`); el campo relevante es `v.version` (nombre del archivo `.ebbl` sin extensión).
 
+## Soporte de TIMER en items-on-live (cuenta atrás de servicio)
+
+- El case `TIMER` usa `RenderTimerControls` (sin props; lee de `useSchedule()`), controlador de la cuenta atrás de servicio que se renderiza en vivo como un tipo de contenido más (círculo radial en `PresentationView` vía `TimerRender`).
+- El estado del temporizador viaja en `ScheduleItem.accessData` como JSON (`app/lib/timerAccessData.ts`: `encodeTimerAccessData`/`parseTimerAccessData`, tipo `TimerConfig`). El schedule guarda solo la config (modo, duración/hora, textos, `themeId`, `autoHide`); `endsAt` es estado efímero de la ejecución en vivo.
+- **Arranque del reloj:** al poner un `TIMER` en vivo sin `endsAt`, `RenderTimerControls` fija `endsAt` (y, en modo `clock`, deriva `durationSec` como total del anillo) con `startTimer(cfg, Date.now())` y lo escribe con `setItemOnLive({ ...itemOnLive, accessData })`. A partir de ahí `endsAt` es absoluto y estable.
+- **Re-broadcast:** cualquier mutación (`+30s`/`−30s`/custom, editar título o mensaje final) reescribe `accessData` vía `setItemOnLive`; el `useEffect` de `liveContext` recomputa `contentScreen` y reenvía por `updateLiveScreenContent`. No hace falta canal IPC nuevo: `endsAt` es absoluto y el render live cuenta con un `setInterval` local.
+- **Auto-ocultar:** si `autoHide`, al pasar `endsAt` + `AUTO_HIDE_GRACE_MS` (6 s para leer el mensaje) llama `setItemOnLive(null)` para limpiar el item en vivo.
+- El label del panel para `TIMER` es "Cuenta atrás".
+- El tema de fondo lo pinta el pipeline normal detrás del render (`TimerRender` es transparente). Si el timer define `themeId`, `resolveAppliedLiveTheme(item, selectedTheme, themes)` devuelve ese tema al ponerse en vivo.
+- Se añade desde la barra de menú superior (`AppMenubar` → Servicio → "Cuenta atrás…") mediante `ChurchCountdownDialog` (dos acciones: "Añadir al cronograma" y "Presentar en vivo"). El diálogo incluye un **preview en vivo** (`PresentationView` con el item `TIMER` y el tema elegido) cuyo `endsAt` es estable y solo reinicia al cambiar la config de tiempo, no al editar textos/colores.
+- **Editar en el cronograma:** el item `TIMER` del cronograma muestra su `title` como nombre (no el JSON) y su menú contextual incluye "Editar", que reabre `ChurchCountdownDialog` en modo edición (`editItem`) precargando la config; al guardar llama `updateItemAccessData(item.id, accessData)` del `ScheduleContext` (persiste al guardar el cronograma). Colores personalizables `textColor`/`ringColor` y anillo fino.
+
 ## Refetch automático al editar songs/media/presentations
 
 - `index.tsx` incluye `useEffect` con dependencias `[songs, media, presentations, itemOnLive, refetch]` que llama `refetch()` sobre la `useQuery` de `liveItemContent` cuando los arrays de contexto cambian.

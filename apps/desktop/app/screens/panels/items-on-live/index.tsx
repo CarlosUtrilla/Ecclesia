@@ -4,6 +4,7 @@ import { LayoutGrid, List } from 'lucide-react'
 import { RenderSongLyrics } from './components/RenderSongLyrics'
 import RenderBibleLiveControls from './components/RenderBibleLiveControls'
 import { RenderMedia } from './components/RenderMedia'
+import { RenderTimerControls } from './components/RenderTimerControls'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
 import { ViewModeTypes } from './types'
@@ -137,6 +138,8 @@ export default function LivePanel() {
       }
       case 'PRESENTATION':
         return <RenderPresentationLiveController data={content} />
+      case 'TIMER':
+        return <RenderTimerControls />
       default:
         return <div className="p-4 text-sm text-muted-foreground">Vista previa no disponible.</div>
     }
@@ -162,7 +165,9 @@ export default function LivePanel() {
                         ? 'Multimedia'
                         : itemOnLive.type === 'PRESENTATION'
                           ? 'Presentación'
-                          : 'Otro contenido'}
+                          : itemOnLive.type === 'TIMER'
+                            ? 'Cuenta atrás'
+                            : 'Otro contenido'}
                 </>
               ) : (
                 'Ningún elemento en vivo'

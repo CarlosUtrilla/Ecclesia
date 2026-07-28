@@ -61,6 +61,7 @@ type IScheduleContext = {
   media: Media[]
   presentations: PresentationResponseDTO[]
   addItemToSchedule: (item: AddItemToSchedule) => void
+  updateItemAccessData: (itemId: string, accessData: string) => void
   deleteItemFromSchedule: (index: number) => void
   reorderItems: (activeId: string, overId: string) => void
   reorderInMainSchedule: (activeId: string, overId: string) => void

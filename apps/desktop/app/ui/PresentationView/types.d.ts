@@ -1,6 +1,7 @@
 import { ScheduleItemType } from '@ecclesia/api'
 import { ThemeWithMedia } from '@ecclesia/api/src/controllers/themes/themes.dto'
 import { BibleChunkWithMetadata } from '@/lib/splitLongBibleVerse'
+import { TimerConfig } from '@/lib/timerAccessData'
 
 export { ThemeWithMedia }
 
@@ -84,6 +85,7 @@ export type PresentationViewItems = {
   }
   resourceType: PresentationRenderableResourceType
   songMeta?: SongMeta
+  timer?: TimerConfig
 }
 
 export type PresentationLayerItem = {

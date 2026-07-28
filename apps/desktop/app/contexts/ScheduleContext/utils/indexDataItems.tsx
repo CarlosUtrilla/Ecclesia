@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ScheduleSchemaType } from '../schema'
 import type { ScheduleItem } from '@ecclesia/api'
-import { BookPlusIcon, FileSliders, FileText, Music, Video } from 'lucide-react'
+import { BookPlusIcon, FileSliders, FileText, Music, Timer, Video } from 'lucide-react'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import { ContentScreen } from '../types'
 import { useCallback } from 'react'
@@ -20,38 +20,14 @@ import {
   resolveBibleChunkMaxLength,
   splitLongBibleVerse
 } from '@/lib/splitLongBibleVerse'
-import type { ThemeWithMedia } from '@/ui/PresentationView/types'
 import {
   parseBibleAccessData,
   parseBibleVerseRange
 } from '@/screens/panels/library/bible/accessData'
+import { parseTimerAccessData } from '@/lib/timerAccessData'
 import { Api } from '@ecclesia/queries'
 
-function getThemeFontSize(theme: ThemeWithMedia): string | number | null {
-  const textStyle = theme.textStyle
-
-  if (!textStyle) return null
-
-  if (typeof textStyle === 'string') {
-    try {
-      const parsedTextStyle = JSON.parse(textStyle) as { fontSize?: string | number }
-      return parsedTextStyle.fontSize ?? null
-    } catch {
-      return null
-    }
-  }
-
-  if (typeof textStyle === 'object' && textStyle !== null) {
-    return (textStyle as { fontSize?: string | number }).fontSize ?? null
-  }
-
-  return null
-}
-
-export const useIndexDataItems = (
-  currentSchedule: ScheduleSchemaType,
-  selectedTheme: ThemeWithMedia
-) => {
+export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
   const { getCompleteNameById } = useBibleSchema()
   const { buildMediaUrl } = useMediaServer()
   const { themes } = useThemes()
@@ -128,6 +104,8 @@ export const useIndexDataItems = (
         return <BookPlusIcon className="h-4 w-4" />
       case 'PRESENTATION':
         return <FileSliders className="h-4 w-4" />
+      case 'TIMER':
+        return <Timer className="h-4 w-4" />
       default:
         return '❓'
     }
@@ -186,6 +164,10 @@ export const useIndexDataItems = (
         })
         return loaded?.title || 'Presentación desconocida'
       }
+      case 'TIMER': {
+        const timer = parseTimerAccessData(accessData)
+        return timer.title || 'Cuenta atrás'
+      }
       default:
         return accessData
     }
@@ -202,10 +184,7 @@ export const useIndexDataItems = (
         const splitMode = isBibleLiveSplitMode(defaultSettings?.chunkMaxLength)
           ? defaultSettings.chunkMaxLength
           : 'auto'
-        const maxChunkLength = resolveBibleChunkMaxLength(
-          splitMode,
-          getThemeFontSize(selectedTheme)
-        )
+        const maxChunkLength = resolveBibleChunkMaxLength(splitMode)
 
         const parsedBibleAccessData = parseBibleAccessData(accessData)
         if (!parsedBibleAccessData) {
@@ -394,10 +373,7 @@ export const useIndexDataItems = (
         const splitMode = isBibleLiveSplitMode(defaultSettings?.chunkMaxLength)
           ? defaultSettings.chunkMaxLength
           : 'auto'
-        const maxChunkLength = resolveBibleChunkMaxLength(
-          splitMode,
-          getThemeFontSize(selectedTheme)
-        )
+        const maxChunkLength = resolveBibleChunkMaxLength(splitMode)
 
         const mappedSlides = presentation.slides.map((slide) =>
           presentationSlideToViewItem(slide, mediaById, themeById)
@@ -483,6 +459,20 @@ export const useIndexDataItems = (
         return {
           title: presentation.title,
           content
+        }
+      }
+      if (type === 'TIMER') {
+        const timer = parseTimerAccessData(accessData)
+        return {
+          title: timer.title || 'Cuenta atrás',
+          content: [
+            {
+              id: `timer-${item.id}`,
+              text: '',
+              resourceType: item.type,
+              timer
+            }
+          ]
         }
       }
       return {

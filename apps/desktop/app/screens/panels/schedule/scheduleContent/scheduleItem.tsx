@@ -19,6 +19,8 @@ import { Tooltip } from '@/ui/tooltip'
 import PreviewSchedule from './previewSchedule'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
 import { parseBibleAccessData } from '../../library/bible/accessData'
+import { parseTimerAccessData } from '@/lib/timerAccessData'
+import ChurchCountdownDialog from '@/screens/components/ChurchCountdownDialog'
 import useBibleSchema from '@/hooks/useBibleSchema'
 
 type Props = {
@@ -73,6 +75,7 @@ export function ScheduleItemComponent({
 
   const [itemContent, setItemContent] = useState<PresentationViewItems[] | null>(null)
   const [fallbackLabel, setFallbackLabel] = useState<string | null>(null)
+  const [timerEditOpen, setTimerEditOpen] = useState(false)
 
   // Label reactivo: se actualiza cuando cambian songs/media/presentations
   const label = useMemo(() => {
@@ -94,6 +97,8 @@ export function ScheduleItemComponent({
         if (!parsed) return item.accessData
         return `${getCompleteNameById(parsed.bookId) || parsed.bookId} ${parsed.chapter}:${parsed.verseRange}`
       }
+      case 'TIMER':
+        return parseTimerAccessData(item.accessData).title || 'Cuenta atrás'
       default:
         return item.accessData
     }
@@ -327,6 +332,12 @@ export function ScheduleItemComponent({
                 Editar
               </ContextMenuItem>
             )}
+            {item.type === 'TIMER' && (
+              <ContextMenuItem onClick={() => setTimerEditOpen(true)}>
+                <Pencil className="h-4 w-4" />
+                Editar
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               onClick={() => {
                 showItemOnLiveScreen(item, 0)
@@ -349,6 +360,13 @@ export function ScheduleItemComponent({
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
+        {item.type === 'TIMER' ? (
+          <ChurchCountdownDialog
+            open={timerEditOpen}
+            onOpenChange={setTimerEditOpen}
+            editItem={item}
+          />
+        ) : null}
         <div
           className={cn(
             'w-full flex items-center justify-center transition-all duration-200 h-2.5 opacity-0',

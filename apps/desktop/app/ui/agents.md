@@ -19,7 +19,8 @@ app/ui/
 │   │   ├── AnimatedText.tsx            # Render genérico de texto animado (sin lógica bíblica)
 │   │   ├── BibleTextRender.tsx         # Render específico para biblia (referencia + versión + configuración)
 │   │   ├── PresentationRender.tsx      # Render por capas para PRESENTATION (items mixtos + animación por item)
-│   │   ├── ResourceContent.tsx         # Render por tipo de recurso (PRESENTATION/BIBLE/TEXT)
+│   │   ├── TimerRender.tsx             # Render de cuenta atrás (círculo radial que se vacía) para resourceType TIMER
+│   │   ├── ResourceContent.tsx         # Render por tipo de recurso (PRESENTATION/BIBLE/TIMER/TEXT)
 │   │   ├── LiveThemeTransitionShell.tsx # Wrapper de transición de tema en modo live
 │   │   ├── LiveSlideTransitionShell.tsx # Wrapper de transición de slide en modo live
 │   │   ├── PresentationFrame.tsx       # Estructura compartida del frame (capas + interacción)
@@ -56,6 +57,7 @@ app/ui/
 ├── dropdown-menu.tsx
 ├── input.tsx
 ├── label.tsx
+├── menubar.tsx                         # Menubar shadcn (Radix) — barra de menú superior incrustada
 ├── popover.tsx
 ├── progress.tsx
 ├── resizable.tsx
@@ -201,7 +203,8 @@ PresentationView (index.tsx)
 - El cálculo de variantes de animación se corta en `preview`: usa variantes vacías y tipo `none`, evitando parse/instanciación de animaciones cuando no se van a reproducir.
 - La lógica interna de `PresentationView` está separada en hooks de dominio (`sizing`, `background`, `textLayout`) para reducir complejidad del componente principal y aislar cálculos que antes estaban mezclados.
 - El JSX duplicado entre `preview` y `live` se consolidó en capas compartidas (`backgroundLayer`, `contentLayer`, `tagSongLayer`) y un `viewContent` único; la diferencia entre modos queda solo en el wrapper de transición.
-- El render por tipo de recurso (`PRESENTATION`/`BIBLE`/texto genérico) se extrae a `ResourceContent` dentro del módulo para acortar el flujo principal y hacer más visible la orquestación de capas.
+- El render por tipo de recurso (`PRESENTATION`/`BIBLE`/`TIMER`/texto genérico) se extrae a `ResourceContent` dentro del módulo para acortar el flujo principal y hacer más visible la orquestación de capas.
+- `TimerRender` (rama `resourceType: 'TIMER'` en `ResourceContent`) dibuja una cuenta atrás de servicio: `CountdownRing` SVG (dos `<circle>`, `strokeDasharray = 2πr`, `strokeDashoffset = C*(1 - remaining/total)`, rotado −90° con `stroke-linecap: round`) cuyo arco se vacía al acabar el tiempo, con el tiempo `MM:SS`/`HH:MM:SS` y el título en el centro. Fondo transparente: hereda el tema aplicado detrás. Usa `endsAt` absoluto de `item.timer` + `setInterval` local (`formatRemaining`/`resolveRemainingMs` de `lib/time.ts`); al llegar a 0 muestra `endMessage`. Config del timer en `app/lib/timerAccessData.ts`. El tamaño de fuente se escala proporcional a `presentationHeight` (altura real del contenedor que `PresentationView` pasa a `ResourceContent`), igual que `AnimatedText`/`BibleTextRender`, para auto-ajustarse en preview (pequeño) y live sin usar unidades de viewport. Colores configurables `textColor`/`ringColor` en `TimerConfig` (si son `null` heredan el color de texto del tema); el diálogo `ChurchCountdownDialog` los expone con un switch "Personalizar colores" + `ColorPicker`. El anillo es fino (`strokeWidth` 3 sobre viewBox 100).
 - El frame visual e interacción base del contenedor (`role`, teclado, padding por tag y montaje de capas) está en `PresentationFrame`, dejando `index.tsx` centrado en composición/orquestación.
 - La construcción de capas compartidas (`backgroundLayer`, `contentLayer`, `tagSongLayer`) se movió a `PresentationBody`, por lo que `index.tsx` solo coordina hooks, props y wrappers de modo.
 - `PresentationBody` y `ResourceContent` están memoizados con comparadores explícitos para reducir re-renders en cascada cuando no cambian props efectivas.

@@ -104,7 +104,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
   const formData = form.watch()
 
   const { getScheduleItemIcon, getScheduleItemLabel, getScheduleItemContentScreen, songs, media, presentations } =
-    useIndexDataItems(formData, selectedTheme)
+    useIndexDataItems(formData)
 
   useEffect(() => {
     if (themes.length > 0 && selectedTheme.name === 'Blank') {
@@ -154,7 +154,10 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
 
   const addItemToSchedule = useCallback(
     (item: AddItemToSchedule) => {
-      if (!item.type || !['BIBLE', 'SONG', 'MEDIA', 'PRESENTATION', 'GROUP'].includes(item.type)) {
+      if (
+        !item.type ||
+        !['BIBLE', 'SONG', 'MEDIA', 'PRESENTATION', 'GROUP', 'TIMER'].includes(item.type)
+      ) {
         return
       }
 
@@ -182,6 +185,17 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
       Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
     },
     [formData.items, formData.id, form, serializeScheduleState]
+  )
+
+  const updateItemAccessData = useCallback(
+    (itemId: string, accessData: string) => {
+      const updatedItems = formData.items.map((it) =>
+        it.id === itemId ? { ...it, accessData, updatedAt: new Date() } : it
+      )
+      form.setValue('items', updatedItems, { shouldDirty: true })
+      Api.socket.emit.scheduleStateUpdate(serializeScheduleState())
+    },
+    [formData.items, form, serializeScheduleState]
   )
 
   const deleteItemFromSchedule = useCallback(
@@ -329,6 +343,7 @@ export const ScheduleProvider = ({ children }: PropsWithChildren) => {
         media,
         presentations,
         addItemToSchedule,
+        updateItemAccessData,
         deleteItemFromSchedule,
         reorderItems,
         reorderInMainSchedule,

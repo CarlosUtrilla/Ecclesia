@@ -5,7 +5,6 @@ import MediaLibrary from './media'
 import BiblePanel from './bible'
 import PresentationsPanel from './presentations'
 import SyncButton from './SyncButton'
-import ImportExportButton from './ImportExportButton'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
 import { MonitorCog, Settings } from 'lucide-react'
@@ -48,7 +47,6 @@ export default function LibraryPanel() {
           </Tabs>
           <div className="flex items-center gap-1">
             <SyncButton />
-            <ImportExportButton />
             <Button
               size="sm"
               variant="ghost"

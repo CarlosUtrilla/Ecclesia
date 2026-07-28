@@ -179,8 +179,8 @@ model Schedule {
 model ScheduleItem {
   id         String           @unique        // UUID generado en frontend
   order      Int                             // Orden global dentro del schedule
-  type       ScheduleItemType                // BIBLE | SONG | MEDIA | PRESENTATION | GROUP
-  accessData String                          // ID del recurso como string
+  type       ScheduleItemType                // BIBLE | SONG | MEDIA | PRESENTATION | GROUP | TIMER
+  accessData String                          // ID del recurso como string (TIMER: JSON de config)
   scheduleId Int
   schedule   Schedule @relation(...)
 }
@@ -327,7 +327,7 @@ model SyncInboxChange {
 | `TestamentEnum` | Old, New | Antiguo/Nuevo Testamento |
 | `BibleDescriptionMode` | short, complete | Nombre corto/completo del libro |
 | `BibleDescriptionPosition` | beforeText, afterText, underText, overText, upScreen, downScreen | Posicion de referencia biblica |
-| `ScheduleItemType` | BIBLE, SONG, MEDIA, PRESENTATION, GROUP | Tipo de item en cronograma |
+| `ScheduleItemType` | BIBLE, SONG, MEDIA, PRESENTATION, GROUP, TIMER | Tipo de item en cronograma (TIMER = cuenta atrás de servicio) |
 | `ScreenRol` | LIVE_SCREEN, STAGE_SCREEN | Rol de pantalla conectada |
 | `SettingOptions` | SALES_DAILY, SALES_MONTHLY, LOGO_FALLBACK_MEDIA_ID, LOGO_FALLBACK_COLOR | Claves de configuracion |
 
