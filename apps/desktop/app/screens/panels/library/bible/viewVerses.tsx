@@ -3,26 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import { BibleSchemaDTO } from '@ecclesia/api/src/controllers/bible/bible.dto'
 import { useEffect, useMemo, useRef } from 'react'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger
-} from '@/ui/context-menu'
+import { ContextMenuItem } from '@/ui/context-menu'
 import { CalendarPlus, Radio } from 'lucide-react'
 import { useSchedule } from '@/contexts/ScheduleContext'
 import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
-import { useDraggable } from '@dnd-kit/core'
 import {
   buildBibleAccessData,
   resolveBibleBookAccessId,
   serializeBibleVerseRange
 } from './accessData'
-import {
-  splitLongBibleVerse,
-  resolveBibleChunkMaxLength,
-  isBibleLiveSplitMode
-} from '@/lib/splitLongBibleVerse'
+import { resolveBibleChunkMaxLength, isBibleLiveSplitMode } from '@/lib/splitLongBibleVerse'
+import BibleChapterVerseList, { BibleVerseRow } from '@/ui/bible/bibleChapterVerseList'
 import { Api } from '@ecclesia/queries'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 
@@ -307,6 +298,25 @@ export default function ViewVerses({
     )
   }
 
+  const verseRangeSerialized = serializeBibleVerseRange(verse)
+
+  const buildRowAccessData = (row: BibleVerseRow) =>
+    bookAccessId === null
+      ? ''
+      : buildBibleAccessData({
+          bookId: bookAccessId,
+          chapter,
+          verseRange: verseRangeSerialized || String(row.verse),
+          version
+        })
+
+  const clickItemFromRow = (row: BibleVerseRow) => ({
+    verseNumber: row.verse,
+    index: row.index,
+    chunkIndex: row.chunkIndex,
+    isChunk: row.isChunk
+  })
+
   return (
     <div className="flex-1 overflow-hidden flex flex-col h-full">
       <div className="p-2 bg-muted/50 font-semibold">{bookData?.book}</div>
@@ -314,186 +324,58 @@ export default function ViewVerses({
         ref={containerRef}
         className="overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent flex-1"
       >
-        {completeChapter.map((v, index) => {
-          const rawText = v.text ?? ''
-          const chunks = rawText ? splitLongBibleVerse(rawText, maxChunkLength) : []
-          const hasMultipleChunks = chunks.length > 1
-
-          if (hasMultipleChunks) {
-            return chunks.map((chunkText, chunkIndex) => (
-              <VerseItem
-                key={`${v.verse}-chunk-${chunkIndex}`}
-                verse={v}
-                displayText={chunkText}
-                index={index}
-                chapter={chapter}
-                version={version}
-                selectedVerses={verse}
-                selectedChunkKey={selectedChunkKey}
-                bookAccessId={bookAccessId}
-                bookName={bookData?.book}
-                onItemClick={handleItemClick}
-                onAddToSchedule={handleAddToSchedule}
-                onShowOnLive={handleShowOnLive}
-                verseRefs={verseRefs}
-                isChunk={true}
-                chunkIndex={chunkIndex}
-                totalChunks={chunks.length}
-              />
-            ))
+        <BibleChapterVerseList
+          completeChapter={completeChapter}
+          maxChunkLength={maxChunkLength}
+          rowClassName={(row) => {
+            const isChunkSelected = selectedChunkKey === `${row.verse}-${row.chunkIndex}`
+            const isVerseSelected = verse.includes(row.verse)
+            const isHighlighted = isChunkSelected || (isVerseSelected && !selectedChunkKey)
+            return cn({
+              'bg-secondary/30 hover:bg-secondary/20 ring-1 ring-secondary/50': isChunkSelected,
+              'bg-secondary/20 hover:bg-secondary/10': isHighlighted && !isChunkSelected
+            })
+          }}
+          onRowClick={(row, event) => handleItemClick(clickItemFromRow(row), event)}
+          onRowDoubleClick={(row) =>
+            handleShowOnLive(row.verse, row.isChunk ? row.chunkIndex : undefined)
           }
-
-          return (
-            <VerseItem
-              key={v.verse}
-              verse={v}
-              displayText={rawText}
-              index={index}
-              chapter={chapter}
-              version={version}
-              selectedVerses={verse}
-              selectedChunkKey={selectedChunkKey}
-              bookAccessId={bookAccessId}
-              bookName={bookData?.book}
-              onItemClick={handleItemClick}
-              onAddToSchedule={handleAddToSchedule}
-              onShowOnLive={handleShowOnLive}
-              verseRefs={verseRefs}
-            />
-          )
-        })}
+          onRowKeyDown={(row, event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              handleItemClick(clickItemFromRow(row), event as unknown as React.MouseEvent)
+            }
+          }}
+          registerRowRef={(verseNumber, element) => {
+            if (element) verseRefs.current.set(verseNumber, element)
+            else verseRefs.current.delete(verseNumber)
+          }}
+          getDragData={(row) => ({
+            id: `verse-${row.verse}-${chapter}-${bookAccessId ?? 'unknown'}-${row.chunkIndex}`,
+            data: {
+              type: 'BIBLE',
+              accessData: buildRowAccessData(row),
+              label: `${bookData?.book || ''} ${chapter}:${verseRangeSerialized || row.verse}`.trim()
+            }
+          })}
+          renderContextMenu={(row) => (
+            <>
+              <ContextMenuItem onClick={() => handleAddToSchedule(row.verse)}>
+                <CalendarPlus />
+                Añadir al cronograma
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() =>
+                  handleShowOnLive(row.verse, row.isChunk ? row.chunkIndex : undefined)
+                }
+              >
+                <Radio className="text-green-600" />
+                Presentar en vivo
+              </ContextMenuItem>
+            </>
+          )}
+        />
       </div>
     </div>
-  )
-}
-
-// Componente individual para cada versículo con dnd-kit
-function VerseItem({
-  verse: v,
-  displayText,
-  index,
-  chapter,
-  version,
-  selectedVerses,
-  selectedChunkKey,
-  bookAccessId,
-  bookName,
-  onItemClick,
-  onAddToSchedule,
-  onShowOnLive,
-  verseRefs,
-  isChunk = false,
-  chunkIndex = 0
-}: {
-  verse: any
-  displayText?: string
-  index: number
-  chapter: number
-  version: string
-  selectedVerses: number[]
-  selectedChunkKey: string | null
-  bookAccessId: number | null
-  bookName?: string
-  onItemClick: (
-    item: { verseNumber: number; index: number; chunkIndex?: number; isChunk?: boolean },
-    e: React.MouseEvent
-  ) => void
-  onAddToSchedule: (verseNumber: number) => void
-  onShowOnLive: (verseNumber: number, startChunkIndex?: number) => void
-  verseRefs: React.MutableRefObject<Map<number, HTMLDivElement>>
-  isChunk?: boolean
-  chunkIndex?: number
-  totalChunks?: number
-}) {
-  const verseRange = serializeBibleVerseRange(selectedVerses)
-  const accessData =
-    bookAccessId === null
-      ? ''
-      : buildBibleAccessData({
-          bookId: bookAccessId,
-          chapter,
-          verseRange: verseRange || String(v.verse),
-          version
-        })
-
-  const { listeners, setNodeRef, isDragging } = useDraggable({
-    id: `verse-${v.verse}-${chapter}-${bookAccessId ?? 'unknown'}-${chunkIndex}`,
-    data: {
-      type: 'BIBLE',
-      accessData,
-      label: `${bookName || ''} ${chapter}:${verseRange || v.verse}`.trim()
-    }
-  })
-
-  // Usar el texto del chunk si existe, sino el texto original del verso
-  const textToDisplay = displayText ?? v.text
-
-  // Determinar si este chunk específico está seleccionado
-  const chunkKey = `${v.verse}-${chunkIndex}`
-  const isVerseSelected = selectedVerses.includes(v.verse)
-  const isChunkSelected = selectedChunkKey === chunkKey
-
-  // El chunk está destacado si:
-  // - Es el chunk específicamente seleccionado, O
-  // - El verso está seleccionado pero no hay chunk específico seleccionado
-  const isHighlighted = isChunkSelected || (isVerseSelected && !selectedChunkKey)
-
-  // Handler de doble click que pasa el chunkIndex
-  const handleDoubleClick = () => {
-    onShowOnLive(v.verse, isChunk ? chunkIndex : undefined)
-  }
-
-  // Handler de click que incluye información del chunk
-  const handleClick = (e: React.MouseEvent) => {
-    onItemClick({ verseNumber: v.verse, index, chunkIndex, isChunk }, e)
-  }
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger>
-        <div
-          ref={(el) => {
-            setNodeRef(el)
-            // Solo guardar la ref del primer chunk de cada verso
-            if (el && chunkIndex === 0) verseRefs.current.set(v.verse, el)
-          }}
-          className={cn(
-            'flex border-b py-0.5 items-baseline hover:bg-muted/40 cursor-pointer transition-colors',
-            {
-              // Destacar fuerte si es el chunk específicamente seleccionado
-              'bg-secondary/30 hover:bg-secondary/20 ring-1 ring-secondary/50': isChunkSelected,
-              // Destacar suave si el verso está seleccionado pero no hay chunk específico
-              'bg-secondary/20 hover:bg-secondary/10': isHighlighted && !isChunkSelected,
-              'opacity-50 bg-muted': isDragging
-            }
-          )}
-          role="button"
-          onClick={handleClick}
-          onDoubleClick={handleDoubleClick}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              handleClick(e as any)
-            }
-          }}
-          {...listeners}
-        >
-          <div className="font-semibold text-muted-foreground w-7 text-center text-sm select-none">
-            {v.verse}
-          </div>
-          <div className="flex-1 pr-1.5 text-sm select-none">{textToDisplay}</div>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onClick={() => onAddToSchedule(v.verse)}>
-          <CalendarPlus />
-          Añadir al cronograma
-        </ContextMenuItem>
-        <ContextMenuItem onClick={handleDoubleClick}>
-          <Radio className="text-green-600" />
-          Presentar en vivo
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
   )
 }

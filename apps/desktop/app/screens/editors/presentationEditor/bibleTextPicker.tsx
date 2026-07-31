@@ -6,11 +6,8 @@ import { cn } from '@/lib/utils'
 import useBibleSchema from '@/hooks/useBibleSchema'
 import BibleVersions from '@/screens/panels/library/bible/bibleVersions'
 import VerseSearch from '@/screens/panels/library/bible/verseSearch'
-import {
-  splitLongBibleVerse,
-  resolveBibleChunkMaxLength,
-  isBibleLiveSplitMode
-} from '@/lib/splitLongBibleVerse'
+import { resolveBibleChunkMaxLength, isBibleLiveSplitMode } from '@/lib/splitLongBibleVerse'
+import BibleChapterVerseList from '@/ui/bible/bibleChapterVerseList'
 import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { Api } from '@ecclesia/queries'
 
@@ -279,58 +276,26 @@ export default function BibleTextPicker({ open, onOpenChange, onAddToPresentatio
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {completeChapter.map((verse) => {
-                const isSelected =
-                  verse.verse >= verseRange.start && verse.verse <= verseRange.end
-                const chunks = verse.text ? splitLongBibleVerse(verse.text, maxChunkLength) : []
-
-                // Igual que la biblioteca: si el versículo es largo se muestra un
-                // renglón por fragmento; el número solo aparece en el primero.
-                const rows =
-                  chunks.length > 1
-                    ? chunks.map((chunkText, chunkIndex) => ({
-                        key: `${verse.verse}-chunk-${chunkIndex}`,
-                        chunkIndex,
-                        number: chunkIndex === 0 ? verse.verse : null,
-                        text: chunkText
-                      }))
-                    : [{ key: `${verse.verse}`, chunkIndex: 0, number: verse.verse, text: verse.text }]
-
-                return rows.map((row) => (
-                  <div
-                    key={row.key}
-                    ref={(element) => {
-                      // Solo el primer fragmento guarda la ref para el auto-scroll.
-                      if (row.chunkIndex !== 0) return
-                      if (element) {
-                        verseRefs.current.set(verse.verse, element)
-                      } else {
-                        verseRefs.current.delete(verse.verse)
-                      }
-                    }}
-                    className={cn(
-                      'flex border-b py-0.5 items-baseline hover:bg-muted/40 cursor-pointer',
-                      {
-                        'bg-secondary/20 hover:bg-secondary/10': isSelected
-                      }
-                    )}
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => handleVerseClick(verse.verse, event.shiftKey)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        handleVerseClick(verse.verse)
-                      }
-                    }}
-                  >
-                    <div className="font-semibold text-muted-foreground w-8 text-center text-sm select-none">
-                      {row.number ?? ''}
-                    </div>
-                    <div className="flex-1 pr-2 text-sm select-none">{row.text}</div>
-                  </div>
-                ))
-              })}
+              <BibleChapterVerseList
+                completeChapter={completeChapter}
+                maxChunkLength={maxChunkLength}
+                rowClassName={(row) =>
+                  row.verse >= verseRange.start && row.verse <= verseRange.end
+                    ? 'bg-secondary/20 hover:bg-secondary/10'
+                    : undefined
+                }
+                onRowClick={(row, event) => handleVerseClick(row.verse, event.shiftKey)}
+                onRowKeyDown={(row, event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    handleVerseClick(row.verse)
+                  }
+                }}
+                registerRowRef={(verseNumber, element) => {
+                  if (element) verseRefs.current.set(verseNumber, element)
+                  else verseRefs.current.delete(verseNumber)
+                }}
+              />
             </div>
           </div>
         </div>
