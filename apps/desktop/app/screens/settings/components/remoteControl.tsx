@@ -60,13 +60,14 @@ export default function RemoteControl() {
     setDevices([])
     try {
       const results = await window.remoteControlAPI.discoverLan()
-      setDevices(
-        results.filter((d) => d.ip !== remoteControlIp)
-      )
-      if (results.length === 0) {
+      // El dispositivo actual ya se excluye en el descubrimiento (backend);
+      // aquí solo ocultamos además la IP remota ya configurada.
+      const availableDevices = results.filter((d) => d.ip !== remoteControlIp)
+      setDevices(availableDevices)
+      if (availableDevices.length === 0) {
         toast.info('No se encontraron dispositivos en la red')
       } else {
-        toast.success(`Se encontraron ${results.length} dispositivo(s)`)
+        toast.success(`Se encontraron ${availableDevices.length} dispositivo(s)`)
       }
     } catch (error) {
       toast.error('Error al buscar dispositivos', {

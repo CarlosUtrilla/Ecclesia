@@ -26,6 +26,26 @@ function getLocalIp(): string {
   return '127.0.0.1'
 }
 
+/**
+ * Todas las direcciones IPv4 de este equipo (incluida la loopback). Se usa para
+ * descartar la respuesta del propio dispositivo durante el descubrimiento LAN:
+ * al hacer broadcast, este equipo también se responde a sí mismo y no debe
+ * aparecer en la lista de dispositivos a los que controlar remotamente.
+ */
+function getLocalIpAddresses(): Set<string> {
+  const addresses = new Set<string>(['127.0.0.1'])
+  const interfaces = os.networkInterfaces()
+  for (const iface of Object.values(interfaces)) {
+    if (!iface) continue
+    for (const info of iface) {
+      if (info.family === 'IPv4') {
+        addresses.add(info.address)
+      }
+    }
+  }
+  return addresses
+}
+
 function startUdpListener(): void {
   if (udpListener) return
 
@@ -68,12 +88,15 @@ export function initializeUdpDiscovery(): void {
 export function discoverLanDevices(): Promise<LanDevice[]> {
   return new Promise((resolve) => {
     const devices: Map<string, LanDevice> = new Map()
+    const localAddresses = getLocalIpAddresses()
     const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
 
     socket.on('message', (msg, rinfo) => {
       try {
         const parsed = JSON.parse(msg.toString('utf8', 0, MAX_RESPONSE_SIZE))
         if (parsed.type === 'ECCLESIA_RESPONSE' && parsed.name && rinfo.address) {
+          // Excluir el propio dispositivo (responde a su propio broadcast).
+          if (localAddresses.has(rinfo.address)) return
           devices.set(rinfo.address, { ip: rinfo.address, name: parsed.name })
         }
       } catch {
