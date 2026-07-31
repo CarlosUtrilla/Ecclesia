@@ -329,7 +329,7 @@ const stripLeadingVerseNumber = (text: string, verse?: number) => {
   return text.replace(leadingVersePattern, '')
 }
 
-const resolveChunkParts = (
+export const resolveChunkParts = (
   sourceText: string,
   maxChunkLength: number,
   bookId: number,

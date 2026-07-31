@@ -56,7 +56,7 @@ export default function EditorCanvas({
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null)
   const [activeDragMode, setActiveDragMode] = useState<DragState['mode'] | null>(null)
-  const versePreviewByItemRef = useRef<Map<string, number>>(new Map())
+  const stepPreviewByItemRef = useRef<Map<string, number>>(new Map())
   const { buildMediaUrl } = useMediaServer()
   const {
     background,
@@ -302,9 +302,9 @@ export default function EditorCanvas({
             onDeleteItem={onDeleteItem}
             onLayerUpItem={onLayerUpItem}
             onLayerDownItem={onLayerDownItem}
-            persistedVerse={versePreviewByItemRef.current.get(item.id)}
-            onPersistVerse={(nextVerse) => {
-              versePreviewByItemRef.current.set(item.id, nextVerse)
+            persistedStepIndex={stepPreviewByItemRef.current.get(item.id)}
+            onPersistStepIndex={(nextStepIndex) => {
+              stepPreviewByItemRef.current.set(item.id, nextStepIndex)
             }}
           />
         )

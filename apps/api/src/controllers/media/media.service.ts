@@ -281,8 +281,8 @@ export class MediaService {
     return copyMediaSource(sourcePath, targetFolder, isFolder)
   }
 
-  async extractZipMp4(zipPath: string, folder?: string, _originalName?: string) {
-    const { tempDir, mp4Paths } = extractZipMp4(zipPath)
+  async extractZipMp4(zipPath: string, folder?: string, originalName?: string) {
+    const { tempDir, mp4Paths } = extractZipMp4(zipPath, originalName)
     const importedMedia = await Promise.all(
       mp4Paths.map(async (mp4Path) => {
         return await this.importFileFromMulter({

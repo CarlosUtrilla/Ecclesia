@@ -333,12 +333,18 @@ export function copyMediaSource(
   return { success: true, newPath: targetRelativePath, newFileName, newThumbnail: newThumbnailPath }
 }
 
-export function extractZipMp4(zipPath: string): { tempDir: string; mp4Paths: string[] } {
+export function extractZipMp4(
+  zipPath: string,
+  originalName?: string
+): { tempDir: string; mp4Paths: string[] } {
   if (!fs.existsSync(zipPath)) {
     throw new Error('El archivo ZIP no existe')
   }
 
-  if (!zipPath.toLowerCase().endsWith('.zip')) {
+  // Multer guarda el archivo con un nombre temporal aleatorio SIN extensión,
+  // por lo que la validación debe hacerse contra el nombre original subido.
+  const nameToValidate = originalName ?? zipPath
+  if (!nameToValidate.toLowerCase().endsWith('.zip')) {
     throw new Error('El archivo seleccionado no es ZIP')
   }
 

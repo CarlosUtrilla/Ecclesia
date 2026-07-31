@@ -4,7 +4,7 @@
 
 Antes de escribir o modificar código, **consulta primero los `agents.md`** del proyecto para obtener la información necesaria. No improvises ni asumas la estructura: la documentación de agentes es la fuente de verdad.
 
-1. **Empieza por el router raíz [`./agents.md`](./agents.md)** — contiene la tabla "Auto-invoke: Consulta SIEMPRE el agent antes de actuar" (qué `agents.md` mirar según la acción) y el mapa de todos los `agents.md` del repo (28 en total, uno por módulo).
+1. **Empieza por el router raíz [`./agents.md`](./agents.md)** — contiene la tabla "Auto-invoke: Consulta SIEMPRE el agent antes de actuar" (qué `agents.md` mirar según la acción) y el mapa de todos los `agents.md` del repo (30 en total, uno por módulo).
 2. **Lee el `agents.md` más cercano** al código que vas a tocar (p. ej. `apps/desktop/app/contexts/ScheduleContext/agents.md`, `apps/desktop/app/screens/panels/items-on-live/agents.md`, `apps/api/src/.../agents.md`). Cada uno documenta convenciones, patrones y decisiones de su módulo.
 3. Para exploración amplia o multi-área, **delega en subagentes** (Explore / Plan / Agent) en lugar de leer muchos archivos en el contexto principal; pásales como referencia el `agents.md` relevante.
 

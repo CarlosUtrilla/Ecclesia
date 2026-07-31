@@ -7,7 +7,7 @@ Reemplaza el sistema anterior de snapshots + last-write-wins.
 
 ## Arquitectura
 
-Ver diseño completo en: `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`
+Ver diseño completo en: `apps/desktop/app/SISTEMA_SYNC_OPLOG.md`
 
 ## Archivos
 

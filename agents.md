@@ -22,7 +22,7 @@ Ecclesia utiliza skills globales para mejorar la calidad, performance y diseño 
 
 Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para planificacion y presentacion de cultos religiosos. Gestiona canciones, versiculos biblicos, medios (imagenes/videos), temas de presentacion y cronogramas de servicio que se proyectan en pantallas en vivo.
 
-**📖 Sistema de Chunks para Textos Bíblicos:** Documentación completa en [`packages/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md`](packages/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md) - explica cómo funciona la división inteligente de textos bíblicos largos, arquitectura de metadata objects, hidratación desde BD, navegación por chunks y preview de presentaciones.
+**📖 Sistema de Chunks para Textos Bíblicos:** Documentación completa en [`apps/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md`](apps/desktop/app/SISTEMA_CHUNKS_BIBLICOS.md) - explica cómo funciona la división inteligente de textos bíblicos largos, arquitectura de metadata objects, hidratación desde BD, navegación por chunks y preview de presentaciones.
 
 ## Estado del proyecto
 
@@ -40,13 +40,13 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 - **Refactor Fase 3:** Reducidas alocaciones en loops en `SongGroup.tsx` (merge O(n²)→monotónico), `useCanvaImportActions.ts` (3×filter→1 loop), `splitLongBibleVerse.ts` (redundantes `normalizeBibleText`).
 - **Refactor Fase 4.2:** Outbox middleware extraído de `prisma-init.ts` → `apps/api/src/middleware/outbox.ts`. `registerOutboxMiddleware`, `setOnOutboxWriteCallback`, `setOnMediaChangeCallback` re-exportados desde `prisma-init.ts`.
 - **Refactor Fase 4.3:** Creado `ipcHelpers.ts` (`onIpc`, `onIpcFromWindow`, `handleIpc`) en `apps/desktop/electron/main/`. Aplicado a 11 handlers locales de `index.ts`.
-- **Nuevo sistema de sync (OpLog + Automerge CRDT):** Diseño completo en `packages/desktop/app/SISTEMA_SYNC_OPLOG.md`. Implementación core en `apps/api/src/controllers/sync-oplog/`. Integración via Prisma middleware (`apps/api/src/middleware/oplog.ts`). Scheduler nuevo (`apps/api/src/services/oplog-scheduler.service.ts`) activo en `index.ts`. Pendiente: desactivar snapshot sync legacy.
+- **Nuevo sistema de sync (OpLog + Automerge CRDT):** Diseño completo en `apps/desktop/app/SISTEMA_SYNC_OPLOG.md`. Implementación core en `apps/api/src/controllers/sync-oplog/`. Integración via Prisma middleware (`apps/api/src/middleware/oplog.ts`). Scheduler nuevo (`apps/api/src/services/oplog-scheduler.service.ts`) activo en `index.ts`. Pendiente: desactivar snapshot sync legacy.
 - **Integración IA para cronogramas (MVP):** Multi-proveedor configurable (OpenAI/Anthropic), extracción de referencias bíblicas desde texto libre o PDF, dialog modal con tabs (texto/PDF), inserción directa al cronograma. Backend en `apps/api/src/controllers/ai/`, frontend en `AIScheduleDialog.tsx`. Configuración de API key en Ajustes.
 
 ### In Progress
 - **Importación PDF**: Backend completo — `importPdf` endpoint que convierte cada página del PDF a IMAGE via `pdfjs-dist` v3 + `@napi-rs/canvas`, almacena en `__pdf/` oculto, crea Presentation one-slide-per-page y un Media PDF con `presentationId`. **Frontend completo**: `MediaCard` muestra icono PDF + placeholder, drag-and-drop acepta `.pdf`, file picker filtro incluido. **Live redirect**: cuando un Media PDF se envía a live, resuelve su Presentation vinculada y muestra las diapositivas.
 - **Fallback regeneration en `syncBlobs()`**: extendido bucle de regeneración de thumbnails para también generar fallback de videos cuando `fallbackChecksum`/`data.fallback` está vacío. Nuevos fallbacks se checksumean, suben a Drive, y persisten en el evento OpLog.
-- **Roadmap IA completo**: Ver `AI_FEATURES_ROADMAP.md` en `packages/desktop/app/screens/panels/schedule/` para funcionalidades futuras (sugerencia de grupos, canciones, generación automática de cronogramas).
+- **Roadmap IA completo**: Ver `AI_FEATURES_ROADMAP.md` en `apps/desktop/app/screens/panels/schedule/` para funcionalidades futuras (sugerencia de grupos, canciones, generación automática de cronogramas).
 
 ### Known Issues
 - `invalid_client` en sync OAuth: error de configuración — faltan credenciales válidas de Google OAuth en `.env`.
@@ -73,7 +73,7 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
   - `npm run test`
   - `npm run test:watch`
   - `npm run test:coverage`
-- Configuracion central: `packages/desktop/vitest.config.ts`.
+- Configuracion central: `apps/desktop/vitest.config.ts`.
 - Setup global de matchers: `tests/setup/vitest.setup.ts`.
 - Para pruebas de componentes/DOM usar `// @vitest-environment jsdom` en el archivo de test.
 - Priorizar cobertura de seguridad en utilidades críticas (ej. sanitización HTML) y regresiones de lógica en módulos compartidos.
@@ -82,8 +82,8 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 
 | Tipo de código | Tests requeridos |
 | --- | --- |
-| Utilidades (`packages/desktop/app/lib/`, `apps/api/src/`) | Unit tests de todos los casos relevantes (happy path + edge cases + errores) |
-| Hooks compartidos (`packages/desktop/app/hooks/`) | Tests con `renderHook` de comportamiento público |
+| Utilidades (`apps/desktop/app/lib/`, `apps/api/src/`) | Unit tests de todos los casos relevantes (happy path + edge cases + errores) |
+| Hooks compartidos (`apps/desktop/app/hooks/`) | Tests con `renderHook` de comportamiento público |
 | Controllers/Services del backend | Unit tests de lógica de negocio (mocking de Prisma si aplica) |
 | Componentes con lógica propia | Tests de comportamiento (no de snapshot): interacciones, estados, renders condicionales |
 | Schemas Zod (`schema.ts`) | Tests de validación: inputs válidos, inválidos y casos borde |
@@ -102,35 +102,35 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 
 | Accion | Agent a consultar |
 | --- | --- |
-| Crear o modificar un modelo en schema.prisma | [`prisma`](prisma/agents.md) |
-| Crear una migracion de base de datos | [`prisma`](prisma/agents.md) |
-| Agregar un campo a un modelo existente | [`prisma`](prisma/agents.md) + [`api`](apps/api/agents.md) |
+| Crear o modificar un modelo en schema.prisma | [`prisma`](apps/api/prisma/agents.md) |
+| Crear una migracion de base de datos | [`prisma`](apps/api/prisma/agents.md) |
+| Agregar un campo a un modelo existente | [`prisma`](apps/api/prisma/agents.md) + [`api`](apps/api/agents.md) |
 | Crear un nuevo controller o service | [`api`](apps/api/agents.md) |
-| Agregar un nuevo metodo IPC | [`api`](apps/api/agents.md) + [`electron`](packages/desktop/electron/agents.md) |
+| Agregar un nuevo metodo IPC | [`api`](apps/api/agents.md) + [`electron`](apps/desktop/electron/agents.md) |
 | Modificar DTOs de entrada/salida | [`api`](apps/api/agents.md) |
-| Consumir datos del backend desde React | [`contexts`](packages/desktop/app/contexts/agents.md) + [`api`](apps/api/agents.md) |
-| Agregar un componente a la biblioteca (songs/media/bible) | [`library`](packages/desktop/app/screens/panels/library/agents.md) |
-| Implementar drag & drop de un recurso al cronograma | [`library`](packages/desktop/app/screens/panels/library/agents.md) + [`schedule`](packages/desktop/app/screens/panels/schedule/agents.md) |
-| Modificar el cronograma o sus items | [`schedule`](packages/desktop/app/screens/panels/schedule/agents.md) |
-| Modificar la logica de pantallas en vivo | [`schedule`](packages/desktop/app/screens/panels/schedule/agents.md) + [`contexts`](packages/desktop/app/contexts/agents.md) |
-| Crear o modificar un editor (cancion/tema/tags) | [`editors`](packages/desktop/app/screens/editors/agents.md) |
-| Abrir una nueva ventana de Electron | [`electron`](packages/desktop/electron/agents.md) + [`editors`](packages/desktop/app/screens/editors/agents.md) |
-| Modificar PresentationView o sus sub-componentes | [`ui`](packages/desktop/app/ui/agents.md) |
-| Usar animaciones con Framer Motion | [`ui`](packages/desktop/app/ui/agents.md) |
-| Agregar un componente Shadcn UI | [`ui`](packages/desktop/app/ui/agents.md) |
-| Trabajar con el media server o archivos de medios | [`electron`](packages/desktop/electron/agents.md) + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
-| Verificar integridad de archivos de medios en disco | [`electron`](packages/desktop/electron/agents.md) + [`api`](apps/api/agents.md) |
-| Modificar gestion de displays/pantallas | [`electron`](packages/desktop/electron/agents.md) + [`contexts`](packages/desktop/app/contexts/agents.md) |
-| Importar o gestionar biblias | [`electron`](packages/desktop/electron/agents.md) + [`library`](packages/desktop/app/screens/panels/library/agents.md) |
-| Agregar una nueva ruta en React Router | Leer `packages/desktop/app/App.tsx` + [`electron`](packages/desktop/electron/agents.md) si requiere ventana nueva |
-| Crear o modificar ventana de ajustes | [`electron`](packages/desktop/electron/agents.md) + [`ui`](packages/desktop/app/ui/agents.md) |
-| Modificar estilos globales o temas CSS | Leer `packages/desktop/app/assets/globals.css` + [`ui`](packages/desktop/app/ui/agents.md) |
+| Consumir datos del backend desde React | [`contexts`](apps/desktop/app/contexts/agents.md) + [`api`](apps/api/agents.md) |
+| Agregar un componente a la biblioteca (songs/media/bible) | [`library`](apps/desktop/app/screens/panels/library/agents.md) |
+| Implementar drag & drop de un recurso al cronograma | [`library`](apps/desktop/app/screens/panels/library/agents.md) + [`schedule`](apps/desktop/app/screens/panels/schedule/agents.md) |
+| Modificar el cronograma o sus items | [`schedule`](apps/desktop/app/screens/panels/schedule/agents.md) |
+| Modificar la logica de pantallas en vivo | [`schedule`](apps/desktop/app/screens/panels/schedule/agents.md) + [`contexts`](apps/desktop/app/contexts/agents.md) |
+| Crear o modificar un editor (cancion/tema/tags) | [`editors`](apps/desktop/app/screens/editors/agents.md) |
+| Abrir una nueva ventana de Electron | [`electron`](apps/desktop/electron/agents.md) + [`editors`](apps/desktop/app/screens/editors/agents.md) |
+| Modificar PresentationView o sus sub-componentes | [`ui`](apps/desktop/app/ui/agents.md) |
+| Usar animaciones con Framer Motion | [`ui`](apps/desktop/app/ui/agents.md) |
+| Agregar un componente Shadcn UI | [`ui`](apps/desktop/app/ui/agents.md) |
+| Trabajar con el media server o archivos de medios | [`electron`](apps/desktop/electron/agents.md) + [`library`](apps/desktop/app/screens/panels/library/agents.md) |
+| Verificar integridad de archivos de medios en disco | [`electron`](apps/desktop/electron/agents.md) + [`api`](apps/api/agents.md) |
+| Modificar gestion de displays/pantallas | [`electron`](apps/desktop/electron/agents.md) + [`contexts`](apps/desktop/app/contexts/agents.md) |
+| Importar o gestionar biblias | [`electron`](apps/desktop/electron/agents.md) + [`library`](apps/desktop/app/screens/panels/library/agents.md) |
+| Agregar una nueva ruta en React Router | Leer `apps/desktop/app/App.tsx` + [`electron`](apps/desktop/electron/agents.md) si requiere ventana nueva |
+| Crear o modificar ventana de ajustes | [`electron`](apps/desktop/electron/agents.md) + [`ui`](apps/desktop/app/ui/agents.md) |
+| Modificar estilos globales o temas CSS | Leer `apps/desktop/app/assets/globals.css` + [`ui`](apps/desktop/app/ui/agents.md) |
 | Agregar un nuevo evento Socket.IO | [`sockets`](apps/api/src/sockets/AGENTS.md) — definir en `SocketEventMap` + emitir desde service o registrar handler |
 
 ## Arquitectura general
 
 ```
-packages/desktop/app/main.tsx (entry point React)
+apps/desktop/app/main.tsx (entry point React)
   -> QueryClientProvider (React Query)
   -> HashRouter
     -> App.tsx
@@ -158,8 +158,7 @@ packages/desktop/app/main.tsx (entry point React)
 
 ```
 /
-├── prisma/                    # Schema + migraciones (compartido)
-├── packages/
+├── apps/
 │   ├── api/                   # @ecclesia/api — capa de datos
 │   │   ├── src/
 │   │   │   ├── index.ts
@@ -167,21 +166,24 @@ packages/desktop/app/main.tsx (entry point React)
 │   │   │   ├── routes.ts
 │   │   │   ├── sockets/       # Socket.IO — SocketEventMap (único registro), handlers runtime
 │   │   │   └── controllers/   # Bible, Songs, Media, Themes, AI, etc.
+│   │   ├── prisma/            # Schema + migraciones (schema.prisma, migrations/)
 │   │   └── package.json
 │   └── desktop/               # @ecclesia/desktop — app Electron + React
 │       ├── app/               # Frontend React (main, screens, UI)
 │       ├── electron/          # Electron main process + preload
 │       ├── tests/
-│       ├── scripts/
 │       ├── resources/
 │       ├── locales/
 │       ├── electron.vite.config.ts
 │       ├── vitest.config.ts
 │       └── package.json
+├── packages/
+│   ├── queries/               # @ecclesia/queries — capa de fetch/socket compartida (Api.fetch/query/socket)
+│   └── scripts/               # scripts de release/build (release.sh)
 ├── .npmrc                     # minimum-release-age=1440 (seguridad supply chain)
-├── pnpm-workspace.yaml        # Definicion de workspaces
+├── pnpm-workspace.yaml        # Definicion de workspaces (apps/*, packages/*)
 ├── package.json               # pnpm workspace root
-└── AGENTS.md                  # Este archivo (router principal)
+└── agents.md                  # Este archivo (router principal)
 ```
 
 ## Flujo de datos (IPC)
@@ -332,9 +334,6 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 ```
 /
 ├── agents.md                     <- ESTE ARCHIVO (router principal)
-├── prisma/
-│   ├── agents.md                 <- Agent de schema/modelos
-│   └── schema.prisma
 ├── apps/
 │   ├── api/
 │   │   ├── agents.md             <- Agent de backend (controllers/services)
@@ -346,6 +345,7 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 │   │   │   ├── outboxPayload.ts  <- serializeOutboxPayload() BigInt-safe
 │   │   │   └── controllers/      <- Bible, Songs, Media, Themes, AI, etc.
 │   │   ├── prisma/
+│   │   │   ├── agents.md         <- Agent de schema/modelos
 │   │   │   ├── schema.prisma
 │   │   │   └── migrations/
 │   │   └── package.json
@@ -383,12 +383,12 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 ├── .npmrc                     <- minimum-release-age=1440 (seguridad supply chain)
 ├── pnpm-workspace.yaml        <- Definicion de workspaces
 ├── package.json               <- pnpm workspace root
-└── AGENTS.md                  <- ESTE ARCHIVO (router principal)
+└── agents.md                  <- ESTE ARCHIVO (router principal)
 ```
 
 ## Integración ScheduleContext, Schedule y Library
 
-* La carpeta `packages/desktop/app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
+* La carpeta `apps/desktop/app/screens/panels/schedule/` es el principal consumidor de ScheduleContext: gestiona, visualiza y modifica el cronograma usando el contexto y sus helpers.
 * Los items de biblioteca (songs, media, bible) se agregan al cronograma por drag & drop o acciones directas (click/context menu), usando los métodos del contexto (`addItemToSchedule`, etc.).
 * Ver detalles y flujos completos en los agents de cada módulo.
 * Controles de emergencia en live desde teclado del operador: `F7` (activar live), `F9` (ocultar texto solo en live), `F10` (mostrar logo/fallback sin quitar item), `F11` (pantalla negra), `Escape` (limpiar item live sin cerrar ventana).

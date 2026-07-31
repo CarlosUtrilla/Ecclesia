@@ -7,7 +7,9 @@ import { AnimationType, getAnimationVariants } from '@/lib/animations'
 import { AnimationSettings, defaultAnimationSettings } from '@/lib/animationSettings'
 import { CanvasItemStyle, BASE_CANVAS_HEIGHT } from '../utils/slideUtils'
 import { parseBibleAccessData } from '../utils/bibleAccessData'
-import { getBibleVerseText } from '@/lib/bibleVerseSteps'
+import { resolveChunkParts } from '@/lib/presentationSlides'
+import { resolveBibleChunkMaxLength, isBibleLiveSplitMode } from '@/lib/splitLongBibleVerse'
+import { useDefaultBiblePresentationSettings } from '@/hooks/useDefaultBiblePresentationSettings'
 import { saveSelection, restoreSelection, registerActiveEditable } from '../utils/textSelection'
 import CanvasItemShell from './canvasItemShell'
 import { AnimatedText } from '@/ui/PresentationView/components/AnimatedText'
@@ -34,8 +36,8 @@ type Props = {
   onRequestEdit: () => void
   onExitEdit: () => void
   onTextChange: (nextText: string) => void
-  persistedVerse?: number
-  onPersistVerse?: (nextVerse: number) => void
+  persistedStepIndex?: number
+  onPersistStepIndex?: (nextStepIndex: number) => void
   handles?: React.ReactNode
 }
 
@@ -70,8 +72,8 @@ export default function TextCanvasItem({
   onRequestEdit,
   onExitEdit,
   onTextChange,
-  persistedVerse,
-  onPersistVerse,
+  persistedStepIndex,
+  onPersistStepIndex,
   handles
 }: Props) {
   const editableRef = useRef<HTMLDivElement | null>(null)
@@ -80,7 +82,8 @@ export default function TextCanvasItem({
   const latestInputHtmlRef = useRef<string>(text || '')
   const latestPropTextRef = useRef<string>(text || '')
   const savedSelectionRef = useRef<Range | null>(null)
-  const [editorVerse, setEditorVerse] = useState<number | null>(null)
+  const [stepIndex, setStepIndex] = useState(0)
+  const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
 
   useEffect(() => {
     latestPropTextRef.current = text || ''
@@ -187,60 +190,80 @@ export default function TextCanvasItem({
   )
 
   const bible = type === 'BIBLE' ? parseBibleAccessData(accessData) : undefined
-  const verseRange = useMemo(() => {
-    if (!bible) return null
 
-    const start = bible.verseStart
-    const end = bible.verseEnd ?? bible.verseStart
-    if (end <= start) return null
+  // Divide el texto bíblico en los MISMOS fragmentos (chunks) que se usan en LIVE:
+  // verso por verso + partición de versículos largos, reutilizando la lógica de
+  // la biblioteca (`resolveChunkParts` -> `splitLongBibleVerse` / `splitBibleRangeIntoVerses`).
+  const chunkSteps = useMemo(() => {
+    if (type !== 'BIBLE' || !bible) return null
 
-    return { start, end }
-  }, [bible])
+    const mode = defaultBiblePresentationSettings?.chunkMaxLength
+    const splitMode = isBibleLiveSplitMode(mode) ? mode : 'auto'
+    const maxChunkLength = resolveBibleChunkMaxLength(splitMode)
+
+    const parts = resolveChunkParts(
+      text || '',
+      maxChunkLength,
+      bible.bookId,
+      bible.chapter,
+      bible.verseStart,
+      bible.verseEnd
+    )
+
+    return parts && parts.length > 0 ? parts : null
+  }, [
+    type,
+    bible?.bookId,
+    bible?.chapter,
+    bible?.verseStart,
+    bible?.verseEnd,
+    text,
+    defaultBiblePresentationSettings?.chunkMaxLength
+  ])
+
+  const totalSteps = chunkSteps?.length ?? 0
 
   useEffect(() => {
-    if (!verseRange) {
-      setEditorVerse(null)
+    if (totalSteps === 0) {
+      setStepIndex(0)
       return
     }
 
-    setEditorVerse((current) => {
+    setStepIndex((current) => {
       const fromPersisted =
-        persistedVerse !== undefined &&
-        persistedVerse >= verseRange.start &&
-        persistedVerse <= verseRange.end
-          ? persistedVerse
+        persistedStepIndex !== undefined &&
+        persistedStepIndex >= 0 &&
+        persistedStepIndex < totalSteps
+          ? persistedStepIndex
           : null
 
       if (fromPersisted !== null) return fromPersisted
-      if (current === null) return verseRange.start
-      if (current < verseRange.start) return verseRange.start
-      if (current > verseRange.end) return verseRange.end
+      if (current < 0) return 0
+      if (current > totalSteps - 1) return totalSteps - 1
       return current
     })
-  }, [itemId, verseRange?.start, verseRange?.end, persistedVerse])
+  }, [itemId, totalSteps, persistedStepIndex])
 
-  const activeEditorVerse = editorVerse ?? bible?.verseStart
-  const verseProgress = useMemo(() => {
-    if (!verseRange) return null
+  const safeStepIndex = totalSteps > 0 ? Math.min(Math.max(0, stepIndex), totalSteps - 1) : 0
+  const activeStep = chunkSteps && totalSteps > 0 ? chunkSteps[safeStepIndex] : null
 
-    const currentVerse = activeEditorVerse ?? verseRange.start
-    const total = verseRange.end - verseRange.start + 1
-    const position = Math.min(total, Math.max(1, currentVerse - verseRange.start + 1))
+  const verseProgress =
+    totalSteps > 0
+      ? {
+          position: safeStepIndex + 1,
+          total: totalSteps,
+          currentVerse: activeStep?.verse ?? bible?.verseStart ?? 0
+        }
+      : null
 
-    return { position, total, currentVerse }
-  }, [activeEditorVerse, verseRange])
-
-  const displayedText =
-    type === 'BIBLE' && activeEditorVerse
-      ? (getBibleVerseText(text, activeEditorVerse) ?? text)
-      : text
+  const displayedText = type === 'BIBLE' ? (activeStep ? activeStep.content : text) : text
 
   const verse =
     bible && Number.isFinite(bible.bookId) && Number.isFinite(bible.chapter)
       ? {
           bookId: bible.bookId,
           chapter: bible.chapter,
-          verse: activeEditorVerse || bible.verseStart,
+          verse: activeStep?.verse ?? bible.verseStart,
           version: bible.version
         }
       : undefined
@@ -438,7 +461,7 @@ export default function TextCanvasItem({
               }
             }}
           >
-            {isSelected && verseRange && !isEditing ? (
+            {isSelected && totalSteps > 1 && !isEditing ? (
               <div
                 className="absolute top-1 right-1 z-20 flex items-center gap-1 rounded bg-background/90 border px-1 py-0.5"
                 onPointerDown={(event) => event.stopPropagation()}
@@ -447,16 +470,16 @@ export default function TextCanvasItem({
                 <button
                   type="button"
                   className="inline-flex items-center justify-center size-5 rounded hover:bg-muted disabled:opacity-40"
-                  disabled={(activeEditorVerse || verseRange.start) <= verseRange.start}
+                  disabled={safeStepIndex <= 0}
                   onClick={() => {
-                    setEditorVerse((current) => {
-                      const base = current ?? verseRange.start
-                      const nextVerse = Math.max(verseRange.start, base - 1)
-                      onPersistVerse?.(nextVerse)
-                      return nextVerse
+                    setStepIndex((current) => {
+                      const base = Math.min(Math.max(0, current), totalSteps - 1)
+                      const next = Math.max(0, base - 1)
+                      onPersistStepIndex?.(next)
+                      return next
                     })
                   }}
-                  aria-label="Verso anterior"
+                  aria-label="Fragmento anterior"
                 >
                   <ChevronLeft className="size-3.5" />
                 </button>
@@ -464,7 +487,7 @@ export default function TextCanvasItem({
                   className="text-[10px] tabular-nums text-muted-foreground min-w-12 text-center"
                   title={
                     verseProgress
-                      ? `Verso ${verseProgress.currentVerse} (${verseProgress.position} de ${verseProgress.total})`
+                      ? `Verso ${verseProgress.currentVerse} (fragmento ${verseProgress.position} de ${verseProgress.total})`
                       : undefined
                   }
                 >
@@ -473,16 +496,16 @@ export default function TextCanvasItem({
                 <button
                   type="button"
                   className="inline-flex items-center justify-center size-5 rounded hover:bg-muted disabled:opacity-40"
-                  disabled={(activeEditorVerse || verseRange.start) >= verseRange.end}
+                  disabled={safeStepIndex >= totalSteps - 1}
                   onClick={() => {
-                    setEditorVerse((current) => {
-                      const base = current ?? verseRange.start
-                      const nextVerse = Math.min(verseRange.end, base + 1)
-                      onPersistVerse?.(nextVerse)
-                      return nextVerse
+                    setStepIndex((current) => {
+                      const base = Math.min(Math.max(0, current), totalSteps - 1)
+                      const next = Math.min(totalSteps - 1, base + 1)
+                      onPersistStepIndex?.(next)
+                      return next
                     })
                   }}
-                  aria-label="Verso siguiente"
+                  aria-label="Fragmento siguiente"
                 >
                   <ChevronRight className="size-3.5" />
                 </button>

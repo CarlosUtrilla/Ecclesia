@@ -37,8 +37,8 @@ type Props = {
   onDeleteItem?: (itemId: string) => void
   onLayerUpItem?: (itemId: string) => void
   onLayerDownItem?: (itemId: string) => void
-  persistedVerse?: number
-  onPersistVerse?: (nextVerse: number) => void
+  persistedStepIndex?: number
+  onPersistStepIndex?: (nextStepIndex: number) => void
 }
 
 export default function CanvasItemNode({
@@ -62,8 +62,8 @@ export default function CanvasItemNode({
   onDeleteItem,
   onLayerUpItem,
   onLayerDownItem,
-  persistedVerse,
-  onPersistVerse
+  persistedStepIndex,
+  onPersistStepIndex
 }: Props) {
   const withSelection = (action?: (itemId: string) => void) => () => {
     onSelectItem(item.id)
@@ -175,8 +175,8 @@ export default function CanvasItemNode({
           onRequestEdit={requestTextEdit}
           onExitEdit={() => onSetEditingItemId(null)}
           onTextChange={(nextText) => onItemTextChange?.(item.id, nextText)}
-          persistedVerse={persistedVerse}
-          onPersistVerse={onPersistVerse}
+          persistedStepIndex={persistedStepIndex}
+          onPersistStepIndex={onPersistStepIndex}
           handles={
             isSelected ? (
               <CanvasTransformHandles
