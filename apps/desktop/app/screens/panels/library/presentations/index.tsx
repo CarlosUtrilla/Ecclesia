@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/ui/input'
 import { Button } from '@/ui/button'
+import { Tooltip } from '@/ui/tooltip'
 import { generateUniqueId } from '@/lib/utils'
 import { usePresentations } from '@/hooks/usePresentations'
 import { useSchedule } from '@/contexts/ScheduleContext'
@@ -68,9 +69,11 @@ export default function PresentationsPanel() {
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar presentación"
           />
-          <Button size="icon" onClick={() => window.windowAPI.openPresentationWindow()}>
-            <Plus className="size-4" />
-          </Button>
+          <Tooltip content="Nueva presentación">
+            <Button size="icon" onClick={() => window.windowAPI.openPresentationWindow()}>
+              <Plus className="size-4" />
+            </Button>
+          </Tooltip>
         </div>
 
         <ScrollArea className="panel-scroll-content p-2 flex flex-col gap-1">

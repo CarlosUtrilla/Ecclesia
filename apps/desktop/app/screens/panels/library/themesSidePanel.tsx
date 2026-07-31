@@ -16,6 +16,7 @@ import { useState } from 'react'
 import { Input } from '@/ui/input'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/ui/scroll-area'
+import { Tooltip } from '@/ui/tooltip'
 import { Api } from '@ecclesia/queries'
 
 export function ThemesSidePanel() {
@@ -199,15 +200,16 @@ export function ThemesSidePanel() {
           <div className="flex items-center gap-1 w-full justify-between">
             <span className="text-xs font-semibold text-muted-foreground select-none">Temas</span>
             <div className="flex items-center gap-1">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="text-muted-foreground hover:text-primary"
-                title="Añadir tema"
-                onClick={() => window.windowAPI.openThemeWindow()}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
+              <Tooltip content="Nuevo tema">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-primary"
+                  onClick={() => window.windowAPI.openThemeWindow()}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </Tooltip>
               <Button
                 size="icon"
                 variant="ghost"

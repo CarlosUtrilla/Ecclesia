@@ -10,7 +10,18 @@ import {
   MenubarSubTrigger,
   MenubarSubContent
 } from '@/ui/menubar'
-import { ArrowLeftRight, BookOpen, Download, Music, Palette, Timer, Upload, Wrench } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  BookOpen,
+  Download,
+  Music,
+  Palette,
+  Plus,
+  Presentation,
+  Timer,
+  Upload,
+  Wrench
+} from 'lucide-react'
 import ExportDialog from '@/screens/panels/library/ExportDialog'
 import SongImporter from '@/screens/panels/library/songs/songImporter'
 import ChurchCountdownDialog from './ChurchCountdownDialog'
@@ -93,7 +104,28 @@ export default function AppMenubar() {
     <>
       <Menubar className="h-9 rounded-none border-0 border-b bg-background px-2 shadow-none">
         <MenubarMenu>
-          <MenubarTrigger>
+          <MenubarTrigger className="text-xs">
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo
+          </MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem onClick={() => window.windowAPI.openThemeWindow()}>
+              <Palette className="mr-2 h-4 w-4" />
+              Nuevo tema
+            </MenubarItem>
+            <MenubarItem onClick={() => window.windowAPI.openSongWindow()}>
+              <Music className="mr-2 h-4 w-4" />
+              Nueva canción
+            </MenubarItem>
+            <MenubarItem onClick={() => window.windowAPI.openPresentationWindow()}>
+              <Presentation className="mr-2 h-4 w-4" />
+              Nueva presentación
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+
+        <MenubarMenu>
+          <MenubarTrigger className="text-xs">
             <ArrowLeftRight className="mr-2 h-4 w-4" />
             Importar/Exportar
           </MenubarTrigger>
@@ -150,7 +182,7 @@ export default function AppMenubar() {
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>
+          <MenubarTrigger className="text-xs">
             <Wrench className="mr-2 h-4 w-4" />
             Herramientas
           </MenubarTrigger>
