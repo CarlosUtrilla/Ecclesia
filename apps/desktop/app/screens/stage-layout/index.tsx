@@ -9,6 +9,7 @@ import FontFamilySelector from '@/ui/fontFamilySelector'
 import { ColorPicker } from '@/ui/colorPicker'
 import {
   DEFAULT_STAGE_LAYOUT,
+  DEFAULT_TIMER_BORDER_ALERT_SECONDS,
   StageLayout,
   StageWidgetConfig,
   StageLayoutItem,
@@ -23,6 +24,7 @@ import { PresentationView } from '@/ui/PresentationView'
 import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 import { useCanvasWidgetTransform, WidgetResizeHandle } from '@/hooks/useCanvasWidgetTransform'
 import { fontSizes } from '@/lib/themeConstants'
+import { Switch } from '@/ui/switch'
 import {
   buildGlobalStageUpsertPayloads,
   getGlobalStageConfig,
@@ -108,7 +110,9 @@ const createWidget = (type: StageWidgetType, index: number): StageLayoutItem => 
             timerOnTimeColor: '#22d3ee',
             timerWarningColor: '#f59e0b',
             timerOverdueColor: '#ef4444',
-            timerWarningThresholdSeconds: 30
+            timerWarningThresholdSeconds: 30,
+            timerBorderAlertEnabled: true,
+            timerBorderAlertSeconds: DEFAULT_TIMER_BORDER_ALERT_SECONDS
           }
         : type === 'clock'
           ? {
@@ -651,6 +655,48 @@ export default function StageLayoutScreen({ embedded = false }: StageLayoutScree
                                   timerOverdueColor: color
                                 }))
                               }
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                            <div className="flex flex-col">
+                              <span className="text-xs">Borde rojo de alerta</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                Parpadea al acercarse a 0 (sigue en negativo)
+                              </span>
+                            </div>
+                            <Switch
+                              checked={selectedWidget.config?.timerBorderAlertEnabled !== false}
+                              onCheckedChange={(checked) =>
+                                updateWidgetConfig(selectedWidget.id, (config) => ({
+                                  ...config,
+                                  timerBorderAlertEnabled: checked
+                                }))
+                              }
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+                            <span className="text-xs">Segundos antes de 0</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="3600"
+                              step="1"
+                              className="h-9 w-24"
+                              disabled={selectedWidget.config?.timerBorderAlertEnabled === false}
+                              value={
+                                selectedWidget.config?.timerBorderAlertSeconds ??
+                                DEFAULT_TIMER_BORDER_ALERT_SECONDS
+                              }
+                              onChange={(event) => {
+                                const next = Number(event.target.value)
+                                if (!Number.isFinite(next)) return
+                                updateWidgetConfig(selectedWidget.id, (config) => ({
+                                  ...config,
+                                  timerBorderAlertSeconds: Math.max(0, Math.min(3600, Math.floor(next)))
+                                }))
+                              }}
                             />
                           </div>
 

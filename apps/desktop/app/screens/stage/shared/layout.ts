@@ -1,5 +1,11 @@
 export type StageWidgetType = 'message' | 'timers' | 'clock' | 'liveTitle' | 'liveScreen'
 
+/**
+ * Segundos antes de llegar a 0 en que el escenario muestra un borde rojo
+ * parpadeante para alertar al presentador. 0 = desactivado. Default 10.
+ */
+export const DEFAULT_TIMER_BORDER_ALERT_SECONDS = 10
+
 export type StageWidgetConfig = {
   textColor?: string
   fontFamily?: string
@@ -8,6 +14,8 @@ export type StageWidgetConfig = {
   timerWarningColor?: string
   timerOverdueColor?: string
   timerWarningThresholdSeconds?: number
+  timerBorderAlertEnabled?: boolean
+  timerBorderAlertSeconds?: number
   timerLabelFontSize?: number
   timerValueFontSize?: number
 }
@@ -87,7 +95,9 @@ function getDefaultWidgetConfig(type: StageWidgetType): StageWidgetConfig {
       timerOnTimeColor: '#22d3ee',
       timerWarningColor: '#f59e0b',
       timerOverdueColor: '#ef4444',
-      timerWarningThresholdSeconds: 30
+      timerWarningThresholdSeconds: 30,
+      timerBorderAlertEnabled: true,
+      timerBorderAlertSeconds: DEFAULT_TIMER_BORDER_ALERT_SECONDS
     }
   }
 
@@ -137,7 +147,14 @@ function sanitizeConfig(type: StageWidgetType, raw: unknown): StageWidgetConfig 
       ),
       timerWarningThresholdSeconds: Number.isFinite(Number(source.timerWarningThresholdSeconds))
         ? clamp(Number(source.timerWarningThresholdSeconds), 0, 3600)
-        : (fallback.timerWarningThresholdSeconds ?? 30)
+        : (fallback.timerWarningThresholdSeconds ?? 30),
+      timerBorderAlertEnabled:
+        typeof source.timerBorderAlertEnabled === 'boolean'
+          ? source.timerBorderAlertEnabled
+          : (fallback.timerBorderAlertEnabled ?? true),
+      timerBorderAlertSeconds: Number.isFinite(Number(source.timerBorderAlertSeconds))
+        ? clamp(Number(source.timerBorderAlertSeconds), 0, 3600)
+        : (fallback.timerBorderAlertSeconds ?? DEFAULT_TIMER_BORDER_ALERT_SECONDS)
     }
   }
 

@@ -5,11 +5,17 @@ import { ContentScreen } from '@/contexts/ScheduleContext/types'
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { PresentationView } from '@/ui/PresentationView'
 import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
-import { DEFAULT_STAGE_LAYOUT, StageLayout, parseStageLayout } from '../stage/shared/layout'
+import {
+  DEFAULT_STAGE_LAYOUT,
+  DEFAULT_TIMER_BORDER_ALERT_SECONDS,
+  StageLayout,
+  parseStageLayout
+} from '../stage/shared/layout'
 import { getGlobalStageConfig } from '../stage/shared/globalStageConfig'
 import { useScreenSize } from '@/contexts/ScreenSizeContext'
 import { FocusModeOverlay } from './FocusModeOverlay'
 import { StageWidgets } from './StageWidgets'
+import { StageTimerAlertOverlay } from './StageTimerAlertOverlay'
 import { DEFAULT_STATE, StageState } from './types'
 import { MAX_STAGE_TIMERS, formatRemaining, resolveRemainingMs } from './utils'
 import { Api } from '@ecclesia/queries'
@@ -276,6 +282,20 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
     })
   }, [stageState.timers, nowMs])
 
+  const timerAlertActive = useMemo(() => {
+    const timersWidget = layout.items.find((item) => item.type === 'timers')
+    if (timersWidget?.config?.timerBorderAlertEnabled === false) return false
+
+    const alertSeconds =
+      timersWidget?.config?.timerBorderAlertSeconds ?? DEFAULT_TIMER_BORDER_ALERT_SECONDS
+    if (!Number.isFinite(alertSeconds) || alertSeconds <= 0) return false
+
+    // Se activa en los últimos `alertSeconds` y CONTINÚA si el timer entra en
+    // negativo (overtime) — sin límite inferior.
+    const alertMs = alertSeconds * 1000
+    return resolvedTimers.some((timer) => timer.remainingMs <= alertMs)
+  }, [resolvedTimers, layout.items])
+
   const sortedWidgets = useMemo(() => {
     return [...layout.items].filter((item) => item.visible).sort((a, b) => a.z - b.z)
   }, [layout.items])
@@ -333,6 +353,8 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
           nowMs={nowMs}
         />
       ) : null}
+
+      <StageTimerAlertOverlay active={timerAlertActive} />
     </div>
   )
 }
