@@ -363,6 +363,7 @@ const presentationVerseBySlideKey = {
 - `showItemOnLiveScreen` incrementa una versión (`liveContentVersion`) para que consumidores como `items-on-live` puedan refetchear contenido incluso al reenviar el mismo item.
 - **Optimización IPC (lastContentRef):** El efecto de envío a live screens compara `contentScreen` contra `lastContentRef.current`. Cuando solo cambia `itemIndex` (navegación de diapositivas), omite `contentScreen` del payload, evitando que `LiveScreen` setee un nuevo `content` que rompa la referencia de `items` en `PresentationView` y fuerce re-render completo.
 - **Test:** `liveContext.test.tsx` incluye tests de `lastContentRef` que verifican que `contentScreen` se incluya al cambiar contenido y se omita al navegar diapositivas.
+- **Salida de texto para OBS:** calcula el texto plano + referencia bíblica del item en vivo con `extractOverlayText`/`extractOverlayReference` (`app/lib/presentationOverlayText.ts`) y los emite por socket (`obsTextUpdate`) para la browser source `/obs`. Requiere `showLiveScreen` (sin proyección en vivo, overlay vacío = «no live, nada en ningún lado»). Vacío también con `TIMER`, si el slide es medio, o si el texto está oculto/negro/logo (F9/F10/F11); Escape lo limpia. Al (re)activarse la proyección se fuerza el reenvío (bypass del dedup) para refrescar páginas /obs con estado obsoleto. Escucha `requestObsText` (late join). Solo el host emite (no en `isRemoteMode`). Ver [`obs/agents.md`](../../../../api/src/controllers/obs/agents.md).
 
 ### DragAndDropSchedule
 

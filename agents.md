@@ -44,6 +44,7 @@ Ecclesia es una aplicacion de escritorio (Electron + React + TypeScript) para pl
 - **Integración IA para cronogramas (MVP):** Multi-proveedor configurable (OpenAI/Anthropic), extracción de referencias bíblicas desde texto libre o PDF, dialog modal con tabs (texto/PDF), inserción directa al cronograma. Backend en `apps/api/src/controllers/ai/`, frontend en `AIScheduleDialog.tsx`. Configuración de API key en Ajustes.
 
 ### In Progress
+- **Salida de texto para OBS (subtítulos)**: nuevo módulo `apps/api/src/controllers/obs/` que sirve una página `/obs` (browser source) con el texto plano en vivo vía Socket.IO (`obsTextUpdate`/`obsConfigUpdate`/`requestObsText`). Overlay personalizable (color/fondo/fuente/posición/imagen) desde el menú «OBS» de la barra superior (`ObsTextOutputDialog`). Config persistida en `Setting` (`OBS_TEXT_OVERLAY_CONFIG`). Extracción de texto en `app/lib/presentationOverlayText.ts`. Ver [`obs/agents.md`](apps/api/src/controllers/obs/agents.md).
 - **Importación PDF**: Backend completo — `importPdf` endpoint que convierte cada página del PDF a IMAGE via `pdfjs-dist` v3 + `@napi-rs/canvas`, almacena en `__pdf/` oculto, crea Presentation one-slide-per-page y un Media PDF con `presentationId`. **Frontend completo**: `MediaCard` muestra icono PDF + placeholder, drag-and-drop acepta `.pdf`, file picker filtro incluido. **Live redirect**: cuando un Media PDF se envía a live, resuelve su Presentation vinculada y muestra las diapositivas.
 - **Fallback regeneration en `syncBlobs()`**: extendido bucle de regeneración de thumbnails para también generar fallback de videos cuando `fallbackChecksum`/`data.fallback` está vacío. Nuevos fallbacks se checksumean, suben a Drive, y persisten en el evento OpLog.
 - **Roadmap IA completo**: Ver `AI_FEATURES_ROADMAP.md` en `apps/desktop/app/screens/panels/schedule/` para funcionalidades futuras (sugerencia de grupos, canciones, generación automática de cronogramas).
@@ -126,6 +127,7 @@ Cuando vayas a realizar alguna de estas acciones, SIEMPRE consulta el agent indi
 | Crear o modificar ventana de ajustes | [`electron`](apps/desktop/electron/agents.md) + [`ui`](apps/desktop/app/ui/agents.md) |
 | Modificar estilos globales o temas CSS | Leer `apps/desktop/app/assets/globals.css` + [`ui`](apps/desktop/app/ui/agents.md) |
 | Agregar un nuevo evento Socket.IO | [`sockets`](apps/api/src/sockets/AGENTS.md) — definir en `SocketEventMap` + emitir desde service o registrar handler |
+| Modificar la salida de texto para OBS (subtítulos) | [`obs`](apps/api/src/controllers/obs/agents.md) + [`sockets`](apps/api/src/sockets/AGENTS.md) |
 
 ## Arquitectura general
 

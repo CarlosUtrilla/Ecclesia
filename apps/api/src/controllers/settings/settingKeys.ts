@@ -5,7 +5,8 @@ export const SETTING_STORAGE_KEY_BY_PUBLIC_KEY = {
   SHOW_COPYRIGHT_ON_LIVE: 'show.copyright.onLive',
   AI_PROVIDER: 'ai.provider',
   AI_API_KEY: 'ai.apiKey',
-  AI_MODEL: 'ai.model'
+  AI_MODEL: 'ai.model',
+  OBS_TEXT_OVERLAY_CONFIG: 'obs.textOverlay.config'
 } as const
 
 export type PublicSettingKey = keyof typeof SETTING_STORAGE_KEY_BY_PUBLIC_KEY

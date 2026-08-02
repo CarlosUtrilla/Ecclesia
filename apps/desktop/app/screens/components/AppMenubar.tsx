@@ -13,7 +13,9 @@ import {
 import {
   ArrowLeftRight,
   BookOpen,
+  Captions,
   Download,
+  MonitorPlay,
   Music,
   Palette,
   Plus,
@@ -25,6 +27,7 @@ import {
 import ExportDialog from '@/screens/panels/library/ExportDialog'
 import SongImporter from '@/screens/panels/library/songs/songImporter'
 import ChurchCountdownDialog from './ChurchCountdownDialog'
+import ObsTextOutputDialog from './ObsTextOutputDialog'
 
 type ExportResourceType = 'songs' | 'themes'
 
@@ -33,6 +36,7 @@ export default function AppMenubar() {
   const [exportType, setExportType] = useState<ExportResourceType>('songs')
   const [songImporterOpen, setSongImporterOpen] = useState(false)
   const [countdownOpen, setCountdownOpen] = useState(false)
+  const [obsOutputOpen, setObsOutputOpen] = useState(false)
 
   const handleImportThemes = async () => {
     const selectedFiles = await window.mediaAPI.selectFiles('all')
@@ -193,6 +197,19 @@ export default function AppMenubar() {
             </MenubarItem>
           </MenubarContent>
         </MenubarMenu>
+
+        <MenubarMenu>
+          <MenubarTrigger className="text-xs">
+            <MonitorPlay className="mr-2 h-4 w-4" />
+            OBS
+          </MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem onClick={() => setObsOutputOpen(true)}>
+              <Captions className="mr-2 h-4 w-4" />
+              Salida de texto (subtítulos)...
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
       </Menubar>
 
       <ExportDialog
@@ -204,6 +221,8 @@ export default function AppMenubar() {
       <SongImporter forceOpen={songImporterOpen} onOpenChange={setSongImporterOpen} />
 
       <ChurchCountdownDialog open={countdownOpen} onOpenChange={setCountdownOpen} />
+
+      <ObsTextOutputDialog open={obsOutputOpen} onOpenChange={setObsOutputOpen} />
     </>
   )
 }

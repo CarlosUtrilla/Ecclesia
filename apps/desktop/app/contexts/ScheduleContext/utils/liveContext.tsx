@@ -8,6 +8,9 @@ import { PresentationBibleOverrideMap } from '@/lib/presentationBibleVersionOver
 import { ThemeWithMedia } from '@/ui/PresentationView/types'
 import { resolveAppliedLiveTheme } from './resolveAppliedLiveTheme'
 import { resolveSlideVerse } from '@/lib/presentationVerseController'
+import { extractOverlayText, extractOverlayReference } from '@/lib/presentationOverlayText'
+import { resolvePresentationBookShortName } from '@/lib/presentationBibleBadge'
+import useBibleSchema from '@/hooks/useBibleSchema'
 import { Api, onSocketReconnect } from '@ecclesia/queries'
 import { useRemoteMode } from '../../RemoteModeContext'
 
@@ -19,6 +22,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const { isRemoteMode } = useRemoteMode()
   const { getScheduleItemContentScreen, itemOnLive, selectedTheme, setItemOnLive, currentSchedule, songs, media, presentations } = useSchedule()
   const { themes } = useThemes()
+  const { bibleSchema } = useBibleSchema()
 
   // Stub para sincronización de media (debe implementarse con IPC)
   const sendLiveMediaState = (state: LiveMediaState) => {
@@ -258,6 +262,58 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
         return null
     }
   }, [itemOnLive, songs, media, presentations])
+
+  // Texto plano + referencia bíblica actualmente en vivo, para OBS.
+  // Requiere `showLiveScreen`: sin proyección en vivo el overlay no muestra nada.
+  // Vacío también con TIMER, si el slide es medio, o si el texto está oculto/negro/logo.
+  const obsOverlayPayload = useMemo(() => {
+    if (!showLiveScreen || !itemOnLive) return { text: '', reference: '' }
+    if (itemOnLive.type === 'TIMER') return { text: '', reference: '' }
+    if (hideTextOnLive || blackScreenOnLive || showLogoOnLive) return { text: '', reference: '' }
+    const slide = contentScreen?.content?.[itemIndex]
+    return {
+      text: extractOverlayText(slide, itemIndex, presentationVerseBySlideKey),
+      reference: extractOverlayReference(slide, itemIndex, presentationVerseBySlideKey, (bookId) =>
+        resolvePresentationBookShortName(bookId, bibleSchema)
+      )
+    }
+  }, [
+    showLiveScreen,
+    itemOnLive,
+    hideTextOnLive,
+    blackScreenOnLive,
+    showLogoOnLive,
+    contentScreen,
+    itemIndex,
+    presentationVerseBySlideKey,
+    bibleSchema
+  ])
+
+  const obsOverlayPayloadRef = useRef(obsOverlayPayload)
+  obsOverlayPayloadRef.current = obsOverlayPayload
+  const lastEmittedObsRef = useRef<string | null>(null)
+  const prevShowLiveForObsRef = useRef(showLiveScreen)
+
+  // Emitir texto + referencia a la página /obs cuando cambian (solo el host proyecta).
+  // Al (re)activarse la proyección se fuerza el envío aunque el texto coincida con el
+  // último emitido, para refrescar páginas /obs con estado obsoleto.
+  useEffect(() => {
+    if (isRemoteMode) return
+    const becameLive = showLiveScreen && !prevShowLiveForObsRef.current
+    prevShowLiveForObsRef.current = showLiveScreen
+    const signature = `${obsOverlayPayload.text} ${obsOverlayPayload.reference}`
+    if (!becameLive && lastEmittedObsRef.current === signature) return
+    lastEmittedObsRef.current = signature
+    Api.socket.emit.obsTextUpdate(obsOverlayPayload)
+  }, [obsOverlayPayload, showLiveScreen, isRemoteMode])
+
+  // La página /obs pide el estado actual al conectar (late join).
+  useEffect(() => {
+    if (isRemoteMode) return
+    return Api.socket.listen.requestObsText(() => {
+      Api.socket.emit.obsTextUpdate(obsOverlayPayloadRef.current)
+    })
+  }, [isRemoteMode, socketReconnectKey])
 
   // Broadcast estado actual a clientes remotos cuando cambia
   // Se emite incluso cuando showLiveScreen es false para que los remotos

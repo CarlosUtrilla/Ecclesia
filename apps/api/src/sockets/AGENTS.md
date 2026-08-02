@@ -59,6 +59,18 @@ Estos eventos se usan para el control remoto de pantallas en vivo. Cualquier cli
 
 El `LiveContext` en el renderer escucha todos estos eventos y los procesa como si fueran acciones locales del operador.
 
+## Eventos de salida de texto para OBS (subtítulos)
+
+Alimentan la página `/obs` (browser source de OBS) servida por `apps/api/src/controllers/obs/obsOverlay.controller.ts`. También se relayan (allowlist en `index.ts`).
+
+| Evento | Payload | Descripción |
+|---|---|---|
+| `obsTextUpdate` | `{ text: string }` | El host emite el texto plano actualmente en vivo (vacío si oculto/negro/logo, TIMER o medio). Lo calcula `liveContext` con `extractOverlayText` (`app/lib/presentationOverlayText.ts`) |
+| `obsConfigUpdate` | `ObsOverlayConfig` | El diálogo de config lo emite al guardar; la página recarga `/obs/config` y se re-estiliza en caliente |
+| `requestObsText` | `void` | La página `/obs`, al conectar, pide el texto actual (late join); `liveContext` responde con `obsTextUpdate` |
+
+`ObsOverlayConfig` se define en `apps/api/src/controllers/obs/obsOverlayConfig.ts` (con `DEFAULT_OBS_CONFIG` + `parseObsConfig`) y se persiste como blob JSON en `Setting` bajo la clave pública `OBS_TEXT_OVERLAY_CONFIG`.
+
 ## Cómo agregar un nuevo evento
 
 1. Agregar entrada en `SocketEventMap` en `socket.service.ts`:

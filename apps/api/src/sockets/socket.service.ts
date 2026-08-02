@@ -1,4 +1,5 @@
 import { Server as SocketIOServer } from 'socket.io'
+import type { ObsOverlayConfig } from '../controllers/obs/obsOverlayConfig'
 
 let io: SocketIOServer | null = null
 let _socket: ApiSocketShape | null = null
@@ -43,6 +44,14 @@ export interface SocketEventMap {
 
   // Remote client requests current schedule state from host
   requestScheduleState: void
+
+  // Salida de texto para OBS (browser source de subtítulos)
+  // El host emite el texto plano actualmente en vivo; el servidor lo reenvía
+  // por broadcast a la página /obs. El diálogo de config emite obsConfigUpdate
+  // para re-estilizar en caliente. La página, al conectar, emite requestObsText.
+  obsTextUpdate: { text: string; reference?: string }
+  obsConfigUpdate: ObsOverlayConfig
+  requestObsText: void
 
   // Schedule state sync (broadcast full schedule form state to all clients)
   scheduleStateUpdate: {

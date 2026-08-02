@@ -8,6 +8,7 @@ import {
   MEDIA_SERVER_PORT,
   LazyFetchHandler
 } from './controllers/media/mediaServer.controller'
+import { registerObsOverlayRoutes } from './controllers/obs/obsOverlay.controller'
 import { registerRoutes } from './utils/routerUtilis'
 import {
   DatabaseConfig,
@@ -57,6 +58,7 @@ export async function initializeHttpServer(
     }
   })
   registerMediaServerRoutes(app, { lazyFetch: onLazyFetch })
+  registerObsOverlayRoutes(app)
 
   app.post('/api/getRoutes', (req, res) => {
     try {
@@ -84,6 +86,20 @@ export async function initializeHttpServer(
       version: APP_VERSION,
       port: port
     })
+  })
+
+  // Direcciones IPv4 de la LAN (para construir la URL de la browser source de OBS)
+  app.get('/api/remote/interfaces', (_req, res) => {
+    const nets = os.networkInterfaces()
+    const addresses: string[] = []
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name] ?? []) {
+        if (net.family === 'IPv4' && !net.internal) {
+          addresses.push(net.address)
+        }
+      }
+    }
+    res.json({ port, addresses })
   })
 
   // UDP discovery endpoint
@@ -129,7 +145,10 @@ export async function initializeHttpServer(
       'liveSetBlackScreen',
       'liveStateUpdate',
       'scheduleStateUpdate',
-      'requestScheduleState'
+      'requestScheduleState',
+      'obsTextUpdate',
+      'obsConfigUpdate',
+      'requestObsText'
     ] as const
     for (const event of liveRelayEvents) {
       socket.on(event, (data: unknown) => {
