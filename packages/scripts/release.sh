@@ -69,9 +69,12 @@ prepare_windows_sharp() {
   local tmp_dir
   tmp_dir=$(mktemp -d)
 
+  local sharp_log="${TMPDIR:-/tmp}/ecclesia-sharp-win-install.log"
   (cd "$tmp_dir" \
     && npm init -y > /dev/null 2>&1 \
-    && npm install --no-save --include=optional --os=win32 --cpu=x64 --legacy-peer-deps sharp) > /dev/null 2>&1
+    && npm install --no-save --include=optional --os=win32 --cpu=x64 --legacy-peer-deps \
+       --fetch-timeout=120000 --fetch-retries=2 sharp) > "$sharp_log" 2>&1 \
+    || echo -e "  ${YELLOW}⚠ npm install de sharp (win32) falló o se colgó; ver ${sharp_log}${RESET}"
 
   local win_pkg="$tmp_dir/node_modules/@img/sharp-win32-x64"
   if [ -d "$win_pkg" ]; then

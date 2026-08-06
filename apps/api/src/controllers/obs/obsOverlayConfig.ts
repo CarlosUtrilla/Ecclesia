@@ -23,6 +23,8 @@ export type ObsOverlayConfig = {
   paddingX: number // px
   paddingY: number // px
   maxWidth: number // porcentaje del ancho 0..100
+  offsetX: number // separación del borde horizontal (px @1920), solo si horizontalAlign = left/right
+  offsetY: number // separación del borde vertical (px @1080), solo si position = top/bottom
   textShadow: boolean
   uppercase: boolean
   // Borde/contorno del texto (para contraste sin fondo)
@@ -53,6 +55,8 @@ export const DEFAULT_OBS_CONFIG: ObsOverlayConfig = {
   paddingX: 32,
   paddingY: 20,
   maxWidth: 90,
+  offsetX: 0,
+  offsetY: 0,
   textShadow: true,
   uppercase: false,
   textBorder: false,
@@ -64,6 +68,57 @@ export const DEFAULT_OBS_CONFIG: ObsOverlayConfig = {
   referenceFontScale: 0.9,
   backgroundMediaId: null,
   customCss: ''
+}
+
+// Un subtítulo = estilo (ObsOverlayConfig) + identidad (slug/nombre) + filtro por tipo.
+export type ObsContentType = 'SONG' | 'BIBLE' | 'PRESENTATION'
+export type ObsSubtitle = ObsOverlayConfig & {
+  slug: string
+  name: string
+  types: ObsContentType[] // tipos de contenido que muestra; vacío = todos
+}
+
+const VALID_CONTENT_TYPES: ObsContentType[] = ['SONG', 'BIBLE', 'PRESENTATION']
+
+/** Normaliza un texto a un slug de ruta seguro (a-z 0-9 - _). */
+export function sanitizeSlug(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+/** Parsea la lista de subtítulos desde el blob JSON de settings. Nunca lanza. */
+export function parseObsSubtitles(raw: string | null | undefined): ObsSubtitle[] {
+  let arr: unknown = []
+  if (typeof raw === 'string') {
+    try {
+      arr = JSON.parse(raw)
+    } catch {
+      arr = []
+    }
+  }
+  if (!Array.isArray(arr)) return []
+
+  const seen = new Set<string>()
+  const out: ObsSubtitle[] = []
+  for (const item of arr) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    const slug = sanitizeSlug(rec.slug)
+    if (!slug || seen.has(slug)) continue
+    seen.add(slug)
+    const types = Array.isArray(rec.types)
+      ? (rec.types.filter((t) => VALID_CONTENT_TYPES.includes(t as ObsContentType)) as ObsContentType[])
+      : []
+    const name = typeof rec.name === 'string' && rec.name.trim().length > 0 ? rec.name : slug
+    out.push({ ...parseObsConfig(rec), slug, name, types })
+  }
+  return out
 }
 
 const clampNumber = (value: unknown, min: number, max: number, fallback: number): number => {
@@ -126,6 +181,8 @@ export function parseObsConfig(raw: string | null | undefined | Record<string, u
     paddingX: clampNumber(source.paddingX, 0, 400, DEFAULT_OBS_CONFIG.paddingX),
     paddingY: clampNumber(source.paddingY, 0, 400, DEFAULT_OBS_CONFIG.paddingY),
     maxWidth: clampNumber(source.maxWidth, 10, 100, DEFAULT_OBS_CONFIG.maxWidth),
+    offsetX: clampNumber(source.offsetX, 0, 800, DEFAULT_OBS_CONFIG.offsetX),
+    offsetY: clampNumber(source.offsetY, 0, 800, DEFAULT_OBS_CONFIG.offsetY),
     textShadow: asBoolean(source.textShadow, DEFAULT_OBS_CONFIG.textShadow),
     uppercase: asBoolean(source.uppercase, DEFAULT_OBS_CONFIG.uppercase),
     textBorder: asBoolean(source.textBorder, DEFAULT_OBS_CONFIG.textBorder),

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Check, Copy, ImageIcon, Trash2, Video } from 'lucide-react'
+import { Check, Copy, ImageIcon, Plus, Trash2, Video } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 } from '@/ui/dialog'
 import { Button } from '@/ui/button'
 import { Switch } from '@/ui/switch'
+import { Input } from '@/ui/input'
 import { Label } from '@/ui/label'
 import { Slider } from '@/ui/slider'
 import { ColorPicker } from '@/ui/colorPicker'
@@ -19,7 +20,9 @@ import { Textarea } from '@/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/tabs'
 import { MediaPicker, type Media } from '@/screens/panels/library/media/exports'
 import { useMediaServer } from '@/contexts/MediaServerContext'
+import { cn } from '@/lib/utils'
 import { Api } from '@ecclesia/queries'
+import fondoObs from '@/assets/fondo-obs.jpg'
 
 const OBS_CONFIG_KEY = 'OBS_TEXT_OVERLAY_CONFIG'
 
@@ -40,6 +43,8 @@ type ObsOverlayConfig = {
   paddingX: number
   paddingY: number
   maxWidth: number
+  offsetX: number
+  offsetY: number
   textShadow: boolean
   uppercase: boolean
   textBorder: boolean
@@ -68,6 +73,8 @@ const DEFAULT_OBS_CONFIG: ObsOverlayConfig = {
   paddingX: 32,
   paddingY: 20,
   maxWidth: 90,
+  offsetX: 0,
+  offsetY: 0,
   textShadow: true,
   uppercase: false,
   textBorder: false,
@@ -113,6 +120,63 @@ function parseStoredConfig(value: string | undefined | null): ObsOverlayConfig {
   return DEFAULT_OBS_CONFIG
 }
 
+type ObsContentType = 'SONG' | 'BIBLE' | 'PRESENTATION'
+type ObsSubtitle = ObsOverlayConfig & { slug: string; name: string; types: ObsContentType[] }
+
+const SUBTITLES_KEY = 'OBS_SUBTITLES'
+const CONTENT_TYPES: { value: ObsContentType; label: string }[] = [
+  { value: 'BIBLE', label: 'Biblia' },
+  { value: 'SONG', label: 'Canción' },
+  { value: 'PRESENTATION', label: 'Presentación' }
+]
+
+function slugify(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+function makeSubtitle(slug: string, name: string): ObsSubtitle {
+  return { ...DEFAULT_OBS_CONFIG, enabled: true, slug, name, types: [] }
+}
+
+function parseSubtitles(value: string | undefined | null): ObsSubtitle[] {
+  if (!value) return []
+  let arr: unknown = []
+  try {
+    arr = JSON.parse(value)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(arr)) return []
+  const seen = new Set<string>()
+  const out: ObsSubtitle[] = []
+  arr.forEach((item, i) => {
+    if (!item || typeof item !== 'object') return
+    const rec = item as Record<string, unknown>
+    const slug = slugify(typeof rec.slug === 'string' ? rec.slug : '') || `text-${i + 1}`
+    if (seen.has(slug)) return
+    seen.add(slug)
+    const types = Array.isArray(rec.types)
+      ? (rec.types.filter((t) => t === 'SONG' || t === 'BIBLE' || t === 'PRESENTATION') as ObsContentType[])
+      : []
+    const name = typeof rec.name === 'string' && rec.name.trim() ? rec.name : slug
+    out.push({ ...DEFAULT_OBS_CONFIG, ...(rec as Partial<ObsOverlayConfig>), slug, name, types })
+  })
+  return out
+}
+
+function nextFreeSlug(subtitles: ObsSubtitle[]): string {
+  let n = subtitles.length + 1
+  const taken = new Set(subtitles.map((s) => s.slug))
+  while (taken.has(`text-${n}`)) n++
+  return `text-${n}`
+}
+
 function hexToRgba(hex: string, opacity: number): string {
   let h = String(hex || '#000000').replace('#', '')
   if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]
@@ -121,50 +185,60 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${(num >> 16) & 255},${(num >> 8) & 255},${num & 255},${opacity})`
 }
 
-// Traduce la configuración a su CSS equivalente (lo que aplica la página /obs).
-// Solo referencia/lectura: el usuario puede copiarlo al cuadro de CSS personalizado.
-function buildGeneratedCss(config: ObsOverlayConfig, backgroundImageUrl: string | null): string {
-  const vh = (px: number) => `${((px / 1080) * 100).toFixed(2)}vh`
+// Genera la hoja de estilos BASE del editor (reglas por id #stage/#box/#text/#reference).
+// Es la misma que aplica la página /obs; se inyecta ANTES del CSS del usuario para que este
+// gane por cascada SIN `!important`. `unit` = 'vh' para la página real / 'cqh' para el preview
+// (relativo al contenedor). Se usa también, con 'vh', en el panel de «CSS de la configuración».
+function buildGeneratedCss(
+  config: ObsOverlayConfig,
+  opts: { unit?: 'vh' | 'cqh'; backgroundImageUrl?: string | null; hasVideo?: boolean } = {}
+): string {
+  const unit = opts.unit ?? 'vh'
+  const xUnit = unit === 'cqh' ? 'cqw' : 'vw'
+  const len = (px: number) => `${((px / 1080) * 100).toFixed(3)}${unit}`
+  const lenX = (px: number) => `${((px / 1920) * 100).toFixed(3)}${xUnit}`
   const tint = hexToRgba(config.backgroundColor, config.backgroundOpacity)
-  const background = config.transparentBackground
-    ? 'transparent'
-    : backgroundImageUrl
-      ? `linear-gradient(${tint}, ${tint}), url("${backgroundImageUrl}") center / cover`
-      : tint
+  const refAbove = config.referencePosition === 'above'
+  const mTop = config.position === 'top' ? len(config.offsetY) : '0'
+  const mBottom = config.position === 'bottom' ? len(config.offsetY) : '0'
+  const mLeft = config.horizontalAlign === 'left' ? lenX(config.offsetX) : '0'
+  const mRight = config.horizontalAlign === 'right' ? lenX(config.offsetX) : '0'
+  const background =
+    config.transparentBackground || opts.hasVideo
+      ? 'transparent'
+      : opts.backgroundImageUrl
+        ? `linear-gradient(${tint}, ${tint}), url("${opts.backgroundImageUrl}") center / cover`
+        : tint
   const justify = config.position === 'top' ? 'flex-start' : config.position === 'center' ? 'center' : 'flex-end'
   const halign = config.horizontalAlign === 'left' ? 'flex-start' : config.horizontalAlign === 'right' ? 'flex-end' : 'center'
   const boxAlign = config.textAlign === 'left' ? 'flex-start' : config.textAlign === 'right' ? 'flex-end' : 'center'
 
   const out: string[] = []
-  out.push('#stage {')
-  out.push(`  justify-content: ${justify};`)
-  out.push(`  align-items: ${halign};`)
-  out.push('}')
+  out.push(`#stage {\n  justify-content: ${justify};\n  align-items: ${halign};\n}`)
   out.push('#box {')
+  out.push(`  flex-direction: ${refAbove ? 'column-reverse' : 'column'};`)
+  out.push(`  align-items: ${boxAlign};`)
   out.push(`  background: ${background};`)
   out.push(`  color: ${config.textColor};`)
   out.push(`  font-family: ${config.fontFamily};`)
-  out.push(`  font-size: ${vh(config.fontSize)};`)
+  out.push(`  font-size: ${len(config.fontSize)};`)
   out.push(`  font-weight: ${config.fontWeight};`)
   out.push(`  text-align: ${config.textAlign};`)
-  out.push(`  align-items: ${boxAlign};`)
-  out.push(`  flex-direction: ${config.referencePosition === 'above' ? 'column-reverse' : 'column'};`)
-  out.push(`  padding: ${vh(config.paddingY)} ${vh(config.paddingX)};`)
+  out.push(`  padding: ${len(config.paddingY)} ${len(config.paddingX)};`)
   out.push(`  max-width: ${config.maxWidth}%;`)
+  out.push(`  margin: ${mTop} ${mRight} ${mBottom} ${mLeft};`)
+  out.push('  line-height: 1.25;')
+  out.push(`  border-radius: ${len(4)};`)
   out.push(`  text-transform: ${config.uppercase ? 'uppercase' : 'none'};`)
-  if (config.textShadow) out.push('  text-shadow: 0 0.2vh 0.6vh rgba(0,0,0,0.85);')
+  if (config.textShadow) out.push(`  text-shadow: 0 ${len(2)} ${len(6)} rgba(0,0,0,0.85);`)
   out.push('}')
+  out.push(
+    `#reference {\n  color: ${config.referenceColor};\n  font-size: ${len(config.fontSize * config.referenceFontScale)};\n  margin: ${refAbove ? '0 0 0.4em' : '0.4em 0 0'};\n}`
+  )
   if (config.textBorder && config.textBorderWidth > 0) {
-    out.push('#text, #reference {')
-    out.push(`  -webkit-text-stroke: ${config.textBorderWidth}px ${config.textBorderColor};`)
-    out.push('  paint-order: stroke fill;')
-    out.push('}')
-  }
-  if (config.showReference) {
-    out.push('#reference {')
-    out.push(`  color: ${config.referenceColor};`)
-    out.push(`  font-size: ${vh(config.fontSize * config.referenceFontScale)};`)
-    out.push('}')
+    out.push(
+      `#text, #reference {\n  -webkit-text-stroke: ${len(config.textBorderWidth)} ${config.textBorderColor};\n  paint-order: stroke fill;\n}`
+    )
   }
   return out.join('\n')
 }
@@ -176,25 +250,36 @@ type Props = {
 
 export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
   const { port, buildMediaUrl } = useMediaServer()
-  const [config, setConfig] = useState<ObsOverlayConfig>(DEFAULT_OBS_CONFIG)
+  const [subtitles, setSubtitles] = useState<ObsSubtitle[]>([makeSubtitle('text-1', 'Subtítulo 1')])
+  const [activeSlug, setActiveSlug] = useState('text-1')
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [cssCopied, setCssCopied] = useState(false)
   const seededForOpenRef = useRef(false)
 
   const { data: settings } = useQuery({
-    ...Api.query.settings.getSettings({ body: { settings: [OBS_CONFIG_KEY] } }),
+    ...Api.query.settings.getSettings({ body: { settings: [SUBTITLES_KEY, OBS_CONFIG_KEY] } }),
     staleTime: Infinity
   })
 
-  // Re-sembrar el formulario desde los settings cada vez que se abre el diálogo.
+  // Re-sembrar la lista desde settings cada vez que se abre el diálogo.
   if (open && !seededForOpenRef.current && settings) {
     seededForOpenRef.current = true
-    setConfig(parseStoredConfig(settings.find((s) => s.key === OBS_CONFIG_KEY)?.value))
+    let list = parseSubtitles(settings.find((s) => s.key === SUBTITLES_KEY)?.value)
+    if (list.length === 0) {
+      // Migrar el overlay único antiguo (si existe) como primer subtítulo.
+      const legacy = parseStoredConfig(settings.find((s) => s.key === OBS_CONFIG_KEY)?.value)
+      list = [{ ...legacy, slug: 'text-1', name: 'Subtítulo 1', types: [] }]
+    }
+    setSubtitles(list)
+    setActiveSlug(list[0].slug)
   }
   if (!open && seededForOpenRef.current) {
     seededForOpenRef.current = false
   }
+
+  const config =
+    subtitles.find((s) => s.slug === activeSlug) ?? subtitles[0] ?? makeSubtitle('text-1', 'Subtítulo 1')
 
   const { data: interfaces } = useQuery({
     queryKey: ['obs-lan-interfaces', port],
@@ -224,14 +309,58 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
 
   // Usar la IP de la LAN (para poder conectarse desde otra PC); localhost como fallback.
   const serverHost = interfaces?.addresses?.[0] ?? 'localhost'
-  const obsUrl = port ? `http://${serverHost}:${port}/obs` : ''
-  const generatedCss = buildGeneratedCss(config, backgroundImageUrl)
+  const obsUrl = port ? `http://${serverHost}:${port}/obs/subtitle/${config.slug}` : ''
+  const generatedCss = buildGeneratedCss(config, {
+    unit: 'vh',
+    backgroundImageUrl,
+    hasVideo: !!backgroundVideoUrl
+  })
+  // Hoja base del preview (unidades cqh, relativas al #stage del preview).
+  const previewCss = buildGeneratedCss(config, {
+    unit: 'cqh',
+    backgroundImageUrl,
+    hasVideo: !!backgroundVideoUrl
+  })
 
   const update = <K extends keyof ObsOverlayConfig>(key: K, value: ObsOverlayConfig[K]) =>
-    setConfig((prev) => ({ ...prev, [key]: value }))
+    setSubtitles((prev) => prev.map((s) => (s.slug === activeSlug ? { ...s, [key]: value } : s)))
+
+  const updateName = (name: string) =>
+    setSubtitles((prev) => prev.map((s) => (s.slug === activeSlug ? { ...s, name } : s)))
+
+  const updateSlug = (raw: string) => {
+    const next = slugify(raw)
+    if (!next || subtitles.some((s) => s.slug === next && s.slug !== activeSlug)) return
+    setSubtitles((prev) => prev.map((s) => (s.slug === activeSlug ? { ...s, slug: next } : s)))
+    setActiveSlug(next)
+  }
+
+  const toggleType = (t: ObsContentType) =>
+    setSubtitles((prev) =>
+      prev.map((s) =>
+        s.slug === activeSlug
+          ? { ...s, types: s.types.includes(t) ? s.types.filter((x) => x !== t) : [...s.types, t] }
+          : s
+      )
+    )
+
+  const addSubtitle = () => {
+    const slug = nextFreeSlug(subtitles)
+    setSubtitles((prev) => [...prev, makeSubtitle(slug, `Subtítulo ${prev.length + 1}`)])
+    setActiveSlug(slug)
+  }
+
+  const removeSubtitle = (slug: string) => {
+    setSubtitles((prev) => {
+      if (prev.length <= 1) return prev
+      const next = prev.filter((s) => s.slug !== slug)
+      if (slug === activeSlug) setActiveSlug(next[0].slug)
+      return next
+    })
+  }
 
   const handleSave = async () => {
-    await saveSettings({ body: { settings: [{ key: OBS_CONFIG_KEY, value: JSON.stringify(config) }] } })
+    await saveSettings({ body: { settings: [{ key: SUBTITLES_KEY, value: JSON.stringify(subtitles) }] } })
     Api.socket.emit.obsConfigUpdate(config)
     onOpenChange(false)
   }
@@ -270,53 +399,33 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
 
   // Vista previa a escala real: usa unidades cqh (relativas a la altura del
   // contenedor #stage), igual que la página /obs usa vh sobre el lienzo.
-  const cqh = (px: number) => `${((px / 1080) * 100).toFixed(3)}cqh`
   const previewTint = hexToRgba(config.backgroundColor, config.backgroundOpacity)
-  const previewBoxBackground = config.transparentBackground
-    ? 'transparent'
-    : backgroundVideoUrl
-      ? 'transparent'
-      : backgroundImageUrl
-        ? `linear-gradient(${previewTint}, ${previewTint}), url("${backgroundImageUrl}") center / cover`
-        : previewTint
-  const previewStroke =
-    config.textBorder && config.textBorderWidth > 0
-      ? `${cqh(config.textBorderWidth)} ${config.textBorderColor}`
-      : undefined
 
   const preview = (
     <div className="flex min-h-0 flex-1 flex-col">
       <Label className="text-xs text-muted-foreground">Vista previa</Label>
       <div
         id="stage"
-        className="mt-1.5 aspect-video w-full overflow-hidden rounded-lg border bg-[repeating-conic-gradient(#0000_0deg_90deg,#00000010_90deg_180deg)] bg-size-[20px_20px] flex flex-col"
-        style={{
-          containerType: 'size',
-          justifyContent: config.position === 'top' ? 'flex-start' : config.position === 'center' ? 'center' : 'flex-end',
-          alignItems: config.horizontalAlign === 'left' ? 'flex-start' : config.horizontalAlign === 'right' ? 'flex-end' : 'center'
-        }}
+        className="relative mt-1.5 aspect-video w-full overflow-hidden rounded-lg border bg-black flex flex-col"
+        style={{ containerType: 'size' }}
       >
-        {config.customCss ? <style>{config.customCss}</style> : null}
+        {/* Fondo de escena difuminado (solo referencia visual del preview) */}
         <div
-          id="box"
-          className="relative flex overflow-hidden"
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
           style={{
-            background: previewBoxBackground,
-            flexDirection: config.referencePosition === 'above' ? 'column-reverse' : 'column',
-            alignItems: config.textAlign === 'left' ? 'flex-start' : config.textAlign === 'right' ? 'flex-end' : 'center',
-            color: config.textColor,
-            fontFamily: config.fontFamily,
-            fontSize: cqh(config.fontSize),
-            fontWeight: config.fontWeight,
-            textAlign: config.textAlign,
-            padding: `${cqh(config.paddingY)} ${cqh(config.paddingX)}`,
-            maxWidth: `${config.maxWidth}%`,
-            textTransform: config.uppercase ? 'uppercase' : 'none',
-            textShadow: config.textShadow ? '0 0.2cqh 0.6cqh rgba(0,0,0,0.85)' : 'none',
-            borderRadius: '0.4cqh',
-            lineHeight: 1.25
+            backgroundImage: `url("${fondoObs}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(6px)',
+            transform: 'scale(1.1)',
+            zIndex: 0
           }}
-        >
+        />
+        {/* Hoja base (editor) primero; el CSS del usuario después → gana sin !important */}
+        <style>{previewCss}</style>
+        {config.customCss ? <style>{config.customCss}</style> : null}
+        <div id="box" className="relative flex overflow-hidden" style={{ zIndex: 1 }}>
           {!config.transparentBackground && backgroundVideoUrl && (
             <>
               <video
@@ -331,27 +440,11 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
               <div className="absolute inset-0" style={{ background: previewTint, zIndex: 1 }} />
             </>
           )}
-          <span
-            id="text"
-            className="relative whitespace-pre-wrap"
-            style={{ zIndex: 2, WebkitTextStroke: previewStroke, paintOrder: 'stroke fill' }}
-          >
+          <span id="text" className="relative whitespace-pre-wrap" style={{ zIndex: 2 }}>
             {PREVIEW_TEXT}
           </span>
           {config.showReference && (
-            <span
-              id="reference"
-              className="relative"
-              style={{
-                zIndex: 2,
-                color: config.referenceColor,
-                fontSize: cqh(config.fontSize * config.referenceFontScale),
-                marginTop: config.referencePosition === 'above' ? 0 : '0.4cqh',
-                marginBottom: config.referencePosition === 'above' ? '0.4cqh' : 0,
-                WebkitTextStroke: previewStroke,
-                paintOrder: 'stroke fill'
-              }}
-            >
+            <span id="reference" className="relative" style={{ zIndex: 2 }}>
               {PREVIEW_REFERENCE}
             </span>
           )}
@@ -388,6 +481,35 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
+        {/* Selector de subtítulos */}
+        <div className="flex items-center gap-2 flex-wrap shrink-0 border-b pb-3">
+          {subtitles.map((s) => (
+            <div
+              key={s.slug}
+              className={`group flex items-center gap-1 rounded-md border px-2 py-1 text-sm ${
+                s.slug === activeSlug ? 'border-primary bg-primary/10' : 'hover:bg-muted'
+              }`}
+            >
+              <button type="button" onClick={() => setActiveSlug(s.slug)} className="max-w-35 truncate">
+                {s.name}
+              </button>
+              {subtitles.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeSubtitle(s.slug)}
+                  className="text-muted-foreground hover:text-destructive"
+                  aria-label={`Eliminar ${s.name}`}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={addSubtitle}>
+            <Plus className="mr-1 size-4" /> Añadir subtítulo
+          </Button>
+        </div>
+
         <div className="flex flex-col gap-5 md:flex-row flex-1 min-h-0 -mx-6 px-6 overflow-y-auto md:overflow-hidden">
           {/* Controles en pestañas: izquierda */}
           <div className="md:w-96 md:shrink-0 flex flex-col md:min-h-0">
@@ -402,118 +524,197 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
 
               <div className="mt-3 md:flex-1 md:min-h-0 md:overflow-y-auto md:pr-1">
                 {/* GENERAL */}
-                <TabsContent value="general" className="mt-0 space-y-5">
-                  <div className="rounded-lg border p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label htmlFor="obs-enabled" className="font-medium">
-                          Activar salida de subtítulos
-                        </Label>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Cuando está desactivada, la página no muestra ningún texto.
-                        </p>
+                <TabsContent value="general" className="mt-0 space-y-6">
+                  {/* ── Activar ── */}
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <Label htmlFor="obs-enabled" className="text-sm font-medium">
+                        Activar este subtítulo
+                      </Label>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Si está apagado, su página no muestra nada en OBS.
+                      </p>
+                    </div>
+                    <Switch
+                      id="obs-enabled"
+                      checked={config.enabled}
+                      onCheckedChange={(v) => update('enabled', v)}
+                    />
+                  </div>
+
+                  {/* ── Identidad ── */}
+                  <section className="space-y-3">
+                    <SectionTitle>Identidad</SectionTitle>
+
+                    <Field label="Nombre">
+                      <Input value={config.name} onChange={(e) => updateName(e.target.value)} />
+                    </Field>
+
+                    <Field label="Ruta (Browser Source)">
+                      <div className="flex items-center rounded-md border bg-muted/30 pl-2 focus-within:ring-1 focus-within:ring-ring">
+                        <span className="select-none font-mono text-xs text-muted-foreground">/obs/subtitle/</span>
+                        <Input
+                          value={config.slug}
+                          onChange={(e) => updateSlug(e.target.value)}
+                          placeholder="text-1"
+                          className="border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
+                        />
                       </div>
-                      <Switch
-                        id="obs-enabled"
-                        checked={config.enabled}
-                        onCheckedChange={(v) => update('enabled', v)}
+                    </Field>
+
+                    <div className="flex items-center gap-2">
+                      <Input
+                        readOnly
+                        value={obsUrl}
+                        placeholder="—"
+                        className="flex-1 font-mono text-xs"
+                        onFocus={(e) => e.currentTarget.select()}
+                        aria-label="URL completa del subtítulo"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyUrl(obsUrl)}
+                        disabled={!obsUrl}
+                        title="Copiar URL"
+                      >
+                        {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                      </Button>
+                    </div>
+                    {interfaces && interfaces.addresses.length > 1 && (
+                      <p className="text-xs text-muted-foreground">
+                        Otras IPs de red:{' '}
+                        {interfaces.addresses.slice(1).map((ip) => (
+                          <code key={ip} className="mr-2">
+                            {ip}:{interfaces.port}
+                          </code>
+                        ))}
+                      </p>
+                    )}
+                    {interfaces && interfaces.addresses.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Sin IP de red; solo accesible desde este equipo (localhost).
+                      </p>
+                    )}
+                  </section>
+
+                  {/* ── Filtro por contenido ── */}
+                  <section className="space-y-2">
+                    <div>
+                      <SectionTitle>Mostrar solo para</SectionTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Sin selección = se muestra con cualquier contenido.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {CONTENT_TYPES.map((t) => {
+                        const active = config.types.includes(t.value)
+                        return (
+                          <button
+                            key={t.value}
+                            type="button"
+                            onClick={() => toggleType(t.value)}
+                            aria-pressed={active}
+                            className={cn(
+                              'rounded-full border px-3 py-1 text-sm transition-colors',
+                              active
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:bg-muted'
+                            )}
+                          >
+                            {t.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+
+                  {/* ── Posición y tamaño ── */}
+                  <section className="space-y-4">
+                    <SectionTitle>Posición y tamaño</SectionTitle>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Posición vertical">
+                        <Select value={config.position} onValueChange={(v) => update('position', v as ObsOverlayConfig['position'])}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="top">Arriba</SelectItem>
+                            <SelectItem value="center">Centro</SelectItem>
+                            <SelectItem value="bottom">Abajo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Posición horizontal">
+                        <Select value={config.horizontalAlign} onValueChange={(v) => update('horizontalAlign', v as ObsOverlayConfig['horizontalAlign'])}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="left">Izquierda</SelectItem>
+                            <SelectItem value="center">Centro</SelectItem>
+                            <SelectItem value="right">Derecha</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Alineación del texto">
+                        <Select value={config.textAlign} onValueChange={(v) => update('textAlign', v as ObsOverlayConfig['textAlign'])}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="left">Izquierda</SelectItem>
+                            <SelectItem value="center">Centro</SelectItem>
+                            <SelectItem value="right">Derecha</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <SliderField
+                        label={`Ancho máximo: ${config.maxWidth}%`}
+                        value={config.maxWidth}
+                        min={20}
+                        max={100}
+                        step={1}
+                        onChange={(v) => update('maxWidth', v)}
                       />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">
-                        URL para «Browser Source» en OBS
-                      </Label>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 truncate rounded bg-muted px-2 py-1.5 text-sm">
-                          {obsUrl || '—'}
-                        </code>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCopyUrl(obsUrl)}
-                          disabled={!obsUrl}
-                        >
-                          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                        </Button>
-                      </div>
-                      {interfaces && interfaces.addresses.length > 1 && (
-                        <p className="text-xs text-muted-foreground">
-                          Otras direcciones de red:{' '}
-                          {interfaces.addresses.slice(1).map((ip) => (
-                            <code key={ip} className="mr-2">
-                              http://{ip}:{interfaces.port}/obs
-                            </code>
-                          ))}
-                        </p>
-                      )}
-                      {interfaces && interfaces.addresses.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          No se detectó IP de red; solo accesible desde este equipo (localhost).
-                        </p>
-                      )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <SliderField
+                        label={`Relleno horiz.: ${config.paddingX}px`}
+                        value={config.paddingX}
+                        min={0}
+                        max={160}
+                        step={2}
+                        onChange={(v) => update('paddingX', v)}
+                      />
+                      <SliderField
+                        label={`Relleno vert.: ${config.paddingY}px`}
+                        value={config.paddingY}
+                        min={0}
+                        max={160}
+                        step={2}
+                        onChange={(v) => update('paddingY', v)}
+                      />
                     </div>
-                  </div>
-
-                  <div className="flex gap-3 *:flex-1 *:min-w-0">
-                    <Field label="Posición vertical">
-                      <Select value={config.position} onValueChange={(v) => update('position', v as ObsOverlayConfig['position'])}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="top">Arriba</SelectItem>
-                          <SelectItem value="center">Centro</SelectItem>
-                          <SelectItem value="bottom">Abajo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-
-                    <Field label="Posición horizontal">
-                      <Select value={config.horizontalAlign} onValueChange={(v) => update('horizontalAlign', v as ObsOverlayConfig['horizontalAlign'])}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="left">Izquierda</SelectItem>
-                          <SelectItem value="center">Centro</SelectItem>
-                          <SelectItem value="right">Derecha</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-
-                  <Field label="Alineación del texto">
-                    <Select value={config.textAlign} onValueChange={(v) => update('textAlign', v as ObsOverlayConfig['textAlign'])}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="left">Izquierda</SelectItem>
-                        <SelectItem value="center">Centro</SelectItem>
-                        <SelectItem value="right">Derecha</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  <SliderField
-                    label={`Ancho máximo: ${config.maxWidth}%`}
-                    value={config.maxWidth}
-                    min={20}
-                    max={100}
-                    step={1}
-                    onChange={(v) => update('maxWidth', v)}
-                  />
-                  <SliderField
-                    label={`Relleno horizontal: ${config.paddingX}px`}
-                    value={config.paddingX}
-                    min={0}
-                    max={160}
-                    step={2}
-                    onChange={(v) => update('paddingX', v)}
-                  />
-                  <SliderField
-                    label={`Relleno vertical: ${config.paddingY}px`}
-                    value={config.paddingY}
-                    min={0}
-                    max={160}
-                    step={2}
-                    onChange={(v) => update('paddingY', v)}
-                  />
+                    <div className="grid grid-cols-2 gap-3">
+                      <SliderField
+                        label={`Separación borde vert.: ${config.offsetY}px`}
+                        value={config.offsetY}
+                        min={0}
+                        max={400}
+                        step={4}
+                        onChange={(v) => update('offsetY', v)}
+                        disabled={config.position === 'center'}
+                      />
+                      <SliderField
+                        label={`Separación borde horiz.: ${config.offsetX}px`}
+                        value={config.offsetX}
+                        min={0}
+                        max={400}
+                        step={4}
+                        onChange={(v) => update('offsetX', v)}
+                        disabled={config.horizontalAlign === 'center'}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      La separación vertical solo aplica con posición arriba/abajo, y la horizontal
+                      con izquierda/derecha.
+                    </p>
+                  </section>
                 </TabsContent>
 
                 {/* TEXTO */}
@@ -735,15 +936,13 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
 
                   <Field label="CSS personalizado (avanzado)">
                     <p className="-mt-1 text-xs text-muted-foreground">
-                      Se inyecta en la página. Apunta a <code>#stage</code>, <code>#box</code>,{' '}
-                      <code>#text</code> y <code>#reference</code>, controla la posición (ej.{' '}
-                      <code>#stage {'{'} align-items: flex-end {'}'}</code>) e incluso define{' '}
-                      <code>@keyframes</code>. Usa <code>!important</code> para sobrescribir los estilos base.
+                      Selectores disponibles: <code>#stage</code>, <code>#box</code>,{' '}
+                      <code>#text</code>, <code>#reference</code>.
                     </p>
                     <Textarea
                       value={config.customCss}
                       onChange={(e) => update('customCss', e.target.value)}
-                      placeholder={'#box {\n  border: 2px solid gold !important;\n  border-radius: 12px !important;\n}\n#reference {\n  letter-spacing: 2px !important;\n  text-transform: uppercase !important;\n}'}
+                      placeholder={'#box {\n  border: 2px solid gold;\n  border-radius: 12px;\n}\n#reference {\n  letter-spacing: 2px;\n  text-transform: uppercase;\n}'}
                       className="font-mono text-xs min-h-32"
                       spellCheck={false}
                     />
@@ -777,6 +976,14 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
   )
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </p>
+  )
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
@@ -792,7 +999,8 @@ function SliderField({
   min,
   max,
   step,
-  onChange
+  onChange,
+  disabled = false
 }: {
   label: string
   value: number
@@ -800,11 +1008,19 @@ function SliderField({
   max: number
   step: number
   onChange: (value: number) => void
+  disabled?: boolean
 }) {
   return (
-    <div className="space-y-2">
+    <div className={cn('space-y-2', disabled && 'pointer-events-none opacity-50')}>
       <Label className="text-sm">{label}</Label>
-      <Slider value={[value]} min={min} max={max} step={step} onValueChange={([v]) => onChange(v)} />
+      <Slider
+        value={[value]}
+        min={min}
+        max={max}
+        step={step}
+        onValueChange={([v]) => onChange(v)}
+        disabled={disabled}
+      />
     </div>
   )
 }

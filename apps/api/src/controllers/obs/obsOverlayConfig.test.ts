@@ -1,5 +1,47 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_OBS_CONFIG, parseObsConfig } from './obsOverlayConfig'
+import { DEFAULT_OBS_CONFIG, parseObsConfig, parseObsSubtitles, sanitizeSlug } from './obsOverlayConfig'
+
+describe('sanitizeSlug', () => {
+  it('debería normalizar a slug de ruta seguro', () => {
+    expect(sanitizeSlug('My Custom Path')).toBe('my-custom-path')
+    expect(sanitizeSlug('/text-1/')).toBe('text-1')
+    expect(sanitizeSlug('Biblia & Cánticos!')).toBe('biblia-c-nticos')
+    expect(sanitizeSlug(123)).toBe('')
+  })
+})
+
+describe('parseObsSubtitles', () => {
+  it('debería devolver [] con entrada vacía/inválida/no-array', () => {
+    expect(parseObsSubtitles(null)).toEqual([])
+    expect(parseObsSubtitles('no json')).toEqual([])
+    expect(parseObsSubtitles(JSON.stringify({}))).toEqual([])
+  })
+
+  it('debería parsear una lista con slug, name, types y estilo saneado', () => {
+    const list = parseObsSubtitles(
+      JSON.stringify([
+        { slug: 'Biblia', name: 'Versículos', types: ['BIBLE', 'x'], textColor: '#ff0000' },
+        { slug: 'text-2' }
+      ])
+    )
+    expect(list).toHaveLength(2)
+    expect(list[0].slug).toBe('biblia')
+    expect(list[0].name).toBe('Versículos')
+    expect(list[0].types).toEqual(['BIBLE'])
+    expect(list[0].textColor).toBe('#ff0000')
+    expect(list[0].fontSize).toBe(DEFAULT_OBS_CONFIG.fontSize)
+    expect(list[1].slug).toBe('text-2')
+    expect(list[1].name).toBe('text-2')
+    expect(list[1].types).toEqual([])
+  })
+
+  it('debería descartar items sin slug y deduplicar slugs', () => {
+    const list = parseObsSubtitles(
+      JSON.stringify([{ slug: 'a' }, { slug: 'a', name: 'dup' }, { name: 'sin slug' }])
+    )
+    expect(list.map((s) => s.slug)).toEqual(['a'])
+  })
+})
 
 describe('parseObsConfig', () => {
   it('debería devolver los valores por defecto con entrada nula o vacía', () => {
@@ -78,6 +120,16 @@ describe('parseObsConfig', () => {
     const result = parseObsConfig(JSON.stringify({ textBorderWidth: 999, referenceFontScale: 5 }))
     expect(result.textBorderWidth).toBe(20)
     expect(result.referenceFontScale).toBe(1)
+  })
+
+  it('debería aceptar y sanear los offsets de separación del borde', () => {
+    expect(parseObsConfig(JSON.stringify({ offsetX: 40, offsetY: 60 }))).toMatchObject({
+      offsetX: 40,
+      offsetY: 60
+    })
+    const clamped = parseObsConfig(JSON.stringify({ offsetX: -10, offsetY: 9999 }))
+    expect(clamped.offsetX).toBe(0)
+    expect(clamped.offsetY).toBe(800)
   })
 
   it('debería aceptar fondo transparente y CSS personalizado', () => {

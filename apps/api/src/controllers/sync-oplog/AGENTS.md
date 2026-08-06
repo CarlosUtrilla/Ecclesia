@@ -60,6 +60,18 @@ Todos los archivos del módulo oplog usan este logger además de `electron-log` 
 5. Adicionalmente, **timer cada 5 min** ejecuta `syncCycle()` (pull + push + blob sync + GC)
 6. En startup, ejecuta ciclo completo inmediato
 
+## Gotcha: settings (`Setting`) no pasan por el middleware
+
+El middleware (`registerOplogMiddleware`) es una extensión `query.$allModels`, así que **solo
+intercepta operaciones de modelo** (`prisma.model.acción`), NO `$executeRaw`/`$queryRaw`.
+`SettingsService.updateSetting` escribe con `$executeRaw` (porque `Setting.key` es un enum
+`SettingOptions` incompleto y el write raw evita su validación), por lo que los settings **no se
+sincronizaban**. Solución:
+- `updateSetting` registra el evento manualmente: `oplogService.appendEvent({ entityType: 'setting', entityId: <id>, op: 'upsert', data: { id, key, value } })`.
+- En el replay (`oplog-replay.service.ts`), `setting` se aplica **por `key`** con SQL raw
+  (`INSERT ... ON CONFLICT(key)`), no por `id`: la identidad real es la key, y el `id` es
+  autoincremental local (colisionaría entre dispositivos). Además evita la validación del enum.
+
 ## Scheduler
 
 `oplog-scheduler.service.ts`:

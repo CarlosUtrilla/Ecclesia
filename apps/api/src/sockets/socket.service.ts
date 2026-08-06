@@ -49,7 +49,7 @@ export interface SocketEventMap {
   // El host emite el texto plano actualmente en vivo; el servidor lo reenvía
   // por broadcast a la página /obs. El diálogo de config emite obsConfigUpdate
   // para re-estilizar en caliente. La página, al conectar, emite requestObsText.
-  obsTextUpdate: { text: string; reference?: string }
+  obsTextUpdate: { text: string; reference?: string; contentType?: string }
   obsConfigUpdate: ObsOverlayConfig
   requestObsText: void
 

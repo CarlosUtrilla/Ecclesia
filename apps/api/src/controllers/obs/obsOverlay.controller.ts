@@ -3,25 +3,42 @@ import fs from 'fs'
 import type { Express } from 'express'
 import { getPrisma } from '../../prisma'
 import { toStorageSettingKey } from '../settings/settingKeys'
-import { DEFAULT_OBS_CONFIG, parseObsConfig, type ObsOverlayConfig } from './obsOverlayConfig'
+import { parseObsConfig, parseObsSubtitles, type ObsSubtitle } from './obsOverlayConfig'
 import Logger from 'electron-log'
 
 const OBS_CONFIG_STORAGE_KEY = toStorageSettingKey('OBS_TEXT_OVERLAY_CONFIG')
+const OBS_SUBTITLES_STORAGE_KEY = toStorageSettingKey('OBS_SUBTITLES')
 
 type SettingRow = { value: string }
 
-async function loadObsConfig(): Promise<ObsOverlayConfig> {
+async function readSettingValue(storageKey: string): Promise<string | undefined> {
   try {
     const prisma = getPrisma()
     const rows = await prisma.$queryRawUnsafe<SettingRow[]>(
       'SELECT value FROM Setting WHERE key = ? LIMIT 1',
-      OBS_CONFIG_STORAGE_KEY
+      storageKey
     )
-    return parseObsConfig(rows[0]?.value)
+    return rows[0]?.value
   } catch (err) {
-    Logger.error('[OBS] No se pudo cargar la config del overlay:', (err as Error)?.message)
-    return DEFAULT_OBS_CONFIG
+    Logger.error('[OBS] No se pudo leer setting', storageKey, (err as Error)?.message)
+    return undefined
   }
+}
+
+async function loadSubtitles(): Promise<ObsSubtitle[]> {
+  const subtitles = parseObsSubtitles(await readSettingValue(OBS_SUBTITLES_STORAGE_KEY))
+  if (subtitles.length > 0) return subtitles
+  // Migración: si existe el overlay único antiguo, exponerlo como 'text-1'.
+  const legacy = await readSettingValue(OBS_CONFIG_STORAGE_KEY)
+  if (legacy) {
+    return [{ ...parseObsConfig(legacy), slug: 'text-1', name: 'Subtítulo 1', types: [] }]
+  }
+  return []
+}
+
+async function findSubtitle(slug: string): Promise<ObsSubtitle | null> {
+  const subtitles = await loadSubtitles()
+  return subtitles.find((s) => s.slug === slug) ?? null
 }
 
 async function resolveBackground(
@@ -93,18 +110,13 @@ function getSocketIoClientJs(): string | null {
 }
 
 /**
- * Registra las rutas de la salida de texto para OBS:
- * - GET /obs             → página HTML autocontenida (browser source de subtítulos)
- * - GET /obs/config      → JSON { config, backgroundImageUrl, backgroundVideoUrl }
- * - GET /obs/socket.io.js → cliente de Socket.IO (servido por nosotros)
+ * Registra las rutas de la salida para OBS. Cada subtítulo se sirve bajo su propio
+ * slug para no saturar `/obs` (que queda como paraguas; el vídeo irá a /obs/video/…):
+ * - GET /obs/socket.io.js          → cliente de Socket.IO (servido por nosotros)
+ * - GET /obs/subtitle/:slug        → página HTML del subtítulo (browser source)
+ * - GET /obs/subtitle/:slug/config → JSON { config, types, backgroundImageUrl, backgroundVideoUrl }
  */
 export function registerObsOverlayRoutes(app: Express) {
-  app.get('/obs', (_req, res) => {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.send(OBS_OVERLAY_HTML)
-  })
-
   app.get('/obs/socket.io.js', (_req, res) => {
     const clientJs = getSocketIoClientJs()
     if (!clientJs) {
@@ -117,15 +129,26 @@ export function registerObsOverlayRoutes(app: Express) {
     res.send(clientJs)
   })
 
-  app.get('/obs/config', async (_req, res) => {
-    const config = await loadObsConfig()
-    const background = await resolveBackground(config.backgroundMediaId)
+  app.get('/obs/subtitle/:slug/config', async (req, res) => {
+    const subtitle = await findSubtitle(req.params.slug)
     res.setHeader('Access-Control-Allow-Origin', '*')
+    if (!subtitle) {
+      res.status(404).json({ error: 'subtitle not found' })
+      return
+    }
+    const background = await resolveBackground(subtitle.backgroundMediaId)
     res.json({
-      config,
+      config: subtitle,
+      types: subtitle.types,
       backgroundImageUrl: background && !background.isVideo ? background.url : null,
       backgroundVideoUrl: background && background.isVideo ? background.url : null
     })
+  })
+
+  app.get('/obs/subtitle/:slug', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.send(OBS_OVERLAY_HTML)
   })
 }
 
@@ -155,17 +178,10 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
     box-sizing: border-box;
     padding: 4vh 0;
   }
-  #stage[data-position="top"] { justify-content: flex-start; }
-  #stage[data-position="center"] { justify-content: center; }
-  #stage[data-position="bottom"] { justify-content: flex-end; }
-  #stage[data-halign="left"] { align-items: flex-start; }
-  #stage[data-halign="center"] { align-items: center; }
-  #stage[data-halign="right"] { align-items: flex-end; }
   #box {
     position: relative;
     display: flex;
     box-sizing: border-box;
-    max-width: 90%;
     border-radius: 0.4vh;
     line-height: 1.25;
     background-size: cover;
@@ -174,8 +190,6 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
     transition: opacity 180ms ease;
     opacity: 0;
   }
-  #box[data-refpos="below"] { flex-direction: column; }
-  #box[data-refpos="above"] { flex-direction: column-reverse; }
   #box.visible { opacity: 1; }
   #bgvideo {
     position: absolute;
@@ -201,7 +215,6 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
     width: 100%;
   }
   #reference { margin: 0.4em 0 0; opacity: 0.95; }
-  #box[data-refpos="above"] #reference { margin: 0 0 0.4em; }
   #debug {
     position: fixed;
     top: 8px;
@@ -216,11 +229,12 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
     border-radius: 4px;
   }
 </style>
+<style id="base-css"></style>
 <style id="custom-css"></style>
 </head>
 <body>
-  <div id="stage" data-position="bottom" data-halign="center">
-    <div id="box" data-refpos="below">
+  <div id="stage">
+    <div id="box">
       <video id="bgvideo" autoplay loop muted playsinline></video>
       <div id="bgtint"></div>
       <span id="text"></span>
@@ -238,12 +252,16 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
       var bgVideo = document.getElementById('bgvideo')
       var bgTint = document.getElementById('bgtint')
       var customCssEl = document.getElementById('custom-css')
+      var baseCssEl = document.getElementById('base-css')
       var debugEl = document.getElementById('debug')
       var isDebug = /[?&]debug/.test(location.search)
       if (isDebug) debugEl.style.display = 'block'
       var currentConfig = null
       var currentText = ''
       var currentReference = ''
+      var currentContentType = ''
+      // slug del subtítulo: última parte de /obs/subtitle/<slug>
+      var slug = decodeURIComponent((location.pathname.split('/').filter(Boolean).pop()) || '')
 
       function dbg(status) {
         if (!isDebug) return
@@ -266,83 +284,89 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
         return 'rgba(' + r + ',' + g + ',' + b + ',' + opacity + ')'
       }
 
-      function applyStroke(el, config) {
+      // Construye la hoja de estilos BASE (del editor) como reglas por id. Va antes de
+      // #custom-css, así el CSS del usuario gana por la cascada SIN necesidad de !important.
+      function buildBaseCss(config, backgroundImageUrl, backgroundVideoUrl) {
+        var vh = function (px) { return (px / 1080 * 100).toFixed(3) + 'vh' }
+        var vw = function (px) { return (px / 1920 * 100).toFixed(3) + 'vw' }
+        var tint = hexToRgba(config.backgroundColor, config.backgroundOpacity)
+        var justify = config.position === 'top' ? 'flex-start' : config.position === 'center' ? 'center' : 'flex-end'
+        var halign = config.horizontalAlign === 'left' ? 'flex-start' : config.horizontalAlign === 'right' ? 'flex-end' : 'center'
+        var boxAlign = config.textAlign === 'left' ? 'flex-start' : config.textAlign === 'right' ? 'flex-end' : 'center'
+        var mTop = config.position === 'top' ? vh(config.offsetY) : '0'
+        var mBottom = config.position === 'bottom' ? vh(config.offsetY) : '0'
+        var mLeft = config.horizontalAlign === 'left' ? vw(config.offsetX) : '0'
+        var mRight = config.horizontalAlign === 'right' ? vw(config.offsetX) : '0'
+        var boxBg = config.transparentBackground || backgroundVideoUrl
+          ? 'transparent'
+          : backgroundImageUrl
+            ? 'linear-gradient(' + tint + ',' + tint + '), url("' + backgroundImageUrl + '") center / cover'
+            : tint
+        var refAbove = config.referencePosition === 'above'
+        var css = ''
+        css += '#stage{justify-content:' + justify + ';align-items:' + halign + ';}'
+        css += '#box{'
+        css += 'flex-direction:' + (refAbove ? 'column-reverse' : 'column') + ';'
+        css += 'align-items:' + boxAlign + ';'
+        css += 'color:' + config.textColor + ';'
+        css += 'font-family:' + config.fontFamily + ';'
+        css += 'font-size:' + vh(config.fontSize) + ';'
+        css += 'font-weight:' + config.fontWeight + ';'
+        css += 'text-align:' + config.textAlign + ';'
+        css += 'padding:' + vh(config.paddingY) + ' ' + vh(config.paddingX) + ';'
+        css += 'max-width:' + config.maxWidth + '%;'
+        css += 'margin:' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + ';'
+        css += 'line-height:1.25;'
+        css += 'border-radius:' + vh(4) + ';'
+        css += 'text-transform:' + (config.uppercase ? 'uppercase' : 'none') + ';'
+        css += 'text-shadow:' + (config.textShadow ? '0 0.2vh 0.6vh rgba(0,0,0,0.85)' : 'none') + ';'
+        css += 'background:' + boxBg + ';'
+        css += '}'
+        css += '#reference{color:' + config.referenceColor + ';font-size:' + vh(config.fontSize * config.referenceFontScale) + ';'
+        css += 'margin:' + (refAbove ? '0 0 0.4em' : '0.4em 0 0') + ';}'
         if (config.textBorder && config.textBorderWidth > 0) {
-          el.style.webkitTextStroke = config.textBorderWidth + 'px ' + config.textBorderColor
-          el.style.paintOrder = 'stroke fill'
-        } else {
-          el.style.webkitTextStroke = ''
-          el.style.paintOrder = ''
+          css += '#text,#reference{-webkit-text-stroke:' + vh(config.textBorderWidth) + ' ' + config.textBorderColor + ';paint-order:stroke fill;}'
         }
+        css += '#bgtint{background:' + tint + ';}'
+        return css
       }
 
       function applyConfig(config, backgroundImageUrl, backgroundVideoUrl) {
         currentConfig = config
-        stage.setAttribute('data-position', config.position || 'bottom')
-        stage.setAttribute('data-halign', config.horizontalAlign || 'center')
-        box.setAttribute('data-refpos', config.referencePosition || 'below')
 
-        var vh = function (px) { return (px / 1080 * 100).toFixed(3) + 'vh' }
-        box.style.color = config.textColor
-        box.style.fontFamily = config.fontFamily
-        box.style.fontSize = vh(config.fontSize)
-        box.style.fontWeight = String(config.fontWeight)
-        box.style.textAlign = config.textAlign
-        box.style.alignItems =
-          config.textAlign === 'left' ? 'flex-start' : config.textAlign === 'right' ? 'flex-end' : 'center'
-        box.style.padding = vh(config.paddingY) + ' ' + vh(config.paddingX)
-        box.style.maxWidth = config.maxWidth + '%'
-        box.style.textTransform = config.uppercase ? 'uppercase' : 'none'
-        box.style.textShadow = config.textShadow ? '0 0.2vh 0.6vh rgba(0,0,0,0.85)' : 'none'
+        // Estilos del editor → hoja base; los del usuario → #custom-css (después, gana sin !important)
+        baseCssEl.textContent = buildBaseCss(config, backgroundImageUrl, backgroundVideoUrl)
+        customCssEl.textContent = config.customCss || ''
 
-        reference.style.color = config.referenceColor
-        reference.style.fontSize = vh(config.fontSize * config.referenceFontScale)
-        applyStroke(text, config)
-        applyStroke(reference, config)
-
-        var tint = hexToRgba(config.backgroundColor, config.backgroundOpacity)
-        // Reset de capas de fondo
-        bgVideo.style.display = 'none'
-        bgTint.style.display = 'none'
-        box.style.background = 'transparent'
-
-        if (config.transparentBackground) {
-          if (!bgVideo.paused) bgVideo.pause()
-          bgVideo.removeAttribute('src')
-        } else if (backgroundVideoUrl) {
-          // Vídeo de fondo detrás del texto, con capa de tinte encima del vídeo
-          if (bgVideo.getAttribute('src') !== backgroundVideoUrl) {
-            bgVideo.setAttribute('src', backgroundVideoUrl)
-          }
+        // Capas de fondo estructurales (vídeo/tinte se muestran vía display)
+        if (!config.transparentBackground && backgroundVideoUrl) {
+          if (bgVideo.getAttribute('src') !== backgroundVideoUrl) bgVideo.setAttribute('src', backgroundVideoUrl)
           bgVideo.style.display = 'block'
+          bgTint.style.display = 'block'
           var playPromise = bgVideo.play()
           if (playPromise && playPromise.catch) playPromise.catch(function () {})
-          bgTint.style.background = tint
-          bgTint.style.display = 'block'
-        } else if (backgroundImageUrl) {
-          if (!bgVideo.paused) bgVideo.pause()
-          bgVideo.removeAttribute('src')
-          box.style.background =
-            'linear-gradient(' + tint + ',' + tint + '), url("' + backgroundImageUrl + '")'
-          box.style.backgroundSize = 'cover'
-          box.style.backgroundPosition = 'center'
         } else {
+          bgVideo.style.display = 'none'
+          bgTint.style.display = 'none'
           if (!bgVideo.paused) bgVideo.pause()
           bgVideo.removeAttribute('src')
-          box.style.background = tint
         }
-
-        customCssEl.textContent = config.customCss || ''
 
         render()
         dbg()
+      }
+
+      function matchesType() {
+        var types = (currentConfig && currentConfig.types) || []
+        if (!types.length) return true
+        return types.indexOf(currentContentType) !== -1
       }
 
       function render() {
         var enabled = currentConfig && currentConfig.enabled
         var hasText = currentText && currentText.trim().length > 0
         var showRef = currentConfig && currentConfig.showReference && currentReference
-        if (enabled && hasText) {
+        if (enabled && hasText && matchesType()) {
           text.textContent = currentText
           reference.textContent = showRef ? currentReference : ''
           reference.style.display = showRef ? '' : 'none'
@@ -355,9 +379,12 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
       }
 
       function loadConfig() {
-        fetch('/obs/config', { cache: 'no-store' })
-          .then(function (r) { return r.json() })
-          .then(function (data) { applyConfig(data.config, data.backgroundImageUrl, data.backgroundVideoUrl) })
+        if (!slug) return
+        fetch('/obs/subtitle/' + encodeURIComponent(slug) + '/config', { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null })
+          .then(function (data) {
+            if (data && data.config) applyConfig(data.config, data.backgroundImageUrl, data.backgroundVideoUrl)
+          })
           .catch(function () {})
       }
 
@@ -370,6 +397,7 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
       socket.on('obsTextUpdate', function (data) {
         currentText = (data && data.text) || ''
         currentReference = (data && data.reference) || ''
+        currentContentType = (data && data.contentType) || ''
         render()
         dbg()
       })

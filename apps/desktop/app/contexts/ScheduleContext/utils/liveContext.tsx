@@ -267,15 +267,17 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   // Requiere `showLiveScreen`: sin proyección en vivo el overlay no muestra nada.
   // Vacío también con TIMER, si el slide es medio, o si el texto está oculto/negro/logo.
   const obsOverlayPayload = useMemo(() => {
-    if (!showLiveScreen || !itemOnLive) return { text: '', reference: '' }
-    if (itemOnLive.type === 'TIMER') return { text: '', reference: '' }
-    if (hideTextOnLive || blackScreenOnLive || showLogoOnLive) return { text: '', reference: '' }
+    if (!showLiveScreen || !itemOnLive) return { text: '', reference: '', contentType: '' }
+    if (itemOnLive.type === 'TIMER') return { text: '', reference: '', contentType: '' }
+    if (hideTextOnLive || blackScreenOnLive || showLogoOnLive)
+      return { text: '', reference: '', contentType: '' }
     const slide = contentScreen?.content?.[itemIndex]
     return {
       text: extractOverlayText(slide, itemIndex, presentationVerseBySlideKey),
       reference: extractOverlayReference(slide, itemIndex, presentationVerseBySlideKey, (bookId) =>
         resolvePresentationBookShortName(bookId, bibleSchema)
-      )
+      ),
+      contentType: itemOnLive.type
     }
   }, [
     showLiveScreen,

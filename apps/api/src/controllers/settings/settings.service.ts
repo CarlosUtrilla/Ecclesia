@@ -47,7 +47,26 @@ class SettingsService {
       `)
     }
 
-    return this.getAllSettings(settings.map((setting) => setting.key))
+    const result = await this.getAllSettings(settings.map((setting) => setting.key))
+
+    // El write usa $executeRaw (el `key` es un enum y así se evita su validación),
+    // pero eso NO pasa por el middleware oplog, así que los settings no se
+    // sincronizaban a Drive. Registramos el evento manualmente por cada setting.
+    try {
+      const { oplogService } = await import('../sync-oplog/oplog.service')
+      for (const row of result) {
+        await oplogService.appendEvent({
+          entityType: 'setting',
+          entityId: String(row.id),
+          op: 'upsert',
+          data: { id: row.id, key: toStorageSettingKey(row.key), value: row.value }
+        })
+      }
+    } catch {
+      // Si el oplog no está inicializado, no bloquear el guardado local.
+    }
+
+    return result
   }
 }
 export default SettingsService

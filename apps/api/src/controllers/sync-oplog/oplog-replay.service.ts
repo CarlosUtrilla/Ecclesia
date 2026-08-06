@@ -195,6 +195,25 @@ export class OplogReplayService {
           return
         }
 
+        // Setting: la identidad real es `key` (no el `id` autoincremental local) y
+        // `key` es un enum incompleto, así que se hace upsert por key con SQL raw
+        // (evita validación de enum y colisiones de id entre dispositivos).
+        if (event.entityType === 'setting') {
+          const key = (filteredData as Record<string, unknown>).key
+          const rawValue = (filteredData as Record<string, unknown>).value
+          if (typeof key !== 'string' || key.length === 0) {
+            result.skipped++
+            return
+          }
+          const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '')
+          await prisma.$executeRawUnsafe(
+            'INSERT INTO Setting (key, value, createdAt, updatedAt) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = CURRENT_TIMESTAMP',
+            key,
+            value
+          )
+          break
+        }
+
         const recordId = this.parseId(event.entityId)
 
         try {

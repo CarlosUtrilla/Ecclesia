@@ -65,11 +65,11 @@ Alimentan la página `/obs` (browser source de OBS) servida por `apps/api/src/co
 
 | Evento | Payload | Descripción |
 |---|---|---|
-| `obsTextUpdate` | `{ text: string }` | El host emite el texto plano actualmente en vivo (vacío si oculto/negro/logo, TIMER o medio). Lo calcula `liveContext` con `extractOverlayText` (`app/lib/presentationOverlayText.ts`) |
-| `obsConfigUpdate` | `ObsOverlayConfig` | El diálogo de config lo emite al guardar; la página recarga `/obs/config` y se re-estiliza en caliente |
-| `requestObsText` | `void` | La página `/obs`, al conectar, pide el texto actual (late join); `liveContext` responde con `obsTextUpdate` |
+| `obsTextUpdate` | `{ text: string; reference?: string; contentType?: string }` | El host emite el texto plano + referencia bíblica + tipo (`itemOnLive.type`) actualmente en vivo (vacío si oculto/negro/logo, TIMER o medio). Lo calcula `liveContext` con `extractOverlayText`/`extractOverlayReference` (`app/lib/presentationOverlayText.ts`). Cada página `/obs/subtitle/<slug>` filtra por `contentType` según su `types` |
+| `obsConfigUpdate` | `ObsOverlayConfig` | El diálogo lo emite al guardar; cada página recarga su `/obs/subtitle/<slug>/config` y se re-estiliza (el payload se ignora) |
+| `requestObsText` | `void` | La página `/obs/subtitle/<slug>`, al conectar, pide el estado actual (late join); `liveContext` responde con `obsTextUpdate` |
 
-`ObsOverlayConfig` se define en `apps/api/src/controllers/obs/obsOverlayConfig.ts` (con `DEFAULT_OBS_CONFIG` + `parseObsConfig`) y se persiste como blob JSON en `Setting` bajo la clave pública `OBS_TEXT_OVERLAY_CONFIG`.
+`ObsOverlayConfig` (estilo) y `ObsSubtitle` (`= ObsOverlayConfig + { slug, name, types }`) se definen en `apps/api/src/controllers/obs/obsOverlayConfig.ts`. La **lista** de subtítulos se persiste como blob JSON en `Setting` bajo la clave pública `OBS_SUBTITLES` (migra del antiguo `OBS_TEXT_OVERLAY_CONFIG`). Ver [`controllers/obs/agents.md`](../controllers/obs/agents.md).
 
 ## Cómo agregar un nuevo evento
 
