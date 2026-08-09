@@ -9,6 +9,7 @@ import { setCrashLogPath } from '@ecclesia/api/src/utils/crashLogger'
 import { loadAppEnv } from '@ecclesia/api/src/utils/loadEnv'
 import { getBiblesResourcesPath } from './paths'
 import { setGetBiblesResourcesPath } from '@ecclesia/api/src/prisma'
+import { oplogService } from '@ecclesia/api/src/controllers/sync-oplog/oplog.service'
 import {
   createMainWindow,
   createPresentationWindow,
@@ -321,7 +322,12 @@ app.on('before-quit', (event) => {
   }
 
   event.preventDefault()
-  void clearPersistedStageTimersOnShutdown().finally(() => {
+  void Promise.allSettled([
+    clearPersistedStageTimersOnShutdown(),
+    // Vuelca a disco cualquier evento de oplog pendiente (la escritura se difiere
+    // en segundo plano durante la sesión para no ralentizar cada guardado).
+    oplogService.flushPersist(),
+  ]).finally(() => {
     isQuittingAfterStageTimersCleanup = true
     app.quit()
   })

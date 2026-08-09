@@ -269,6 +269,12 @@ Imagenes: siempre incluir `alt` (texto descriptivo o `""` para decorativas).
 *   **Virtualizacion:** Para listas largas (>100 items), usar `VirtualizedScrollArea` con `@tanstack/react-virtual`.
 *   **Lazy loading:** Imagenes en grillas usan `loading="lazy"`.
 
+### Tamaños relativos en pantallas en vivo (live/stage) — REGLA OBLIGATORIA
+
+*   Todo lo que se muestra en pantallas en vivo o de escenario (`LiveScreen`, `StageScreen`, `PresentationView`, overlays, widgets, texto, glows, padding, gaps) DEBE dimensionarse de forma **proporcional al tamaño real del contenedor**, NUNCA con `px`/`rem` fijos.
+*   Un valor absoluto tuneado al preview pequeño (altura de referencia `BASE_PRESENTATION_HEIGHT`) se ve minúsculo en una pantalla 1920×1080 y desproporcionado en el preview. El mismo elemento debe verse idéntico en ambos.
+*   Usar el helper compartido `scaleLivePx(basePx, containerHeightPx)` de `apps/desktop/app/lib/liveScale.ts` para derivar cualquier px absoluto a partir del tamaño del contenedor (o el ratio `containerHeightPx / BASE_PRESENTATION_HEIGHT`). Para dimensiones de layout preferir porcentajes (`%`).
+
 ### Backend (Controllers/Services)
 
 *   Un controller por recurso, registrado en `apps/api/src/routes.ts`.

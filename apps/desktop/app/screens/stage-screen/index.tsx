@@ -354,7 +354,7 @@ export default function StageScreen({ isPreview = false, previewDisplayId }: Sta
         />
       ) : null}
 
-      <StageTimerAlertOverlay active={timerAlertActive} />
+      <StageTimerAlertOverlay active={timerAlertActive} containerSize={containerSize} />
     </div>
   )
 }

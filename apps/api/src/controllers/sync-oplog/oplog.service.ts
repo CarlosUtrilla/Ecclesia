@@ -62,6 +62,11 @@ function emitInvalidateQueries(ops: OplogEvent[]): void {
 
 export type SyncEventCallback = (progress: SyncProgress) => void
 
+// Debounce para coalescer la escritura del oplog a disco. La mutación en memoria
+// del doc Automerge es inmediata; solo la serialización completa (save()) + writeFile
+// se difieren para no bloquear la respuesta de cada escritura de Prisma.
+const PERSIST_DEBOUNCE_MS = 400
+
 export class OplogService {
   private localDoc: Doc<OplogDocument> | null = null
   private currentSeq = 0
@@ -71,6 +76,9 @@ export class OplogService {
   private checksumCache = new Map<string, string>()
   private onAppendEventCallback: (() => void) | null = null
   private config: OplogConfig | null = null
+  private persistTimer: ReturnType<typeof setTimeout> | null = null
+  private persistPromise: Promise<void> | null = null
+  private persistDirty = false
 
   get isInitialized(): boolean {
     return this.localDoc !== null
@@ -539,9 +547,50 @@ export class OplogService {
       d.ops.push(event)
     })
 
-    await this.persistLocal()
+    // La respuesta al frontend no espera la escritura a disco: el doc ya está
+    // actualizado en memoria (que es lo que usan push()/syncCycle()). El binario
+    // se persiste en segundo plano de forma coalescida.
+    this.schedulePersist()
 
     this.onAppendEventCallback?.()
+  }
+
+  private schedulePersist(): void {
+    this.persistDirty = true
+    if (this.persistTimer) return
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null
+      void this.drainPersist()
+    }, PERSIST_DEBOUNCE_MS)
+  }
+
+  private drainPersist(): Promise<void> {
+    if (this.persistPromise) return this.persistPromise
+    this.persistPromise = (async () => {
+      try {
+        while (this.persistDirty) {
+          this.persistDirty = false
+          if (!this.localDoc) return
+          const binary = save(this.localDoc)
+          await oplogStateService.writeOplogBinary(binary)
+        }
+      } finally {
+        this.persistPromise = null
+      }
+    })()
+    return this.persistPromise
+  }
+
+  // Fuerza la escritura inmediata del oplog pendiente (usado en el cierre de la app
+  // para garantizar durabilidad de los últimos eventos aún no volcados a disco).
+  async flushPersist(): Promise<void> {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer)
+      this.persistTimer = null
+    }
+    this.persistDirty = true
+    await this.drainPersist()
+    if (this.persistDirty) await this.drainPersist()
   }
 
   private async persistLocal(): Promise<void> {

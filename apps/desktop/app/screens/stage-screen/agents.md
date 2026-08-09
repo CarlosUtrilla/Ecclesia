@@ -20,6 +20,11 @@ Renderiza el contenido actual con `PresentationView` y superpone widgets de esta
 - `StageTimerTextLine.tsx`: línea label + valor de un timer con font size autoajustado al ancho del contenedor mediante `fitFontSizeToWidth`.
 - `StageWidgets.tsx`: mapea `sortedWidgets` a sus componentes visuales (message, timers, clock, liveTitle, liveScreen).
 - `FocusModeOverlay.tsx`: overlay fullscreen de modo enfoque; consume componentes compartidos para reloj/mensaje/timers.
+- `StageTimerAlertOverlay.tsx`: borde rojo parpadeante a pantalla completa cuando un timer llega al umbral de alerta. El grosor del glow (`boxShadow` blur/spread) se calcula con `scaleLivePx(basePx, containerSize.height)` para ser proporcional al tamaño real (idéntico en preview y en 1920×1080).
+
+## Regla: tamaños relativos en vivo/stage
+
+Todo lo que se renderiza en pantallas en vivo/stage (widgets, overlays, texto, glows, padding, gaps) DEBE dimensionarse de forma proporcional al tamaño real del contenedor — NUNCA con px/rem fijos. Un valor absoluto tuneado al preview (~`BASE_PRESENTATION_HEIGHT`) se ve minúsculo en 1920×1080 y gigante en el preview. Usa el helper `scaleLivePx(basePx, containerHeightPx)` de `@/lib/liveScale` (o el ratio `containerHeightPx / BASE_PRESENTATION_HEIGHT`) para derivar cualquier px absoluto. Para dimensiones de layout preferir `%` (como en `StageWidgets`).
 
 ## Fuentes de datos
 

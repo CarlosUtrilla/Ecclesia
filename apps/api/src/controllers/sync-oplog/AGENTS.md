@@ -29,6 +29,24 @@ Ver diseño completo en: `apps/desktop/app/SISTEMA_SYNC_OPLOG.md`
 | `oplog.controller.ts` | Endpoints Express: sync (pull/push/syncCycle/purge) + OAuth (configure/connect/disconnect/getSyncStatus/getAuthUrl/exchangeOAuthCode) + oplog (getStatus/bootstrap/getEvents/getPending/getPendingOps/compaction/migration/clear/reset/deleteOplogFile) |
 | `oplog-logger.ts` | Logger dedicado que escribe a archivo + stderr (no eliminado por terser) |
 
+## Persistencia diferida del oplog (latencia de guardado)
+
+`appendEvent()` se ejecuta en el middleware de Prisma (`middleware/oplog.ts`) en **cada escritura**.
+La mutación del doc Automerge en memoria (`change()`) es inmediata y ordenada, pero la serialización
+completa a disco (`save()` + `writeOplogBinary()`) es O(total_eventos) y crecía sin límite, bloqueando
+la respuesta de cada guardado ("micro-sincronizaciones").
+
+**Diseño actual:** `appendEvent()` ya **no** hace `await persistLocal()`. En su lugar llama a
+`schedulePersist()`, que coalesce la escritura a disco con un debounce de `PERSIST_DEBOUNCE_MS` (400ms)
+vía `drainPersist()` (un único flush en vuelo que re-verifica `persistDirty`). Esto es seguro porque
+`push()`/`syncCycle()` serializan desde el doc **en memoria** (`save(this.localDoc)`), no desde el
+archivo `oplog.bin` — el binario en disco solo sirve para recuperación tras reinicio.
+
+- `flushPersist()`: fuerza la escritura inmediata de lo pendiente. Se invoca en el `before-quit` de
+  Electron (`apps/desktop/electron/main/index.ts`) para garantizar durabilidad de los últimos eventos.
+- `persistLocal()` sigue usándose de forma **síncrona** fuera de la ruta caliente (`init`, `pull`,
+  `backfillChecksums`, `syncBlobs`), donde sí se requiere durabilidad inmediata tras merge/bootstrap.
+
 ## Logging en producción
 
 El logger `oplog-logger.ts` escribe logs a **dos destinos simultáneamente**:
