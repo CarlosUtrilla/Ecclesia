@@ -4,6 +4,7 @@ import path from 'path'
 import crypto from 'crypto'
 import { getPrisma } from './prisma'
 import { importMediaFromSourcePath, sanitizeFileName } from './controllers/media/media.storage'
+import { PPTX_PRESENTATION_TITLE_PREFIX } from './controllers/presentations/importedPresentationTitle'
 
 export interface ParsedPptxSlide {
   slideNumber: number
@@ -150,7 +151,7 @@ export async function importPptxToPresentation(pptxPath: string): Promise<PptxIm
 
   const presentation = await prisma.presentation.create({
     data: {
-      title: `__pptx_${originalName}`,
+      title: `${PPTX_PRESENTATION_TITLE_PREFIX}${originalName}`,
       slides: JSON.stringify(presentationSlides),
     },
   })

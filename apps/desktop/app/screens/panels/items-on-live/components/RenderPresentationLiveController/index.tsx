@@ -151,13 +151,7 @@ export default function RenderPresentationLiveController({ data }: Props) {
   const activeBookShortName = useMemo(() => {
     if (!activePreviewSource) return ''
 
-    const foundBook =
-      bibleSchema.find((book) => Number(book.id) === activePreviewSource.bookId) ||
-      bibleSchema.find((book) => Number(book.book_id) === activePreviewSource.bookId)
-
-    if (!foundBook) return String(activePreviewSource.bookId)
-
-    return String(foundBook.book_short || foundBook.book_id || foundBook.book)
+    return resolvePresentationBookShortName(activePreviewSource.bookId, bibleSchema)
   }, [activePreviewSource, bibleSchema])
 
   const activeVerseController = resolveSlideVerse(

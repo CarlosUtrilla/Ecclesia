@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { findBibleBookByBookId } from './useBibleSchema.utils'
+import { findBibleBookByBookId, resolveBibleBookName } from './useBibleSchema.utils'
 import { Api } from '@ecclesia/queries'
 
 export default function useBibleSchema() {
@@ -13,13 +13,11 @@ export default function useBibleSchema() {
   }
 
   const getShortNameById = (bookId: number) => {
-    const book = findBookById(bookId)
-    return book ? book.book_id : null
+    return resolveBibleBookName(bibleSchema, bookId, 'short')
   }
 
   const getCompleteNameById = (bookId: number) => {
-    const book = findBookById(bookId)
-    return book ? book.book : null
+    return resolveBibleBookName(bibleSchema, bookId, 'complete')
   }
 
   const getCompleteVerseText = (

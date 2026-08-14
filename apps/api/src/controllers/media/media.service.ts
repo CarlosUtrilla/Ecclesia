@@ -17,6 +17,7 @@ import {
   resolveNormalizedPath
 } from './media.storage'
 import { resolveFilesRoot, resolveMediaRoot, resolveThumbnailsRoot } from '../../config'
+import { PDF_PRESENTATION_TITLE_PREFIX } from '../presentations/importedPresentationTitle'
 
 export class MediaService {
   async create(data: CreateMediaDto): Promise<MediaDto> {
@@ -128,9 +129,20 @@ export class MediaService {
     }
 
     const prisma = getPrisma()
+    const deletedAt = new Date()
+
+    // La Presentation de un PDF/PPTX pertenece a su Media: sin este borrado quedaría viva
+    // y, al purgarse el Media, huérfana y visible en la biblioteca de presentaciones.
+    if (mediaData?.presentationId) {
+      await prisma.presentation.update({
+        where: { id: mediaData.presentationId },
+        data: { deletedAt }
+      })
+    }
+
     return await prisma.media.update({
       where: { id },
-      data: { deletedAt: new Date() }
+      data: { deletedAt }
     })
   }
 
@@ -192,7 +204,7 @@ export class MediaService {
 
     const presentation = await prisma.presentation.create({
       data: {
-        title: `__pdf_${originalName}`,
+        title: `${PDF_PRESENTATION_TITLE_PREFIX}${originalName}`,
         slides: JSON.stringify(slides)
       }
     })

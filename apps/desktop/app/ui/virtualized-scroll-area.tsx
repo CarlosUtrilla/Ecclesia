@@ -7,6 +7,13 @@ interface VirtualizedScrollAreaProps<T> {
   renderItem: (item: T, index: number) => React.ReactNode
   estimateSize: (index: number) => number
   className?: string
+  /**
+   * Cabecera fijada arriba del scroll. Recibe el índice del primer item visible para
+   * que el consumidor decida qué mostrar (p. ej. la sección a la que pertenece).
+   * Va aquí y no en el consumidor porque `position: sticky` no funciona dentro de las
+   * filas: viven en un contenedor con `transform`, que crea un bloque contenedor propio.
+   */
+  renderStickyHeader?: (firstVisibleIndex: number) => React.ReactNode
 }
 
 function VirtualRow<T>({
@@ -35,7 +42,8 @@ const VirtualizedScrollArea = ({
   items,
   renderItem,
   estimateSize,
-  className
+  className,
+  renderStickyHeader
 }: VirtualizedScrollAreaProps<any>) => {
   const parentRef = React.useRef<HTMLDivElement>(null)
 
@@ -48,8 +56,32 @@ const VirtualizedScrollArea = ({
 
   const indexes = virtualizer.getVirtualItems()
 
+  // El virtualizer solo re-renderiza cuando cambia el rango visible, no en cada scroll:
+  // para que la cabecera cambie justo al cruzar el borde superior leemos el scrollTop.
+  const [stickyIndex, setStickyIndex] = React.useState(0)
+  const stickyIndexRef = React.useRef(0)
+
+  const handleScroll = React.useCallback(() => {
+    if (!renderStickyHeader) return
+
+    const offset = parentRef.current?.scrollTop ?? 0
+    const virtualItems = virtualizer.getVirtualItems()
+    const firstVisible = virtualItems.find((item) => item.end > offset) ?? virtualItems[0]
+    if (!firstVisible || firstVisible.index === stickyIndexRef.current) return
+
+    stickyIndexRef.current = firstVisible.index
+    setStickyIndex(firstVisible.index)
+  }, [renderStickyHeader, virtualizer])
+
   return (
-    <div ref={parentRef} className={cn('w-full overflow-y-auto contain-strict', className)}>
+    <div
+      ref={parentRef}
+      onScroll={handleScroll}
+      className={cn('w-full overflow-y-auto contain-strict', className)}
+    >
+      {renderStickyHeader ? (
+        <div className="sticky top-0 z-20 h-0">{renderStickyHeader(stickyIndex)}</div>
+      ) : null}
       <div
         style={{
           height: virtualizer.getTotalSize(),

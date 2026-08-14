@@ -45,6 +45,7 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - La grilla del panel mantiene una tarjeta por diapositiva real y muestra badge de rango (`vX-Y` o estado `actual/fin`) para slides con controlador bíblico.
 - En `PRESENTATION`, los badges de rango bíblico ahora incluyen referencia corta completa usando `book_short`: formato `Mat 3:22-25` y, para verso único, `Mat 3:22`.
 - El formato del badge bíblico de `PRESENTATION` usa la utilidad compartida `app/lib/presentationBibleBadge.ts`, evitando divergencia visual entre Items On Live, biblioteca y preview del editor.
+- `activeBookShortName` (nombre del libro del slide activo) también delega en `resolvePresentationBookShortName`; no duplicar la búsqueda en `bibleSchema`. El orden de fallback es `book_short → book → id numérico`, para no imprimir nunca `book_id` como si fuera abreviatura.
 - Las tarjetas de la grilla son responsivas (`w-full` en móvil y ancho fijo en escritorio) para mantener legibilidad sin romper la selección.
 - El verso activo por slide se sincroniza por `LiveContext` usando `presentationVerseBySlideKey`, y se replica en `live-screen` mediante `updateLiveScreenContent`.
 - El cambio de verso interno no remonta la diapositiva completa: evita re-animar otras capas compartidas (texto/imagen/video) y actualiza solo el contenido bíblico activo.

@@ -13,8 +13,16 @@ describe('resolvePresentationBookShortName', () => {
     expect(result).toBe('Mat')
   })
 
-  it('deberia usar fallback por book_id cuando no existe shortname', () => {
+  it('deberia usar el nombre completo cuando no existe shortname', () => {
     const result = resolvePresentationBookShortName(40, [{ id: 999, book_id: 40, book: 'Mateo' }])
+
+    expect(result).toBe('Mateo')
+  })
+
+  it('deberia usar el id numerico solo cuando el libro no esta en el esquema', () => {
+    const result = resolvePresentationBookShortName(40, [
+      { id: 1, book_id: 1, book_short: 'Gén', book: 'Génesis' }
+    ])
 
     expect(result).toBe('40')
   })

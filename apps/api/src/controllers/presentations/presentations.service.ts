@@ -1,4 +1,5 @@
 import { getPrisma } from '../../prisma'
+import { IMPORTED_PRESENTATION_TITLE_PREFIXES } from './importedPresentationTitle'
 import type {
   CreatePresentationDTO,
   GetPresentationsDTO,
@@ -189,7 +190,16 @@ export class PresentationsService {
   }
 
   async getPresentations(params?: GetPresentationsDTO): Promise<PresentationResponseDTO[]> {
-    const where: any = { deletedAt: null, pdfMedia: null }
+    // `pdfMedia: null` no basta: si el Media PDF/PPTX fue purgado (hard delete tras el
+    // retention del oplog), la presentación queda huérfana y se colaría en la biblioteca.
+    // El prefijo del título es el marcador que pone el importador y sobrevive a la purga.
+    const where: any = {
+      deletedAt: null,
+      pdfMedia: null,
+      AND: IMPORTED_PRESENTATION_TITLE_PREFIXES.map((prefix) => ({
+        NOT: { title: { startsWith: prefix } }
+      }))
+    }
 
     if (params?.search) {
       where.title = { contains: params.search }

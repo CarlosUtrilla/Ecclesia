@@ -25,6 +25,12 @@ Controlador para la gestión de archivos de medios (imágenes, videos, PDF) en E
 7. `findAll` filtra items con `folder` que empieza con `__pdf/` (páginas ocultas)
 8. `importFile` auto-detecta `.pdf` y devuelve `[singleMediaDto]`
 
+## Borrado de PDF/PPTX
+
+- `deleteFile()` hace soft-delete del Media **y de la `Presentation` vinculada** cuando el registro tiene `presentationId`. La presentación pertenece al Media importado; sin ese borrado quedaría viva para siempre.
+- Es obligatorio: `OplogPurgeService.purgeSoftDeleted()` hace **hard delete** del Media tras el retention (30 días). Si la presentación no se borró, al desaparecer el Media queda huérfana (`pdfMedia: null`) y reaparece en la biblioteca de presentaciones.
+- El título de esas presentaciones lleva el prefijo `__pdf_` / `__pptx_` (`presentations/importedPresentationTitle.ts`), único marcador que sobrevive a la purga y por el que `getPresentations()` filtra como segunda barrera.
+
 ## Archivos
 - `media.controller.ts` — endpoints IPC/multipart: `create`, `findAll`, `findOne`, `findByFilePath`, `importFile`, `importClipboardImage`, `importPdf`, `createFolder`, `deleteFolder`, `renamePath`, `listFolders`, `movePath`, `copyFile`, `extractZipMp4`, `cleanupTempPath`, `update`, `deleteFile`, `getMediaByIds`, `verifyFiles`, `cleanupOrphans`
 - `media.service.ts` — lógica de negocio, `importPdfFromMulter()` crea Presentation + PDF Media con `presentationId`; `findAll()` filtra `__pdf/`

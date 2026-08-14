@@ -143,6 +143,7 @@ export async function initializeHttpServer(
       'liveSetHideText',
       'liveSetShowLogo',
       'liveSetBlackScreen',
+      'liveSetShowLiveScreen',
       'liveStateUpdate',
       'scheduleStateUpdate',
       'requestScheduleState',

@@ -2,17 +2,39 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { PropsWithChildren } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduleItem } from '@ecclesia/api'
 import { LiveProvider, useLive } from './liveContext'
 
-const { onLiveStateUpdateCbRef, liveStateUpdateEmitMock, resetLiveStateMocks } = vi.hoisted(() => {
+const {
+  onLiveStateUpdateCbRef,
+  onSetShowLiveScreenCbRef,
+  liveStateUpdateEmitMock,
+  setShowLiveScreenEmitMock,
+  isRemoteModeRef,
+  resetLiveStateMocks
+} = vi.hoisted(() => {
   let cb: ((payload: any) => void) | null = null
+  let showLiveCb: ((payload: any) => void) | null = null
   const emitMock = vi.fn()
+  const showLiveEmitMock = vi.fn()
+  const remoteMode = { value: false }
   return {
     onLiveStateUpdateCbRef: { get: () => cb, set: (v: typeof cb) => { cb = v } },
+    onSetShowLiveScreenCbRef: {
+      get: () => showLiveCb,
+      set: (v: typeof showLiveCb) => { showLiveCb = v }
+    },
     liveStateUpdateEmitMock: emitMock,
-    resetLiveStateMocks: () => { cb = null; emitMock.mockClear() }
+    setShowLiveScreenEmitMock: showLiveEmitMock,
+    isRemoteModeRef: remoteMode,
+    resetLiveStateMocks: () => {
+      cb = null
+      showLiveCb = null
+      emitMock.mockClear()
+      showLiveEmitMock.mockClear()
+      remoteMode.value = false
+    }
   }
 })
 
@@ -69,21 +91,32 @@ vi.mock('@ecclesia/queries', () => ({
         liveSetHideText: vi.fn().mockReturnValue(vi.fn()),
         liveSetShowLogo: vi.fn().mockReturnValue(vi.fn()),
         liveSetBlackScreen: vi.fn().mockReturnValue(vi.fn()),
+        liveSetShowLiveScreen: vi.fn((cb: any) => {
+          onSetShowLiveScreenCbRef.set(cb)
+          return vi.fn()
+        }),
         liveStateUpdate: vi.fn((cb: any) => {
           onLiveStateUpdateCbRef.set(cb)
           return vi.fn()
-        })
+        }),
+        requestObsText: vi.fn().mockReturnValue(vi.fn())
       },
       emit: {
-        liveStateUpdate: vi.fn((...args: any[]) => liveStateUpdateEmitMock(...args))
+        liveStateUpdate: vi.fn((...args: any[]) => liveStateUpdateEmitMock(...args)),
+        liveSetShowLiveScreen: vi.fn((...args: any[]) => setShowLiveScreenEmitMock(...args)),
+        obsTextUpdate: vi.fn()
       }
     }
   },
   onSocketReconnect: vi.fn().mockReturnValue(vi.fn())
 }))
 
+vi.mock('@/hooks/useBibleSchema', () => ({
+  default: () => ({ bibleSchema: [] })
+}))
+
 vi.mock('../../RemoteModeContext', () => ({
-  useRemoteMode: () => ({ isRemoteMode: false })
+  useRemoteMode: () => ({ isRemoteMode: isRemoteModeRef.value })
 }))
 
 const ipcRendererOn = vi.fn().mockReturnValue(vi.fn())
@@ -379,5 +412,146 @@ describe('LiveContext', () => {
 
     displaysMock.length = 0
     showLiveScreenMock.mockClear()
+  })
+
+  // --- desconexion de un cliente remoto no debe apagar la proyeccion del host ---
+
+  it('no deberia apagar la proyeccion del host cuando un remoto emite showLiveScreen: false', async () => {
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    await act(async () => {
+      await result.current.showItemOnLiveScreen(createItem('item-host'))
+    })
+
+    await waitFor(() => {
+      expect(result.current.showLiveScreen).toBe(true)
+    })
+
+    // El cliente remoto se cierra y su ultimo estado llega con todo apagado.
+    const cb = onLiveStateUpdateCbRef.get()
+    await act(async () => {
+      cb!({
+        itemOnLive: null,
+        itemIndex: 0,
+        slideCount: 0,
+        hideTextOnLive: false,
+        showLogoOnLive: false,
+        blackScreenOnLive: false,
+        showLiveScreen: false,
+        themeId: null,
+        liveScreens: [],
+        stageScreens: []
+      })
+    })
+
+    expect(result.current.showLiveScreen).toBe(true)
+  })
+
+  it('deberia permitir que un remoto encienda la proyeccion del host', async () => {
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    expect(result.current.showLiveScreen).toBe(false)
+
+    const cb = onLiveStateUpdateCbRef.get()
+    await act(async () => {
+      cb!({
+        itemOnLive: { id: 'item-remoto', type: 'SONG', accessData: 'texto-item-remoto' },
+        itemIndex: 0,
+        slideCount: 0,
+        hideTextOnLive: false,
+        showLogoOnLive: false,
+        blackScreenOnLive: false,
+        showLiveScreen: true,
+        themeId: null,
+        liveScreens: [],
+        stageScreens: []
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.showLiveScreen).toBe(true)
+    })
+  })
+
+  it('el boton En Vivo de un remoto deberia mandar la orden explicita de apagar, no el estado espejado', async () => {
+    isRemoteModeRef.value = true
+
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    act(() => {
+      result.current.setShowLiveScreen(false)
+    })
+
+    // Dar margen a que corra el effect de broadcast.
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(setShowLiveScreenEmitMock).toHaveBeenCalledWith({ active: false })
+    expect(liveStateUpdateEmitMock).not.toHaveBeenCalled()
+  })
+
+  it('el host deberia apagar la proyeccion al recibir la orden explicita de un remoto', async () => {
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    await act(async () => {
+      await result.current.showItemOnLiveScreen(createItem('item-toggle'))
+    })
+
+    await waitFor(() => {
+      expect(result.current.showLiveScreen).toBe(true)
+    })
+
+    const cb = onSetShowLiveScreenCbRef.get()
+    expect(cb).not.toBeNull()
+
+    await act(async () => {
+      cb!({ active: false })
+    })
+
+    expect(result.current.showLiveScreen).toBe(false)
+  })
+
+  it('un cliente remoto si deberia espejar el apagado que anuncia el host', async () => {
+    isRemoteModeRef.value = true
+
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    const cb = onLiveStateUpdateCbRef.get()
+    await act(async () => {
+      cb!({
+        itemOnLive: { id: 'item-espejo', type: 'SONG', accessData: 'texto-item-espejo' },
+        itemIndex: 0,
+        slideCount: 0,
+        hideTextOnLive: false,
+        showLogoOnLive: false,
+        blackScreenOnLive: false,
+        showLiveScreen: true,
+        themeId: null,
+        liveScreens: [],
+        stageScreens: []
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.showLiveScreen).toBe(true)
+    })
+
+    await act(async () => {
+      cb!({
+        itemOnLive: null,
+        itemIndex: 0,
+        slideCount: 0,
+        hideTextOnLive: false,
+        showLogoOnLive: false,
+        blackScreenOnLive: false,
+        showLiveScreen: false,
+        themeId: null,
+        liveScreens: [],
+        stageScreens: []
+      })
+    })
+
+    expect(result.current.showLiveScreen).toBe(false)
   })
 })

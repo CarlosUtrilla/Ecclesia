@@ -172,6 +172,13 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       setBlackScreenOnLive(active)
     })
 
+    // Apagar/encender la proyección solo se acepta por este comando explícito, nunca
+    // deducido de `liveStateUpdate`: así el botón «En Vivo» del remoto sigue apagando
+    // el host, pero su ciclo de vida (arranque/cierre) ya no lo hace.
+    const unsubShowLiveScreen = Api.socket.listen.liveSetShowLiveScreen(({ active }) => {
+      setShowLiveScreen(active)
+    })
+
     // Aplicar liveStateUpdate desde remotos (broadcast socket.io excluye al sender)
     const unsubLiveState = Api.socket.listen.liveStateUpdate((state) => {
       isApplyingRemoteUpdate.current = true
@@ -216,7 +223,15 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       setHideTextOnLive(state.hideTextOnLive)
       setShowLogoOnLive(state.showLogoOnLive)
       setBlackScreenOnLive(state.blackScreenOnLive)
-      setShowLiveScreen(state.showLiveScreen)
+      // El cliente remoto espeja la proyección del host; el host, en cambio, solo acepta
+      // que un remoto la ENCIENDA. Un remoto no puede apagarla (F7 está deshabilitado en
+      // remoto), así que un `showLiveScreen: false` suyo es estado inicial o eco obsoleto:
+      // obedecerlo cerraba las pantallas en vivo del host al cerrarse la app cliente.
+      if (isRemoteModeRef.current) {
+        setShowLiveScreen(state.showLiveScreen)
+      } else if (state.showLiveScreen) {
+        setShowLiveScreen(true)
+      }
       // Solo el cliente remoto sobreescribe sus pantallas con las del host;
       // el host nunca debe reemplazar sus displays locales con datos del cliente.
       if (isRemoteModeRef.current) {
@@ -238,6 +253,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       unsubHideText()
       unsubShowLogo()
       unsubBlackScreen()
+      unsubShowLiveScreen()
       unsubLiveState()
     }
   }, [socketReconnectKey])
@@ -356,7 +372,11 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
             aspectRatioCss: s.aspectRatioCss
           }))
         })
-    } else {
+    } else if (!isRemoteMode) {
+      // Solo el host anuncia que apagó la proyección. En un cliente remoto
+      // `showLiveScreen: false` nunca es una orden del operador: es el estado inicial
+      // (aún no llegó el broadcast del host) o un eco del propio host. Emitirlo hacía
+      // que el host cerrara sus pantallas en vivo por el ciclo de vida del cliente.
       Api.socket.emit.liveStateUpdate({
         itemOnLive: null,
         itemIndex: 0,
@@ -693,6 +713,16 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   }
   showItemOnLiveScreenRef.current = showItemOnLiveScreen
 
+  // Toggle «En Vivo» del operador. Desde un cliente remoto viaja como comando explícito:
+  // el estado espejado (`liveStateUpdate`) no puede apagar el host, porque no distingue
+  // una orden real de un eco de su ciclo de vida.
+  const requestShowLiveScreen: ILiveContext['setShowLiveScreen'] = (show) => {
+    setShowLiveScreen(show)
+    if (isRemoteMode) {
+      Api.socket.emit.liveSetShowLiveScreen({ active: show })
+    }
+  }
+
   const setPresentationVerseBySlideKey: ILiveContext['setPresentationVerseBySlideKey'] = (
     updater
   ) => {
@@ -724,7 +754,7 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
         liveScreens,
         stageScreens,
         showLiveScreen,
-        setShowLiveScreen,
+        setShowLiveScreen: requestShowLiveScreen,
         contentScreen,
         showItemOnLiveScreen,
         sendLiveMediaState,

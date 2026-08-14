@@ -6,6 +6,7 @@ import type {
 } from './bible.dto'
 import { getPrisma } from '../../prisma'
 import { openBible } from './utils'
+import { buildBibleSearchPattern } from './bibleSearchText'
 import { BiblePresentationSettings } from '@prisma/client'
 
 class BibleService {
@@ -89,13 +90,13 @@ class BibleService {
       let query = `
         SELECT *
         FROM verses
-        WHERE text_normalized LIKE ?
+        WHERE text_normalized LIKE ? ESCAPE '\\'
       `
-      const queryParams: (string | number)[] = [`%${text.toLowerCase()}%`]
+      const queryParams: (string | number)[] = [buildBibleSearchPattern(text)]
 
       if (book) {
         query += ' AND book_id = ?'
-        queryParams.push(book)
+        queryParams.push(Number(book))
       }
 
       query += ' ORDER BY book_id, chapter, verse'

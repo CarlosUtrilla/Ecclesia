@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/ui/button'
-import { Bug, CloudCog, ImagePlay, Info, MonitorUp, Palette, Settings, Sparkles, X } from 'lucide-react'
+import { CloudCog, ImagePlay, Info, MonitorUp, Palette, Settings, Sparkles, X } from 'lucide-react'
 import ColorSettingsSection from './components/colorSettingsSection'
 import SyncSettingsSection from './components/syncSettingsSection'
 import LogoFallbackSection from './components/logoFallbackSection'
 import AboutSection from './components/aboutSection'
 import RemoteControl from './components/remoteControl'
-import DevSection from './components/devSection'
 import AISettingsSection from './components/aiSettingsSection'
 
 type SettingsSection =
@@ -16,7 +15,6 @@ type SettingsSection =
   | 'logoFallback'
   | 'about'
   | 'remoteControlMode'
-  | 'dev'
   | 'ai'
 
 export default function SettingsScreen() {
@@ -26,7 +24,7 @@ export default function SettingsScreen() {
     if (queryIdx !== -1) {
       const params = new URLSearchParams(hash.slice(queryIdx))
       const section = params.get('section')
-      if (section && ['colors', 'sync', 'logoFallback', 'about', 'remoteControlMode', 'dev', 'ai'].includes(section)) {
+      if (section && ['colors', 'sync', 'logoFallback', 'about', 'remoteControlMode', 'ai'].includes(section)) {
         return section as SettingsSection
       }
     }
@@ -35,7 +33,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     const handler = (_e: Electron.IpcRendererEvent, section: string) => {
-      if (['colors', 'sync', 'logoFallback', 'about', 'remoteControlMode', 'dev', 'ai'].includes(section)) {
+      if (['colors', 'sync', 'logoFallback', 'about', 'remoteControlMode', 'ai'].includes(section)) {
         setActiveSection(section as SettingsSection)
       }
     }
@@ -93,14 +91,6 @@ export default function SettingsScreen() {
         </Button>
 
         <Button
-          variant={activeSection === 'dev' ? 'secondary' : 'ghost'}
-          className="justify-start"
-          onClick={() => setActiveSection('dev')}
-        >
-          <Bug className="size-4" /> Dev
-        </Button>
-
-        <Button
           variant={activeSection === 'about' ? 'secondary' : 'ghost'}
           className="justify-start"
           onClick={() => setActiveSection('about')}
@@ -127,7 +117,6 @@ export default function SettingsScreen() {
           {activeSection === 'about' ? <AboutSection /> : null}
           {activeSection === 'remoteControlMode' ? <RemoteControl /> : null}
           {activeSection === 'ai' ? <AISettingsSection /> : null}
-          {activeSection === 'dev' ? <DevSection /> : null}
         </div>
       </main>
     </div>

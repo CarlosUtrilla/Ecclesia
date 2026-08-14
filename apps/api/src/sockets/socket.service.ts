@@ -27,6 +27,10 @@ export interface SocketEventMap {
   liveSetHideText: { active: boolean }
   liveSetShowLogo: { active: boolean }
   liveSetBlackScreen: { active: boolean }
+  // Encender/apagar la proyección. Es un comando aparte y no se deduce de
+  // `liveStateUpdate.showLiveScreen` para distinguir la intención explícita del
+  // operador del simple espejo de estado (ver AGENTS.md de sockets).
+  liveSetShowLiveScreen: { active: boolean }
 
   // Live state sync (renderer broadcasts current state to remotes)
   liveStateUpdate: {

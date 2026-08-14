@@ -30,7 +30,7 @@ export const resolvePresentationBookShortName = (
 
   if (!foundBook) return String(bookId)
 
-  return String(foundBook.book_short || foundBook.book_id || foundBook.book)
+  return String(foundBook.book_short || foundBook.book || bookId)
 }
 
 export const buildPresentationBibleBadgeLabel = ({

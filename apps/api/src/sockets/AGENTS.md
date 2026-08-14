@@ -53,11 +53,30 @@ Estos eventos se usan para el control remoto de pantallas en vivo. Cualquier cli
 | `liveSetHideText` | `{ active: boolean }` | Ocultar/mostrar texto en live |
 | `liveSetShowLogo` | `{ active: boolean }` | Mostrar logo/fallback |
 | `liveSetBlackScreen` | `{ active: boolean }` | Pantalla negra |
-| `liveStateUpdate` | `LiveStateUpdate` (incluye `themeId`) | Broadcast de estado actual (renderer → remotos) |
+| `liveSetShowLiveScreen` | `{ active: boolean }` | Encender/apagar la proyección (toggle «En Vivo»). Único camino aceptado para apagarla desde un remoto |
+| `liveStateUpdate` | `LiveStateUpdate` (incluye `themeId`) | Espejo bidireccional del estado live entre host y remotos |
 | `scheduleStateUpdate` | `ScheduleStateUpdate` | Broadcast de estado del cronograma (host → remotos) |
 | `requestScheduleState` | `void` | Cliente remoto pide el estado actual del cronograma al host |
 
 El `LiveContext` en el renderer escucha todos estos eventos y los procesa como si fueran acciones locales del operador.
+
+### Apagar la proyección: orden explícita, no estado espejado
+
+`liveStateUpdate` lo emiten y aplican ambos lados (así controla el remoto: muta su propio `LiveContext` y el host espeja el resultado). El problema es que ese espejo **no distingue una orden del operador de un eco del ciclo de vida del cliente**: al arrancar o cerrarse la app cliente, su `showLiveScreen: false` llegaba al host y le cerraba las pantallas en vivo.
+
+Por eso `showLiveScreen` se saca del espejo y viaja como comando propio:
+
+| Camino | Quién | Efecto en el host |
+|---|---|---|
+| `liveSetShowLiveScreen { active }` | El toggle «En Vivo» del operador remoto | Enciende **y apaga** — es intención explícita |
+| `liveStateUpdate.showLiveScreen` | Espejo pasivo de estado | El host solo acepta `true`; ignora `false` |
+
+Reglas al tocar esto:
+
+- El cliente remoto **no emite** la rama de "todo apagado" de `liveStateUpdate`; usa el comando.
+- El host **solo aplica `showLiveScreen: true`** desde `liveStateUpdate`. Encender por espejo debe seguir funcionando: al mandar un item, `itemOnLive` deja de ser null y el propio host activa la proyección.
+- El cliente remoto sí espeja ambos valores: para él, el `showLiveScreen` del host es la verdad.
+- `setShowLiveScreen` del `LiveContext` ya emite el comando cuando `isRemoteMode`; llamar al setter interno de React directamente se saltaría esa señal.
 
 ## Eventos de salida de texto para OBS (subtítulos)
 

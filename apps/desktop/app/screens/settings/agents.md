@@ -49,10 +49,7 @@ app/screens/settings/
 - El estado visible incluye: cuenta conectada, nombre del dispositivo, última sincronización, errores del último run y cambios pendientes de subir.
 - La UI escucha el evento Socket.IO `syncProgress` vía `Api.socket.listen.syncProgress()` para mostrar en tiempo real el progreso de sync.
 - Los errores de descarga individual de archivos (media, biblias) ya no interrumpen el ciclo pull: se loguean y se salta el archivo, el resto del lote continúa y el manifest local se actualiza con las descargas exitosas.
-- **Pestaña Dev**: contiene utilidades de desarrollo y diagnóstico. Actualmente incluye:
-  - Botones Diagnosticar/Reparar de sincronización Google Drive (movidos desde Sincronización).
-  - Botón "Limpiar archivos no vinculados": llama `Api.fetch.sync.cleanupMedia()` que ejecuta `cleanupOrphanMediaFromDiskAndDrive()` en la API. Pide confirmación antes de eliminar. Muestra resultado con detalle colapsable incluyendo conteo de eliminaciones de Drive.
-- Visible en producción por ahora.
+- **Pestaña Dev**: eliminada. Sus herramientas de diagnóstico/reparación de sync quedaron obsoletas con el sistema OpLog, que sincroniza automáticamente. Las secciones navegables son `colors`, `sync`, `logoFallback`, `remoteControlMode`, `ai` y `about`.
 
 ### Control remoto LAN (`remoteControl.tsx`)
 

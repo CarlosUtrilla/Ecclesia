@@ -304,8 +304,11 @@ Renderiza texto genérico del slide con animaciones:
 ### VirtualizedScrollArea (`virtualized-scroll-area.tsx`)
 
 - Wrapper de `@tanstack/react-virtual`.
-- Recibe `items`, `renderItem`, `estimateSize`.
+- Recibe `items`, `renderItem`, `estimateSize` y el opcional `renderStickyHeader`.
 - Componente `VirtualRow` extraido para reconciliacion correcta.
+- **Cabecera fija (`renderStickyHeader`)**: recibe el índice del primer item visible y se renderiza en un wrapper `sticky top-0 z-20 h-0` (alto cero para flotar sobre las filas sin desplazarlas). Debe vivir aquí y no en el consumidor: las filas están dentro de un contenedor con `transform`, que crea un bloque contenedor propio y rompe `position: sticky`.
+- El índice se calcula con un `onScroll` propio que lee `scrollTop`, NO con `getVirtualItems()[0]`: ese incluye el overscan (la cabecera cambiaría antes de tiempo) y además el virtualizer solo re-renderiza cuando cambia el rango visible, no en cada scroll. El `setState` se hace solo si el índice cambió, así el scroll no re-renderiza la lista en cada frame.
+- Para reiniciar scroll y cabecera al cambiar el dataset, remontar con `key` (el componente no expone `scrollToIndex`).
 
 ## Utilidades (`app/lib/`)
 

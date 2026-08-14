@@ -44,6 +44,7 @@ app/screens/panels/library/
     ├── bibleVersions.tsx      # Selector de version de biblia
     ├── importBible.tsx        # Boton para importar archivo .ebbl
     ├── textFragmentSearch.tsx # Busqueda de texto en versiculos
+    ├── groupSearchResultsByBook.ts # Aplana los resultados en filas cabecera-de-libro + versiculo
     ├── verseSearch.tsx        # Busqueda rapida: Libro Cap. Vers.
     └── viewVerses.tsx         # Lista de versiculos con seleccion multiple y drag
 └── presentations/
@@ -217,6 +218,16 @@ app/screens/panels/library/
 
 - Busqueda de texto libre en versiculos de la version seleccionada.
 - Llama a `window.api.bible.searchTextFragment(version, text)`.
+- El campo `book` es **opcional**: vacío busca en toda la Biblia. No ponerlo como requerido en el schema Zod — el formulario arranca con `book: ''` y un `min(1)` bloquea `handleSubmit` en silencio (el error no se renderiza) y el botón Buscar parece no hacer nada.
+- Los `value` de las opciones de `AutoComplete` deben ser **string**: el form guarda `book` como texto y `AutoComplete` compara con `===`, así que un `book_id` numérico nunca marca la opción como seleccionada.
+- La coincidencia sin tildes/mayúsculas la resuelve el backend normalizando la consulta (`bibleSearchText.ts`); el componente envía el texto tal cual lo escribe el usuario.
+- Los resultados se muestran **agrupados por libro**: `groupBibleSearchResultsByBook()` (`bible/groupSearchResultsByBook.ts`) aplana la respuesta en filas `{ kind: 'book' }` (cabecera con nombre y número de coincidencias) y `{ kind: 'verse' }`. Se aplana en vez de anidar listas para conservar una sola `VirtualizedScrollArea`; `estimateSize` devuelve distinta altura según el `kind` y el virtualizador remide con `measureElement`.
+- No hace falta reordenar en el cliente: la query ya devuelve `ORDER BY book_id, chapter, verse`, así que basta cortar cuando cambia el libro. Las filas de versículo muestran solo `capítulo:versículo` porque el libro ya va en la cabecera.
+- Diseño de la lista: cabecera de libro con punto (`bg-primary`) + nombre en `uppercase text-[11px]` y conteo a la derecha; los versículos cuelgan de una guía vertical (`border-l` con `pl-[11px]`, alineada bajo el punto) con la referencia en columna fija `w-9 tabular-nums` y el texto en `text-xs`. La densidad es intencional: con cientos de resultados el texto grande impedía ubicar el libro actual.
+- El separador entre libros usa `border-t` condicional a `index > 0` (el `renderItem` recibe el índice). NO usar `first:border-t-0`: el virtualizador envuelve cada fila en su propio `div`, así que toda cabecera es `:first-child` y la regla se aplicaría a todas.
+- La cabecera del libro actual queda **fija arriba** mientras se scrollea vía `renderStickyHeader` de `VirtualizedScrollArea`, resolviendo el libro con `findBookHeaderForIndex(rows, índiceVisible)`. El componente `BookHeader` se reutiliza en la lista y en el sticky, con fondo opaco (`bg-muted`, no `bg-muted/60`) para que las filas no se transparenten por debajo.
+- La lista se remonta con `key={submittedAt}` de la mutación en cada búsqueda nueva, para volver arriba y reiniciar la cabecera fija.
+- El `rounded-md border` va en un wrapper con `overflow-hidden`, NO en el propio contenedor de scroll: la cabecera fija es rectangular y, sin el clip del wrapper, el radio del borde dejaba ver una franja del fondo por encima de ella.
 
 ## Drag & Drop hacia cronograma
 
