@@ -541,6 +541,19 @@ export class OplogService {
       await maybeComputeChecksum(fallbackPath, event.fallbackChecksum, (value) => { event.fallbackChecksum = value })
     }
 
+    // Fonts: compute checksum immediately so blob download works on first sync cycle
+    if (input.entityType === 'font') {
+      const fontsRoot = getMediaDir()
+      const filePath = (input.data?.filePath as string | undefined) ?? input.blobPath
+      if (filePath && event.blobPath === undefined) event.blobPath = filePath
+      if (filePath && !event.checksum) {
+        const fullPath = path.join(fontsRoot, filePath)
+        if (await fs.pathExists(fullPath)) {
+          event.checksum = await oplogBlobService.computeChecksum(fullPath)
+        }
+      }
+    }
+
     this.pendingEvents.push(event)
 
     this.localDoc = change(this.localDoc, `append:${event.entityType}:${event.entityId}`, (d) => {

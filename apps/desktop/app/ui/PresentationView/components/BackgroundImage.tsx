@@ -2,9 +2,12 @@ import { m } from 'framer-motion'
 
 interface BackgroundImageProps {
   url: string
+  blur?: number
 }
 
-export function BackgroundImage({ url }: BackgroundImageProps) {
+export function BackgroundImage({ url, blur = 0 }: BackgroundImageProps) {
+  const hasBlur = blur > 0
+
   return (
     <m.img
       key={`img-${url}`}
@@ -21,7 +24,14 @@ export function BackgroundImage({ url }: BackgroundImageProps) {
         width: '100%',
         height: '100%',
         objectFit: 'cover',
-        zIndex: 0
+        zIndex: 0,
+        ...(hasBlur
+          ? {
+              filter: `blur(${blur}px)`,
+              transform: 'scale(1.06)',
+              transformOrigin: 'center'
+            }
+          : {})
       }}
     />
   )

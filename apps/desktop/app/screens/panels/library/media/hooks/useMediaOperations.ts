@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Media } from '../types'
 import type { MediaType } from '@ecclesia/api'
 import { Api } from '@ecclesia/queries'
@@ -28,6 +28,8 @@ const buildFolderPath = (currentFolder: string | null, folderName: string) =>
 const normalizeFolder = (folder: string | null | undefined): string | null => folder ?? null
 
 export function useMediaOperations(currentFolder: string | null) {
+  const queryClient = useQueryClient()
+
   const importMutation = useMutation({
     mutationFn: async (files: { fileName: string; bytes: Uint8Array; fileSize: number }[]) => {
       const results: MediaDto[] = []
@@ -42,6 +44,10 @@ export function useMediaOperations(currentFolder: string | null) {
         results.push(result[0])
       }
       return results
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
     }
   })
 
@@ -49,14 +55,22 @@ export function useMediaOperations(currentFolder: string | null) {
     mutationFn: (folderName: string) =>
       Api.fetch.media.createFolder({
         body: { folderPath: buildFolderPath(currentFolder, folderName) }
-      })
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
+    }
   })
 
   const deleteFolderMutation = useMutation({
     mutationFn: (folderName: string) =>
       Api.fetch.media.deleteFolder({
         body: { folderPath: buildFolderPath(currentFolder, folderName) }
-      })
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
+    }
   })
 
   const renameMutation = useMutation({
@@ -110,10 +124,20 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
     }
   })
 
-  const deleteMutation = useMutation(Api.mutation.media.deleteFile)
+  const deleteMutation = useMutation({
+    ...Api.mutation.media.deleteFile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
+    }
+  })
 
   const moveMutation = useMutation({
     mutationFn: async ({
@@ -142,6 +166,10 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
     }
   })
 
@@ -179,6 +207,10 @@ export function useMediaOperations(currentFolder: string | null) {
       }
 
       return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
     }
   })
 

@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TextBoundsValues } from '../types'
 
-const SNAP_CENTER_THRESHOLD = 8 // px lógicos — umbral para snap al centro
+const SNAP_CENTER_THRESHOLD = 8 // px lógicos — umbral base de snap al centro
+const SNAP_CENTER_RATIO = 0.75 // fracción del margen de texto para ampliar la zona de snap
+
+// Umbral de snap proporcional al margen disponible (paddingInline/paddingBlock):
+// así la zona muerta entre el snap y el clamp (±padding) se reduce sin forzar centrado.
+export const resolveSnapCenterThreshold = (margin: number) =>
+  Math.max(SNAP_CENTER_THRESHOLD, margin * SNAP_CENTER_RATIO)
 
 export type BoundsSnapGuides = {
   centerX: boolean
@@ -187,8 +193,10 @@ export function useTextBoundsInteraction({
       if (mode === 'move') {
         const rawX = start.translateX + deltaXInBase
         const rawY = start.translateY + deltaYInBase
-        const snapX = snapAxes?.x !== false && Math.abs(rawX) < SNAP_CENTER_THRESHOLD
-        const snapY = snapAxes?.y !== false && Math.abs(rawY) < SNAP_CENTER_THRESHOLD
+        const snapX =
+          snapAxes?.x !== false && Math.abs(rawX) < resolveSnapCenterThreshold(start.paddingInline)
+        const snapY =
+          snapAxes?.y !== false && Math.abs(rawY) < resolveSnapCenterThreshold(start.paddingBlock)
         nextTranslateX = snapX ? 0 : rawX
         nextTranslateY = snapY ? 0 : rawY
         setSnapGuides({ centerX: snapX, centerY: snapY })

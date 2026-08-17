@@ -270,6 +270,13 @@ export class OplogReplayService {
             result.blobOps.push({ type: 'download', checksum: event.fallbackChecksum, path: fallbackPath })
           }
         }
+
+        if (event.entityType === 'font') {
+          const filePath = (event.data?.filePath as string) ?? event.blobPath
+          if (event.checksum && filePath) {
+            result.blobOps.push({ type: 'download', checksum: event.checksum, path: filePath })
+          }
+        }
         break
       }
 
@@ -315,6 +322,27 @@ export class OplogReplayService {
 
           await addThumbnailDelete(existing?.thumbnail)
           await addThumbnailDelete(existing?.fallback)
+        }
+
+        if (event.entityType === 'font') {
+          const existing = await (delegate as any).findUnique({
+            where: { id: recordId },
+            select: { checksum: true, filePath: true },
+          }).catch(() => null)
+
+          if (existing?.checksum) {
+            const remainingCount = await (delegate as any).count({
+              where: { checksum: existing.checksum, deletedAt: null, id: { not: recordId } },
+            })
+
+            if (remainingCount === 0) {
+              result.blobOps.push({
+                type: 'delete',
+                checksum: existing.checksum,
+                path: existing.filePath ?? existing.checksum,
+              })
+            }
+          }
         }
 
         try {

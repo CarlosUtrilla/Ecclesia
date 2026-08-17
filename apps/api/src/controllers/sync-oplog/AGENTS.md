@@ -293,6 +293,16 @@ inmediatamente con resultado vacío. Esto protege contra:
 
 El flag se libera en el `finally` del try/catch del ciclo.
 
+## Sync de fuentes personalizadas (`Font`)
+
+Las fuentes personalizadas se sincronizan como entidades blob-type, igual que los media:
+
+- **Upload (PC1):** `appendEvent()` computa el checksum del archivo `.ttf/.otf` inmediatamente (bloque `entityType === 'font'`), lo sube a Drive en el próximo ciclo de blob sync.
+- **Replay (PC2):** `applyEvents()` genera `blobOps` de download para `entityType === 'font'` (igual que para media), descargando el archivo desde Drive.
+- **Delete:** al eliminar una fuente, se genera blob delete op si ningún otro registro comparte el mismo checksum.
+
+**Fix aplicado (2026-08-16):** antes el replay engine solo generaba blobOps para `media`, ignorando `font`. Las fuentes se creaban en BD pero el archivo nunca se descargaba.
+
 ## Dependencias
 
 - `@automerge/automerge` v3 — CRDT para merge de documentos

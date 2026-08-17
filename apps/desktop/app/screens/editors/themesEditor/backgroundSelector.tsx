@@ -11,15 +11,18 @@ import { MediaPicker, Media, MediaType } from '@/screens/panels/library/media/ex
 import { ColorPicker } from '@/ui/colorPicker'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { Switch } from '@/ui/switch'
+import { Slider } from '@/ui/slider'
 
 type BackgroundType = 'color' | 'gradient' | 'image' | 'video'
 
 interface BackgroundSelectorProps {
   backgroundType: BackgroundType
   value: string
+  backgroundBlur?: number
   videoLoop?: boolean
   onTypeChange: (type: BackgroundType) => void
   onValueChange: (value: string) => void
+  onBlurChange?: (value: number) => void
   onVideoLoopChange?: (value: boolean) => void
   onMediaChange?: (mediaId: number | null, media: Media | null) => void
   selectedMedia?: Media | null
@@ -42,9 +45,11 @@ const backgroundTypeIcons: Record<BackgroundType, React.ReactNode> = {
 export default function BackgroundSelector({
   backgroundType,
   value,
+  backgroundBlur = 0,
   videoLoop = true,
   onTypeChange,
   onValueChange,
+  onBlurChange,
   onVideoLoopChange,
   onMediaChange,
   selectedMedia
@@ -186,6 +191,24 @@ export default function BackgroundSelector({
                 />
               </div>
             )}
+          </div>
+        )}
+
+        {(backgroundType === 'image' || backgroundType === 'video') && (
+          <div className="flex items-center gap-2 border rounded-md px-2 h-8 min-w-[150px]">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Blur</span>
+            <Slider
+              value={[backgroundBlur]}
+              min={0}
+              max={24}
+              step={1}
+              onValueChange={([value]) => onBlurChange?.(value)}
+              className="w-20"
+              aria-label="Desenfoque del fondo"
+            />
+            <span className="text-xs tabular-nums text-muted-foreground w-5 text-right">
+              {backgroundBlur}
+            </span>
           </div>
         )}
       </div>

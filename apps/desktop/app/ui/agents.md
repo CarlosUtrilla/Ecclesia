@@ -219,6 +219,11 @@ El campo `theme.background` determina el tipo:
   - Video (preview): `BackgroundVideoThumbnail` (muestra thumbnail estatico).
   - Video (live): `BackgroundVideoLive` (reproduce video + fallback image mientras carga) y respeta `theme.backgroundVideoLoop` para decidir si repite.
 
+### Desenfoque de fondo (`theme.backgroundBlur`)
+
+- `PresentationBody` lee `theme.backgroundBlur` (Int px, `0` = sin blur) y lo propaga a `BackgroundImage` y `BackgroundVideoLive` (y a los `<img>` de preview) solo cuando el fondo es media; colores/gradientes no aplican blur.
+- Cuando `blur > 0`, el componente aplica `filter: blur(Npx)` sobre el media y lo agranda con `transform: scale(1.06)` + `transformOrigin: center` para ocultar los bordes translúcidos del desenfoque sin desplazar visualmente la imagen (evita la ilusión óptica de texto descentrado que causaba el enfoque anterior con `top/left: -3%`); los contenedores ya son `overflow-hidden`.
+
 ### AnimatedText (`components/AnimatedText.tsx`)
 
 Renderiza texto genérico del slide con animaciones:
@@ -242,7 +247,7 @@ Renderiza texto genérico del slide con animaciones:
 - En animación `split`, el tokenizado de HTML se hace con `splitHtmlForWordAnimation` para no romper etiquetas/atributos inline (ej. `style="..."`) al dividir por espacios en textos bíblicos o rich text.
 - Los estilos estáticos de handles se hoistean fuera del componente para evitar recreación de objetos en cada render.
 - La lógica de interacción del cuadro de texto (detectar bordes, drag, resize y cursores) se extrajo a `useTextBoundsInteraction`, dejando `AnimatedText` enfocado en render y composición.
-- `useTextBoundsInteraction` incluye snap-to-center magnético: durante el drag (`move`), si `translateX` o `translateY` están a menos de 8px lógicos de 0, se snappean a 0. Se expone `snapGuides: { centerX, centerY }` para que `AnimatedText` renderice líneas guía (teal, 1px) sobre el frame cuando el snap está activo.
+- `useTextBoundsInteraction` incluye snap-to-center magnético: durante el drag (`move`), si `translateX` o `translateY` caen dentro del umbral de snap, se snappean a 0. El umbral es `resolveSnapCenterThreshold(margin)` = `max(8, margin × 0.75)` px lógicos, usando el `paddingInline`/`paddingBlock` del tema como margen disponible; así la zona muerta entre el snap y el clamp (±padding) se reduce sin forzar el centrado y la caja conserva su posición exacta cuando se suelta fuera de la zona de snap. Se expone `snapGuides: { centerX, centerY }` para que `AnimatedText` renderice líneas guía (teal, 1px) sobre el frame cuando el snap está activo.
 
 - **Preview mode** (`isPreview: true`): Sin animacion, solo `dangerouslySetInnerHTML` con `sanitizeHTML()`.
 - **Animacion "split"**: Divide por palabras, cada una animada individualmente con `m.span`.
@@ -355,6 +360,16 @@ Renderiza texto genérico del slide con animaciones:
 - Utilidades en lib/ son transversales a todo el proyecto
 
 ## Cambios recientes
+
+- **Fix: Ilusión óptica de texto descentrado con blur de fondo** (2026-08-16): cuando el fondo tenía `backgroundBlur > 0`, la imagen/video se desplazaba con `top/left: -3%` y `width/height: 106%` para ocultar los bordes del desenfoque, pero ese desplazamiento creaba una ilusión óptica que hacía que el texto pareciera corrido a la derecha.
+  - **Problema**: el `top: -3%` / `left: -3%` desplazaba visualmente el fondo, generando una percepción de descentrado del texto aunque matemáticamente estuviera centrado.
+  - **Solución**: reemplazar el desplazamiento por `transform: scale(1.06)` + `transformOrigin: center`, que agranda la imagen desde el centro sin moverla visualmente. Aplica a `BackgroundImage`, `BackgroundVideoLive` y los `<img>` de preview en `PresentationBody`.
+  - **Archivos**: `BackgroundImage.tsx`, `BackgroundVideoLive.tsx`, `PresentationBody.tsx`.
+
+- **Fix: Zona muerta de snap al arrastrar la caja de texto en ThemeEditor** (2026-08-16): el snap-to-center de `useTextBoundsInteraction` usaba un umbral fijo de 8px lógicos, dejando una zona muerta `[8, ±paddingInline]` donde la caja podía quedar descentrada sin snap al soltar.
+  - **Problema**: con el tema por defecto (`paddingInline: 16`), soltar la caja a 8-16px del centro dejaba el texto visiblemente corrido a la derecha, sin forma fácil de recentrarlo.
+  - **Solución**: el umbral ahora es `resolveSnapCenterThreshold(margin) = max(8, margin × 0.75)` px lógicos, proporcional al `paddingInline`/`paddingBlock` del tema; la zona muerta se reduce a `(0.75·margin, margin]` y la caja conserva su posición exacta al soltar fuera de la zona de snap.
+  - **Test**: `useTextBoundsInteraction.test.ts` cubre `resolveSnapCenterThreshold` (umbral base, escalado y zona muerta reducida).
 
 - **Fix: Prefijo de verso duplicado en pasos internos (`chunk`)** (2026-03-30): al navegar textos bíblicos largos por partes dentro de una misma slide, `BibleTextRender` reinsertaba el número de verso en cada parte (ej. `23 ...`).
   - **Problema**: el texto base podía traer numeración incrustada (`23`, `23.`, `23...`) y además duplicarse al mostrar número de verso.

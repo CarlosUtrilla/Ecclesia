@@ -58,10 +58,26 @@ export default function ThemesEditor() {
   const isCreatingTheme = !id
   const previewRef = useRef<HTMLDivElement>(null)
   const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
-  const { height = 0 } = useResizeObserver({
+  const { height = 0, width = 0 } = useResizeObserver({
     ref: previewRef as React.RefObject<HTMLDivElement>
   })
   const screenSize = useScreenSize(height || 0)
+
+  // El ancho y el alto del box se derivan de la MISMA medición del contenedor
+  // (useResizeObserver sobre previewRef). El box conserva el aspect ratio del display
+  // y se escala uniformemente para caber dentro del área disponible en ambas dimensiones,
+  // de modo que nunca desborda el contenedor y el centrado flexbox es exacto (no depende
+  // de cómo el navegador recorta el overflow del lado inicial).
+  const fittedScreenSize = useMemo(() => {
+    if (width <= 0 || height <= 0) return screenSize
+    const scale = Math.min(width / screenSize.width, height / screenSize.height)
+    if (!Number.isFinite(scale) || scale >= 1) return screenSize
+    return {
+      ...screenSize,
+      width: Math.max(1, Math.floor(screenSize.width * scale)),
+      height: Math.max(1, Math.floor(screenSize.height * scale))
+    }
+  }, [screenSize, width, height])
 
   const [selectedPreview, setSelectedPreview] = useState(0)
   const [backgroundType, setBackgroundType] = useState<BackgroundType>('color')
@@ -81,6 +97,7 @@ export default function ThemesEditor() {
     defaultValues: {
       name: '',
       background: '',
+      backgroundBlur: 0,
       backgroundVideoLoop: true,
       backgroundMediaId: null,
       previewImage: '',
@@ -581,9 +598,11 @@ export default function ThemesEditor() {
           <BackgroundSelector
             backgroundType={backgroundType}
             value={previewData.background}
+            backgroundBlur={watchedData.backgroundBlur ?? 0}
             videoLoop={watchedData.backgroundVideoLoop}
             onTypeChange={setBackgroundType}
             onValueChange={(v) => setValue('background', v, { shouldDirty: true })}
+            onBlurChange={(v) => setValue('backgroundBlur', v, { shouldDirty: true })}
             onVideoLoopChange={(value) =>
               setValue('backgroundVideoLoop', value, {
                 shouldDirty: true
@@ -666,8 +685,8 @@ export default function ThemesEditor() {
       >
         <div
           style={{
-            height: screenSize.height,
-            width: screenSize.width
+            height: fittedScreenSize.height,
+            width: fittedScreenSize.width
           }}
         >
           <PresentationView

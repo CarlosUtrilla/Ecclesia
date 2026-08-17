@@ -128,11 +128,13 @@ function PresentationBodyComponent({
   autoSplitVerseText,
   showCopyright = true
 }: Props) {
+  const backgroundBlur = Number(theme?.backgroundBlur ?? 0)
+
   const backgroundLayer = !isMediaItem ? (
     <>
       {backgroundType === 'image' && backgroundUrl ? (
         live ? (
-          <BackgroundImage url={backgroundUrl} />
+          <BackgroundImage url={backgroundUrl} blur={backgroundBlur} />
         ) : (
           <img
             src={backgroundUrl}
@@ -140,11 +142,19 @@ function PresentationBodyComponent({
             loading="lazy"
             style={{
               position: 'absolute',
-              inset: 0,
+              top: 0,
+              left: 0,
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              zIndex: 0
+              zIndex: 0,
+              ...(backgroundBlur > 0
+                ? {
+                    filter: `blur(${backgroundBlur}px)`,
+                    transform: 'scale(1.06)',
+                    transformOrigin: 'center'
+                  }
+                : {})
             }}
           />
         )
@@ -160,6 +170,7 @@ function PresentationBodyComponent({
             hasError={videoError}
             onVideoLoaded={() => setVideoLoaded(true)}
             onVideoError={() => setVideoError(true)}
+            blur={backgroundBlur}
           />
         ) : thumbnailUrl ? (
           <img
@@ -168,11 +179,19 @@ function PresentationBodyComponent({
             loading="lazy"
             style={{
               position: 'absolute',
-              inset: 0,
+              top: 0,
+              left: 0,
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              zIndex: 0
+              zIndex: 0,
+              ...(backgroundBlur > 0
+                ? {
+                    filter: `blur(${backgroundBlur}px)`,
+                    transform: 'scale(1.06)',
+                    transformOrigin: 'center'
+                  }
+                : {})
             }}
           />
         ) : null)}

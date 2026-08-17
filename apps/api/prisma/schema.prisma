@@ -50,6 +50,7 @@ model Themes {
   id                          Int                        @id @default(autoincrement())
   name                        String                     @unique
   background                  String // Color, gradient, o "media" si usa backgroundMedia
+  backgroundBlur              Int                        @default(0) // Desenfoque px del fondo imagen/video (0 = sin blur)
   backgroundVideoLoop         Boolean                    @default(true) // Si el fondo de video se repite al finalizar
   backgroundMediaId           Int? // ID del medio (imagen/video) usado como fondo
   backgroundMedia             Media?                     @relation(fields: [backgroundMediaId], references: [id])

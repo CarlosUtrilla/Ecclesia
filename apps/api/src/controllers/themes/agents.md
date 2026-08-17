@@ -9,3 +9,8 @@ Controlador para la gestión de temas de presentación en Ecclesia.
 
 ## Ubicación
 `database/controllers/themes/`
+
+## Notas
+
+- El modelo `Themes` incluye `backgroundBlur` (Int px, `0` = sin blur) para desenfocar fondos media (imagen/video).
+- `exportThemeToZip` y `importThemeFromZip` persisten `backgroundBlur` (con fallback `?? 0`) dentro del `theme.json` del ZIP para que el desenfoque sobreviva exportación/importación de temas.

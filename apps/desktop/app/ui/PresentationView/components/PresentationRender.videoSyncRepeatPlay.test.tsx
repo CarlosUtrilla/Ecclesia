@@ -61,6 +61,7 @@ describe('PresentationRender repeated play sync', () => {
           id: 1,
           name: 'Tema',
           background: '#000000',
+          backgroundBlur: 0,
           backgroundMediaId: null,
           previewImage: '',
           textStyle: { fontSize: 64 },

@@ -12,6 +12,8 @@ export const BlankTheme: ThemeWithMedia = {
   id: -1,
   name: 'Blank',
   background: '#ffffff',
+  backgroundBlur: 0,
+  backgroundVideoLoop: true,
   backgroundMediaId: null,
   deletedAt: null,
   textStyle: {

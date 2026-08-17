@@ -13,6 +13,14 @@ vi.mock('@/screens/panels/library/media/exports', () => ({
   MediaPicker: () => null
 }))
 
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+
 describe('BackgroundSelector', () => {
   it('deberia mostrar toggle de repeticion cuando el fondo es video seleccionado', () => {
     const onVideoLoopChange = vi.fn()

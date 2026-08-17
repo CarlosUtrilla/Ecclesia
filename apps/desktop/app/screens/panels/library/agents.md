@@ -284,3 +284,10 @@ El `DragAndDropSchedule` (en ScheduleContext) detecta estos drags y los inserta 
 - Context menu para editar/eliminar.
 - Context menu también ofrece `Exportar tema (.zip)` para generar backup/portabilidad rápida.
 - Accesibilidad: todos los previews son botones accesibles.
+
+## Cambios recientes
+
+- **Fix: Lista de medios no se actualiza en modo remoto tras importar** (2026-08-16): las mutaciones de media (`importMutation`, `createFolderMutation`, `deleteFolderMutation`, `renameMutation`, `deleteMutation`, `moveMutation`, `copyMutation`) en `useMediaOperations.ts` no tenían `onSuccess` para invalidar el cache de React Query. Dependían exclusivamente del evento socket `queryKeysInvalidate`, que en modo remoto puede perderse por timing de conexión o reconexiones durante la subida.
+  - **Problema**: al subir archivos desde el client al host, los archivos se subían correctamente y aparecían en la lista del host, pero el client no refrescaba su lista.
+  - **Solución**: agregar `onSuccess` con `queryClient.invalidateQueries({ queryKey: ['media'] })` y `['folders']` a todas las mutaciones de media. Esto invalida el cache local directamente tras cada operación exitosa, funcionando tanto en modo local como remoto, independientemente del estado del socket.
+  - **Archivo**: `app/screens/panels/library/media/hooks/useMediaOperations.ts`.

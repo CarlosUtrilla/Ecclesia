@@ -40,6 +40,7 @@ type ThemeArchivePayload = {
   theme: {
     name: string
     background: string
+    backgroundBlur: number
     backgroundVideoLoop: boolean
     textStyle: Record<string, unknown>
     animationSettings: string
@@ -75,6 +76,7 @@ export class ThemesService {
   private async buildArchivePayload(theme: {
     name: string
     background: string
+    backgroundBlur: number
     backgroundVideoLoop: boolean
     textStyle: string
     animationSettings: string
@@ -95,6 +97,7 @@ export class ThemesService {
       theme: {
         name: theme.name,
         background: theme.background,
+        backgroundBlur: theme.backgroundBlur ?? 0,
         backgroundVideoLoop: theme.backgroundVideoLoop,
         textStyle: this.parseTextStyle(theme.textStyle) as Record<string, unknown>,
         animationSettings: theme.animationSettings,
@@ -310,6 +313,7 @@ export class ThemesService {
     const payload = await this.buildArchivePayload({
       name: theme.name,
       background: theme.background,
+      backgroundBlur: theme.backgroundBlur ?? 0,
       backgroundVideoLoop: theme.backgroundVideoLoop,
       textStyle: theme.textStyle,
       animationSettings: theme.animationSettings,
@@ -531,6 +535,7 @@ export class ThemesService {
           data: {
             name: resolvedThemeName,
             background: this.resolveBackground(payload.theme.background),
+            backgroundBlur: payload.theme.backgroundBlur ?? 0,
             backgroundVideoLoop: payload.theme.backgroundVideoLoop ?? true,
             backgroundMediaId: importedBackgroundMediaId,
             textStyle: JSON.stringify(payload.theme.textStyle ?? {}),

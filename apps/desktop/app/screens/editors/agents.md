@@ -120,6 +120,7 @@ app/screens/editors/
   - Imagen (MediaPicker dialog)
   - Video (MediaPicker dialog)
   - Cuando el fondo es video seleccionado, permite alternar `Repetir` para decidir si el video de fondo hace loop o termina al finalizar.
+  - Cuando el fondo es imagen o video, muestra control `Blur` (slider 0-24 px, `0` = sin desenfoque) que persiste `theme.backgroundBlur`; no aplica a colores/gradientes.
 - **Estilos de texto**: fontSize, fontFamily, fontWeight, color, textAlign, letterSpacing, lineHeight.
 - **Reutilización de efectos de texto**: ThemeToolbar y PresentationEditor comparten `app/screens/editors/components/textEffectsControls.tsx` para controles de sombra, contorno y fondo de bloque, reduciendo duplicación de UI/lógica.
 - **Sombra de texto**: toggle `textShadowEnabled` + `textShadowColor`, `textShadowBlur`, `textShadowOffsetX`, `textShadowOffsetY`. Se configuran en un Popover "Sombra" en `ThemeToolbar`. Los valores se almacenan como campos custom en `textStyle` y se convierten a `textShadow` CSS (escalado al tamaño de pantalla) en `usePresentationTextLayout`.
@@ -172,6 +173,7 @@ app/screens/editors/
 - Dropdown para tipo de fondo.
 - Renderiza control segun tipo: `ColorPicker`, boton para `MediaPicker`.
 - Cuando el fondo es media, guarda `background: "media"` y `backgroundMediaId: media.id`.
+- Cuando el fondo es imagen/video, renderiza slider `Blur` (0-24 px) que persiste `backgroundBlur` vía `onBlurChange` (default `0`).
 
 ### Esquema Zod (`schema.ts`)
 
@@ -180,6 +182,7 @@ app/screens/editors/
   name: z.string().min(1),
   background: z.string(),
   backgroundMediaId: z.number().nullable(),
+  backgroundBlur: z.number(),
   textStyle: z.object({ ... }),
   animationSettings: z.string(),  // JSON stringified
   useDefaultBibleSettings: z.boolean(),
@@ -269,6 +272,9 @@ app/screens/editors/
 - IPC de ventanas -> `/electron/agents.md`
 
 ## Cambios recientes
+
+- **Fix: Centrado exacto del preview en ThemesEditor** (2026-08-15): el box del preview se dimensionaba solo por altura (`useScreenSize(previewHeightPx)` → `width = height × ratio del display`), es decir, el ancho no se derivaba de la medición del propio contenedor. Si el ancho derivado desbordaba el contenedor (`flex justify-center overflow-auto`), el centrado flexbox con overflow podía recortar el desborde por el lado inicial, desplazando todo el contenido (incluido el texto) a la derecha. Ahora `fittedScreenSize` deriva **ancho y alto de la misma medición del contenedor** (`useResizeObserver` sobre `previewRef` devuelve `width` y `height`) y escala el box uniformemente (`scale = min(width/boxW, height/boxH)`) preservando el aspect ratio del display, de modo que el box nunca desborda el contenedor y el centro del preview coincide siempre con el centro real del panel.
+  - **Archivo**: `app/screens/editors/themesEditor/index.tsx`
 
 - **Theme-aware Bible/Text insertion** (current): Cuando se insertan textos bíblicos o nuevos textos en el PresentationEditor, se aplica la configuración visual del tema (color, fontFamily, efectos de sombra/contorno/fondo) **excepto fontSize y posición**.
   - El fontSize se deja en auto-sizing (default 48) para que el texto sea legible en el canvas de edición (que es mucho más grande que la pantalla de presentación).

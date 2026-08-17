@@ -13,6 +13,7 @@ import { Switch } from '@/ui/switch'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { PropsWithChildren, useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { BiblePresentationSchema } from './schema'
 import { Tooltip } from '@/ui/tooltip'
 import type {
@@ -97,6 +98,7 @@ export default function BiblePresentationConfiguration({
   const { selectedTheme } = useSchedule()
   const [open, setOpen] = useState(false)
   const { defaultBiblePresentationSettings } = useDefaultBiblePresentationSettings()
+  const queryClient = useQueryClient()
 
   const { control, handleSubmit, watch, reset } = useForm({
     defaultValues: toFormValues(customBibleSettings),
@@ -142,6 +144,7 @@ export default function BiblePresentationConfiguration({
         isGlobal: true
       })
       .then(() => {
+        queryClient.invalidateQueries(Api.query.bible.getDefaultBibleSettings())
         setOpen(false)
       })
       .catch((err) => {
@@ -172,7 +175,7 @@ export default function BiblePresentationConfiguration({
         hydratedValues: toFormValues(defaultBiblePresentationSettings)
       })
     }
-  }, [open, reset])
+  }, [open, reset, customBibleSettings, defaultBiblePresentationSettings])
 
   const positionOptions = [
     { value: 'beforeText', label: 'Antes del texto' },

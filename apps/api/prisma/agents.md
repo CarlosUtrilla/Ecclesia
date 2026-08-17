@@ -58,6 +58,7 @@ model Themes {
   id                          Int     @id @default(autoincrement())
   name                        String  @unique
   background                  String  // Color HEX, gradient CSS, o "media" si usa backgroundMedia
+  backgroundBlur              Int     @default(0) // Desenfoque del fondo media (px, 0 = sin blur)
   backgroundVideoLoop         Boolean @default(true) // Repetición del video cuando el fondo es media tipo video
   backgroundMediaId           Int?
   backgroundMedia             Media?  @relation(...)
@@ -73,6 +74,7 @@ model Themes {
 
 - `background` tiene 3 modos: color HEX directo, gradient CSS, o el string literal `"media"` que indica usar `backgroundMedia`.
 - `backgroundVideoLoop` controla si el video de fondo del tema se repite al terminar (`true`) o se reproduce solo una vez (`false`).
+- `backgroundBlur` aplica desenfoque (blur) al fondo media (imagen/video) en px; `0` = sin blur. Solo aplica cuando `background === "media"`, no a colores/gradientes.
 - `textStyle` es un JSON string con propiedades CSS para el texto.
 - `animationSettings` es un JSON con config de animación de contenido.
 - `transitionSettings` es un JSON con config de transición de tema (se ejecuta solo cuando cambia de tema).

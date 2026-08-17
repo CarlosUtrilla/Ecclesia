@@ -8,6 +8,7 @@ interface BackgroundVideoLiveProps {
   onVideoError: () => void
   isVideoLoaded: boolean
   hasError: boolean
+  blur?: number
 }
 
 export function BackgroundVideoLive({
@@ -17,8 +18,22 @@ export function BackgroundVideoLive({
   onVideoLoaded,
   onVideoError,
   isVideoLoaded,
-  hasError
+  hasError,
+  blur = 0
 }: BackgroundVideoLiveProps) {
+  const hasBlur = blur > 0
+  const blurredStyle = hasBlur
+    ? {
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        filter: `blur(${blur}px)`,
+        transform: 'scale(1.06)',
+        transformOrigin: 'center'
+      }
+    : { top: 0, left: 0, width: '100%', height: '100%' }
+
   return (
     <>
       {/* Imagen de fallback mientras carga el video */}
@@ -33,10 +48,7 @@ export function BackgroundVideoLive({
           transition={{ duration: 0.5, ease: 'easeInOut' }}
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
+            ...blurredStyle,
             objectFit: 'cover',
             zIndex: 0
           }}
@@ -63,10 +75,7 @@ export function BackgroundVideoLive({
           transition={{ duration: 0.5, ease: 'easeInOut' }}
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
+            ...blurredStyle,
             objectFit: 'cover',
             zIndex: 0
           }}
