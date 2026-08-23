@@ -1,7 +1,8 @@
 import { useDroppable, useDndContext } from '@dnd-kit/core'
-import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 import useScheduleGroupTemplates from '@/hooks/useScheduleGroupTemplates'
+import { isExternalDragData } from '@/contexts/ScheduleContext/utils/scheduleCollision'
+import InsertionIndicator from './insertionIndicator'
 
 type Props = {
   position: number
@@ -32,8 +33,7 @@ export default function InsertionDropZone({
   }, [groupId, scheduleGroupTemplates])
 
   // Detectar si se está arrastrando un elemento externo (de biblioteca)
-  const isExternalDrag =
-    active?.data.current?.accessData !== undefined && !active?.data.current?.item
+  const isExternalDrag = isExternalDragData(active?.data.current)
 
   const { setNodeRef, isOver } = useDroppable({
     id: `insert-position-${position}`,
@@ -47,21 +47,8 @@ export default function InsertionDropZone({
   })
 
   return (
-    <div
-      ref={setNodeRef}
-      id={`insert-position-${position}`}
-      className={cn(
-        'w-full flex items-center justify-center transition-all duration-200 h-2.5 opacity-0',
-        {
-          'bg-primary/20 border-2 border-dashed border-primary rounded h-8 mb-0.5 opacity-100':
-            isOver
-        }
-      )}
-      style={{
-        background: groupColor ? groupColor + '33' : undefined
-      }}
-    >
-      <span className="text-primary text-sm font-medium">Soltar para insertar aquí</span>
+    <div ref={setNodeRef} id={`insert-position-${position}`}>
+      <InsertionIndicator visible={isOver} animated={isExternalDrag} color={groupColor} />
     </div>
   )
 }

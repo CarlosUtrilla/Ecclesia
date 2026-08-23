@@ -13,6 +13,7 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
 - **types.d.ts**: Tipos TypeScript para el contexto, items, helpers y DTOs relacionados.
 - **utils/**: Utilidades especializadas:
   - **dragAndDropSchedule.tsx**: Lógica de drag & drop (dnd-kit) para items y plantillas.
+  - **scheduleCollision.ts**: `scheduleCollisionDetection` (detección de colisiones del cronograma) e `isExternalDragData`.
   - **indexDataItems.tsx**: Helpers para obtener iconos, etiquetas y contenido de items (canciones, medios, biblias).
     - Para `MEDIA` con `type: 'PDF'`: detecta el `presentationId` del Media y redirige al contenido de la Presentation vinculada (resuelve slides, carga media items de las páginas, mapea con `presentationSlideToViewItem`).
     - Incluye soporte MVP para `PRESENTATION`: resuelve título, ícono y contenido por diapositiva.

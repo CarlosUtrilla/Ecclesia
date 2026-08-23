@@ -22,6 +22,14 @@ import { parseBibleAccessData } from '../../library/bible/accessData'
 import { parseTimerAccessData } from '@/lib/timerAccessData'
 import ChurchCountdownDialog from '@/screens/components/ChurchCountdownDialog'
 import useBibleSchema from '@/hooks/useBibleSchema'
+import { isExternalDragData } from '@/contexts/ScheduleContext/utils/scheduleCollision'
+import { usePendingInsertion } from '@/contexts/ScheduleContext/utils/pendingInsertion'
+import InsertionIndicator, {
+  GROUP_INSERTION_GAP,
+  INSERTION_DURATION_MS,
+  INSERTION_EASING,
+  INSERTION_GAP
+} from './insertionIndicator'
 
 type Props = {
   setSelectedItem?: (item: ScheduleItem | null) => void
@@ -31,6 +39,8 @@ type Props = {
   insertPosition?: number
   isLast?: boolean
   setTooltipRef?: (ref: HTMLDivElement | null) => void
+  /** Copia renderizada dentro del DragOverlay: no debe registrarse en dnd-kit. */
+  isPreview?: boolean
 }
 
 export function ScheduleItemComponent({
@@ -40,21 +50,24 @@ export function ScheduleItemComponent({
   groupId,
   insertPosition,
   isLast,
-  setTooltipRef
+  setTooltipRef,
+  isPreview = false
 }: Props) {
   // Drop zone para inserción
-  const { active } = useDndContext()
+  const { active, over } = useDndContext()
+  const pendingInsertion = usePendingInsertion()
   // Detectar si se está arrastrando un elemento externo (de biblioteca)
-  const isExternalDrag =
-    active?.data.current?.accessData !== undefined && !active?.data.current?.item
+  const isExternalDrag = isExternalDragData(active?.data.current)
+  // La copia del DragOverlay usa ids propios: si reutilizara los del item real
+  // sobreescribiría su registro en dnd-kit y ese item dejaría de detectarse.
   const { setNodeRef: setDropNodeRef, isOver } = useDroppable({
-    id: `insert-position-${insertPosition}`,
+    id: isPreview ? `preview-insert-${item.id}` : `insert-position-${insertPosition}`,
     data: {
       type: 'insertion-zone',
       position: insertPosition,
       isLast
     },
-    disabled: !isExternalDrag
+    disabled: isPreview || !isExternalDrag
   })
   const {
     getScheduleItemIcon,
@@ -164,12 +177,40 @@ export function ScheduleItemComponent({
   }, [item, groupId, scheduleGroupTemplates])
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: item.id,
-    data: { type: 'item', item: item }
+    id: isPreview ? `preview-${item.id}` : item.id,
+    data: { type: 'item', item: item },
+    disabled: isPreview,
+    // Sin animación de layout: al insertarse un item, dnd-kit animaba a los siguientes
+    // desde su posición anterior (FLIP), lo que se sumaba al hueco y hacía el rebote.
+    animateLayoutChanges: () => false
   })
+  // Los items posteriores a la zona activa se desplazan para abrir el hueco donde caerá
+  // el nuevo item. Se hace con transform (no con layout) porque dnd-kit mide los
+  // droppables ignorando transforms: el espacio se abre sin mover las zonas de detección.
+  const hoveredInsertPosition =
+    isExternalDrag && over?.data.current?.type === 'insertion-zone'
+      ? (over.data.current.position as number)
+      : null
+  // Al soltar se conserva el hueco hasta que el item entra en la lista, para que no suba
+  // y vuelva a bajar mientras react-hook-form propaga el cambio.
+  const gapPosition = hoveredInsertPosition ?? pendingInsertion
+  const shiftDown =
+    gapPosition !== null && insertPosition !== undefined && insertPosition > gapPosition
+
+  // El hueco mide lo que ocupará el item entrante, para que al soltar no haya salto
+  const insertionGap = active?.data.current?.type === 'GROUP' ? GROUP_INSERTION_GAP : INSERTION_GAP
+
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform:
+      [CSS.Transform.toString(transform), shiftDown ? `translate3d(0, ${insertionGap}px, 0)` : null]
+        .filter(Boolean)
+        .join(' ') || undefined,
+    // Sólo se anima mientras se arrastra: al soltar, el transform se quita en el mismo
+    // commit en que el item entra en la lista, así el hueco se convierte en el item nuevo
+    // en vez de cerrarse y volver a abrirse (rebote).
+    transition:
+      transition ??
+      (isExternalDrag ? `transform ${INSERTION_DURATION_MS}ms ${INSERTION_EASING}` : undefined),
     opacity: isDragging ? 0.5 : 1
   }
 
@@ -192,6 +233,7 @@ export function ScheduleItemComponent({
             <div
               className={cn(
                 'rounded-t-md border font-semibold text-base px-4 py-2 select-none cursor-grab',
+                'animate-in fade-in zoom-in-95 duration-300',
                 {
                   'cursor-grabbing': isDragging,
                   'cursor-grab': !isDragging,
@@ -226,23 +268,7 @@ export function ScheduleItemComponent({
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
-        <div
-          className={cn(
-            'w-full flex items-center justify-center transition-all duration-200 h-2.5 ',
-            {
-              'bg-primary/20 border-2 border-dashed border-primary rounded h-8 my-1':
-                isOver && isExternalDrag
-            }
-          )}
-        >
-          <span
-            className={cn('text-primary text-sm font-medium opacity-0', {
-              'opacity-100': isOver && isExternalDrag
-            })}
-          >
-            Soltar para insertar aquí
-          </span>
-        </div>
+        <InsertionIndicator visible={isOver && isExternalDrag} animated={isExternalDrag} />
       </div>
     )
   }
@@ -288,6 +314,8 @@ export function ScheduleItemComponent({
             <div
               className={cn(
                 'p-3 py-1.5 border bg-background cursor-pointer rounded-md hover:bg-muted/50 transition-all duration-200',
+                // Entrada al insertarse en el cronograma (drop desde la biblioteca)
+                'animate-in fade-in zoom-in-95 duration-300',
                 {
                   'border-secondary bg-secondary/10': selectedItem?.order === item.order,
                   'cursor-grabbing': isDragging,
@@ -367,17 +395,7 @@ export function ScheduleItemComponent({
             editItem={item}
           />
         ) : null}
-        <div
-          className={cn(
-            'w-full flex items-center justify-center transition-all duration-200 h-2.5 opacity-0',
-            {
-              'bg-primary/20 border-2 border-dashed border-primary rounded h-8 my-1 opacity-100':
-                isOver && isExternalDrag
-            }
-          )}
-        >
-          <span className="text-primary text-sm font-medium">Soltar para insertar aquí</span>
-        </div>
+        <InsertionIndicator visible={isOver && isExternalDrag} animated={isExternalDrag} />
       </div>
     </Tooltip>
   )

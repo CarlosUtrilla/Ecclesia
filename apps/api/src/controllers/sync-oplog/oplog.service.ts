@@ -53,19 +53,36 @@ function collectInvalidateKeys(ops: OplogEvent[]): string[][] {
 }
 
 function emitInvalidateQueries(ops: OplogEvent[]): void {
-  const keys = collectInvalidateKeys(ops)
+  emitInvalidateKeys(collectInvalidateKeys(ops))
+}
+
+function emitInvalidateKeys(keys: string[][]): void {
   if (keys.length === 0) return
   try {
     getSocket().emit.queryKeysInvalidate({ keys })
   } catch { /* socket no listo */ }
 }
 
+/** Keys de las entidades con blobs, para el refresco tras sincronizar archivos. */
+const BLOB_INVALIDATE_KEYS: string[][] = [['media'], ['folders'], ['fonts']]
+
 export type SyncEventCallback = (progress: SyncProgress) => void
 
 // Debounce para coalescer la escritura del oplog a disco. La mutación en memoria
 // del doc Automerge es inmediata; solo la serialización completa (save()) + writeFile
 // se difieren para no bloquear la respuesta de cada escritura de Prisma.
-const PERSIST_DEBOUNCE_MS = 400
+// save() serializa el documento entero, así que en ráfagas de escrituras (importar,
+// editar un cronograma) conviene una ventana amplia; flushPersist() en before-quit
+// garantiza que no se pierda lo último.
+const PERSIST_DEBOUNCE_MS = 1500
+/**
+ * El GC de blobs lista todo el folder de Drive y la limpieza de huérfanos recorre el
+ * directorio de thumbnails con un stat por archivo. Correrlo en cada ciclo era caro y no
+ * aporta nada: son tareas de mantenimiento.
+ */
+const BLOB_GC_INTERVAL_MS = 30 * 60 * 1000
+/** Tope de thumbnails a regenerar por ciclo (sharp/ffmpeg son lo más caro del ciclo). */
+const MAX_REGEN_PER_CYCLE = 5
 
 export class OplogService {
   private localDoc: Doc<OplogDocument> | null = null
@@ -79,6 +96,8 @@ export class OplogService {
   private persistTimer: ReturnType<typeof setTimeout> | null = null
   private persistPromise: Promise<void> | null = null
   private persistDirty = false
+  private legacyBlobMigrationDone = false
+  private lastBlobGcAt = 0
 
   get isInitialized(): boolean {
     return this.localDoc !== null
@@ -820,12 +839,16 @@ export class OplogService {
       return { downloaded: 0, uploaded: 0, deleted: 0 }
     }
 
-    this.emitProgress('blob', 5, 'Migrando blobs de medios legacy...')
-    oplogLogInfo('[Blob] Migrating legacy media blobs...')
-    const migratedBlobs = await oplogMigrationService.migrateExistingMediaBlobs()
-    oplogLogInfo(`[Blob] Migrated blobs: ${migratedBlobs}`)
-    if (migratedBlobs > 0) {
-      log.warn(`[OplogBlob] ${migratedBlobs} blobs migrados del manifest legacy`)
+    // La migración del manifest legacy solo tiene sentido una vez por arranque
+    if (!this.legacyBlobMigrationDone) {
+      this.emitProgress('blob', 5, 'Migrando blobs de medios legacy...')
+      oplogLogInfo('[Blob] Migrating legacy media blobs...')
+      const migratedBlobs = await oplogMigrationService.migrateExistingMediaBlobs()
+      oplogLogInfo(`[Blob] Migrated blobs: ${migratedBlobs}`)
+      if (migratedBlobs > 0) {
+        log.warn(`[OplogBlob] ${migratedBlobs} blobs migrados del manifest legacy`)
+      }
+      this.legacyBlobMigrationDone = true
     }
 
     this.emitProgress('blob', 10, 'Escaneando blobs activos...')
@@ -834,12 +857,22 @@ export class OplogService {
     const opsLen = ops.length
     oplogLogInfo(`[Blob] Total ops to scan: ${opsLen}`)
 
+    let diagMediaOps = 0
+    let diagMediaWithChecksum = 0
+    let diagMediaPathNoChecksum = 0
+
     for (let idx = 0; idx < opsLen; idx++) {
       const op = ops[idx]
       if (op.op === 'upsert' && (op.entityType === 'media' || op.entityType === 'font')) {
         if (op.checksum) activeChecksums.add(op.checksum)
         if (op.entityType === 'media') {
-          if (op.thumbnailChecksum) activeChecksums.add(op.thumbnailChecksum)
+          diagMediaOps++
+          if (op.thumbnailChecksum) {
+            diagMediaWithChecksum++
+            activeChecksums.add(op.thumbnailChecksum)
+          } else if (op.data?.thumbnail || op.thumbnailBlobPath) {
+            diagMediaPathNoChecksum++
+          }
           if (op.fallbackChecksum) activeChecksums.add(op.fallbackChecksum)
         }
       }
@@ -849,10 +882,7 @@ export class OplogService {
     }
     oplogLogInfo(`[Blob] Active checksums: ${activeChecksums.size}`)
 
-    const allMediaOps = ops.filter(o => o.entityType === 'media' && o.op === 'upsert')
-    const mediaWithThumbnailChecksum = allMediaOps.filter(o => !!o.thumbnailChecksum)
-    const mediaWithFilePath = allMediaOps.filter(o => !o.thumbnailChecksum && (o.data?.thumbnail || o.thumbnailBlobPath))
-    oplogLogInfo(`[Blob-DIAG] Media upsert ops: ${allMediaOps.length}, with thumbnailChecksum: ${mediaWithThumbnailChecksum.length}, with path but no checksum: ${mediaWithFilePath.length}`)
+    oplogLogInfo(`[Blob-DIAG] Media upsert ops: ${diagMediaOps}, with thumbnailChecksum: ${diagMediaWithChecksum}, with path but no checksum: ${diagMediaPathNoChecksum}`)
 
     const toDownload: Array<{ checksum: string; path: string }> = []
     const toUpload: Array<{ checksum: string; localPath: string }> = []
@@ -1024,6 +1054,12 @@ export class OplogService {
     let fallbackRegenerated = 0
 
     for (let idx = 0; idx < regenOps.length; idx++) {
+      // sharp/ffmpeg son lo más caro del ciclo: si hay un backlog grande se reparte
+      // entre ciclos en vez de bloquear el proceso principal de golpe.
+      if (generatedThumbnails.size >= MAX_REGEN_PER_CYCLE) {
+        oplogLogInfo(`[Blob] Tope de regeneración por ciclo (${MAX_REGEN_PER_CYCLE}) alcanzado`)
+        break
+      }
       const op = regenOps[idx]
       if (op.op !== 'upsert' || op.entityType !== 'media') continue
       if (op.thumbnailChecksum) continue
@@ -1142,9 +1178,16 @@ export class OplogService {
     }
     oplogLogInfo(`[Blob] Process result: ${blobResult.downloaded} downloaded, ${blobResult.uploaded} uploaded`)
 
-    this.emitProgress('blob', 90, 'Limpiando blobs huérfanos...')
-    const gcDeleted = await oplogBlobService.garbageCollectBlobs(activeChecksums)
-    oplogLogInfo(`[Blob] GC deleted: ${gcDeleted}`)
+    const nowMs = Date.now()
+    const runMaintenance = nowMs - this.lastBlobGcAt >= BLOB_GC_INTERVAL_MS
+    let gcDeleted = 0
+    if (runMaintenance) {
+      this.emitProgress('blob', 90, 'Limpiando blobs huérfanos...')
+      gcDeleted = await oplogBlobService.garbageCollectBlobs(activeChecksums)
+      oplogLogInfo(`[Blob] GC deleted: ${gcDeleted}`)
+    } else {
+      oplogLogInfo('[Blob] GC omitido (mantenimiento reciente)')
+    }
 
     // Podar eventos del OpLog para media soft-deleted sin blob data
     if (this.localDoc) {
@@ -1178,7 +1221,7 @@ export class OplogService {
 
     // Limpiar thumbnails huérfanos (sin referencia en DB ni en eventos)
     const thumbDir = path.join(mediaRoot, 'thumbnails')
-    if (await fs.pathExists(thumbDir)) {
+    if (runMaintenance && (await fs.pathExists(thumbDir))) {
       const validThumbs = new Set<string>()
 
       // thumbnails referenciados por eventos activos (post-pruning)
@@ -1224,8 +1267,14 @@ export class OplogService {
       }
     }
 
-    // Invalidar queries para refrescar UI despues de sync
-    emitInvalidateQueries(ops)
+    if (runMaintenance) this.lastBlobGcAt = nowMs
+
+    // Refrescar la UI solo si algo cambió de verdad: antes se invalidaban las queries de
+    // todas las entidades en cada ciclo, lo que provocaba un refetch general (y su carga
+    // de CPU en el renderer) incluso sin cambios.
+    if (blobResult.downloaded > 0 || gcDeleted > 0 || generatedThumbnails.size > 0) {
+      emitInvalidateKeys(BLOB_INVALIDATE_KEYS)
+    }
 
     this.emitProgress('blob', 100, `${blobResult.downloaded} descargados, ${gcDeleted} GC`)
     oplogLogInfo('[Blob] syncBlobs() complete')

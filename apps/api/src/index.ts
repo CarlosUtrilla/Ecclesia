@@ -20,6 +20,7 @@ import { setUserDataPath } from './config'
 import { routes } from './routes'
 import Logger from 'electron-log'
 import { setSocketIO, getSocket } from './sockets/socket.service'
+import { markLiveActivity } from './services/live-activity.service'
 import { registerSocketHandlers } from './sockets/socket-handlers'
 
 export async function initializeHttpServer(
@@ -153,6 +154,8 @@ export async function initializeHttpServer(
     ] as const
     for (const event of liveRelayEvents) {
       socket.on(event, (data: unknown) => {
+        // El scheduler de sync usa esto para no lanzar ciclos mientras se proyecta
+        markLiveActivity(event, data)
         socket.broadcast.emit(event, data)
       })
     }

@@ -5,9 +5,11 @@ import type { BlobOperation } from './oplog.types'
 import { getMediaDir, getLocalMediaManifestPath } from './oplog-shared'
 import path from 'path'
 import fs from 'fs-extra'
+import { createReadStream } from 'fs'
 import { createHash } from 'crypto'
 import log from 'electron-log'
 import { Readable } from 'stream'
+import { pipeline } from 'stream/promises'
 
 interface MediaManifestEntry {
   path: string
@@ -21,8 +23,13 @@ interface MediaManifest {
 }
 
 const BLOB_FILE_PREFIX = 'ecclesia-blob-'
+const CHECKSUM_CHUNK_SIZE = 1024 * 1024
+const CHECKSUM_CACHE_MAX = 5000
 
 export class OplogBlobService {
+  /** checksums ya calculados, keyed por `path:size:mtime`. */
+  private checksumCache = new Map<string, string>()
+
   async processBlobOps(
     ops: BlobOperation[],
     onProgress?: (current: number, total: number) => void,
@@ -33,7 +40,7 @@ export class OplogBlobService {
     const drive = await driveClientService.getDriveClientFromTokensOnly()
     const folderId = await driveClientService.getOrCreateEcclesiaFolder(drive)
     const mediaRoot = getMediaDir()
-    const manifest = await this.readLocalManifest()
+    await this.getManifest()
     const total = ops.length
     let uploadErrors = 0
     let uploadSkipped = 0
@@ -58,7 +65,7 @@ export class OplogBlobService {
       try {
         switch (op.type) {
           case 'download': {
-            if (await this.blobExistsLocally(op.checksum, manifest)) {
+            if (await this.blobExistsLocally(op.checksum)) {
               result.downloaded++
               return
             }
@@ -149,13 +156,17 @@ export class OplogBlobService {
     return files
   }
 
+  // Descarga en streaming: con `arraybuffer` el archivo entero pasaba por memoria
+  // (dos veces, contando la copia a Buffer) antes de escribirse a disco.
   private async downloadBlob(drive: drive_v3.Drive, fileId: string, destPath: string): Promise<void> {
     const resp = await drive.files.get(
       { fileId, alt: 'media' },
-      { responseType: 'arraybuffer' }
+      { responseType: 'stream' }
     )
     await fs.ensureDir(path.dirname(destPath))
-    await fs.writeFile(destPath, Buffer.from(resp.data as ArrayBuffer))
+    const tmpPath = `${destPath}.part`
+    await pipeline(resp.data as unknown as Readable, fs.createWriteStream(tmpPath))
+    await fs.move(tmpPath, destPath, { overwrite: true })
   }
 
   private async downloadBlobWithTimeout(
@@ -179,23 +190,22 @@ export class OplogBlobService {
   }
 
   private async uploadBlob(drive: drive_v3.Drive, folderId: string, remoteName: string, localPath: string): Promise<void> {
-    const fileBuffer = await fs.readFile(localPath)
     await drive.files.create({
       requestBody: { name: remoteName, parents: [folderId] },
-      media: { mimeType: 'application/octet-stream', body: Readable.from(fileBuffer) },
+      media: { mimeType: 'application/octet-stream', body: createReadStream(localPath) },
       fields: 'id',
     })
   }
 
-  private async blobExistsLocally(checksum: string, manifest: MediaManifest): Promise<boolean> {
-    const entry = manifest.entries.find(e => e.checksum === checksum)
+  private async blobExistsLocally(checksum: string): Promise<boolean> {
+    await this.getManifest()
+    const entry = this.manifestIndex!.get(checksum)
     if (!entry) return false
 
     const filePath = path.join(getMediaDir(), entry.path)
     const exists = await fs.pathExists(filePath)
     if (!exists) {
-      manifest.entries = manifest.entries.filter(e => e.checksum !== checksum)
-      await fs.writeJson(getLocalMediaManifestPath(), manifest, { spaces: 2 })
+      await this.removeFromManifest(checksum)
     }
     return exists
   }
@@ -209,31 +219,42 @@ export class OplogBlobService {
     }
   }
 
+  /**
+   * Una sola escritura por ciclo: antes cada alta/baja de blob reescribía el manifest
+   * completo (con `spaces: 2`), lo que con cientos de blobs era O(n²) en disco.
+   */
   private async saveManifest(): Promise<void> {
-    /* la persistencia del manifest se maneja inline en addToManifest/removeFromManifest */
+    if (!this.manifestDirty || !this.currentManifest) return
+    await fs.writeJson(getLocalMediaManifestPath(), this.currentManifest)
+    this.manifestDirty = false
   }
 
   private currentManifest: MediaManifest | null = null
+  private manifestIndex: Map<string, MediaManifestEntry> | null = null
+  private manifestDirty = false
 
   private async getManifest(): Promise<MediaManifest> {
     if (!this.currentManifest) {
       this.currentManifest = await this.readLocalManifest()
+      this.manifestIndex = new Map(this.currentManifest.entries.map((e) => [e.checksum, e]))
     }
     return this.currentManifest
   }
 
   private async addToManifest(checksum: string, filePath: string): Promise<void> {
     const manifest = await this.getManifest()
-    if (!manifest.entries.some(e => e.checksum === checksum)) {
-      manifest.entries.push({ checksum, path: filePath, size: 0, mtime: Date.now() })
-    }
-    await fs.writeJson(getLocalMediaManifestPath(), manifest, { spaces: 2 })
+    if (this.manifestIndex!.has(checksum)) return
+    const entry: MediaManifestEntry = { checksum, path: filePath, size: 0, mtime: Date.now() }
+    manifest.entries.push(entry)
+    this.manifestIndex!.set(checksum, entry)
+    this.manifestDirty = true
   }
 
   private async removeFromManifest(checksum: string): Promise<void> {
     const manifest = await this.getManifest()
-    manifest.entries = manifest.entries.filter(e => e.checksum !== checksum)
-    await fs.writeJson(getLocalMediaManifestPath(), manifest, { spaces: 2 })
+    if (!this.manifestIndex!.delete(checksum)) return
+    manifest.entries = manifest.entries.filter((e) => e.checksum !== checksum)
+    this.manifestDirty = true
   }
 
   private async deleteLocalFile(filePath: string): Promise<void> {
@@ -249,9 +270,34 @@ export class OplogBlobService {
     } catch { /* source may not exist */ }
   }
 
+  /**
+   * Hashea por streaming en vez de cargar el archivo entero en memoria: un vídeo de
+   * varios cientos de MB bloqueaba el proceso principal durante segundos (y disparaba
+   * el GC). El resultado se cachea por tamaño + mtime, así que un archivo que no cambió
+   * no se vuelve a leer en los ciclos siguientes.
+   */
   async computeChecksum(filePath: string): Promise<string> {
-    const buffer = await fs.readFile(filePath)
-    return 'sha256-' + createHash('sha256').update(buffer).digest('hex')
+    let cacheKey: string | null = null
+    try {
+      const stat = await fs.stat(filePath)
+      cacheKey = `${filePath}:${stat.size}:${stat.mtimeMs}`
+      const cached = this.checksumCache.get(cacheKey)
+      if (cached) return cached
+    } catch {
+      // Sin stat seguimos: solo perdemos la cache
+    }
+
+    const hash = createHash('sha256')
+    await pipeline(createReadStream(filePath, { highWaterMark: CHECKSUM_CHUNK_SIZE }), hash)
+    const checksum = 'sha256-' + hash.digest('hex')
+
+    if (cacheKey) {
+      if (this.checksumCache.size >= CHECKSUM_CACHE_MAX) {
+        this.checksumCache.clear()
+      }
+      this.checksumCache.set(cacheKey, checksum)
+    }
+    return checksum
   }
 
   async garbageCollectBlobs(activeChecksums: Set<string>): Promise<number> {

@@ -48,9 +48,27 @@ export async function Fetcher({ apiUrl, port, path, body, token }: FetcherParams
   } catch (e) {
     const error = e as Error
     console.error(`Error in Fetcher for ${path}:`, error)
-    const parsedError = isStringJSON(error.message) ? JSON.parse(error.message) : error
-    throw parsedError
+    throw normalizeError(error)
   }
+}
+
+/**
+ * El API responde los errores como `{ error: string }`, por lo que `error.message`
+ * llega siendo el JSON crudo. Devolvemos siempre un `Error` con el mensaje legible
+ * y el payload original accesible en `error.payload`.
+ */
+function normalizeError(error: Error): Error {
+  if (!isStringJSON(error.message)) return error
+
+  const payload = JSON.parse(error.message)
+  const message =
+    typeof payload === 'string'
+      ? payload
+      : (payload?.error ?? payload?.message ?? error.message)
+
+  const normalized = new Error(typeof message === 'string' ? message : error.message)
+  ;(normalized as Error & { payload?: unknown }).payload = payload
+  return normalized
 }
 
 function isStringJSON(str: string | null) {

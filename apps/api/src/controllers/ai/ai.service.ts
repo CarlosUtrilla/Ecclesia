@@ -97,17 +97,36 @@ export default class AIService {
   async extractFromDocx(docxPath: string): Promise<ExtractedContent> {
     const text = await this.extractTextFromDocx(docxPath)
     if (!text.trim()) {
-      throw new Error('No se pudo extraer texto del DOCX. El archivo podría estar vacío.')
+      throw new Error('No se pudo extraer texto del documento. El archivo podría estar vacío.')
     }
     return this.extractFromText(text)
   }
 
   private async extractTextFromDocx(docxPath: string): Promise<string> {
-    const mammoth = await import('mammoth')
     const fs = await import('fs')
     const buffer = await fs.promises.readFile(docxPath)
+
+    // Word 97-2003 (.doc) usa el formato binario OLE, que mammoth no soporta.
+    if (docxPath.toLowerCase().endsWith('.doc')) {
+      return this.extractTextFromLegacyDoc(buffer)
+    }
+
+    const mammoth = await import('mammoth')
     const result = await mammoth.extractRawText({ buffer })
     return result.value
+  }
+
+  private async extractTextFromLegacyDoc(buffer: Buffer): Promise<string> {
+    const { default: WordExtractor } = await import('word-extractor')
+    try {
+      const doc = await new WordExtractor().extract(buffer)
+      return doc.getBody()
+    } catch (err: any) {
+      this.log('extractTextFromLegacyDoc failed', err?.message)
+      throw new Error(
+        'No se pudo leer el archivo .doc. Guardalo como .docx desde Word y volvé a intentarlo.'
+      )
+    }
   }
 
   private async extractTextFromPdf(pdfPath: string): Promise<string> {
@@ -169,7 +188,7 @@ export default class AIService {
     if (!response.ok) {
       const error = await response.text()
       this.log('OpenAI error:', error)
-      throw new Error(`Error de OpenAI: ${response.status}`)
+      throw new Error(this.formatProviderError('OpenAI', response.status, error))
     }
 
     const data = await response.json()
@@ -206,7 +225,7 @@ export default class AIService {
     if (!response.ok) {
       const error = await response.text()
       this.log('Anthropic error:', error)
-      throw new Error(`Error de Anthropic: ${response.status}`)
+      throw new Error(this.formatProviderError('Anthropic', response.status, error))
     }
 
     const data = await response.json()
@@ -238,7 +257,7 @@ export default class AIService {
     if (!response.ok) {
       const error = await response.text()
       this.log('Gemini error:', error)
-      throw new Error(`Error de Gemini: ${response.status}`)
+      throw new Error(this.formatProviderError('Gemini', response.status, error))
     }
 
     const data = await response.json()
@@ -249,6 +268,31 @@ export default class AIService {
     }
 
     return this.parseAIResponse(content)
+  }
+
+  /**
+   * Los tres proveedores devuelven el detalle en `{ error: { message } }`, así que
+   * lo extraemos para poder mostrarlo en la UI en lugar de sólo el código HTTP.
+   */
+  private formatProviderError(provider: string, status: number, rawBody: string): string {
+    let detail = ''
+    try {
+      const parsed = JSON.parse(rawBody)
+      detail = parsed?.error?.message || parsed?.error?.status || parsed?.message || ''
+    } catch {
+      detail = rawBody.trim().slice(0, 300)
+    }
+
+    const hint =
+      status === 401 || status === 403
+        ? ' Revisá tu API key en Ajustes.'
+        : status === 429
+          ? ' Superaste el límite de peticiones, esperá un momento.'
+          : status === 503
+            ? ' El modelo está sobrecargado, volvé a intentarlo en unos minutos.'
+            : ''
+
+    return `Error de ${provider} (${status})${detail ? `: ${detail}` : ''}${hint}`
   }
 
   private parseAIResponse(raw: string): ExtractedContent {

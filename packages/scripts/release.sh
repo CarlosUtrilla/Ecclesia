@@ -21,6 +21,7 @@ echo ""
 echo -e "  Modo de release:"
 echo -e "    ${CYAN}1${RESET}) github (push de main + tag v*, dispara GitHub Actions)"
 echo -e "    ${CYAN}2${RESET}) local  (build local mac/win, sin push ni tag remoto)"
+echo -e "    ${CYAN}3${RESET}) tag    (solo push del tag v*, sin push de main; dispara GitHub Actions)"
 echo ""
 read -p "  Elige modo [1]: " RELEASE_MODE_CHOICE
 RELEASE_MODE_CHOICE=${RELEASE_MODE_CHOICE:-1}
@@ -28,6 +29,7 @@ RELEASE_MODE_CHOICE=${RELEASE_MODE_CHOICE:-1}
 case $RELEASE_MODE_CHOICE in
   1) RELEASE_MODE="github" ;;
   2) RELEASE_MODE="local" ;;
+  3) RELEASE_MODE="tag" ;;
   *)
     echo -e "${RED}✗ Modo inválido.${RESET}"
     exit 1
@@ -387,6 +389,25 @@ if [ "$RELEASE_MODE" = "github" ]; then
   echo -e "  Revisa el progreso en:"
   echo -e "  https://github.com/CarlosUtrilla/Ecclesia/actions"
   echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+  exit 0
+fi
+
+if [ "$RELEASE_MODE" = "tag" ]; then
+  echo -e "  Pusheando solo el tag ${CYAN}$TAG${RESET} (main se queda local)..."
+  git push origin "$TAG"
+
+  echo ""
+  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "  ✓ Tag $TAG publicado"
+  echo -e "  GitHub Actions está buildeando Mac y Windows."
+  echo -e "  Revisa el progreso en:"
+  echo -e "  https://github.com/CarlosUtrilla/Ecclesia/actions"
+  echo ""
+  echo -e "${YELLOW}  main NO se pusheó: el commit de versión solo existe local"
+  echo -e "  (y en el remoto colgando del tag). Cuando quieras subirlo:${RESET}"
+  echo -e "  ${CYAN}git push origin main${RESET}"
+  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
   echo ""
   exit 0
 fi

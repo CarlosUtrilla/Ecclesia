@@ -147,7 +147,45 @@ SongItem/MediaCard/VerseItem (useDraggable, data: { type, accessData })
   -> Nuevo ScheduleItem con UUID generado
 ```
 
-Deteccion: un drag externo tiene `data.accessData` pero NO `data.item`.
+Deteccion: un drag externo tiene `data.accessData` pero NO `data.item` (helper compartido
+`isExternalDragData` en `contexts/ScheduleContext/utils/scheduleCollision.ts`).
+
+### Deteccion de colisiones
+
+`DndContext` usa `scheduleCollisionDetection` (`contexts/ScheduleContext/utils/scheduleCollision.ts`)
+en lugar de `pointerWithin` a secas:
+
+1. Zona bajo el puntero, priorizando el tipo que corresponde al drag
+   (`insertion-zone` para drags de biblioteca, `item` para reordenar). Evita que el
+   contenedor `schedule-drop-area` gane y el item termine al final de la lista.
+2. Si el puntero esta dentro del cronograma pero en un hueco (margenes, separadores),
+   se elige la zona mas cercana al puntero.
+3. Si no, lo que devuelva `pointerWithin` (cronograma vacio, carpetas de la biblioteca).
+
+Ademas:
+
+- `measuring={{ droppable: { strategy: Always, frequency: 100 } }}`: los droppables se
+  habilitan/deshabilitan durante el drag y la lista puede scrollear, asi que hay que
+  re-medirlos mientras se arrastra (por defecto dnd-kit mide una sola vez al empezar).
+- Los indicadores "Soltar para insertar aqui" viven en `insertionIndicator.tsx`: hueco de
+  altura fija con el indicador en `absolute`. El espacio real lo abren los items
+  siguientes desplazandose con `transform: translate3d(0, INSERTION_GAP, 0)`, no con
+  layout: dnd-kit mide los droppables con `ignoreTransform: true`, asi que el hueco se ve
+  pero las zonas de deteccion no se mueven (si se cambia el layout, los rects cacheados
+  dejan de coincidir con lo que ve el usuario y el drop deja de detectarse).
+- El hueco se mantiene abierto entre el drop y el commit de react-hook-form
+  (`utils/pendingInsertion.tsx`): `form.setValue` no entra en el mismo commit que el
+  `DragEnd` de dnd-kit, asi que sin eso los items subian 44px y volvian a bajar. Se libera
+  en el mismo render en que cambia el largo de la lista.
+- `useSortable` va con `animateLayoutChanges: () => false`: por defecto devuelve `true`
+  tras un drag (`wasDragging` es true incluso para drags externos) y animaba los items
+  siguientes desde su posicion anterior al insertarse uno nuevo, sumandose al hueco.
+- `DragOverlay` usa un `dropAnimation` propio: para drags de biblioteca el preview se
+  desvanece donde se solto (la animacion por defecto lo devolvia al origen, como si el
+  drop se hubiera rechazado); para el reordenamiento interno se mantiene la de dnd-kit.
+- La copia del item que se renderiza dentro del `DragOverlay` recibe `isPreview` para no
+  registrar droppables con los ids del item real (dnd-kit indexa por id y el registro del
+  overlay sobreescribia al del item, que dejaba de detectarse).
 
 ## Convenciones
 

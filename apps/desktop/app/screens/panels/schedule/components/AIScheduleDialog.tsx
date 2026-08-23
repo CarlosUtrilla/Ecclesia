@@ -69,6 +69,17 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
 
   const isConfigured = aiConfig?.hasKey === true
 
+  const resolveErrorMessage = (err: unknown, fallback: string) => {
+    if (err instanceof Error && err.message) return err.message
+    if (typeof err === 'string' && err) return err
+    if (err && typeof err === 'object') {
+      const { error, message } = err as { error?: unknown; message?: unknown }
+      if (typeof error === 'string' && error) return error
+      if (typeof message === 'string' && message) return message
+    }
+    return fallback
+  }
+
   const handleExtractFromText = async () => {
     if (!inputText.trim()) {
       setError('Por favor, ingresa el texto del sermón o bosquejo.')
@@ -82,8 +93,10 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
     try {
       const extracted = await Api.fetch.ai.extractFromText({ body: { text: inputText } })
       setResult(extracted)
-    } catch (err: any) {
-      setError(err.message || 'Error al extraer referencias. Verifica tu configuración de IA.')
+    } catch (err) {
+      setError(
+        resolveErrorMessage(err, 'Error al extraer referencias. Verifica tu configuración de IA.')
+      )
     } finally {
       setIsProcessing(false)
     }
@@ -102,8 +115,8 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
     try {
       const extracted = await Api.fetch.ai.extractFromPdf({ body: { pdfPath } })
       setResult(extracted)
-    } catch (err: any) {
-      setError(err.message || 'Error al procesar el PDF. Verifica tu configuración de IA.')
+    } catch (err) {
+      setError(resolveErrorMessage(err, 'Error al procesar el PDF. Verifica tu configuración de IA.'))
     } finally {
       setIsProcessing(false)
     }
@@ -135,7 +148,7 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
 
   const handleExtractFromDocx = async () => {
     if (!docxPath) {
-      setError('Por favor, selecciona un archivo DOCX.')
+      setError('Por favor, selecciona un archivo Word (.docx o .doc).')
       return
     }
 
@@ -146,8 +159,10 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
     try {
       const extracted = await Api.fetch.ai.extractFromDocx({ body: { docxPath } })
       setResult(extracted)
-    } catch (err: any) {
-      setError(err.message || 'Error al procesar el DOCX. Verifica tu configuración de IA.')
+    } catch (err) {
+      setError(
+        resolveErrorMessage(err, 'Error al procesar el documento. Verifica tu configuración de IA.')
+      )
     } finally {
       setIsProcessing(false)
     }
@@ -291,7 +306,7 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
             </TabsTrigger>
             <TabsTrigger value="docx" className="flex items-center gap-2" disabled={!isConfigured}>
               <File className="h-4 w-4" />
-              DOCX
+              Word
             </TabsTrigger>
           </TabsList>
 
@@ -364,7 +379,7 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
                 className="flex-1"
               >
                 <File className="h-4 w-4 mr-2" />
-                {docxPath ? 'Cambiar DOCX' : 'Seleccionar DOCX'}
+                {docxPath ? 'Cambiar documento' : 'Seleccionar Word (.docx, .doc)'}
               </Button>
               {docxPath && (
                 <Button
@@ -385,7 +400,7 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
             <input
               ref={docxInputRef}
               type="file"
-              accept=".docx"
+              accept=".docx,.doc"
               className="hidden"
               onChange={handleDocxChange}
             />
@@ -394,15 +409,15 @@ export default function AIScheduleDialog({ open, onOpenChange }: AIScheduleDialo
               disabled={isProcessing || !docxPath || !isConfigured}
               className="w-full"
             >
-              {isProcessing ? 'Procesando DOCX...' : 'Extraer del DOCX'}
+              {isProcessing ? 'Procesando documento...' : 'Extraer del documento'}
             </Button>
           </TabsContent>
         </Tabs>
 
         {error && (
-          <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
+          <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+            <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span className="whitespace-pre-wrap break-words">{error}</span>
           </div>
         )}
 

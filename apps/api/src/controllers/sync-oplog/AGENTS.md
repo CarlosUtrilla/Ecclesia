@@ -37,7 +37,7 @@ completa a disco (`save()` + `writeOplogBinary()`) es O(total_eventos) y crecía
 la respuesta de cada guardado ("micro-sincronizaciones").
 
 **Diseño actual:** `appendEvent()` ya **no** hace `await persistLocal()`. En su lugar llama a
-`schedulePersist()`, que coalesce la escritura a disco con un debounce de `PERSIST_DEBOUNCE_MS` (400ms)
+`schedulePersist()`, que coalesce la escritura a disco con un debounce de `PERSIST_DEBOUNCE_MS` (1500ms)
 vía `drainPersist()` (un único flush en vuelo que re-verifica `persistDirty`). Esto es seguro porque
 `push()`/`syncCycle()` serializan desde el doc **en memoria** (`save(this.localDoc)`), no desde el
 archivo `oplog.bin` — el binario en disco solo sirve para recuperación tras reinicio.
@@ -49,9 +49,12 @@ archivo `oplog.bin` — el binario en disco solo sirve para recuperación tras r
 
 ## Logging en producción
 
-El logger `oplog-logger.ts` escribe logs a **dos destinos simultáneamente**:
-1. Archivo: `%TEMP%/ecclesia-oplog-sync.log` (Windows) o `/tmp/ecclesia-oplog-sync.log` (macOS/Linux)
-2. `process.stderr` (visible en logs de Electron)
+El logger `oplog-logger.ts` escribe a:
+1. Archivo: `%TEMP%/ecclesia-oplog-sync.log` (Windows) o `/tmp/ecclesia-oplog-sync.log` (macOS/Linux),
+   **en batch**: las líneas se acumulan en memoria y se vuelcan con `fs.promises.appendFile` cada
+   segundo o cada 200 líneas (`flushOplogLogSync()` + `process.on('exit')` cierran el buffer). Nunca
+   usar `appendFileSync` aquí: se llama desde bucles y desde cada escritura de Prisma.
+2. `process.stderr`, **solo para `warn`/`error`** (visible en logs de Electron).
 
 Esto asegura que los logs **no sean eliminados por terser** (que usa `drop_console: true` y `pure_funcs: ['console.log', 'console.info']`).
 
@@ -68,14 +71,17 @@ Todos los archivos del módulo oplog usan este logger además de `electron-log` 
 |---------|-----------|
 | `apps/api/src/middleware/oplog.ts` | Prisma middleware que intercepta mutaciones y llama `appendEvent()` |
 | `apps/api/src/services/oplog-scheduler.service.ts` | Scheduler: ciclo startup, periodic 5min, event-driven en cambios |
+| `apps/api/src/services/oplog-schedule-policy.ts` | `evaluateCycle()` + constantes de frecuencia/diferido (módulo puro) |
+| `apps/api/src/services/live-activity.service.ts` | Estado de "en vivo" derivado del relay de Socket.IO, para no sincronizar mientras se proyecta |
 
 ## Flujo de sync
 
 1. **Prisma middleware** intercepta cada `create`/`update`/`upsert`/`delete` → llama `oplogService.appendEvent()`
 2. `oplog.replay.service.ts` envuelve sus escrituras en `runWithoutOplogTracking()` para evitar duplicar eventos
 3. `appendEvent()` → registra evento en Automerge CRDT, persiste localmente, dispara `onAppendEventCallback`
-4. **Scheduler** recibe callback → espera 30s de debounce → ejecuta `syncCycle()`
-5. Adicionalmente, **timer cada 5 min** ejecuta `syncCycle()` (pull + push + blob sync + GC)
+4. **Scheduler** recibe callback → espera 60s de debounce → consulta `evaluateCycle()` → ejecuta `syncCycle()`
+5. Adicionalmente, **timer cada 5 min** ejecuta `syncCycle()` (pull + push + blob sync + GC), sujeto a
+   la misma política (intervalo mínimo de 2 min y diferido mientras se proyecta)
 6. En startup, ejecuta ciclo completo inmediato
 
 ## Gotcha: settings (`Setting`) no pasan por el middleware
@@ -95,8 +101,57 @@ sincronizaban**. Solución:
 `oplog-scheduler.service.ts`:
 - `startOplogScheduler()`: inicia ciclo startup, timer 5min, escucha `onAppendEventCallback`
 - Lee config desde `oplogStateService` o desde sync legacy
-- Notifica progreso via Socket.IO `syncProgress`
+- Notifica progreso via Socket.IO `syncProgress` (throttled, ver abajo)
 - Ignora ciclos si ya hay uno en curso (`isSyncing` flag)
+- Consulta `oplog-schedule-policy.ts` (`evaluateCycle`) antes de cada ciclo
+
+`oplog-schedule-policy.ts` (modulo puro, testeable sin Prisma ni Automerge):
+- `MIN_SYNC_INTERVAL_MS` (2 min): suelo entre ciclos automaticos
+- `PENDING_SYNC_DEBOUNCE_MS` (60 s): ventana para coalescer el disparo por escrituras
+- `LIVE_RETRY_MS` / `MAX_LIVE_DEFER_MS`: reintento y tope del diferido por estar en vivo
+- `startup` y `manual` no se posponen nunca
+
+## Rendimiento: por que el sync no debe pesar (equipos lentos / en vivo)
+
+El sync corre **dentro del proceso principal de Electron**, asi que todo lo que bloquee su
+event loop se ve como tirones en la UI y en la proyeccion. Reglas que hay que mantener:
+
+- **No `readFile` de archivos de medios.** `computeChecksum()` hashea por streaming
+  (`createReadStream` + `pipeline` a `createHash`) y cachea por `path:size:mtime`. Antes
+  cargaba el archivo entero en memoria y lo hasheaba de una sola pasada: con un video de
+  cientos de MB eran segundos de CPU bloqueada por archivo y por ciclo.
+- **Uploads/downloads de blobs en streaming.** `uploadBlob` usa `createReadStream` y
+  `downloadBlob` usa `responseType: 'stream'` a un `.part` que luego se mueve. Con
+  `arraybuffer` el archivo pasaba dos veces por memoria.
+- **El logger no escribe en caliente.** `oplog-logger.ts` acumula en memoria y vuelca con
+  `fs.promises.appendFile` cada segundo (o cada 200 lineas), con `JSON.stringify` compacto
+  y truncado, y solo manda a `stderr` warn/error. Antes cada llamada hacia un
+  `appendFileSync` (open+write+close) y hay ~237 puntos de log, algunos en bucles por
+  evento/por blob y uno por cada escritura de Prisma.
+- **El manifest de blobs se escribe una vez por ciclo.** `addToManifest`/`removeFromManifest`
+  marcan `manifestDirty` y `saveManifest()` (al final de `processBlobOps`) hace la unica
+  escritura; los lookups van por `manifestIndex` (Map por checksum). Antes cada alta/baja
+  reescribia el JSON completo con `spaces: 2` → O(n²) en disco.
+- **Mantenimiento espaciado.** `garbageCollectBlobs()` (lista todo el folder de Drive) y la
+  limpieza de thumbnails huerfanos (readdir + stat por archivo) corren como maximo cada
+  `BLOB_GC_INTERVAL_MS` (30 min). La migracion del manifest legacy corre una vez por
+  arranque.
+- **Regeneracion de thumbnails con tope.** `MAX_REGEN_PER_CYCLE` (5) reparte el backlog
+  entre ciclos: sharp/ffmpeg son lo mas caro del ciclo.
+- **Invalidacion de queries acotada.** Al final de `syncBlobs()` solo se invalida si hubo
+  descargas/GC/regeneracion, y solo las keys de blobs (`BLOB_INVALIDATE_KEYS`). Antes se
+  invalidaban las keys de **todas** las entidades en cada ciclo, provocando un refetch
+  general en el renderer aunque no hubiera cambiado nada.
+- **Progreso throttled.** `notifyProgress` en el scheduler limita a ~3 emisiones/segundo
+  (dejando pasar inicio, fin y errores): `processBlobOps` reporta por cada blob y cada
+  emit es un broadcast que re-renderiza a todos los clientes.
+- **No sincronizar mientras se proyecta.** `services/live-activity.service.ts` deduce el
+  estado de vivo de los eventos que ya se reenvian por Socket.IO (`liveStateUpdate`,
+  comandos `live*`, `obsTextUpdate`; el hook esta en el relay de `apps/api/src/index.ts`).
+  `isLiveBusy()` es true mientras haya item en vivo / pantalla encendida o hubo actividad
+  hace menos de `LIVE_GRACE_MS` (60 s). El scheduler posterga los ciclos automaticos
+  mientras eso sea true, con tope de `MAX_LIVE_DEFER_MS` (30 min) para no dejar de
+  sincronizar en un culto largo.
 
 ## Bug: `i is not defined` en backfillChecksums()
 

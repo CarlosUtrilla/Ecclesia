@@ -4,17 +4,34 @@ import { oplogService } from '../controllers/sync-oplog/oplog.service'
 import { oplogLogInfo, oplogLogWarn, oplogLogError } from '../controllers/sync-oplog/oplog-logger'
 import type { SyncProgress } from '../controllers/sync-oplog/oplog.types'
 import type { SyncCycleResult } from '../controllers/sync-oplog/oplog.types'
+import { isLiveBusy } from './live-activity.service'
+import {
+  evaluateCycle,
+  PENDING_SYNC_DEBOUNCE_MS,
+  SYNC_INTERVAL_MS,
+} from './oplog-schedule-policy'
 
 let isRunning = false
 let syncTimer: ReturnType<typeof setInterval> | null = null
 let pendingSyncTimer: ReturnType<typeof setTimeout> | null = null
 let isSyncing = false
 let lastSyncAt = 0
+let deferredSince = 0
 
-const SYNC_INTERVAL_MS = 5 * 60 * 1000
-const PENDING_SYNC_DEBOUNCE_MS = 30_000
+let lastProgressEmitAt = 0
+/**
+ * `processBlobOps` reporta progreso por cada blob y los escaneos cada 200-500 eventos:
+ * cada emit es un broadcast que hace re-renderizar a todos los clientes. Se limita a
+ * unos pocos por segundo, dejando pasar siempre el inicio/fin y los errores.
+ */
+const PROGRESS_THROTTLE_MS = 300
 
 function notifyProgress(progress: number, message?: string, error?: boolean) {
+  const now = Date.now()
+  const terminal = error === true || progress <= 0 || progress >= 100
+  if (!terminal && now - lastProgressEmitAt < PROGRESS_THROTTLE_MS) return
+  lastProgressEmitAt = now
+
   try {
     getSocket().emit.syncProgress({ progress, message: message || '', error })
   } catch {
@@ -40,11 +57,24 @@ async function ensureOplogInit(): Promise<boolean> {
 }
 
 async function runSyncCycle(reason: string): Promise<SyncCycleResult | null> {
-  oplogLogInfo(`[Scheduler] runSyncCycle called with reason: ${reason}`)
   if (isSyncing) {
     oplogLogInfo('[Scheduler] Already syncing, skipping')
     return null
   }
+
+  const now = Date.now()
+  const decision = evaluateCycle(reason, now, { lastSyncAt, deferredSince, liveBusy: isLiveBusy(now) })
+  if (!decision.run) {
+    if (decision.deferred && deferredSince === 0) deferredSince = now
+    oplogLogInfo(
+      `[Scheduler] Ciclo (${reason}) postergado por ${decision.motive}; reintento en ${Math.round(decision.retryIn / 1000)}s`,
+    )
+    scheduleRetry(decision.retryIn)
+    return null
+  }
+  deferredSince = 0
+
+  oplogLogInfo(`[Scheduler] runSyncCycle called with reason: ${reason}`)
   isSyncing = true
 
   try {
@@ -92,12 +122,19 @@ async function runSyncCycle(reason: string): Promise<SyncCycleResult | null> {
   }
 }
 
-function schedulePendingSync(): void {
+function schedulePendingSync(delayMs: number = PENDING_SYNC_DEBOUNCE_MS): void {
   if (pendingSyncTimer) clearTimeout(pendingSyncTimer)
   pendingSyncTimer = setTimeout(async () => {
     pendingSyncTimer = null
     await runSyncCycle('pending')
-  }, PENDING_SYNC_DEBOUNCE_MS)
+  }, delayMs)
+  pendingSyncTimer.unref?.()
+}
+
+/** Reprograma el ciclo pospuesto sin adelantar uno que ya estuviera más próximo. */
+function scheduleRetry(delayMs: number): void {
+  if (pendingSyncTimer) return
+  schedulePendingSync(Math.max(delayMs, 1_000))
 }
 
 export function startOplogScheduler(): void {
@@ -120,8 +157,8 @@ export function startOplogScheduler(): void {
 
   // Event-driven: schedule sync when local events are written
   oplogLogInfo('[Scheduler] Setting onAppendEventCallback')
+  // Sin log aquí: se llama en cada escritura de Prisma
   oplogService.setOnAppendEventCallback(() => {
-    oplogLogInfo('[Scheduler] onAppendEventCallback triggered, scheduling pending sync')
     schedulePendingSync()
   })
   oplogLogInfo('[Scheduler] Scheduler started')
