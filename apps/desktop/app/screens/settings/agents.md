@@ -16,7 +16,7 @@ Actualmente incluye:
 - El control de conexión es un único botón contextual (`Conectar Google` / `Desconectar`) según estado de sesión.
 - El botón principal de acción en el footer es `Sincronizar ahora`: persiste ajustes actuales y ejecuta `pushNow` inmediato cuando hay conexión activa.
 - **Logo / Pantalla de fondo**: permite seleccionar un recurso multimedia (imagen o video) de la biblioteca como fondo permanente en las pantallas en vivo, más un color de respaldo. Persistido en la DB via `window.api.setttings` usando los keys `LOGO_FALLBACK_MEDIA_ID`, `LOGO_FALLBACK_COLOR` y `LOGO_FALLBACK_VIDEO_LOOP` (controla si el video de fondo se reproduce en bucle; solo visible cuando el recurso seleccionado es VIDEO, por defecto `true`).
-- **Asistente IA**: configuración de proveedor de IA (OpenAI/Anthropic), API key y modelo. Permite probar la conexión.
+- **Asistente IA**: configuración de proveedor de IA (OpenAI/Anthropic/Gemini/OpenRouter/OpenCode Go), API key y modelo. La lista de modelos se fetchea en vivo desde el proveedor (`ai.getAvailableModels`, React Query `['ai-models', provider]`, staleTime 5min) y se selecciona con un Combobox con búsqueda. OpenRouter puede listar modelos sin API key (catálogo público). En OpenCode Go (`opencode.ai/zen/go/v1`) se filtran los modelos Responses API (gpt-/claude-/gemini-/grok-N/muse-spark) porque solo se soporta chat/completions. Si el modelo guardado no existe en la lista del proveedor, se auto-selecciona el primero y se persiste. Permite probar la conexión.
 ## Archivos
 
 ```text
@@ -28,7 +28,7 @@ app/screens/settings/
 │   ├── syncSettingsSection.tsx     # Lógica/UI del menú Sincronización
 │   ├── logoFallbackSection.tsx     # Lógica/UI del menú Logo / Pantalla de fondo
 │   ├── remoteControl.tsx          # Control remoto LAN: descubre y conecta otras instancias
-│   ├── aiSettingsSection.tsx      # Configuración de proveedor IA (OpenAI/Anthropic)
+│   ├── aiSettingsSection.tsx      # Configuración de proveedor IA (OpenAI/Anthropic/Gemini/OpenRouter) + fetch de modelos
 │   └── aboutSection.tsx           # Versión de la app, icono y estado de actualizaciones
 └── agents.md
 ```

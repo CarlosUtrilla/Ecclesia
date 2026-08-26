@@ -2,17 +2,22 @@ import { getPrisma } from '../../prisma'
 import { Prisma } from '@prisma/client'
 import {
   AIProvider,
-  AIProviderConfig,
   ExtractedContent,
   AI_PROVIDER_DEFAULTS,
+  AI_PROVIDER_LABELS,
   EXTRACTION_SYSTEM_PROMPT
 } from './ai.types'
+import { buildModelsRequest, parseModelsResponse } from './ai.models'
 import * as pdfjsLib from 'pdfjs-dist'
 
 type SettingRow = {
   key: string
   value: string
 }
+
+// Presupuesto de salida para extracción de referencias. Los modelos de razonamiento
+// (GLM/Kimi/DeepSeek) consumen miles de tokens pensando antes de emitir el JSON.
+const MAX_OUTPUT_TOKENS = 8192
 
 export default class AIService {
   private log(...args: any[]) {
@@ -158,17 +163,72 @@ export default class AIService {
         return this.callAnthropic(apiKey, model, userText)
       case 'gemini':
         return this.callGemini(apiKey, model, userText)
+      case 'openrouter':
+        // OpenRouter es API-compatible con OpenAI (chat/completions)
+        return this.callOpenAI(
+          apiKey,
+          model,
+          userText,
+          AI_PROVIDER_DEFAULTS.openrouter.baseUrl,
+          AI_PROVIDER_LABELS.openrouter
+        )
+      case 'opencodego':
+        // OpenCode Zen Go expone chat/completions para sus modelos open-source
+        return this.callOpenAI(
+          apiKey,
+          model,
+          userText,
+          AI_PROVIDER_DEFAULTS.opencodego.baseUrl,
+          AI_PROVIDER_LABELS.opencodego
+        )
       default:
         throw new Error(`Proveedor no soportado: ${provider}`)
     }
   }
 
+  /**
+   * Lista los modelos disponibles directamente desde el proveedor usando la API key guardada.
+   * OpenRouter permite listar sin key (catálogo público); el resto la exige.
+   */
+  async getAvailableModels(provider: AIProvider): Promise<{ provider: AIProvider; models: string[] }> {
+    if (!AI_PROVIDER_DEFAULTS[provider]) {
+      throw new Error(`Proveedor no soportado: ${provider}`)
+    }
+
+    const apiKey = await this.getRawSetting('ai.apiKey')
+    if (!apiKey && provider !== 'openrouter') {
+      throw new Error('No hay API key configurada. Configurala en Ajustes para listar modelos.')
+    }
+
+    const { url, headers } = buildModelsRequest(provider, apiKey)
+    const response = await fetch(url, { headers })
+
+    if (!response.ok) {
+      const error = await response.text()
+      this.log('List models error:', provider, error)
+      throw new Error(
+        this.formatProviderError(AI_PROVIDER_LABELS[provider], response.status, error)
+      )
+    }
+
+    const payload = await response.json()
+    const models = parseModelsResponse(provider, payload)
+
+    if (models.length === 0) {
+      throw new Error(`No se pudieron obtener modelos de ${AI_PROVIDER_LABELS[provider]}`)
+    }
+
+    return { provider, models }
+  }
+
   private async callOpenAI(
     apiKey: string,
     model: string,
-    userText: string
+    userText: string,
+    baseUrl: string = AI_PROVIDER_DEFAULTS.openai.baseUrl,
+    providerLabel: string = AI_PROVIDER_LABELS.openai
   ): Promise<ExtractedContent> {
-    const response = await fetch(`${AI_PROVIDER_DEFAULTS.openai.baseUrl}/chat/completions`, {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -181,21 +241,34 @@ export default class AIService {
           { role: 'user', content: userText }
         ],
         temperature: 0.1,
+        // Sin límite explícito, OpenRouter asume el máximo del modelo (16k+) y
+        // rechaza con 402 cuando el saldo de créditos no alcanza. Los modelos de
+        // razonamiento (GLM/Kimi/DeepSeek) gastan miles de tokens pensando antes
+        // de responder, así que un límite chico deja `content` vacío.
+        max_tokens: MAX_OUTPUT_TOKENS,
         response_format: { type: 'json_object' }
       })
     })
 
     if (!response.ok) {
       const error = await response.text()
-      this.log('OpenAI error:', error)
-      throw new Error(this.formatProviderError('OpenAI', response.status, error))
+      this.log(providerLabel, 'error:', error)
+      throw new Error(this.formatProviderError(providerLabel, response.status, error))
     }
 
     const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
+    const choice = data.choices?.[0]
+    const content = choice?.message?.content
 
     if (!content) {
-      throw new Error('Respuesta vacía de OpenAI')
+      this.log(providerLabel, 'respuesta sin content:', JSON.stringify(choice)?.slice(0, 500))
+      if (choice?.finish_reason === 'length') {
+        throw new Error(
+          `${providerLabel} agotó los tokens sin devolver respuesta (modelo de razonamiento). ` +
+            'Probá con un modelo más liviano.'
+        )
+      }
+      throw new Error(`Respuesta vacía de ${providerLabel}`)
     }
 
     return this.parseAIResponse(content)
@@ -215,7 +288,7 @@ export default class AIService {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 2048,
+        max_tokens: MAX_OUTPUT_TOKENS,
         system: EXTRACTION_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userText }],
         temperature: 0.1
@@ -286,11 +359,13 @@ export default class AIService {
     const hint =
       status === 401 || status === 403
         ? ' Revisá tu API key en Ajustes.'
-        : status === 429
-          ? ' Superaste el límite de peticiones, esperá un momento.'
-          : status === 503
-            ? ' El modelo está sobrecargado, volvé a intentarlo en unos minutos.'
-            : ''
+        : status === 402
+          ? ' Tu cuenta no tiene créditos suficientes para este modelo. Recargá créditos o elegí un modelo más barato.'
+          : status === 429
+            ? ' Superaste el límite de peticiones, esperá un momento.'
+            : status === 503
+              ? ' El modelo está sobrecargado, volvé a intentarlo en unos minutos.'
+              : ''
 
     return `Error de ${provider} (${status})${detail ? `: ${detail}` : ''}${hint}`
   }

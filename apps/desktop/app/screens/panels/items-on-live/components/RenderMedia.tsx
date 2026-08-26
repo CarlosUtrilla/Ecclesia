@@ -5,6 +5,7 @@ import { useMediaServer } from '@/contexts/MediaServerContext'
 import { useQuery } from '@tanstack/react-query'
 import { Api } from '@ecclesia/queries'
 import VideoLiveControls from './VideoLiveControls'
+import { isDocumentMediaType } from '../liveRenderTarget'
 
 export const RenderMedia = () => {
   const { itemOnLive, media } = useSchedule()
@@ -156,6 +157,21 @@ export const RenderMedia = () => {
           onPause={handlePause}
           onRestart={handleRestart}
         />
+      </div>
+    )
+  }
+
+  // Un PDF/PPTX se controla con el render de presentaciones (ver `liveRenderTarget.ts`).
+  // Si llega aquí es que no tiene presentación vinculada: import incompleto o borrada.
+  if (isDocumentMediaType(mediaItem.type)) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-1 p-4 text-center text-muted-foreground">
+        <span className="text-sm font-medium">
+          Este {mediaItem.type} no tiene diapositivas disponibles.
+        </span>
+        <span className="text-xs">
+          Vuelve a importarlo desde la biblioteca de medios para regenerarlas.
+        </span>
       </div>
     )
   }

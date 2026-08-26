@@ -1,14 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Label } from '@/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select'
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger
+} from '@/ui/combobox'
 import { Sparkles, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Api } from '@ecclesia/queries'
 import { Alert, AlertDescription } from '@/ui/alert'
 
-type AIProvider = 'openai' | 'anthropic' | 'gemini'
+type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'opencodego'
 
 type AIProviderConfig = {
   provider: AIProvider
@@ -19,7 +30,9 @@ type AIProviderConfig = {
 const PROVIDER_LABELS: Record<AIProvider, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
-  gemini: 'Google Gemini'
+  gemini: 'Google Gemini',
+  openrouter: 'OpenRouter',
+  opencodego: 'OpenCode Go'
 }
 
 const PROVIDER_DOCS: Record<AIProvider, { label: string; url: string }> = {
@@ -34,38 +47,67 @@ const PROVIDER_DOCS: Record<AIProvider, { label: string; url: string }> = {
   gemini: {
     label: 'aistudio.google.com/apikey',
     url: 'https://aistudio.google.com/apikey'
+  },
+  openrouter: {
+    label: 'openrouter.ai/settings/keys',
+    url: 'https://openrouter.ai/settings/keys'
+  },
+  opencodego: {
+    label: 'opencode.ai/auth (OpenCode Zen)',
+    url: 'https://opencode.ai/auth'
   }
 }
 
-const MODEL_OPTIONS: Record<AIProvider, { value: string; label: string }[]> = {
-  openai: [
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (bajo costo)' },
-    { value: 'gpt-4o', label: 'GPT-4o (mayor precisión)' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
-  ],
-  anthropic: [
-    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' }
-  ],
-  gemini: [
-    { value: 'gemini-flash-latest', label: 'Gemini Flash — gratuito' },
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash — gratuito' },
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro — requiere facturación' }
-  ]
+function formatModelLabel(id: string): string {
+  const name = id.split('/').pop() ?? id
+  return name
+    .split(/[-_]/g)
+    .filter(Boolean)
+    .map((part) => {
+      if (/^(gpt|ai|llm|ocr)$/i.test(part)) return part.toUpperCase()
+      if (/^\d/.test(part) || /^[a-z]\d/i.test(part)) return part
+      return part.charAt(0).toUpperCase() + part.slice(1)
+    })
+    .join(' ')
 }
 
 export default function AISettingsSection() {
   const [config, setConfig] = useState<AIProviderConfig | null>(null)
   const [apiKey, setApiKey] = useState('')
   const [selectedProvider, setSelectedProvider] = useState<AIProvider>('gemini')
-  const [selectedModel, setSelectedModel] = useState('gemini-flash-latest')
+  const [selectedModel, setSelectedModel] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const modelsQuery = useQuery({
+    queryKey: ['ai-models', selectedProvider],
+    queryFn: () => Api.fetch.ai.getAvailableModels({ body: { provider: selectedProvider } }),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    enabled: !!config && (config.hasKey || selectedProvider === 'openrouter')
+  })
+
+  const modelOptions = useMemo(
+    () =>
+      (modelsQuery.data?.models ?? []).map((id) => ({ value: id, label: formatModelLabel(id) })),
+    [modelsQuery.data]
+  )
+
   useEffect(() => {
     loadConfig()
   }, [])
+
+  // Cuando llega la lista del proveedor, si el modelo guardado no existe en ella
+  // se selecciona el primero y se persiste (cubre cambios de proveedor).
+  useEffect(() => {
+    const models = modelsQuery.data?.models
+    if (!models?.length || models.includes(selectedModel)) return
+    setSelectedModel(models[0])
+    Api.fetch.ai
+      .saveProviderConfig({ body: { provider: selectedProvider, model: models[0] } })
+      .catch((error) => console.error('Error saving model:', error))
+  }, [modelsQuery.data, selectedModel, selectedProvider])
 
   const loadConfig = async () => {
     try {
@@ -80,12 +122,8 @@ export default function AISettingsSection() {
 
   const handleProviderChange = async (newProvider: AIProvider) => {
     setSelectedProvider(newProvider)
-    const firstModel = MODEL_OPTIONS[newProvider][0].value
-    setSelectedModel(firstModel)
     try {
-      await Api.fetch.ai.saveProviderConfig({
-        body: { provider: newProvider, model: firstModel }
-      })
+      await Api.fetch.ai.saveProviderConfig({ body: { provider: newProvider } })
       await loadConfig()
     } catch (error) {
       console.error('Error saving provider:', error)
@@ -93,6 +131,7 @@ export default function AISettingsSection() {
   }
 
   const handleModelChange = async (newModel: string) => {
+    if (!newModel) return
     setSelectedModel(newModel)
     try {
       await Api.fetch.ai.saveProviderConfig({
@@ -113,12 +152,13 @@ export default function AISettingsSection() {
         body: {
           provider: selectedProvider,
           apiKey: apiKey || undefined,
-          model: selectedModel
+          model: selectedModel || undefined
         }
       })
       setMessage({ type: 'success', text: 'Configuración guardada correctamente' })
       setApiKey('')
       await loadConfig()
+      modelsQuery.refetch()
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'Error al guardar' })
     } finally {
@@ -168,6 +208,8 @@ export default function AISettingsSection() {
               <SelectItem value="gemini">Google Gemini — gratuito</SelectItem>
               <SelectItem value="openai">OpenAI</SelectItem>
               <SelectItem value="anthropic">Anthropic</SelectItem>
+              <SelectItem value="openrouter">OpenRouter — multi-proveedor</SelectItem>
+              <SelectItem value="opencodego">OpenCode Go — suscripción</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -197,19 +239,53 @@ export default function AISettingsSection() {
         </div>
 
         <div className="space-y-2">
-          <Label>Modelo</Label>
-          <Select value={selectedModel} onValueChange={handleModelChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MODEL_OPTIONS[selectedProvider].map((model) => (
-                <SelectItem key={model.value} value={model.value}>
-                  {model.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center justify-between">
+            <Label>Modelo</Label>
+            {modelsQuery.isFetching && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Cargando modelos de {PROVIDER_LABELS[selectedProvider]}...
+              </span>
+            )}
+          </div>
+          {modelOptions.length > 0 ? (
+            <Combobox
+              type="modelo"
+              data={modelOptions}
+              value={selectedModel}
+              onValueChange={handleModelChange}
+            >
+              <ComboboxTrigger className="w-full" />
+              <ComboboxContent>
+                <ComboboxInput placeholder={`Buscar modelo de ${PROVIDER_LABELS[selectedProvider]}...`} />
+                <ComboboxEmpty>No se encontraron modelos</ComboboxEmpty>
+                <ComboboxList>
+                  <ComboboxGroup>
+                    {modelOptions.map((model) => (
+                      <ComboboxItem key={model.value} value={model.value}>
+                        {model.label}
+                      </ComboboxItem>
+                    ))}
+                  </ComboboxGroup>
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          ) : (
+            <Input value={selectedModel} disabled placeholder="Sin modelos disponibles" />
+          )}
+          {modelsQuery.isError && (
+            <p className="flex items-center gap-1 text-xs text-destructive">
+              <AlertCircle className="h-3 w-3 flex-shrink-0" />
+              No se pudieron cargar los modelos. Verificá tu API key y{' '}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => modelsQuery.refetch()}
+              >
+                reintentá
+              </button>
+            </p>
+          )}
         </div>
 
         {message && (

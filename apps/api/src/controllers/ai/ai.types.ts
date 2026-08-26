@@ -1,4 +1,4 @@
-export type AIProvider = 'openai' | 'anthropic' | 'gemini'
+export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'opencodego'
 
 export type AIProviderConfig = {
   provider: AIProvider
@@ -32,7 +32,23 @@ export const AI_PROVIDER_DEFAULTS: Record<AIProvider, { model: string; baseUrl: 
   gemini: {
     model: 'gemini-flash-latest',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta'
+  },
+  openrouter: {
+    model: 'openai/gpt-4o-mini',
+    baseUrl: 'https://openrouter.ai/api/v1'
+  },
+  opencodego: {
+    model: 'glm-5.2',
+    baseUrl: 'https://opencode.ai/zen/go/v1'
   }
+}
+
+export const AI_PROVIDER_LABELS: Record<AIProvider, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  gemini: 'Gemini',
+  openrouter: 'OpenRouter',
+  opencodego: 'OpenCode Go'
 }
 
 export const EXTRACTION_SYSTEM_PROMPT = `Sos un asistente especializado en textos bíblicos cristianos.

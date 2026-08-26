@@ -98,6 +98,9 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
         if (med?.type === 'PDF') {
           return <FileText className="h-4 w-4" />
         }
+        if (med?.type === 'PPTX') {
+          return <FileSliders className="h-4 w-4" />
+        }
         return <Video className="h-4 w-4" />
       }
       case 'BIBLE':
@@ -313,7 +316,7 @@ export const useIndexDataItems = (currentSchedule: ScheduleSchemaType) => {
             const content = (pres.slides ?? []).map((slide: any) =>
               presentationSlideToViewItem(slide, mediaById, themeById)
             )
-            return { title: mediaItem.name, content }
+            return { title: mediaItem.name, content, renderAs: 'presentation' }
           }
         }
 

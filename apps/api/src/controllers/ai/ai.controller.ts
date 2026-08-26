@@ -2,9 +2,13 @@ import { RequestHandler } from '../../utils/RequestHandler'
 import AIService from './ai.service'
 
 export type SaveProviderConfigDTO = {
-  provider: 'openai' | 'anthropic' | 'gemini'
+  provider: 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'opencodego'
   apiKey?: string
   model?: string
+}
+
+export type GetAvailableModelsDTO = {
+  provider: SaveProviderConfigDTO['provider']
 }
 
 export type ExtractFromTextDTO = {
@@ -24,6 +28,10 @@ export default class AiController {
 
   async getProviderConfig() {
     return await this.aiService.getProviderConfig()
+  }
+
+  async getAvailableModels({ body }: RequestHandler<GetAvailableModelsDTO>) {
+    return await this.aiService.getAvailableModels(body.provider)
   }
 
   async saveProviderConfig({ body }: RequestHandler<SaveProviderConfigDTO>) {

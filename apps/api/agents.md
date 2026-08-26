@@ -102,8 +102,9 @@ src/
 │   │   └── oplog-logger.ts
 │   ├── ai/
 │   │   ├── ai.types.ts           # Configuración de proveedores, tipos de respuesta
-│   │   ├── ai.service.ts         # Lógica multi-proveedor (OpenAI/Anthropic)
-│   │   ├── ai.controller.ts      # Métodos IPC: extractFromText, extractFromPdf
+│   │   ├── ai.models.ts          # Helpers puros para listar modelos por proveedor (buildModelsRequest, parseModelsResponse, filtro Responses API de Zen)
+│   │   ├── ai.service.ts         # Lógica multi-proveedor (OpenAI/Anthropic/Gemini/OpenRouter/OpenCode Go) + getAvailableModels
+│   │   ├── ai.controller.ts      # Métodos IPC: getProviderConfig, getAvailableModels, extractFromText, extractFromPdf
 │   │   └── ai.dto.d.ts           # DTOs de entrada/salida
 │   └── selectedScreens/
 │       ├── index.ts
@@ -144,7 +145,7 @@ Definidos en `routes.ts`:
 | `fonts` | FontsController | `addFont`, `getAllFonts`, `uploadFont` (multipart HTTP), `deleteFont`, `getSystemFonts` (vía `font-list`) |
 | `stageScreenConfig` | StageScreenConfigController | `getAllStageScreenConfigs`, `getStageScreenConfigById`, `getStageScreenConfigBySelectedScreenId`, `upsertStageScreenConfig`, `updateStageScreenTheme`, `updateStageScreenLayout`, `updateStageScreenState`, `deleteStageScreenConfigBySelectedScreenId` |
 | `oplog` | OplogController | **Sync:** `pull`, `push`, `syncCycle`, `purge`, `getSyncStatus`, `configure`, `connect`, `disconnect`, `getAuthUrl`, `exchangeOAuthCode` · **Oplog:** `getStatus`, `bootstrap`, `getEvents`, `getPending`, `getPendingOps`, `compact`, `migrate`, `clear`, `reset`, `deleteOplogFile` |
-| `ai` | AiController | `getProviderConfig`, `saveProviderConfig`, `extractFromText`, `extractFromPdf` |
+| `ai` | AiController | `getProviderConfig`, `getAvailableModels`, `saveProviderConfig`, `extractFromText`, `extractFromPdf` |
 
 **Nota:** El namespace `setttings` tiene un typo historico (3 t's). No cambiar sin actualizar todos los puntos de referencia.
 

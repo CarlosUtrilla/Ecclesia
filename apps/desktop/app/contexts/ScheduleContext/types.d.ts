@@ -77,4 +77,10 @@ type IScheduleContext = {
 export type ContentScreen = {
   title: string
   content: PresentationViewItems[]
+  /**
+   * `presentation` cuando el contenido son diapositivas aunque el item no sea de tipo
+   * PRESENTATION (medios PDF/PPTX, que redirigen a su presentación vinculada). Permite
+   * elegir el render sin depender de tener el Media en cache.
+   */
+  renderAs?: 'presentation'
 }

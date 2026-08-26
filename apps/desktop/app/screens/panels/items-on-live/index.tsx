@@ -13,6 +13,7 @@ import { useLive } from '../../../contexts/ScheduleContext/utils/liveContext'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { resolveSlideVerse } from '@/lib/presentationVerseController'
 import RenderPresentationLiveController from './components/RenderPresentationLiveController/index'
+import { isPresentationLikeMedia } from './liveRenderTarget'
 
 const LIVE_VIEW_MODE_KEY = 'items-on-live-view-mode'
 
@@ -58,6 +59,11 @@ export default function LivePanel() {
     if (!itemOnLive) return
     refetch()
   }, [songs, media, presentations, itemOnLive, refetch])
+
+  const showsSlides = useMemo(
+    () => isPresentationLikeMedia(itemOnLive, data, media),
+    [itemOnLive, data, media]
+  )
 
   const slideCount = useMemo(() => {
     if (!Array.isArray(data?.content)) return 0
@@ -130,8 +136,7 @@ export default function LivePanel() {
       case 'BIBLE':
         return <RenderBibleLiveControls data={content} />
       case 'MEDIA': {
-        const pdfMedia = media.find((m) => m.id === Number(itemOnLive!.accessData))
-        if (pdfMedia?.type === 'PDF' || pdfMedia?.type === 'PPTX') {
+        if (showsSlides) {
           return <RenderPresentationLiveController data={content} />
         }
         return <RenderMedia />
@@ -162,7 +167,9 @@ export default function LivePanel() {
                     : itemOnLive.type === 'BIBLE'
                       ? 'Biblia'
                       : itemOnLive.type === 'MEDIA'
-                        ? 'Multimedia'
+                        ? showsSlides
+                          ? 'Presentación'
+                          : 'Multimedia'
                         : itemOnLive.type === 'PRESENTATION'
                           ? 'Presentación'
                           : itemOnLive.type === 'TIMER'

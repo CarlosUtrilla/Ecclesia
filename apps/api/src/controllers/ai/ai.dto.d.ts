@@ -1,7 +1,16 @@
 export type SaveProviderConfigDTO = {
-  provider: 'openai' | 'anthropic' | 'gemini'
+  provider: 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'opencodego'
   apiKey?: string
   model?: string
+}
+
+export type GetAvailableModelsDTO = {
+  provider: SaveProviderConfigDTO['provider']
+}
+
+export type AvailableModelsDTO = {
+  provider: SaveProviderConfigDTO['provider']
+  models: string[]
 }
 
 export type ExtractFromTextDTO = {

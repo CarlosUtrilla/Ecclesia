@@ -29,6 +29,27 @@ Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
 - Los controles visuales se componen con `VideoLiveControls.tsx` para mantener consistencia de UI (volumen, progreso, play/pause, reinicio y autorewind opcional).
 - `RenderMedia` usa un fallback de `useQuery` (`Api.query.media.getMediaByIds`) cuando el media no se encuentra en el array `media` del contexto (`useSchedule`). Esto resuelve el caso de envío directo a live desde la biblioteca (doble-click), donde el media no pertenece al cronograma y no está en el cache del contexto.
 
+## Soporte de PDF/PPTX en items-on-live (documentos como diapositivas)
+
+Un Media `PDF`/`PPTX` no se proyecta como archivo: al importarse se crea una `Presentation`
+vinculada (`Media.presentationId`) y al enviarlo a live `getScheduleItemContentScreen`
+devuelve las diapositivas de esa presentación (`renderAs: 'presentation'` en el
+`ContentScreen`). Por eso el panel lo controla con `RenderPresentationLiveController`, no
+con `RenderMedia`.
+
+- La decisión vive en `liveRenderTarget.ts` (`isPresentationLikeMedia`). **No** se puede
+  decidir solo con `media.find(...)` del `ScheduleContext`: ese array solo trae los medios
+  de los items del cronograma actual, así que un PPTX enviado a live directo desde la
+  biblioteca (doble-click) no está ahí y terminaba cayendo en `RenderMedia` →
+  "Tipo de medio no soportado" (panel sin vista). El orden es: marca `renderAs` del
+  contenido primero, tipo del Media en cache como respaldo.
+- El encabezado del panel muestra "Presentación" (no "Multimedia") para estos medios.
+- Si un `PDF`/`PPTX` llega a `RenderMedia` es que no tiene presentación vinculada (import
+  incompleto o presentación borrada): se muestra un mensaje explicando que no hay
+  diapositivas, en vez del genérico "Tipo de medio no soportado".
+- La navegación con flechas y la grilla funcionan igual que en `PRESENTATION`, porque el
+  contenido ya son diapositivas.
+
 ## Soporte de PRESENTATION en items-on-live
 
 - `index.tsx` usa un render especializado para `PRESENTATION`: `RenderPresentationLiveController`.
