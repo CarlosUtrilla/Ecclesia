@@ -25,6 +25,8 @@ type AIProviderConfig = {
   provider: AIProvider
   model: string
   hasKey: boolean
+  /** Cada proveedor guarda su propia API key; esto indica cuales ya estan configurados. */
+  hasKeyByProvider?: Partial<Record<AIProvider, boolean>>
 }
 
 const PROVIDER_LABELS: Record<AIProvider, string> = {
@@ -80,12 +82,18 @@ export default function AISettingsSection() {
   const [isTesting, setIsTesting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // La key es por proveedor: al cambiar el select hay que mirar la del proveedor
+  // elegido, no la del que venia guardado como activo.
+  const hasKeyForSelected = config?.hasKeyByProvider
+    ? !!config.hasKeyByProvider[selectedProvider]
+    : config?.provider === selectedProvider && !!config.hasKey
+
   const modelsQuery = useQuery({
     queryKey: ['ai-models', selectedProvider],
     queryFn: () => Api.fetch.ai.getAvailableModels({ body: { provider: selectedProvider } }),
     staleTime: 5 * 60 * 1000,
     retry: 1,
-    enabled: !!config && (config.hasKey || selectedProvider === 'openrouter')
+    enabled: !!config && (hasKeyForSelected || selectedProvider === 'openrouter')
   })
 
   const modelOptions = useMemo(
@@ -102,6 +110,7 @@ export default function AISettingsSection() {
   // se selecciona el primero y se persiste (cubre cambios de proveedor).
   useEffect(() => {
     const models = modelsQuery.data?.models
+    if (modelsQuery.data?.provider !== selectedProvider) return
     if (!models?.length || models.includes(selectedModel)) return
     setSelectedModel(models[0])
     Api.fetch.ai
@@ -121,7 +130,12 @@ export default function AISettingsSection() {
   }
 
   const handleProviderChange = async (newProvider: AIProvider) => {
+    if (newProvider === selectedProvider) return
     setSelectedProvider(newProvider)
+    // La key tipeada pertenece al proveedor anterior: se descarta para no guardarla en el nuevo.
+    setApiKey('')
+    setMessage(null)
+    setSelectedModel('')
     try {
       await Api.fetch.ai.saveProviderConfig({ body: { provider: newProvider } })
       await loadConfig()
@@ -218,12 +232,18 @@ export default function AISettingsSection() {
           <Label>API Key</Label>
           <Input
             type="password"
-            placeholder={config?.hasKey ? '••••••••... (ya configurada)' : 'Ingresa tu API key'}
+            placeholder={
+              hasKeyForSelected
+                ? `••••••••... (ya configurada para ${PROVIDER_LABELS[selectedProvider]})`
+                : `Ingresa tu API key de ${PROVIDER_LABELS[selectedProvider]}`
+            }
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            {config?.hasKey && 'Deja vacío para mantener la key actual'}
+            {hasKeyForSelected
+              ? 'Deja vacío para mantener la key actual. Cada proveedor guarda su propia key.'
+              : 'Cada proveedor guarda su propia key: la de otro proveedor no se reutiliza.'}
           </p>
           <Alert
             onClick={() => window.windowAPI.openExternal(PROVIDER_DOCS[selectedProvider].url)}
@@ -310,7 +330,7 @@ export default function AISettingsSection() {
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Guardar
           </Button>
-          <Button variant="outline" onClick={handleTest} disabled={isTesting || !config?.hasKey}>
+          <Button variant="outline" onClick={handleTest} disabled={isTesting || !hasKeyForSelected}>
             {isTesting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Probar conexión
           </Button>

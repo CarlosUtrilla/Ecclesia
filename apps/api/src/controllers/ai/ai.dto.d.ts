@@ -28,7 +28,10 @@ export type ExtractFromDocxDTO = {
 export type AIProviderConfigDTO = {
   provider: string
   model: string
+  /** Si el proveedor seleccionado tiene API key guardada. */
   hasKey: boolean
+  /** API keys guardadas por proveedor (cada proveedor tiene la suya). */
+  hasKeyByProvider: Record<SaveProviderConfigDTO['provider'], boolean>
 }
 
 export type BibleReferenceDTO = {

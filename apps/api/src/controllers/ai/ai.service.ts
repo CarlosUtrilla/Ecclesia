@@ -8,6 +8,15 @@ import {
   EXTRACTION_SYSTEM_PROMPT
 } from './ai.types'
 import { buildModelsRequest, parseModelsResponse } from './ai.models'
+import {
+  AI_PROVIDER_SETTING,
+  API_KEY_SETTING_PREFIX,
+  LEGACY_API_KEY_SETTING,
+  LEGACY_MODEL_SETTING,
+  apiKeySettingKey,
+  modelSettingKey,
+  providerFromApiKeySetting
+} from './ai.settings'
 import * as pdfjsLib from 'pdfjs-dist'
 
 type SettingRow = {
@@ -20,6 +29,9 @@ type SettingRow = {
 const MAX_OUTPUT_TOKENS = 8192
 
 export default class AIService {
+  /** La migracion legacy corre una sola vez por instancia del servicio. */
+  private legacyMigrated = false
+
   private log(...args: any[]) {
     if (typeof process !== 'undefined' && process.versions?.electron) {
       try {
@@ -49,40 +61,134 @@ export default class AIService {
     )
   }
 
-  async getProviderConfig(): Promise<{ provider: AIProvider; model: string; hasKey: boolean }> {
-    const provider = ((await this.getRawSetting('ai.provider')) as AIProvider) || 'gemini'
+  private async deleteRawSetting(key: string): Promise<void> {
+    const prisma = getPrisma()
+    await prisma.$executeRaw(Prisma.sql`DELETE FROM Setting WHERE key = ${key}`)
+  }
+
+  private async getRawSettingsByPrefix(prefix: string): Promise<SettingRow[]> {
+    const prisma = getPrisma()
+    return await prisma.$queryRaw<SettingRow[]>(
+      Prisma.sql`SELECT key, value FROM Setting WHERE key LIKE ${`${prefix}%`}`
+    )
+  }
+
+  /**
+   * Copia la API key y el modelo globales (esquema viejo) a las claves del
+   * proveedor que estaba activo cuando se guardaron, y borra las globales.
+   * Sin esto, al cambiar de proveedor se seguia usando la key del anterior.
+   */
+  private async migrateLegacyProviderSettings(): Promise<void> {
+    if (this.legacyMigrated) return
+
+    const legacyApiKey = await this.getRawSetting(LEGACY_API_KEY_SETTING)
+    const legacyModel = await this.getRawSetting(LEGACY_MODEL_SETTING)
+
+    if (legacyApiKey || legacyModel) {
+      const owner = ((await this.getRawSetting(AI_PROVIDER_SETTING)) as AIProvider) || 'gemini'
+
+      if (legacyApiKey && !(await this.getRawSetting(apiKeySettingKey(owner)))) {
+        await this.saveRawSetting(apiKeySettingKey(owner), legacyApiKey)
+      }
+      if (legacyModel && !(await this.getRawSetting(modelSettingKey(owner)))) {
+        await this.saveRawSetting(modelSettingKey(owner), legacyModel)
+      }
+
+      await this.deleteRawSetting(LEGACY_API_KEY_SETTING)
+      await this.deleteRawSetting(LEGACY_MODEL_SETTING)
+      this.log('Migradas credenciales IA legacy al proveedor', owner)
+    }
+
+    this.legacyMigrated = true
+  }
+
+  /** API key guardada para un proveedor puntual (nunca la de otro proveedor). */
+  private async getApiKeyFor(provider: AIProvider): Promise<string | null> {
+    await this.migrateLegacyProviderSettings()
+    const apiKey = await this.getRawSetting(apiKeySettingKey(provider))
+    return apiKey?.trim() ? apiKey : null
+  }
+
+  /** Mapa `{ [provider]: tieneKey }` para que la UI sepa que proveedores ya estan configurados. */
+  private async getHasKeyByProvider(): Promise<Record<AIProvider, boolean>> {
+    const rows = await this.getRawSettingsByPrefix(API_KEY_SETTING_PREFIX)
+
+    const hasKeyByProvider = Object.keys(AI_PROVIDER_DEFAULTS).reduce(
+      (acc, provider) => {
+        acc[provider as AIProvider] = false
+        return acc
+      },
+      {} as Record<AIProvider, boolean>
+    )
+
+    for (const row of rows) {
+      const provider = providerFromApiKeySetting(row.key)
+      if (provider && provider in hasKeyByProvider && row.value?.trim()) {
+        hasKeyByProvider[provider] = true
+      }
+    }
+
+    return hasKeyByProvider
+  }
+
+  async getProviderConfig(): Promise<{
+    provider: AIProvider
+    model: string
+    hasKey: boolean
+    hasKeyByProvider: Record<AIProvider, boolean>
+  }> {
+    await this.migrateLegacyProviderSettings()
+
+    const stored = (await this.getRawSetting(AI_PROVIDER_SETTING)) as AIProvider | null
+    const provider = stored && AI_PROVIDER_DEFAULTS[stored] ? stored : 'gemini'
     const model =
-      (await this.getRawSetting('ai.model')) || AI_PROVIDER_DEFAULTS[provider].model
-    const apiKey = await this.getRawSetting('ai.apiKey')
+      (await this.getRawSetting(modelSettingKey(provider))) || AI_PROVIDER_DEFAULTS[provider].model
+    const hasKeyByProvider = await this.getHasKeyByProvider()
 
     return {
       provider,
       model,
-      hasKey: !!apiKey
+      hasKey: hasKeyByProvider[provider],
+      hasKeyByProvider
     }
   }
 
+  /**
+   * La API key y el modelo se guardan por proveedor, de modo que cambiar de
+   * proveedor no arrastra la credencial del anterior y volver a uno ya
+   * configurado recupera su key y su modelo.
+   */
   async saveProviderConfig(config: {
     provider: AIProvider
     apiKey?: string
     model?: string
   }): Promise<void> {
-    await this.saveRawSetting('ai.provider', config.provider)
+    await this.migrateLegacyProviderSettings()
+    await this.saveRawSetting(AI_PROVIDER_SETTING, config.provider)
+
     if (config.apiKey !== undefined) {
-      await this.saveRawSetting('ai.apiKey', config.apiKey)
+      const apiKey = config.apiKey.trim()
+      if (apiKey) {
+        await this.saveRawSetting(apiKeySettingKey(config.provider), apiKey)
+      } else {
+        await this.deleteRawSetting(apiKeySettingKey(config.provider))
+      }
     }
+
     if (config.model !== undefined) {
-      await this.saveRawSetting('ai.model', config.model)
+      await this.saveRawSetting(modelSettingKey(config.provider), config.model)
     }
   }
 
   async extractFromText(text: string): Promise<ExtractedContent> {
     const config = await this.getProviderConfig()
-    if (!config.hasKey) {
-      throw new Error('No hay API key configurada para IA. Configuralo en Ajustes.')
+    const apiKey = await this.getApiKeyFor(config.provider)
+    if (!apiKey) {
+      throw new Error(
+        `No hay API key configurada para ${AI_PROVIDER_LABELS[config.provider]}. Configurala en Ajustes.`
+      )
     }
 
-    const apiKey = (await this.getRawSetting('ai.apiKey'))!
     const model = config.model
 
     this.log('Extrayendo referencias con', config.provider, '/', model)
@@ -195,9 +301,11 @@ export default class AIService {
       throw new Error(`Proveedor no soportado: ${provider}`)
     }
 
-    const apiKey = await this.getRawSetting('ai.apiKey')
+    const apiKey = await this.getApiKeyFor(provider)
     if (!apiKey && provider !== 'openrouter') {
-      throw new Error('No hay API key configurada. Configurala en Ajustes para listar modelos.')
+      throw new Error(
+        `No hay API key configurada para ${AI_PROVIDER_LABELS[provider]}. Configurala en Ajustes para listar modelos.`
+      )
     }
 
     const { url, headers } = buildModelsRequest(provider, apiKey)

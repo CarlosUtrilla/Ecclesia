@@ -103,7 +103,8 @@ src/
 │   ├── ai/
 │   │   ├── ai.types.ts           # Configuración de proveedores, tipos de respuesta
 │   │   ├── ai.models.ts          # Helpers puros para listar modelos por proveedor (buildModelsRequest, parseModelsResponse, filtro Responses API de Zen)
-│   │   ├── ai.service.ts         # Lógica multi-proveedor (OpenAI/Anthropic/Gemini/OpenRouter/OpenCode Go) + getAvailableModels
+│   │   ├── ai.settings.ts        # Claves de Setting por proveedor (ai.apiKey.<provider>, ai.model.<provider>) + claves legacy
+│   │   ├── ai.service.ts         # Lógica multi-proveedor (OpenAI/Anthropic/Gemini/OpenRouter/OpenCode Go) + getAvailableModels. API key y modelo por proveedor, con migración one-shot de las claves globales legacy (`ai.apiKey`/`ai.model`) al proveedor que estaba activo
 │   │   ├── ai.controller.ts      # Métodos IPC: getProviderConfig, getAvailableModels, extractFromText, extractFromPdf
 │   │   └── ai.dto.d.ts           # DTOs de entrada/salida
 │   └── selectedScreens/
