@@ -1,6 +1,12 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useApiConfiguration, Api, onSocketChange } from '@ecclesia/queries'
+import {
+  useApiConfiguration,
+  Api,
+  onSocketChange,
+  DEFAULT_API_URL,
+  DEFAULT_API_PORT
+} from '@ecclesia/queries'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 
 export default function RemoteConnectionListener() {
@@ -43,7 +49,7 @@ export default function RemoteConnectionListener() {
         setMediaServerHost(new URL(state.url).hostname)
         window.remoteControlAPI.invalidateAllWindows()
       } else {
-        await setApiConfiguration(queryClient, 'http://localhost', 7777)
+        await setApiConfiguration(queryClient, DEFAULT_API_URL, DEFAULT_API_PORT)
         setMediaServerHost('127.0.0.1')
         window.remoteControlAPI.invalidateAllWindows()
       }

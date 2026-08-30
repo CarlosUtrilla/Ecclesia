@@ -30,6 +30,7 @@ import { initializeDisplayManager } from './displayManager'
 import { initializeUpdaterManager } from './updaterManager/updaterManager'
 import { initializeBibleSearchManager } from './bibleSearchManager'
 import { initializeRemoteManager } from './remoteManager'
+import { initializeNdiManager } from './ndiManager'
 
 declare const __GOOGLE_CLIENT_ID__: string
 declare const __GOOGLE_CLIENT_SECRET__: string
@@ -198,6 +199,10 @@ app.whenReady().then(async () => {
   crashLog()
   // Inicializar manager de busqueda de biblia
   initializeBibleSearchManager()
+
+  crashLog()
+  // Inicializar manager de salida de video NDI
+  await initializeNdiManager()
 
   onIpc('open-song-window', (songId?: number) => createSongWindow(songId))
   onIpc('open-theme-window', (themeId?: number) => createThemeWindow(themeId))

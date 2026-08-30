@@ -18,7 +18,8 @@ export default defineConfig({
       'app/**/*.test.{ts,tsx}',
       'electron/**/*.test.{ts,tsx}',
       'tests/**/*.test.{ts,tsx}',
-      '../../apps/api/src/**/*.test.{ts,tsx}'
+      '../../apps/api/src/**/*.test.{ts,tsx}',
+      '../../packages/queries/src/**/*.test.{ts,tsx}'
     ],
     coverage: {
       provider: 'v8',

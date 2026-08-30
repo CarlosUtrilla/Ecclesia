@@ -14,6 +14,7 @@ import { liveMediaAPI } from '../main/liveMediaController/liveMediaAPI'
 import { updaterAPI } from '../main/updaterManager/updaterAPI'
 import { remoteControlAPI } from '../main/remoteAPI'
 import { bibleSearchAPI } from '../main/bibleSearchAPI'
+import { ndiAPI } from '../main/ndiManager/ndiAPI'
 import log from 'electron-log'
 
 // Silenciar el transporte de consola de `electron-log` en el renderer para
@@ -55,7 +56,8 @@ export const HandleManagers = {
   liveMediaAPI,
   updaterAPI,
   remoteControlAPI,
-  bibleSearchAPI
+  bibleSearchAPI,
+  ndiAPI
 }
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -83,4 +85,6 @@ if (process.contextIsolated) {
   window.remoteControlAPI = remoteControlAPI
   // @ts-ignore (define in dts)
   window.bibleSearchAPI = bibleSearchAPI
+  // @ts-ignore (define in dts)
+  window.ndiAPI = ndiAPI
 }

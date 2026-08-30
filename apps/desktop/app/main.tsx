@@ -80,7 +80,35 @@ async function preloadCurrentRoute(): Promise<void> {
 // - preloadCurrentRoute() carga el chunk en la caché ESM mientras React ya monta
 // - Suspense muestra el Spinner inmediatamente en vez de ventana oscura vacía
 // - React.lazy() comparte la misma Promise del import() → resuelve en cuanto el chunk está listo
-initializeApi(queryClient).then(() => {
+// Aviso en el DOM (sin React, que aun no esta montado) cuando el backend local
+// tarda en responder. Sin esto la ventana se queda negra y parece que la app
+// no arranca; pasa sobre todo sin conexion de red, cuando algun paso previo del
+// proceso principal tarda mas de lo normal.
+const BOOTSTRAP_NOTICE_DELAY_MS = 2500
+let bootstrapNoticeTimer: number | undefined = window.setTimeout(() => {
+  const root = document.getElementById('root')
+  if (!root || root.childElementCount > 0) return
+  root.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:center;height:100vh;' +
+    'font-family:system-ui,sans-serif;font-size:14px;opacity:.7;text-align:center;padding:24px">' +
+    'Conectando con el servidor local...</div>'
+}, BOOTSTRAP_NOTICE_DELAY_MS)
+
+const clearBootstrapNotice = () => {
+  if (bootstrapNoticeTimer !== undefined) {
+    clearTimeout(bootstrapNoticeTimer)
+    bootstrapNoticeTimer = undefined
+  }
+  const root = document.getElementById('root')
+  if (root) root.innerHTML = ''
+}
+
+initializeApi(queryClient, undefined, undefined, {
+  onRetry: (attempt, error) => {
+    console.warn(`[bootstrap] El backend local no responde (intento ${attempt}):`, error)
+  }
+}).then(() => {
+  clearBootstrapNotice()
   preloadCurrentRoute()
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

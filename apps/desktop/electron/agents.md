@@ -25,6 +25,12 @@ electron/
 │   ├── bibleManager/
 │   ├── bibleSearchManager.ts
 │   ├── bibleSearchAPI.ts
+│   ├── ndiManager/               # Salida de video NDI (ver ndiManager/agents.md)
+│   │   ├── index.ts              # initializeNdiManager(), ciclo de vida, IPC
+│   │   ├── ndiConfig.ts          # Config persistida en Setting (NDI_OUTPUT_CONFIG)
+│   │   ├── ndiCaptureWindow.ts   # BrowserWindow offscreen -> frames BGRA
+│   │   ├── ndiSender.ts          # Wrapper de @stagetimerio/grandiose
+│   │   └── ndiAPI.ts             # API preload (window.ndiAPI)
 │   ├── displayManager/
 │   └── mediaManager/
 └── preload/
@@ -75,8 +81,9 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 6. initializeLiveMediaManager()   -> Registra canal IPC de media en vivo
 7. initializeRemoteManager()      -> Inicia listener UDP + registra IPC handlers de descubrimiento LAN
 8. initializeUpdaterManager()     -> Registra auto-updater (canal beta, check a los 10s)
-9. Registra IPC locales           -> Fuentes, ventanas, notificaciones
-10. createMainWindow()            -> Crea ventana principal
+9. initializeNdiManager()         -> Arranca la salida NDI si esta habilitada
+10. Registra IPC locales          -> Fuentes, ventanas, notificaciones
+11. createMainWindow()            -> Crea ventana principal
 ```
 
 ## Helpers IPC

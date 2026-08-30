@@ -20,6 +20,7 @@ import {
   Palette,
   Plus,
   Presentation,
+  Radio,
   Timer,
   Upload,
   Wrench
@@ -28,6 +29,7 @@ import ExportDialog from '@/screens/panels/library/ExportDialog'
 import SongImporter from '@/screens/panels/library/songs/songImporter'
 import ChurchCountdownDialog from './ChurchCountdownDialog'
 import ObsTextOutputDialog from './ObsTextOutputDialog'
+import NdiOutputDialog from './NdiOutputDialog'
 
 type ExportResourceType = 'songs' | 'themes'
 
@@ -37,6 +39,7 @@ export default function AppMenubar() {
   const [songImporterOpen, setSongImporterOpen] = useState(false)
   const [countdownOpen, setCountdownOpen] = useState(false)
   const [obsOutputOpen, setObsOutputOpen] = useState(false)
+  const [ndiOutputOpen, setNdiOutputOpen] = useState(false)
 
   const handleImportThemes = async () => {
     const selectedFiles = await window.mediaAPI.selectFiles('all')
@@ -208,6 +211,10 @@ export default function AppMenubar() {
               <Captions className="mr-2 h-4 w-4" />
               Salida de texto (subtítulos)...
             </MenubarItem>
+            <MenubarItem onClick={() => setNdiOutputOpen(true)}>
+              <Radio className="mr-2 h-4 w-4" />
+              Salida de vídeo (NDI)...
+            </MenubarItem>
           </MenubarContent>
         </MenubarMenu>
       </Menubar>
@@ -223,6 +230,8 @@ export default function AppMenubar() {
       <ChurchCountdownDialog open={countdownOpen} onOpenChange={setCountdownOpen} />
 
       <ObsTextOutputDialog open={obsOutputOpen} onOpenChange={setObsOutputOpen} />
+
+      <NdiOutputDialog open={ndiOutputOpen} onOpenChange={setNdiOutputOpen} />
     </>
   )
 }

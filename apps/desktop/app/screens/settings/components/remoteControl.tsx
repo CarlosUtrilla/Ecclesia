@@ -5,7 +5,7 @@ import { Label } from '@/ui/label'
 import { Switch } from '@/ui/switch'
 import { Badge } from '@/ui/badge'
 import { Separator } from '@/ui/separator'
-import { useApiConfiguration } from '@ecclesia/queries'
+import { useApiConfiguration, DEFAULT_API_URL, DEFAULT_API_PORT } from '@ecclesia/queries'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { Search, Monitor, Wifi, WifiOff, Loader2, ArrowRight } from 'lucide-react'
@@ -105,7 +105,7 @@ export default function RemoteControl() {
   const handleDisconnect = async () => {
     setConnecting(true)
     try {
-      await setApiConfiguration(queryClient, 'http://localhost', 7777)
+      await setApiConfiguration(queryClient, DEFAULT_API_URL, DEFAULT_API_PORT)
       window.remoteControlAPI.notifyDisconnected()
       setConnectedIp(null)
       window.remoteControlAPI.invalidateAllWindows()

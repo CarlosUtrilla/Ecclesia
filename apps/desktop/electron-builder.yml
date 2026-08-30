@@ -37,6 +37,7 @@ asarUnpack:
   - node_modules/sharp/**
   - node_modules/better-sqlite3/**
   - node_modules/@napi-rs/**
+  - node_modules/@stagetimerio/grandiose/dist/**
 win:
   executableName: Ecclesia
 nsis:
@@ -65,6 +66,9 @@ mac:
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    - NSLocalNetworkUsageDescription: Ecclesia publica la salida de vídeo NDI y descubre dispositivos en la red local.
+    - NSBonjourServices:
+        - _ndi._tcp
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
 linux:

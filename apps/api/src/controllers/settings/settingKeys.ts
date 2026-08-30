@@ -7,7 +7,8 @@ export const SETTING_STORAGE_KEY_BY_PUBLIC_KEY = {
   AI_API_KEY: 'ai.apiKey',
   AI_MODEL: 'ai.model',
   OBS_TEXT_OVERLAY_CONFIG: 'obs.textOverlay.config',
-  OBS_SUBTITLES: 'obs.subtitles'
+  OBS_SUBTITLES: 'obs.subtitles',
+  NDI_OUTPUT_CONFIG: 'ndi.output.config'
 } as const
 
 export type PublicSettingKey = keyof typeof SETTING_STORAGE_KEY_BY_PUBLIC_KEY

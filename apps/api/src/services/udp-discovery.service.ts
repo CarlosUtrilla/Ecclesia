@@ -73,7 +73,14 @@ function startUdpListener(): void {
 
   try {
     socket.bind(DISCOVERY_PORT, () => {
-      socket.setBroadcast(true)
+      // Sin ninguna interfaz de red activa, habilitar broadcast puede fallar.
+      // No es motivo para tumbar el arranque: el equipo simplemente no será
+      // descubrible por LAN hasta que haya red.
+      try {
+        socket.setBroadcast(true)
+      } catch {
+        // Sin red: se queda escuchando igualmente en loopback
+      }
     })
     udpListener = socket
   } catch {
@@ -116,11 +123,28 @@ export function discoverLanDevices(): Promise<LanDevice[]> {
     }, DISCOVERY_TIMEOUT_MS)
 
     socket.bind(0, () => {
-      socket.setBroadcast(true)
+      // Sin red, activar broadcast o enviar a la dirección de difusión falla con
+      // ENETUNREACH/EHOSTUNREACH. Se ignora: el descubrimiento devuelve una lista
+      // vacía por timeout en vez de propagar el error.
+      try {
+        socket.setBroadcast(true)
+      } catch {
+        return
+      }
+
       const message = Buffer.from(DISCOVER_MESSAGE)
+      const sendTo = (address: string) => {
+        try {
+          socket.send(message, 0, message.length, DISCOVERY_PORT, address, () => {
+            // El error llega por callback cuando no hay ruta; se ignora
+          })
+        } catch {
+          // Sin red disponible
+        }
+      }
 
       // Broadcast to 255.255.255.255
-      socket.send(message, 0, message.length, DISCOVERY_PORT, '255.255.255.255')
+      sendTo('255.255.255.255')
 
       // Calculate subnet broadcast
       const interfaces = os.networkInterfaces()
@@ -132,7 +156,7 @@ export function discoverLanDevices(): Promise<LanDevice[]> {
             const maskParts = info.netmask.split('.').map(Number)
             const broadcast = ipParts.map((part, i) => part | (~maskParts[i] & 255))
             const subnet = broadcast.join('.')
-            socket.send(message, 0, message.length, DISCOVERY_PORT, subnet)
+            sendTo(subnet)
             break
           }
         }
