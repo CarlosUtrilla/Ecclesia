@@ -25,6 +25,21 @@ Controlador para la gestión de archivos de medios (imágenes, videos, PDF) en E
 7. `findAll` filtra items con `folder` que empieza con `__pdf/` (páginas ocultas)
 8. `importFile` auto-detecta `.pdf` y devuelve `[singleMediaDto]`
 
+## Flujo de importación PPTX
+1. Usuario carga PPTX → `media.importPptx` o `media.importFile` (multipart), o el diálogo nativo vía IPC `media:import-pptx-file`. Las tres rutas acaban en el mismo método.
+2. `MediaController` → `MediaService.importPptxFromMulter`
+3. `MediaService` → `documentImport.getPptxRasterizer()` → `electron/main/pptxRenderer/pptxToPngBuffers`, que rasteriza cada diapositiva a PNG en una ventana offscreen. Ver [`pptxRenderer/agents.md`](../../../../desktop/electron/main/pptxRenderer/agents.md).
+4. `documentImport.createDocumentPresentation` guarda las imágenes en `__pptx/<name>/`, crea la `Presentation` (una slide MEDIA por diapositiva) y el `Media` envoltorio con `type: PPTX` y `presentationId`.
+5. Se conserva una copia del `.pptx` original en `__pptx/<name>/<name>.pptx`, para poder re-rasterizar a mayor escala más adelante sin volver a pedir el archivo.
+
+> **El rasterizador se inyecta, no se importa.** Necesita `BrowserWindow`, así que la capa de API no puede llamarlo: el proceso principal lo registra al arrancar con `setPptxRasterizer()` (mismo patrón que `setOnMediaChangeCallback` en `prisma-init.ts`). Sin registro, importar un PPTX falla con un mensaje explícito en vez de producir diapositivas en blanco.
+
+> **Antes no se renderizaba nada.** El `pptxConverter.ts` original sacaba los `<a:t>` con una regex y extraía las imágenes embebidas, perdiendo formas, fondos del layout/master, degradados y tipografías: las diapositivas se veían casi en blanco.
+
+## Ocultado de las carpetas internas
+
+`findAll()` esconde las imágenes de `__pdf/` y `__pptx/` salvo que se pida `type: 'PDF'` o `'PPTX'`. Las dos condiciones `NOT startsWith` van en **AND**: en OR la expresión es una tautología (una carpeta `__pdf/x` incumple la primera pero cumple la segunda) y no se oculta nada. El `folder: null` sí va en OR, porque `NOT startsWith` sobre columna nullable descarta los nulos por la lógica ternaria de SQL. Hay test de regresión en `apps/desktop/tests/media-hidden-folders.test.ts`.
+
 ## Borrado de PDF/PPTX
 
 - `deleteFile()` hace soft-delete del Media **y de la `Presentation` vinculada** cuando el registro tiene `presentationId`. La presentación pertenece al Media importado; sin ese borrado quedaría viva para siempre.
@@ -33,13 +48,15 @@ Controlador para la gestión de archivos de medios (imágenes, videos, PDF) en E
 
 ## Archivos
 - `media.controller.ts` — endpoints IPC/multipart: `create`, `findAll`, `findOne`, `findByFilePath`, `importFile`, `importClipboardImage`, `importPdf`, `createFolder`, `deleteFolder`, `renamePath`, `listFolders`, `movePath`, `copyFile`, `extractZipMp4`, `cleanupTempPath`, `update`, `deleteFile`, `getMediaByIds`, `verifyFiles`, `cleanupOrphans`
-- `media.service.ts` — lógica de negocio, `importPdfFromMulter()` crea Presentation + PDF Media con `presentationId`; `findAll()` filtra `__pdf/`
+- `media.service.ts` — lógica de negocio, `importPdfFromMulter()` e `importPptxFromMulter()` crean Presentation + Media envoltorio con `presentationId`; `findAll()` filtra `__pdf/` y `__pptx/`
+- `documentImport.ts` — tronco común de PDF y PPTX (`createDocumentPresentation`) y registro del rasterizador de PPTX (`setPptxRasterizer` / `getPptxRasterizer`)
 - `media.storage.ts` — operaciones de archivo: `importMediaFromSourcePath`, `importClipboardImage`, `importPdfPages`, `extractZipMp4`, `deleteFile`, `createMediaFolder`, etc.
 - `media.dto.d.ts` — DTOs: `CreateMediaDto`, `UpdateMediaDto`, `MediaDto`, `MediaFilterDto`, `VerifyMediaResult`
 
 ## Dependencias
 - `pdfjs-dist` (v3.11.174) — renderizado de PDF a canvas en Node.js
 - `@napi-rs/canvas` (^1.0.1) — canvas nativo para Node.js (sin node-canvas)
+- `@aiden0z/pptx-renderer` — renderizado de PPTX; vive en `@ecclesia/desktop` porque pinta a DOM y necesita una ventana de Electron
 
 ## Ubicación
 `apps/api/src/controllers/media/`

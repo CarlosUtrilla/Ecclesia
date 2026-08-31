@@ -82,14 +82,32 @@ GH_TOKEN=ghx_xxx npm run build:win -- --publish always
 - [X] Preservación de estado del dialog al cerrar (sin borrar resultados)
 - [X] Botón "Configurar IA" en footer del dialog con link a ajustes
 
-### PPTX via app externa (LibreOffice/WPS/PowerPoint)
+### ~~PPTX via app externa (LibreOffice/WPS/PowerPoint)~~ — descartado
 
-> Objetivo: no instalar dependencias nuevas y usar la app de oficina que ya tenga el usuario.
+> Objetivo original: no instalar dependencias nuevas y usar la app de oficina que ya tenga el usuario.
 
-- [ ] **Importar PPTX**: Guardar archivo + crear Media tipo PPTX con filePath al original (sin conversión)
-- [ ] **Live de PPTX**: Abrir el PPTX en la app de oficina predeterminada del sistema
-- [ ] **Control slides**: Simular teclas (Space/Flecha derecha = siguiente, etc.) para controlar la app externa
-- [ ] **Fallback**: Si no hay oficina instalada, mostrar un message alerta
+**Resuelto por otra vía:** el PPTX se rasteriza dentro de la app con
+`@aiden0z/pptx-renderer` en una ventana offscreen, y entra al pipeline como
+imágenes igual que un PDF. Ver
+[`pptxRenderer/agents.md`](apps/desktop/electron/main/pptxRenderer/agents.md).
+
+Por qué se descartó controlar una app de oficina externa:
+
+- Ni WPS ni PowerPoint exponen una API pública de automatización multiplataforma
+  (en Windows hay un COM `Kwpp.Application` no documentado; en macOS, nada).
+- Habría hecho falta infraestructura que no existe en el repo: captura de
+  ventana ajena (`desktopCapturer`), permiso de Grabación de Pantalla en macOS
+  e inyección de teclas.
+- Las ventanas de proyección son `alwaysOnTop: 'screen-saver'`
+  (`displayManager/index.ts`), así que pelearían con el fullscreen de la app
+  externa.
+- Se perdería todo lo que cuelga del broadcast `liveScreen-update`: NDI, overlay
+  de OBS, temas, pantalla de escenario y preview remoto.
+
+También se evaluó y descartó **LibreOffice headless** (`soffice --convert-to
+pdf`): da más fidelidad, pero exige una descarga de ~300 MB, un workflow de CI
+para empaquetarlo por plataforma y gestión de runtime. Sigue siendo la salida si
+algún mazo real no rinde bien con la librería.
 
 ## Errores encontrados en producción
 

@@ -17,7 +17,11 @@ import {
   resolveNormalizedPath
 } from './media.storage'
 import { resolveFilesRoot, resolveMediaRoot, resolveThumbnailsRoot } from '../../config'
-import { PDF_PRESENTATION_TITLE_PREFIX } from '../presentations/importedPresentationTitle'
+import {
+  PDF_PRESENTATION_TITLE_PREFIX,
+  PPTX_PRESENTATION_TITLE_PREFIX
+} from '../presentations/importedPresentationTitle'
+import { createDocumentPresentation, getPptxRasterizer } from './documentImport'
 
 export class MediaService {
   async create(data: CreateMediaDto): Promise<MediaDto> {
@@ -38,16 +42,25 @@ export class MediaService {
       where.type = type
     }
 
-    // When not explicitly filtering for PDFs or PPTXs, hide internal page images
-    // NOT + startsWith on nullable column excludes nulls (SQL three-valued logic),
-    // so we must include null explicitly via OR
+    // Salvo que se pidan PDFs o PPTXs explícitamente, se ocultan las imágenes
+    // internas de página/diapositiva.
+    //
+    // Las dos condiciones van en AND: en OR la expresión era una tautología
+    // (una carpeta `__pdf/x` incumple la primera pero cumple la segunda), así
+    // que ninguna imagen interna llegaba a ocultarse. El `folder: null` sí va
+    // en OR porque `NOT startsWith` sobre columna nullable descarta los nulos
+    // por la lógica ternaria de SQL.
     if (type !== 'PDF' && type !== 'PPTX') {
       where.AND = [
         {
           OR: [
             { folder: null },
-            { folder: { not: { startsWith: '__pdf/' } } },
-            { folder: { not: { startsWith: '__pptx/' } } }
+            {
+              AND: [
+                { folder: { not: { startsWith: '__pdf/' } } },
+                { folder: { not: { startsWith: '__pptx/' } } }
+              ]
+            }
           ]
         }
       ]
@@ -225,6 +238,35 @@ export class MediaService {
     })
 
     return pdfMedia
+  }
+
+  /**
+   * Importa un PPTX rasterizando cada diapositiva a PNG.
+   *
+   * El rasterizador lo inyecta el proceso principal (`setPptxRasterizer`),
+   * porque necesita una ventana de Electron para pintar el DOM que produce
+   * `@aiden0z/pptx-renderer`.
+   */
+  async importPptxFromMulter(file: Express.Multer.File, _folder?: string): Promise<MediaDto> {
+    const rasterize = getPptxRasterizer()
+    const pages = await rasterize(file.path)
+    if (pages.length === 0) {
+      throw new Error('El PPTX no tiene diapositivas visibles que importar')
+    }
+
+    return await createDocumentPresentation({
+      sourcePath: file.path,
+      originalFileName: file.originalname,
+      format: 'pptx',
+      mediaType: 'PPTX',
+      hiddenFolderPrefix: '__pptx',
+      titlePrefix: PPTX_PRESENTATION_TITLE_PREFIX,
+      pageLabel: 'diapositiva',
+      // Se conserva el original para poder re-rasterizar a mayor escala mas
+      // adelante sin volver a pedirle el archivo al usuario.
+      keepSourceCopy: true,
+      pages
+    })
   }
 
   async createFolder(folderPath: string) {

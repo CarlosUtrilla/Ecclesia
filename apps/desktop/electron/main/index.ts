@@ -31,6 +31,8 @@ import { initializeUpdaterManager } from './updaterManager/updaterManager'
 import { initializeBibleSearchManager } from './bibleSearchManager'
 import { initializeRemoteManager } from './remoteManager'
 import { initializeNdiManager } from './ndiManager'
+import { pptxToPngBuffers } from './pptxRenderer'
+import { setPptxRasterizer } from '@ecclesia/api/src/controllers/media/documentImport'
 
 declare const __GOOGLE_CLIENT_ID__: string
 declare const __GOOGLE_CLIENT_SECRET__: string
@@ -204,6 +206,11 @@ app.whenReady().then(async () => {
   // Inicializar manager de salida de video NDI
   await initializeNdiManager()
 
+  crashLog()
+  // El rasterizado de PPTX necesita una ventana de Electron, asi que la capa
+  // de API no puede hacerlo sola: se le inyecta desde aqui.
+  setPptxRasterizer(pptxToPngBuffers)
+
   onIpc('open-song-window', (songId?: number) => createSongWindow(songId))
   onIpc('open-theme-window', (themeId?: number) => createThemeWindow(themeId))
   onIpc('open-presentation-window', (presentationId?: number) =>
@@ -236,28 +243,12 @@ app.whenReady().then(async () => {
     if (result.canceled || result.filePaths.length === 0) return null
 
     const pptxPath = result.filePaths[0]
-    const { importPptxToPresentation } = await import(
-      '@ecclesia/api/src/pptxConverter'
-    )
-    const pptxResult = await importPptxToPresentation(pptxPath)
-
-    const { getPrisma } = await import('@ecclesia/api/src/prisma')
-    const prisma = getPrisma()
-
-    const pptxMedia = await prisma.media.create({
-      data: {
-        name: pptxResult.originalName,
-        type: 'PPTX',
-        format: 'pptx',
-        filePath: `presentation://${pptxResult.presentationId}`,
-        fileSize: fs.statSync(pptxPath).size,
-        folder: undefined,
-        presentationId: pptxResult.presentationId,
-        thumbnail: pptxResult.slideMediaRecords[0]?.thumbnail ?? null,
-      },
-    })
-
-    return pptxMedia
+    const { MediaService } = await import('@ecclesia/api/src/controllers/media/media.service')
+    // Misma ruta que la importacion por drag-and-drop y por el endpoint HTTP.
+    return await new MediaService().importPptxFromMulter({
+      path: pptxPath,
+      originalname: path.basename(pptxPath)
+    } as Express.Multer.File)
   })
 
   onIpcFromWindow('theme-close-confirm', (win) => {

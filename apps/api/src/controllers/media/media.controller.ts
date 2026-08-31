@@ -2,8 +2,6 @@ import fs from 'fs'
 import path from 'path'
 import { MediaService } from './media.service'
 import { CreateMediaDto, UpdateMediaDto, MediaFilterDto } from './media.dto'
-import { importPptxToPresentation } from '../../pptxConverter'
-import { getPrisma } from '../../prisma'
 import { RequestHandler } from '../../utils/RequestHandler'
 import { UsingMulter } from '../../decorators/multerDecorator'
 import { UpdateQueryKey } from '../../decorators/UpdateQueryKey.decorator'
@@ -42,22 +40,7 @@ export class MediaController {
           return [await this.mediaService.importPdfFromMulter(f, body.folder)]
         }
         if (ext === '.pptx') {
-          const result = await importPptxToPresentation(f.path)
-          // Create a Media record for PPTX
-          const prisma = getPrisma()
-          const pptxMedia = await prisma.media.create({
-            data: {
-              name: result.originalName,
-              type: 'PPTX',
-              format: 'pptx',
-              filePath: `presentation://${result.presentationId}`,
-              fileSize: fs.statSync(f.path).size,
-              folder: undefined,
-              presentationId: result.presentationId,
-              thumbnail: result.slideMediaRecords[0]?.thumbnail ?? null
-            }
-          })
-          return [pptxMedia]
+          return [await this.mediaService.importPptxFromMulter(f, body.folder)]
         }
         return [await this.mediaService.importFileFromMulter(f, body.folder)]
       })
@@ -98,23 +81,7 @@ export class MediaController {
   }: RequestHandler<{ folder?: string }, Express.Multer.File>) {
     const targetFiles = file ? [file] : (files ?? [])
     const results = await Promise.all(
-      targetFiles.map(async (f) => {
-        const result = await importPptxToPresentation(f.path)
-        const prisma = getPrisma()
-        const pptxMedia = await prisma.media.create({
-          data: {
-            name: result.originalName,
-            type: 'PPTX',
-            format: 'pptx',
-            filePath: `presentation://${result.presentationId}`,
-            fileSize: fs.statSync(f.path).size,
-            folder: undefined,
-            presentationId: result.presentationId,
-            thumbnail: result.slideMediaRecords[0]?.thumbnail ?? null
-          }
-        })
-        return [pptxMedia]
-      })
+      targetFiles.map(async (f) => [await this.mediaService.importPptxFromMulter(f, body.folder)])
     )
     return results.flat()
   }

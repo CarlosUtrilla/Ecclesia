@@ -10,6 +10,7 @@ import { UpdateNotification } from './ui/UpdateNotification'
 import { ApiProvider } from '@ecclesia/queries'
 import { RemoteModeProvider } from './contexts/RemoteModeContext'
 import RemoteConnectionListener from './RemoteConnectionListener'
+import { PPTX_RENDER_ROUTE } from '../electron/main/pptxRenderer/pptxRenderTypes'
 
 // Todas las rutas son lazy — cada ventana sólo parsea el código que su ruta necesita.
 // La ventana principal carga MainRoute (paneles, dnd-kit, zod, etc.).
@@ -25,8 +26,21 @@ const LiveScreen = lazy(() => import('./screens/live-screen'))
 const StageScreen = lazy(() => import('./screens/stage-screen'))
 const StageControlScreen = lazy(() => import('./screens/stage-control'))
 const StageLayoutScreen = lazy(() => import('./screens/stage-layout'))
+const PptxRenderHost = lazy(() => import('./screens/pptx-render'))
 
 function App() {
+  // La ventana de rasterizado de PPTX sólo pinta diapositivas para que el
+  // proceso principal capture sus frames: no habla con el backend ni con el
+  // servidor de medios. Montar ApiProvider y compañía aquí sería arrancar
+  // sockets y bootstrap para nada, y encima puede fallar.
+  if (window.location.hash === '#' + PPTX_RENDER_ROUTE) {
+    return (
+      <Suspense fallback={null}>
+        <PptxRenderHost />
+      </Suspense>
+    )
+  }
+
   return (
     <MainApp>
       <Suspense
@@ -54,6 +68,9 @@ function App() {
           <Route path="/stage-screen/:displayId" element={<StageScreen />} />
           <Route path="/stage-control" element={<StageControlScreen />} />
           <Route path="/stage-layout" element={<StageLayoutScreen />} />
+
+          {/* Ventana oculta de rasterizado de PPTX (ver pptxRenderer/) */}
+          <Route path={PPTX_RENDER_ROUTE} element={<PptxRenderHost />} />
         </Routes>
       </Suspense>
     </MainApp>

@@ -44,7 +44,13 @@ export function registerMediaHandlers() {
     if (type === 'all') {
       filters.push({
         name: 'Medios',
-        extensions: ['png', "pdf", 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm', 'mov', 'avi', 'zip']
+        extensions: [
+          'png', 'jpg', 'jpeg', 'webp', 'gif',
+          'mp4', 'webm', 'mov', 'avi',
+          // El drag-and-drop ya aceptaba documentos; el selector no.
+          'pdf', 'pptx',
+          'zip'
+        ]
       })
     } else if (type === MediaType.IMAGE) {
       filters.push({

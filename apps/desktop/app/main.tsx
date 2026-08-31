@@ -6,6 +6,7 @@ import App from './App'
 import { HashRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { PPTX_RENDER_ROUTE } from '../electron/main/pptxRenderer/pptxRenderTypes'
 import { Api, initializeApi } from '@ecclesia/queries'
 
 const COLOR_THEME_KEY = 'ecclesia-color-theme'
@@ -103,6 +104,8 @@ const clearBootstrapNotice = () => {
   if (root) root.innerHTML = ''
 }
 
+const isPptxRenderWindow = window.location.hash === '#' + PPTX_RENDER_ROUTE
+
 initializeApi(queryClient, undefined, undefined, {
   onRetry: (attempt, error) => {
     console.warn(`[bootstrap] El backend local no responde (intento ${attempt}):`, error)
@@ -116,7 +119,9 @@ initializeApi(queryClient, undefined, undefined, {
         <HashRouter>
           <App />
         </HashRouter>
-        <ReactQueryDevtools initialIsOpen={false} />
+        {/* El botón flotante de los devtools se cuela en el frame capturado
+            por la ventana de rasterizado de PPTX y acaba dentro del PNG. */}
+        {!isPptxRenderWindow && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </StrictMode>
   )
