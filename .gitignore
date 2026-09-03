@@ -17,3 +17,6 @@ out
 
 coverage/
 .dev-app-instance-id.json
+
+# Binarios nativos descargados del CI (workflow ndi-addon.yml)
+packages/prebuilds/

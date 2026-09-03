@@ -36,6 +36,96 @@ case $RELEASE_MODE_CHOICE in
     ;;
 esac
 
+# Módulos nativos con `binding.gyp` que node-gyp no puede cross-compilar desde
+# macOS hacia win32-x64. Se ocultan antes de que electron-builder ejecute su
+# rebuild automático y se restauran después.
+#   - WITH_PREBUILD: hay binario publicado; se restauran enseguida y se baja el
+#     prebuild de Windows con prebuild-install.
+#   - WITHOUT_PREBUILD: no existe binario Windows (se compilan siempre desde
+#     fuente). Se quedan ocultos hasta terminar el empaquetado; la app arranca
+#     igual porque su carga es perezosa y tolerante a fallo (ej. NDI).
+WIN_NATIVE_WITH_PREBUILD=("canvas" "bufferutil" "utf-8-validate")
+WIN_NATIVE_WITHOUT_PREBUILD=("grandiose")
+
+hide_native_binding() {
+  local native_pkg=$1
+  local dir
+  dir=$(find node_modules/.pnpm -name "binding.gyp" -path "*${native_pkg}*" ! -path "*napi*" -exec dirname {} \; 2>/dev/null | head -1)
+
+  if [ -n "$dir" ] && [ -d "$dir" ]; then
+    mv "$dir/binding.gyp" "$dir/binding.gyp.bak"
+    echo -e "  ${GREEN}✓ ${native_pkg} binding.gyp desactivado${RESET}" >&2
+    echo "$dir"
+  else
+    echo -e "  ${YELLOW}⚠ ${native_pkg} no encontrado en pnpm store${RESET}" >&2
+  fi
+}
+
+# Addon NDI ya compilado para Windows, generado por el workflow `ndi-addon.yml`
+# (runner windows-latest). Sin él, el instalador de Windows sale sin salida NDI.
+NDI_PREBUILD_DIR="packages/prebuilds/grandiose-win32-x64"
+
+# Devuelve la ruta real (no el symlink) de @stagetimerio/grandiose en el store.
+grandiose_store_dir() {
+  node -e "try{console.log(require('fs').realpathSync('apps/desktop/node_modules/@stagetimerio/grandiose'))}catch(e){}" 2>/dev/null || echo ""
+}
+
+# Restaura el estado nativo del host: binding.gyp ocultos y el dist/ de macOS del
+# addon NDI. Se engancha a EXIT para no dejar el entorno de desarrollo roto si el
+# build falla a mitad.
+restore_host_native_state() {
+  local bak
+  while IFS= read -r bak; do
+    [ -f "$bak" ] || continue
+    mv "$bak" "${bak%.bak}"
+    echo -e "  ${GREEN}✓ binding.gyp restaurado en $(dirname "$bak")${RESET}"
+  done < <(find node_modules/.pnpm -name "binding.gyp.bak" 2>/dev/null)
+
+  local grandiose_dir
+  grandiose_dir=$(grandiose_store_dir)
+  if [ -n "$grandiose_dir" ] && [ -d "$grandiose_dir/dist.host-bak" ]; then
+    rm -rf "$grandiose_dir/dist"
+    mv "$grandiose_dir/dist.host-bak" "$grandiose_dir/dist"
+    echo -e "  ${GREEN}✓ addon NDI del host restaurado${RESET}"
+  fi
+}
+
+trap restore_host_native_state EXIT
+
+# Sustituye temporalmente el dist/ del addon NDI (compilado para el host) por el
+# binario Windows descargado del CI. El trap de EXIT devuelve el del host.
+prepare_windows_ndi() {
+  echo -e "  Preparando ${CYAN}@stagetimerio/grandiose${RESET} (NDI) para win32-x64..."
+
+  if [ ! -f "$NDI_PREBUILD_DIR/grandiose.node" ] && command -v gh >/dev/null 2>&1; then
+    echo -e "  Descargando artifact ${CYAN}grandiose-win32-x64${RESET} del workflow ndi-addon..."
+    mkdir -p "$NDI_PREBUILD_DIR"
+    gh run download --name grandiose-win32-x64 --dir "$NDI_PREBUILD_DIR" > /dev/null 2>&1 || true
+  fi
+
+  if [ ! -f "$NDI_PREBUILD_DIR/grandiose.node" ]; then
+    echo -e "  ${YELLOW}⚠ No hay binario Windows del addon NDI.${RESET}"
+    echo -e "  ${YELLOW}  Genéralo con:${RESET} gh workflow run ndi-addon.yml"
+    echo -e "  ${YELLOW}  El instalador Windows saldrá SIN salida NDI.${RESET}"
+    return
+  fi
+
+  local grandiose_dir
+  grandiose_dir=$(grandiose_store_dir)
+  if [ -z "$grandiose_dir" ] || [ ! -d "$grandiose_dir" ]; then
+    echo -e "  ${YELLOW}⚠ @stagetimerio/grandiose no encontrado en el store${RESET}"
+    return
+  fi
+
+  if [ -d "$grandiose_dir/dist" ] && [ ! -d "$grandiose_dir/dist.host-bak" ]; then
+    mv "$grandiose_dir/dist" "$grandiose_dir/dist.host-bak"
+  fi
+
+  mkdir -p "$grandiose_dir/dist"
+  cp -R "$NDI_PREBUILD_DIR"/. "$grandiose_dir/dist/"
+  echo -e "  ${GREEN}✓ Addon NDI (win32-x64) instalado en el store${RESET}"
+}
+
 ensure_native_modules() {
   echo -e "  Reconstruyendo módulos nativos para Electron host..."
   (cd apps/desktop && npx @electron/rebuild -f) > /dev/null 2>&1 && \
@@ -113,18 +203,22 @@ prepare_windows_sharp() {
   fi
 
   # ─── Native modules con binding.gyp (hide before install-app-deps) ──
-  # Canvas (pdfjs-dist), bufferutil, utf-8-validate
+  # Canvas (pdfjs-dist), bufferutil, utf-8-validate: se restauran aquí mismo.
+  # grandiose (NDI): sin binario Windows publicado, se queda oculto hasta el
+  # final del empaquetado (lo restaura el trap de EXIT).
   local native_dirs=()
+  local dir
   echo -e "  Preparando módulos nativos para win32-x64 (ocultando binding.gyp)..."
-  for native_pkg in "canvas" "bufferutil" "utf-8-validate"; do
-    local dir
-    dir=$(find node_modules/.pnpm -name "binding.gyp" -path "*${native_pkg}*" ! -path "*napi*" -exec dirname {} \; 2>/dev/null | head -1)
-    if [ -n "$dir" ] && [ -d "$dir" ]; then
-      mv "$dir/binding.gyp" "$dir/binding.gyp.bak"
+  for native_pkg in "${WIN_NATIVE_WITH_PREBUILD[@]}"; do
+    dir=$(hide_native_binding "$native_pkg")
+    if [ -n "$dir" ]; then
       native_dirs+=("$dir")
-      echo -e "  ${GREEN}✓ ${native_pkg} binding.gyp desactivado${RESET}"
-    else
-      echo -e "  ${YELLOW}⚠ ${native_pkg} no encontrado en pnpm store${RESET}"
+    fi
+  done
+  for native_pkg in "${WIN_NATIVE_WITHOUT_PREBUILD[@]}"; do
+    dir=$(hide_native_binding "$native_pkg")
+    if [ -n "$dir" ]; then
+      echo -e "  ${YELLOW}  ↳ ${native_pkg} no se compila para Windows desde macOS: el instalador saldrá sin ese módulo${RESET}"
     fi
   done
 
@@ -423,6 +517,7 @@ echo -e "  -> Build base (electron-vite) en host macOS"
 pnpm build:ci
 
 prepare_windows_sharp
+prepare_windows_ndi
 
 echo -e "  -> Empaquetando Windows x64"
 
@@ -435,6 +530,7 @@ rm -rf apps/desktop/node_modules/@ecclesia
 cd apps/desktop && npx electron-builder --win --x64 --publish never && cd "$OLDPWD"
 
 echo -e "  -> Restaurando dependencias del host (macOS)"
+restore_host_native_state
 pnpm install --frozen-lockfile
 ensure_native_modules
 ensure_sharp_ready

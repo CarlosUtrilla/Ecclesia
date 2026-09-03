@@ -55,6 +55,9 @@ jobs:
           mkdir -p /Users/runner/work/tmp
           echo "TMPDIR=/Users/runner/work/tmp" >> $GITHUB_ENV
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -94,6 +97,9 @@ jobs:
             echo "GH_TOKEN no está configurado en GitHub Secrets"
             exit 1
           fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

@@ -1,4 +1,4 @@
-import { CSSProperties, useLayoutEffect, useMemo, useRef } from 'react'
+import { CSSProperties, useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { m } from 'framer-motion'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSettings'
@@ -219,37 +219,62 @@ const parseAnimationSettings = (animationSettings?: string): AnimationSettings =
   }
 }
 
-function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: boolean }) {
+function LiveSyncedLayerVideo({
+  src,
+  posterUrl,
+  shouldLoop,
+  autoPlayOnMount
+}: {
+  src: string
+  posterUrl?: string | null
+  shouldLoop: boolean
+  autoPlayOnMount: boolean
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  // Estado deseado de reproduccion. El controlador emite `play` en el mismo
+  // instante en que cambia la diapositiva, antes de que esta ventana haya montado
+  // el video nuevo, asi que ese comando se puede perder. Guardar la intencion
+  // permite reintentar en cuanto el elemento tenga datos o la ventana recupere foco.
+  const shouldBePlayingRef = useRef(autoPlayOnMount)
+
+  const tryPlay = useCallback((time: number) => {
+    const video = videoRef.current
+    if (!video) return
+
+    const shouldSyncTimeOnPlay =
+      time === 0 && video.currentTime > 0.08 ? false : Math.abs(video.currentTime - time) > 0.25
+
+    if (shouldSyncTimeOnPlay) {
+      video.currentTime = time
+    }
+
+    video.play().catch(() => {
+      // noop: puede fallar temporalmente por foco/autoplay policy o porque el
+      // video todavia no tiene datos. `canplay`/`loadeddata`/`focus` reintentan.
+    })
+  }, [])
+
+  const ensureDesiredPlayback = useCallback(() => {
+    const video = videoRef.current
+    if (!video || !shouldBePlayingRef.current) return
+    if (!video.paused || video.ended) return
+
+    tryPlay(video.currentTime)
+  }, [tryPlay])
 
   useLayoutEffect(() => {
     const video = videoRef.current
     if (!video || !window.liveMediaAPI?.onMediaState) return
 
-    const shouldSyncTimeOnPlay = (requestedTime: number) => {
-      if (requestedTime === 0 && video.currentTime > 0.08) {
-        return false
-      }
-
-      return Math.abs(video.currentTime - requestedTime) > 0.25
-    }
-
-    const tryPlay = (time: number) => {
-      if (shouldSyncTimeOnPlay(time)) {
-        video.currentTime = time
-      }
-      video.play().catch(() => {
-        // noop: puede fallar temporalmente por foco/autoplay policy
-      })
-    }
-
     const unsubscribe = window.liveMediaAPI.onMediaState((state) => {
       if (state.action === 'play') {
+        shouldBePlayingRef.current = true
         tryPlay(state.time)
         return
       }
 
       if (state.action === 'pause') {
+        shouldBePlayingRef.current = false
         video.currentTime = state.time
         video.pause()
         return
@@ -261,24 +286,53 @@ function LiveSyncedLayerVideo({ src, shouldLoop }: { src: string; shouldLoop: bo
       }
 
       if (state.action === 'restart') {
+        shouldBePlayingRef.current = true
+        video.currentTime = 0
         tryPlay(0)
       }
     })
 
+    const handleWindowFocus = () => ensureDesiredPlayback()
+    window.addEventListener('focus', handleWindowFocus)
+
     return () => {
       if (unsubscribe) unsubscribe()
+      window.removeEventListener('focus', handleWindowFocus)
     }
-  }, [src])
+  }, [src, tryPlay, ensureDesiredPlayback])
+
+  // Diapositivas marcadas como reproduccion automatica no dependen del comando
+  // del controlador: arrancan solas al montar el video.
+  useLayoutEffect(() => {
+    shouldBePlayingRef.current = autoPlayOnMount
+    if (!autoPlayOnMount) return
+
+    tryPlay(0)
+  }, [autoPlayOnMount, src, tryPlay])
+
+  const handlePlay = () => {
+    const video = videoRef.current
+    // El atributo `autoPlay` puede arrancar el video despues de que el controlador
+    // haya pedido pausa (por ejemplo al pausar antes de que terminara de cargar).
+    if (video && !shouldBePlayingRef.current) {
+      video.pause()
+    }
+  }
 
   return (
     <video
       ref={videoRef}
       src={src}
+      poster={posterUrl || undefined}
       className="w-full h-full object-contain"
+      autoPlay={autoPlayOnMount}
       loop={shouldLoop}
       muted
       playsInline
-      preload="metadata"
+      preload="auto"
+      onCanPlay={ensureDesiredPlayback}
+      onLoadedData={ensureDesiredPlayback}
+      onPlay={handlePlay}
     />
   )
 }
@@ -294,7 +348,9 @@ function PresentationLayer({
   textBoundsScale,
   isPreview = false,
   hideTextInLive = false,
-  slideStepController
+  slideStepController,
+  slideVideoLiveBehavior,
+  slideVideoLoop = false
 }: {
   item: PresentationLayerItem
   theme?: React.ComponentProps<typeof BibleTextRender>['theme']
@@ -310,6 +366,8 @@ function PresentationLayer({
   isPreview?: boolean
   hideTextInLive?: boolean
   slideStepController?: ReturnType<typeof resolveSlideVerse>
+  slideVideoLiveBehavior?: 'auto' | 'manual'
+  slideVideoLoop?: boolean
 }) {
   const { buildMediaUrl } = useMediaServer()
 
@@ -400,7 +458,12 @@ function PresentationLayer({
       <m.div initial="initial" animate="animate" exit="exit" variants={variants} style={style}>
         <div className="w-full h-full flex items-center justify-center">
           {item.media.type === 'VIDEO' ? (
-            <LiveSyncedLayerVideo src={mediaUrl} shouldLoop={item.videoLoop === true} />
+            <LiveSyncedLayerVideo
+              src={mediaUrl}
+              posterUrl={mediaThumbnailUrl}
+              shouldLoop={item.videoLoop === true || slideVideoLoop}
+              autoPlayOnMount={slideVideoLiveBehavior === 'auto'}
+            />
           ) : (
             <img src={mediaUrl} alt={item.media.name} className="w-full h-full object-contain" />
           )}
@@ -604,6 +667,8 @@ export default function PresentationRender(props: Props) {
           key={layerItem.id}
           item={layerItem}
           slideStepController={slideStepController}
+          slideVideoLiveBehavior={item.videoLiveBehavior}
+          slideVideoLoop={item.videoLoop === true}
           theme={theme}
           smallFontSize={smallFontSize}
           scaleFactor={scaleFactor}

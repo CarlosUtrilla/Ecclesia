@@ -1,0 +1,61 @@
+name: NDI addon (Windows)
+
+# Compila `@stagetimerio/grandiose` en un runner Windows y publica el resultado
+# como artifact. node-gyp no cross-compila y el paquete no publica binarios, asi
+# que esta es la unica forma de conseguir el addon NDI para win32-x64 sin tener
+# una maquina Windows: `release.sh` (modo local) descarga este artifact para
+# meterlo en el instalador.
+#
+# Uso: gh workflow run ndi-addon.yml
+# Hay que relanzarlo cuando cambie la version de @stagetimerio/grandiose.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      # El script `install` del paquete descarga el NDI SDK 6 y compila el addon
+      # con node-gyp + MSVC. Requiere `allowBuilds` en pnpm-workspace.yaml.
+      - name: Install dependencies (compila el addon NDI)
+        run: pnpm install --frozen-lockfile
+
+      - name: Recoger dist/ del addon
+        shell: bash
+        run: |
+          set -e
+          src=$(find node_modules/.pnpm -type d -path "*@stagetimerio+grandiose*/node_modules/@stagetimerio/grandiose/dist" | head -1)
+          if [ -z "$src" ]; then
+            echo "No se encontró dist/ del addon: el build de grandiose no se ejecutó"
+            exit 1
+          fi
+
+          mkdir -p out/grandiose-win32-x64
+          cp -r "$src"/. out/grandiose-win32-x64/
+          ls -l out/grandiose-win32-x64
+
+          # El .node y la DLL del runtime NDI son imprescindibles en el paquete.
+          test -f out/grandiose-win32-x64/grandiose.node
+          ls out/grandiose-win32-x64/*.dll
+
+      - name: Publicar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: grandiose-win32-x64
+          path: out/grandiose-win32-x64
+          retention-days: 90
+          if-no-files-found: error

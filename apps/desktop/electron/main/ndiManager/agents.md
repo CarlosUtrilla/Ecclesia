@@ -78,6 +78,21 @@ descarga en `pnpm install` y el addon se compila con node-gyp, por lo que el paq
   constantes numéricas propias con fallback y accede a esas funciones vía cast.
 - Todo el módulo degrada con elegancia: si el addon no carga (CPU no soportada, binario
   ausente), `isNdiAvailable()` devuelve `false`, el diálogo lo indica y la app sigue normal.
+- **No hay prebuilds publicados**: el addon se compila siempre desde fuente, y node-gyp no
+  cross-compila (a diferencia de `sharp`/`better-sqlite3`/`@napi-rs/canvas`, que sí tienen
+  binario Windows descargable). Por eso `release.sh` oculta su `binding.gyp` antes de
+  `install-app-deps --platform=win32`, o electron-builder aborta con
+  «node-gyp does not support cross-compiling native modules from source».
+- Para meter NDI en un instalador Windows construido desde macOS:
+  1. `gh workflow run ndi-addon.yml` — compila el addon en `windows-latest` y publica el
+     artifact `grandiose-win32-x64` (`grandiose.node` + `Processing.NDI.Lib.x64.dll`).
+  2. `release.sh` modo `local` lo descarga con `gh run download` a
+     `packages/prebuilds/grandiose-win32-x64/` (git-ignored) y sustituye el `dist/` del
+     store durante el empaquetado; el trap de `EXIT` devuelve el `dist/` de macOS.
+  - Si el artifact no existe, el build continúa y el `.exe` sale sin NDI.
+  - Hay que relanzar el workflow al subir la versión de `@stagetimerio/grandiose`.
+- El job `build-windows` del CI (modos `tag`/`github`) compila el addon de forma nativa, así
+  que ese instalador siempre lleva NDI.
 
 ## Convenciones
 
