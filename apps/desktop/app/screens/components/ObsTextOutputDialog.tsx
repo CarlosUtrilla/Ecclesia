@@ -410,7 +410,10 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
 
   const measurePreview = useCallback((node: HTMLDivElement | null) => {
     previewViewportRef.current = node
-    if (node) setPreviewWidth(node.getBoundingClientRect().width)
+    // clientWidth (content box) para casar con el contentRect del observer: con
+    // getBoundingClientRect se colaba el borde y la escala bailaba 2px según
+    // por dónde llegara la medida.
+    if (node) setPreviewWidth(node.clientWidth)
   }, [])
 
   useEffect(() => {
@@ -626,6 +629,11 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
                         {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
                       </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      En OBS crea el Browser Source a <strong>1920×1080</strong> y aplica «Ajustar a
+                      la pantalla» (Ctrl+F). La caja se coloca respecto al borde de la fuente: si la
+                      fuente no cubre el lienzo, se verá más arriba que en esta vista previa.
+                    </p>
                     {interfaces && interfaces.addresses.length > 1 && (
                       <p className="text-xs text-muted-foreground">
                         Otras IPs de red:{' '}
