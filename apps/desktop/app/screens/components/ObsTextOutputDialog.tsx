@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react'
-import { useResizeObserver } from 'usehooks-ts'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Check, Copy, ImageIcon, Plus, Trash2, Video } from 'lucide-react'
 import {
@@ -402,11 +401,29 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
     return isPickerOpen || !!target?.closest?.('[role="dialog"]')
   }
 
+  // Se mide con un ref callback en vez de con un hook de resize: así el ancho
+  // está disponible en el mismo commit en que el diálogo monta el nodo, sin
+  // depender de que el observer dispare una primera vez. Si la medida no llega,
+  // el stage quedaría a escala 0 y el preview no se vería.
+  const [previewWidth, setPreviewWidth] = useState(0)
   const previewViewportRef = useRef<HTMLDivElement | null>(null)
-  const { width: previewWidth = 0 } = useResizeObserver({
-    ref: previewViewportRef as React.RefObject<HTMLElement>,
-    box: 'border-box'
-  })
+
+  const measurePreview = useCallback((node: HTMLDivElement | null) => {
+    previewViewportRef.current = node
+    if (node) setPreviewWidth(node.getBoundingClientRect().width)
+  }, [])
+
+  useEffect(() => {
+    const node = previewViewportRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(([entry]) => {
+      const next = entry?.contentRect.width ?? node.getBoundingClientRect().width
+      setPreviewWidth((prev) => (prev !== next ? next : prev))
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [open])
 
   const previewTint = hexToRgba(config.backgroundColor, config.backgroundOpacity)
 
@@ -419,7 +436,7 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
     <div className="flex min-h-0 flex-1 flex-col">
       <Label className="text-xs text-muted-foreground">Vista previa</Label>
       <div
-        ref={previewViewportRef}
+        ref={measurePreview}
         className="relative mt-1.5 aspect-video w-full overflow-hidden rounded-lg border bg-black"
       >
         {/* Fondo de escena difuminado (solo referencia visual del preview) */}
