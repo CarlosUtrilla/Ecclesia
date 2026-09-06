@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { ThemeWithMedia } from '../types'
 
 type MediaType = 'image' | 'video' | 'color' | 'gradient'
@@ -8,7 +8,7 @@ type UsePresentationBackgroundParams = {
   buildMediaUrl: (path: string) => string
 }
 
-function getMediaType(background: string): MediaType {
+function getSolidBackgroundType(background: string): MediaType {
   if (!background || background === 'media') return 'color'
   if (background.includes('gradient')) return 'gradient'
   return 'color'
@@ -18,13 +18,6 @@ export function usePresentationBackground({
   theme,
   buildMediaUrl
 }: UsePresentationBackgroundParams) {
-  const [backgroundType, setBackgroundType] = useState<MediaType>('color')
-  const [videoError, setVideoError] = useState(false)
-  const [videoLoaded, setVideoLoaded] = useState(false)
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null)
-  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null)
-  const [backgroundUrl, setBackgroundUrl] = useState<string>('')
-
   const background = theme.background
   const backgroundMedia = theme.backgroundMedia
   const backgroundMediaType = backgroundMedia?.type
@@ -33,42 +26,30 @@ export function usePresentationBackground({
   const backgroundMediaFallback = backgroundMedia?.fallback
   const hasBackgroundMedia = Boolean(backgroundMedia)
 
-  useEffect(() => {
-    if (!hasBackgroundMedia || background !== 'media') {
-      setBackgroundUrl(background)
-      setThumbnailUrl(null)
-      setFallbackUrl(null)
-      setBackgroundType(getMediaType(background))
-      return
+  // Se deriva en el render, no en un `useEffect`. Resolviendolo por efecto, el
+  // primer frame de la capa salia con `backgroundType: 'color'` y sin URL: en
+  // una transicion de tema esa capa entra pintando el color del frame (negro en
+  // modo oscuro) hasta que el efecto corre. Ese era el negro que se colaba en
+  // el cross.
+  const resolved = useMemo(() => {
+    if (!hasBackgroundMedia || background !== 'media' || !backgroundMediaFilePath) {
+      return {
+        backgroundType: getSolidBackgroundType(background),
+        backgroundUrl: background,
+        thumbnailUrl: null as string | null,
+        fallbackUrl: null as string | null
+      }
     }
 
-    if (!backgroundMediaFilePath) {
-      setBackgroundUrl(background)
-      setThumbnailUrl(null)
-      setFallbackUrl(null)
-      setBackgroundType('color')
-      setVideoLoaded(false)
-      setVideoError(false)
-      return
+    return {
+      backgroundType: (backgroundMediaType === 'VIDEO' ? 'video' : 'image') as MediaType,
+      backgroundUrl: buildMediaUrl(backgroundMediaFilePath),
+      thumbnailUrl:
+        backgroundMediaType === 'VIDEO' && backgroundMediaThumbnail
+          ? buildMediaUrl(backgroundMediaThumbnail)
+          : null,
+      fallbackUrl: backgroundMediaFallback ? buildMediaUrl(backgroundMediaFallback) : null
     }
-
-    setBackgroundType(backgroundMediaType === 'VIDEO' ? 'video' : 'image')
-    setBackgroundUrl(buildMediaUrl(backgroundMediaFilePath))
-
-    if (backgroundMediaType === 'VIDEO' && backgroundMediaThumbnail) {
-      setThumbnailUrl(buildMediaUrl(backgroundMediaThumbnail))
-    } else {
-      setThumbnailUrl(null)
-    }
-
-    if (backgroundMediaFallback) {
-      setFallbackUrl(buildMediaUrl(backgroundMediaFallback))
-    } else {
-      setFallbackUrl(null)
-    }
-
-    setVideoLoaded(false)
-    setVideoError(false)
   }, [
     background,
     hasBackgroundMedia,
@@ -78,6 +59,27 @@ export function usePresentationBackground({
     backgroundMediaFallback,
     buildMediaUrl
   ])
+
+  const { backgroundType, backgroundUrl, thumbnailUrl, fallbackUrl } = resolved
+
+  // El estado de carga se ata a la URL en vez de resetearse por efecto: asi no
+  // queda ningun frame arrastrando el `videoLoaded` del fondo anterior.
+  const [loadedVideoUrl, setLoadedVideoUrl] = useState<string | null>(null)
+  const [erroredVideoUrl, setErroredVideoUrl] = useState<string | null>(null)
+
+  const isVideoBackground = backgroundType === 'video'
+  const videoLoaded = isVideoBackground && loadedVideoUrl === backgroundUrl
+  const videoError = isVideoBackground && erroredVideoUrl === backgroundUrl
+
+  const setVideoLoaded = useCallback(
+    (value: boolean) => setLoadedVideoUrl(value ? backgroundUrl : null),
+    [backgroundUrl]
+  )
+
+  const setVideoError = useCallback(
+    (value: boolean) => setErroredVideoUrl(value ? backgroundUrl : null),
+    [backgroundUrl]
+  )
 
   return {
     background,

@@ -1,5 +1,3 @@
-import { m } from 'framer-motion'
-
 interface BackgroundVideoLiveProps {
   videoUrl: string
   fallbackUrl: string | null
@@ -11,6 +9,16 @@ interface BackgroundVideoLiveProps {
   blur?: number
 }
 
+/**
+ * Fondo de video en `live`. Ni el fallback ni el video se desvanecen por su
+ * cuenta: el cross lo hace la capa de tema que los envuelve
+ * (`LiveThemeTransitionShell`). Con fades propios anidados la capa entrante
+ * tardaba medio segundo en pintar su fondo y, mientras, el cross mostraba el
+ * negro del frame.
+ *
+ * El fallback va debajo a opacidad plena desde el primer frame para que nunca
+ * haya un hueco mientras el video carga; el video lo tapa en cuanto esta listo.
+ */
 export function BackgroundVideoLive({
   videoUrl,
   fallbackUrl,
@@ -22,42 +30,33 @@ export function BackgroundVideoLive({
   blur = 0
 }: BackgroundVideoLiveProps) {
   const hasBlur = blur > 0
-  const blurredStyle = hasBlur
-    ? {
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        filter: `blur(${blur}px)`,
-        transform: 'scale(1.06)',
-        transformOrigin: 'center'
-      }
-    : { top: 0, left: 0, width: '100%', height: '100%' }
+  const layerStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    zIndex: 0,
+    ...(hasBlur
+      ? {
+          filter: `blur(${blur}px)`,
+          transform: 'scale(1.06)',
+          transformOrigin: 'center'
+        }
+      : {})
+  }
 
   return (
     <>
       {/* Imagen de fallback mientras carga el video */}
       {fallbackUrl && (
-        <m.img
-          key={`fallback-${fallbackUrl}`}
-          src={fallbackUrl}
-          alt="Loading video..."
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5, ease: 'easeInOut' }}
-          style={{
-            position: 'absolute',
-            ...blurredStyle,
-            objectFit: 'cover',
-            zIndex: 0
-          }}
-        />
+        <img key={`fallback-${fallbackUrl}`} src={fallbackUrl} alt="" style={layerStyle} />
       )}
 
       {/* Video */}
       {!hasError && (
-        <m.video
+        <video
           key={`video-${videoUrl}`}
           src={videoUrl}
           autoPlay
@@ -69,16 +68,7 @@ export function BackgroundVideoLive({
             console.error('Video error:', e.currentTarget.error)
             onVideoError()
           }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: isVideoLoaded ? 1 : 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5, ease: 'easeInOut' }}
-          style={{
-            position: 'absolute',
-            ...blurredStyle,
-            objectFit: 'cover',
-            zIndex: 0
-          }}
+          style={{ ...layerStyle, opacity: isVideoLoaded ? 1 : 0 }}
         />
       )}
     </>

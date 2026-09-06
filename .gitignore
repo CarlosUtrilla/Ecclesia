@@ -20,3 +20,6 @@ coverage/
 
 # Binarios nativos descargados del CI (workflow ndi-addon.yml)
 packages/prebuilds/
+
+# Salidas de Playwright MCP (capturas de depuracion)
+.playwright-mcp/

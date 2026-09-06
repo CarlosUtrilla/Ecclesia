@@ -21,6 +21,13 @@ Modulo encargado de la ventana de proyeccion en vivo y su sincronizacion por IPC
   - `backgroundMedia.thumbnail`
   - `backgroundMedia.fallback`
 - Si llega el mismo tema/fondo (evento redundante), no dispara una nueva transicion.
+- La firma vive en `@/ui/PresentationView/utils/themeTransitionSignature.ts` y la comparte `PresentationView`, que ademas deriva su propia clave de transicion del `effectiveTheme` que pinta (tema neutro de MEDIA, tema por slide de PRESENTATION). `themeTransitionKey` por si solo no cubre esos cambios.
+
+## Agrupado de mensajes IPC
+
+- `liveScreen-update` y `liveScreen-update-theme` llegan como mensajes IPC separados, asi que React los aplicaria en dos renders distintos: el contenido nuevo sustituiria al viejo **antes** de que la capa de tema se re-montara, y la transicion cruzada acabaria animando el contenido nuevo contra si mismo (efecto: "no se ve el cross fade").
+- Por eso los handlers no llaman a `setState` directamente: acumulan en un objeto `pending` y se vuelcan juntos con `requestAnimationFrame`, con un `setTimeout` de respaldo (`PENDING_UPDATE_FALLBACK_MS = 50`) por si el rAF esta throttled (ventana ocluida u offscreen, como la de captura NDI).
+- Un mensaje parcial (por ejemplo solo `liveControls`) sigue actualizando unicamente sus claves: `pending` distingue "ausente" de "presente con valor nulo" via `hasContentScreen`.
 
 ## Atajo de teclado F7
 

@@ -261,6 +261,7 @@ function PresentationBodyComponent({
     <LiveSlideTransitionShell
       slideTransitionRaw={currentItem.transitionSettings}
       slideKey={currentItem.id || `slide-${currentIndex}`}
+      opaqueLayer={isMediaItem}
     >
       {mainContent}
     </LiveSlideTransitionShell>

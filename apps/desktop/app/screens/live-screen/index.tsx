@@ -8,24 +8,30 @@ import { ScreenContentUpdate } from 'electron/main/displayManager/displayType'
 import { useMediaServer } from '@/contexts/MediaServerContext'
 import { MediaDto } from '@ecclesia/api/src/controllers/media/media.dto'
 import { parseAnimationSettings } from '@/ui/PresentationView/utils/parseAnimationSettings'
+import { getThemeTransitionSignature } from '@/ui/PresentationView/utils/themeTransitionSignature'
 import { Api } from '@ecclesia/queries'
 
 const FALLBACK_MEDIA_KEY = 'LOGO_FALLBACK_MEDIA_ID'
 const FALLBACK_COLOR_KEY = 'LOGO_FALLBACK_COLOR'
 const FALLBACK_VIDEO_LOOP_KEY = 'LOGO_FALLBACK_VIDEO_LOOP'
 
-const getThemeTransitionSignature = (theme: ThemeWithMedia): string => {
-  const backgroundMedia = theme.backgroundMedia
-
-  return [
-    theme.id ?? 'no-theme-id',
-    theme.background ?? 'no-background',
-    backgroundMedia?.type ?? 'no-media-type',
-    backgroundMedia?.filePath ?? 'no-media-file',
-    backgroundMedia?.thumbnail ?? 'no-thumbnail',
-    backgroundMedia?.fallback ?? 'no-fallback'
-  ].join('|')
+// `liveScreen-update` y `liveScreen-update-theme` llegan como dos mensajes IPC
+// distintos, asi que React los aplicaria en dos renders: el contenido nuevo
+// sustituiria al viejo antes de que la capa de tema se re-montara, y la
+// transicion cruzada acabaria animando el mismo contenido contra si mismo. Se
+// acumulan y se vuelcan juntos en un unico render.
+type PendingLiveUpdate = {
+  itemIndex?: number
+  hasContentScreen?: boolean
+  contentScreen?: ContentScreen | null
+  presentationVerseBySlideKey?: Record<string, number>
+  liveControls?: ScreenContentUpdate['liveControls']
+  theme?: ThemeWithMedia
 }
+
+// Salvavidas por si `requestAnimationFrame` esta throttled (ventana ocluida u
+// offscreen): el volcado nunca debe quedarse colgado en una pantalla en vivo.
+const PENDING_UPDATE_FALLBACK_MS = 50
 
 type LiveControlsOverride = {
   hideText: boolean
@@ -117,42 +123,88 @@ export default function LiveScreen({
   useEffect(() => {
     window.electron.ipcRenderer.send('renderer-ready')
     console.log('LiveScreen mounted, setting up IPC listeners')
+
+    let pending: PendingLiveUpdate = {}
+    let rafId: number | null = null
+    let timeoutId: number | null = null
+
+    const flushPendingUpdate = () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId)
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+      rafId = null
+      timeoutId = null
+
+      const update = pending
+      pending = {}
+
+      if (typeof update.itemIndex === 'number') {
+        setItemIndex(update.itemIndex)
+      }
+
+      if (update.hasContentScreen) {
+        setContent(update.contentScreen ?? null)
+      }
+
+      if (update.presentationVerseBySlideKey !== undefined) {
+        setPresentationVerseBySlideKey(update.presentationVerseBySlideKey)
+      }
+
+      if (update.liveControls) {
+        const liveControlsUpdate = update.liveControls
+        setLiveControls((prev) => ({
+          hideText: liveControlsUpdate.hideText ?? prev.hideText,
+          showLogo: liveControlsUpdate.showLogo ?? prev.showLogo,
+          blackScreen: liveControlsUpdate.blackScreen ?? prev.blackScreen
+        }))
+      }
+
+      if (update.theme) {
+        setSelectedTheme(update.theme)
+
+        const nextSignature = getThemeTransitionSignature(update.theme)
+        if (lastThemeTransitionSignatureRef.current !== nextSignature) {
+          lastThemeTransitionSignatureRef.current = nextSignature
+          setThemeKey((prev) => prev + 1)
+        }
+      }
+    }
+
+    const schedulePendingUpdate = () => {
+      if (rafId !== null || timeoutId !== null) return
+      rafId = window.requestAnimationFrame(flushPendingUpdate)
+      timeoutId = window.setTimeout(flushPendingUpdate, PENDING_UPDATE_FALLBACK_MS)
+    }
+
     const unsuscribeItems = window.electron.ipcRenderer.on(
       'liveScreen-update',
       (_, data: ScreenContentUpdate) => {
         console.log('Received live screen update:', data)
         if (typeof data.itemIndex === 'number') {
-          setItemIndex(data.itemIndex)
+          pending.itemIndex = data.itemIndex
         }
 
         if ('contentScreen' in data) {
-          setContent(data.contentScreen ?? null)
+          pending.hasContentScreen = true
+          pending.contentScreen = data.contentScreen ?? null
         }
 
         if (data.presentationVerseBySlideKey !== undefined) {
-          setPresentationVerseBySlideKey(data.presentationVerseBySlideKey)
+          pending.presentationVerseBySlideKey = data.presentationVerseBySlideKey
         }
 
         if (data.liveControls) {
-          setLiveControls((prev) => ({
-            hideText: data.liveControls?.hideText ?? prev.hideText,
-            showLogo: data.liveControls?.showLogo ?? prev.showLogo,
-            blackScreen: data.liveControls?.blackScreen ?? prev.blackScreen
-          }))
+          pending.liveControls = { ...pending.liveControls, ...data.liveControls }
         }
+
+        schedulePendingUpdate()
       }
     )
     const unsuscribeThemes = window.electron.ipcRenderer.on(
       'liveScreen-update-theme',
       (_, data: ThemeWithMedia) => {
         console.log('Received live screen theme update:', data)
-        setSelectedTheme(data)
-
-        const nextSignature = getThemeTransitionSignature(data)
-        if (lastThemeTransitionSignatureRef.current !== nextSignature) {
-          lastThemeTransitionSignatureRef.current = nextSignature
-          setThemeKey((prev) => prev + 1)
-        }
+        pending.theme = data
+        schedulePendingUpdate()
       }
     )
 
@@ -165,6 +217,8 @@ export default function LiveScreen({
     addEventListener('keyup', handleKeyUp)
 
     return () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId)
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
       unsuscribeItems()
       unsuscribeThemes()
       removeEventListener('keyup', handleKeyUp)

@@ -1,18 +1,33 @@
 import { type ReactNode, useMemo } from 'react'
-import { AnimatePresence, m } from 'framer-motion'
+import { AnimatePresence, m, type TargetAndTransition, type Variants } from 'framer-motion'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { AnimationSettings } from '@/lib/animationSettings'
 import { parseAnimationSettings } from '../utils/parseAnimationSettings'
+import { composeLiveTransitionVariants } from '../utils/composeLiveTransitionVariants'
+
+type SlidePresenceVariantsCustom = {
+  initial: TargetAndTransition
+  animate: TargetAndTransition
+  exit: TargetAndTransition
+}
 
 type Props = {
   slideTransitionRaw?: string
   slideKey: string | number
+  /**
+   * `true` cuando el slide pinta su propio fondo a sangre (items MEDIA, que
+   * `MediaRender` envuelve en un contenedor `bg-black` a pantalla completa).
+   * El texto de canciones/versiculos es transparente y flota sobre el fondo del
+   * tema, que vive detras de las dos capas.
+   */
+  opaqueLayer?: boolean
   children: ReactNode
 }
 
 export function LiveSlideTransitionShell({
   slideTransitionRaw,
   slideKey,
+  opaqueLayer = false,
   children
 }: Props) {
   const slideTransitionSettings = useMemo<AnimationSettings>(
@@ -38,68 +53,45 @@ export function LiveSlideTransitionShell({
     ]
   )
 
-  const composedSlideTransitionVariants = useMemo(() => {
-    // En transiciones de items en vivo evitamos huecos de opacidad para que
-    // la entrada/salida se perciba como empuje continuo, sin mostrar fondo negro.
-    const shouldForceSolidOpacity = [
-      'slideLeft',
-      'slideRight',
-      'slideUp',
-      'slideDown',
-      'zoomIn',
-      'zoomOut',
-      'scale'
-    ].includes(slideTransitionType)
+  const composedSlideTransitionVariants = useMemo(
+    () =>
+      composeLiveTransitionVariants(
+        slideTransitionVariants,
+        slideTransitionSettings,
+        slideTransitionType,
+        { opaqueLayer }
+      ),
+    [slideTransitionType, slideTransitionVariants, slideTransitionSettings, opaqueLayer]
+  )
 
-    const initial = (slideTransitionVariants.initial as Record<string, unknown>) ?? {}
-    const animate = (slideTransitionVariants.animate as Record<string, unknown>) ?? {}
-    const exit = (slideTransitionVariants.exit as Record<string, unknown>) ?? {}
+  // Igual que en la capa de tema: el `custom` de `AnimatePresence` alcanza a la
+  // capa saliente, asi que la animacion del slide entrante gobierna tambien su
+  // salida. Sin esto la saliente usaria su propia duracion y, cuando difieren,
+  // el `hold` acabaria antes que la entrada y dejaria un frame en negro.
+  const slidePresenceCustom = useMemo<SlidePresenceVariantsCustom>(
+    () => ({
+      initial: composedSlideTransitionVariants.initial as TargetAndTransition,
+      animate: composedSlideTransitionVariants.animate as TargetAndTransition,
+      exit: composedSlideTransitionVariants.exit as TargetAndTransition
+    }),
+    [composedSlideTransitionVariants]
+  )
 
-    if (!shouldForceSolidOpacity) {
-      return {
-        ...slideTransitionVariants,
-        initial: { ...initial, opacity: initial.opacity ?? 1 },
-        animate: { ...animate, opacity: animate.opacity ?? 1 },
-        exit: { ...exit, opacity: exit.opacity ?? 1 }
-      }
-    }
-
-    const animateTransition =
-      (animate.transition as Record<string, unknown> | undefined) ?? {}
-    const exitTransition = (exit.transition as Record<string, unknown> | undefined) ?? {}
-
-    return {
-      ...slideTransitionVariants,
-      initial: {
-        ...initial,
-        opacity: 1
-      },
-      animate: {
-        ...animate,
-        opacity: 1,
-        transition: {
-          ...animateTransition,
-          duration: slideTransitionSettings.duration,
-          delay: slideTransitionSettings.delay
-        }
-      },
-      exit: {
-        ...exit,
-        opacity: 1,
-        transition: {
-          ...exitTransition,
-          duration: slideTransitionSettings.duration,
-          delay: 0
-        }
-      }
-    }
-  }, [slideTransitionType, slideTransitionVariants, slideTransitionSettings])
+  const slidePresenceVariants = useMemo<Variants>(
+    () => ({
+      initial: (custom) => (custom as SlidePresenceVariantsCustom).initial,
+      animate: (custom) => (custom as SlidePresenceVariantsCustom).animate,
+      exit: (custom) => (custom as SlidePresenceVariantsCustom).exit
+    }),
+    []
+  )
 
   return (
-    <AnimatePresence mode="sync">
+    <AnimatePresence mode="sync" custom={slidePresenceCustom}>
       <m.div
         key={slideKey}
-        variants={composedSlideTransitionVariants}
+        custom={slidePresenceCustom}
+        variants={slidePresenceVariants}
         initial="initial"
         animate="animate"
         exit="exit"

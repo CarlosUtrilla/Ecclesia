@@ -11,7 +11,8 @@ import { usePresentationSizing } from './hooks/usePresentationSizing'
 import { usePresentationBackground } from './hooks/usePresentationBackground'
 import { usePresentationTextLayout } from './hooks/usePresentationTextLayout'
 import { parseAnimationSettings } from './utils/parseAnimationSettings'
-import { LIVE_MEDIA_NEUTRAL_THEME, shouldOmitThemeForLiveMediaItem } from './utils/mediaThemePolicy'
+import { buildLiveMediaNeutralTheme, shouldOmitThemeForLiveMediaItem } from './utils/mediaThemePolicy'
+import { getThemeTransitionSignature } from './utils/themeTransitionSignature'
 import { LiveThemeTransitionShell } from './components/LiveThemeTransitionShell'
 import { PresentationBody } from './components/PresentationBody'
 import useBibleSchema from '@/hooks/useBibleSchema'
@@ -118,8 +119,12 @@ function PresentationViewComponent({
     currentItem?.resourceType === 'PRESENTATION' && currentItem && 'theme' in currentItem
       ? (currentItem as { theme?: typeof theme }).theme
       : undefined
+  const liveMediaNeutralTheme = useMemo(
+    () => buildLiveMediaNeutralTheme(theme),
+    [theme]
+  )
   const effectiveTheme = shouldOmitThemeForMedia
-    ? LIVE_MEDIA_NEUTRAL_THEME
+    ? liveMediaNeutralTheme
     : slideTheme || (currentItem?.resourceType === 'PRESENTATION' ? BlankTheme : theme)
 
   const {
@@ -173,6 +178,15 @@ function PresentationViewComponent({
     ]
   )
 
+  // La clave de la transicion de tema se deriva del tema que realmente se pinta,
+  // no solo del contador externo: al pasar de un video (tema neutro) a un tema, o
+  // de una presentacion a un tema, el contador externo no cambia y la capa saliente
+  // se sustituia en seco, sin cross animation.
+  const composedThemeTransitionKey = useMemo(
+    () => `${themeTransitionKey ?? effectiveTheme.id ?? 0}|${getThemeTransitionSignature(effectiveTheme)}`,
+    [themeTransitionKey, effectiveTheme]
+  )
+
   const containerStyle = useMemo(
     () => ({
       width: '100%',
@@ -181,8 +195,13 @@ function PresentationViewComponent({
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative' as const,
+      // `background` vale el literal 'media' cuando el tema apunta a un medio;
+      // como valor CSS es invalido y el frame caia a su clase `bg-background`
+      // (negro en modo oscuro), que asomaba durante el cross.
       background:
-        backgroundType === 'color' || backgroundType === 'gradient' ? background : 'transparent',
+        (backgroundType === 'color' || backgroundType === 'gradient') && background !== 'media'
+          ? background
+          : 'transparent',
       ...style
     }),
     [screenSize.aspectRatio, background, backgroundType, style]
@@ -294,7 +313,7 @@ function PresentationViewComponent({
     >
       <LiveThemeTransitionShell
         themeTransitionRaw={(effectiveTheme as { transitionSettings?: string }).transitionSettings}
-        themeTransitionKey={themeTransitionKey}
+        themeTransitionKey={composedThemeTransitionKey}
         themeId={effectiveTheme.id}
       >
         {viewContent}

@@ -10,6 +10,7 @@ import {
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { AnimationSettings } from '@/lib/animationSettings'
 import { parseAnimationSettings } from '../utils/parseAnimationSettings'
+import { composeLiveTransitionVariants } from '../utils/composeLiveTransitionVariants'
 
 type ThemePresenceVariantsCustom = {
   initial: TargetAndTransition
@@ -19,7 +20,7 @@ type ThemePresenceVariantsCustom = {
 
 type Props = {
   themeTransitionRaw?: string
-  themeTransitionKey?: number
+  themeTransitionKey?: number | string
   themeId?: number
   children: ReactNode
 }
@@ -53,63 +54,17 @@ export function LiveThemeTransitionShell({
     ]
   )
 
-  const composedThemeTransitionVariants = useMemo(() => {
-    // Para transiciones live evitamos huecos de opacidad entre salida/entrada
-    // para que no se vea negro durante el cambio de item/tema.
-    const shouldForceSolidOpacity = [
-      'slideLeft',
-      'slideRight',
-      'slideUp',
-      'slideDown',
-      'zoomIn',
-      'zoomOut',
-      'scale'
-    ].includes(themeTransitionType)
-
-    const initial = (themeTransitionVariants.initial as Record<string, unknown>) ?? {}
-    const animate = (themeTransitionVariants.animate as Record<string, unknown>) ?? {}
-    const exit = (themeTransitionVariants.exit as Record<string, unknown>) ?? {}
-
-    if (!shouldForceSolidOpacity) {
-      // Para tipos como 'none' o 'fade', asegurar que opacity default a 1
-      // cuando no está explícitamente definido en la variante
-      return {
-        ...themeTransitionVariants,
-        initial: { ...initial, opacity: initial.opacity ?? 1 },
-        animate: { ...animate, opacity: animate.opacity ?? 1 },
-        exit: { ...exit, opacity: exit.opacity ?? 1 }
-      }
-    }
-
-    const animateTransition = (animate.transition as Record<string, unknown> | undefined) ?? {}
-    const exitTransition = (exit.transition as Record<string, unknown> | undefined) ?? {}
-
-    return {
-      ...themeTransitionVariants,
-      initial: {
-        ...initial,
-        opacity: 1
-      },
-      animate: {
-        ...animate,
-        opacity: 1,
-        transition: {
-          ...animateTransition,
-          duration: themeTransitionSettings.duration,
-          delay: themeTransitionSettings.delay
-        }
-      },
-      exit: {
-        ...exit,
-        opacity: 1,
-        transition: {
-          ...exitTransition,
-          duration: themeTransitionSettings.duration,
-          delay: 0
-        }
-      }
-    }
-  }, [themeTransitionType, themeTransitionVariants, themeTransitionSettings])
+  const composedThemeTransitionVariants = useMemo(
+    () =>
+      composeLiveTransitionVariants(
+        themeTransitionVariants,
+        themeTransitionSettings,
+        themeTransitionType,
+        // Cada capa de tema trae su propio fondo a sangre.
+        { opaqueLayer: true }
+      ),
+    [themeTransitionType, themeTransitionVariants, themeTransitionSettings]
+  )
 
   const themePresenceCustom = useMemo<ThemePresenceVariantsCustom>(
     () => ({

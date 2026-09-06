@@ -35,7 +35,10 @@ app/ui/
 │       ├── usePresentationTextLayout.ts # Escalado de texto, offsets, bounds, shadow, stroke y blockBg
 │       └── useTextBoundsInteraction.ts # Interacción drag/resize del cuadro de texto editable + snap-to-center
 │   └── utils/
-│       └── parseAnimationSettings.ts   # Parse robusto de JSON de animaciones con defaults
+│       ├── parseAnimationSettings.ts   # Parse robusto de JSON de animaciones con defaults
+│       ├── composeLiveTransitionVariants.ts # Variantes de cross para las shells live (opaqueLayer)
+│       ├── themeTransitionSignature.ts # Firma visual del tema: clave de AnimatePresence
+│       └── mediaThemePolicy.ts         # Tema neutro para items MEDIA en live
 ├── renderSongLyricList.tsx             # Lista de letras de cancion con tags de color
 ├── UpdateNotification.tsx              # Globo de notificación de actualizaciones disponibles
 ├── colorPicker.tsx                     # Color picker con ChromePicker
@@ -179,9 +182,19 @@ PresentationView (index.tsx)
 - En modo `live`, la estabilización de altura está simplificada en un solo efecto: primero usa `ResizeObserver` y, si arranca en `0`, hace medición directa de `containerRef.getBoundingClientRect().height` con un ciclo corto en `requestAnimationFrame` hasta obtener un valor válido.
 - El render de fondo (imagen/video/color) vive fuera del contenedor animado por slide; así, cambiar texto/slide no desmonta ni recarga el fondo en `live`.
 - El estado de fondo/video solo se reinicia cuando cambia la fuente real del fondo (`background`, `backgroundMedia.filePath`, `thumbnail`, `fallback`), evitando flashes negros por cambios de objeto sin cambio real de asset.
+- **`usePresentationBackground` deriva el fondo en el render (`useMemo`), no en un `useEffect`.** Resolviendolo por efecto, el primer frame de la capa salia con `backgroundType: 'color'` y sin URL; en una transicion de tema esa capa entra pintando el color del frame (`bg-background`, negro en modo oscuro) hasta que corre el efecto. `videoLoaded`/`videoError` se atan a la URL (`loadedVideoUrl === backgroundUrl`) en vez de resetearse por efecto, para que no quede ningun frame arrastrando el estado del fondo anterior.
+- **`BackgroundImage` y `BackgroundVideoLive` no animan su propia opacidad.** El desvanecido lo hace la capa de tema que los envuelve. Con fades propios anidados de 0.5 s las dos opacidades se multiplican: medido en el lab con un cross de 0.6 s, a 260 ms la capa iba al 0.43 pero su contenido solo al 0.52 (visibilidad efectiva 0.22), y ese 35 % restante era el fondo negro del frame. El fallback de video va debajo a opacidad plena desde el primer frame; el video lo tapa en cuanto carga.
+- En `PresentationView`, `containerStyle.background` filtra el literal `'media'`: como valor CSS es invalido y el frame caia a su clase `bg-background`.
 - La transición de tema en `PresentationView` usa `AnimatePresence` en `mode="sync"` con capas superpuestas (`absolute inset-0`) para evitar frames vacíos/negros entre salida y entrada.
 - En live, la primera entrada de contenido también ejecuta la transición de tema configurada (no se suprime `initial` en la shell de tema), para evitar aparición brusca al pasar de vacío a item.
-- La animación del tema entrante se aplica tanto al `enter` como al `exit` (cross animation), de modo que el tema saliente y el entrante comparten el mismo patrón de transición configurado en el nuevo tema.
+- La animación del tema entrante gobierna la transición completa (cross animation): el `exit` de la capa saliente se deriva de la configuración del tema que entra, no de la del que sale.
+- **Las dos shells de transición live comparten la composición de variantes**: `utils/composeLiveTransitionVariants.ts`. Recibe `{ opaqueLayer }` porque la estrategia para cruzar sin pasar por negro depende de si la capa trae su propio fondo a sangre:
+  - **`opaqueLayer: true`** (capa de tema; slide de MEDIA, que `MediaRender` envuelve en un `bg-black` a pantalla completa). Si la saliente baja de 1 a 0 mientras la entrante sube de 0 a 1, las dos quedan translúcidas a la vez y se ve el fondo de detrás — un fade-out/fade-in solapado, no un cross. El cross real se consigue **no desvaneciendo la saliente**: se queda quieta y opaca debajo mientras la entrante anima encima. El `exit` usa keyframes `opacity: [1, 1, 0]` con `times: [0, 0.995, 1]` y duración `delay + duration` de la entrada. Los keyframes no son cosmética: hace falta un valor que cambie de verdad, porque con `opacity: 1` fijo framer-motion daría el `exit` por terminado al instante y quedaría un frame en negro. Este `exit` **no hereda** la variante original (`...exit`): la capa que solo espera no gira, ni escala, ni se desenfoca.
+  - **`opaqueLayer: false`** (texto de canciones/versículos/layers de presentación). El fondo del tema vive detrás de las dos capas, así que el desvanecido simultáneo ya es un cross dissolve correcto y mantener las dos opacas dejaría los dos textos visibles a la vez. Aquí solo se iguala la duración: `getAnimationVariants` da al `exit` `duration * 0.5`, con lo que el contenido saliente se esfumaba a mitad de camino; se estira a `delay + duration`.
+- `type: 'none'` conserva el corte seco (sin keyframes) en ambos casos.
+- Los tipos por transform (`slide*`, `zoom*`, `scale`) se mueven en bloque con `opacity: 1` fijo, así que nunca hubo hueco de opacidad — pero ahora la capa saliente comparte el `delay` de la entrante: con el `delay: 0` anterior, cualquier retardo configurado hacía que la saliente se fuera antes de que la entrante arrancara.
+- Ambas shells pasan las variantes por el `custom` de `AnimatePresence` (variantes dinámicas), de modo que la animación configurada en el elemento **entrante** gobierna también el `exit` del saliente. Sin esto la saliente usaría su propia duración y, cuando difieren, el `hold` acabaría antes que la entrada.
+- La clave de `AnimatePresence` de la shell de tema (`composedThemeTransitionKey`) combina el `themeTransitionKey` externo con la **firma visual** del `effectiveTheme` (`utils/themeTransitionSignature.ts`: id + `background` + `backgroundMedia`). El contador externo solo cambia cuando cambia el tema aplicado por IPC, así que sin la firma no había cross animation al pasar de un vídeo (tema neutro `id: -2`) a un tema, ni de una presentación a un tema: la capa saliente se sustituía en seco. La firma también evita re-montar la capa al navegar entre slides del mismo tema.
 - En transiciones de tema tipo slide/zoom/scale en `live`, se fuerza `opacity: 1` durante `initial/animate/exit` para impedir que aparezca fondo negro entre capas animadas.
 - `PresentationView` soporta `hideTextInLive` para ocultar solo capas textuales en modo `live` (SONG/BIBLE/TEXT y layers textuales de `PRESENTATION`) manteniendo capas de media y fondo.
 - En `AnimatedText`, el modo `hideTextInLive` nunca debe retornar antes de completar hooks; la ocultación se resuelve después de declarar hooks para evitar errores de React por orden de hooks.
@@ -198,7 +211,7 @@ PresentationView (index.tsx)
 - `AutoComplete` admite `showAllOnFocus` para limpiar temporalmente el término de búsqueda cuando el input gana foco y estaba mostrando el label seleccionado; útil en selectores como fuentes para listar todas las opciones al abrir y filtrar solo cuando el usuario escribe.
 - `AutoComplete` sincroniza el texto visible con `value` cuando las opciones cargan de forma asíncrona (por ejemplo fuentes del sistema), evitando que el input quede en placeholder aunque exista valor inicial seleccionado.
 - En `preview`, los videos (fondo y capas de presentación) no se reproducen: se renderizan thumbnails estáticos para reducir CPU/GPU cuando hay muchas instancias simultáneas.
-- En `live`, cuando el slide actual es `resourceType: 'MEDIA'` (imagen/video solo), `PresentationView` omite el tema seleccionado y usa un tema neutro negro sin transición para evitar que fondos degradados del tema se superpongan al contenido multimedia.
+- En `live`, cuando el slide actual es `resourceType: 'MEDIA'` (imagen/video solo), `PresentationView` omite el tema seleccionado y usa un tema neutro negro (`buildLiveMediaNeutralTheme`) para evitar que fondos degradados del tema se superpongan al contenido multimedia. Ese tema neutro **hereda la `transitionSettings` del tema aplicado**: con `type: 'none'` fijo, entrar en un vídeo era un corte seco en lugar de cruzarse con la animación configurada.
 - Las transiciones de tema/slide (`useMemo` + `AnimatePresence` + `m.div`) se encapsulan en shells solo de `live`, evitando cálculo/instanciación en `preview`.
 - En `preview`, fondos de imagen y thumbnails de video usan `<img>` estático (`loading="lazy"`) en lugar de componentes animados, para minimizar costo de render masivo.
 - `PresentationView` está memoizado (`React.memo`) con comparación explícita de props para evitar re-renders en cascada cuando se renderiza muchas veces en paralelo.
@@ -424,3 +437,12 @@ Renderiza texto genérico del slide con animaciones:
   - **Solución**: Mover `safePresentationHeight`, `themeTextStyle`, `useMemo(copyrightOverrideStyle)`, `useRef(dragRef)` y `useRef(isDraggingRef)` ANTES del early return, preservando el orden consistente de hooks.
   - **Por qué "a veces"**: El crash solo ocurría cuando había una canción con copyright/author en la pantalla en vivo al presionar F9.
   - **Archivo**: `app/ui/PresentationView/components/CopyrightTextRender.tsx`
+
+## Laboratorio de transiciones (dev)
+
+`pnpm --filter @ecclesia/desktop lab` levanta un Vite aparte (puerto 5199, `vite.lab.config.ts`) que sirve `app/transition-lab.html` sin arrancar Electron. Sirve para lo que los tests no pueden cubrir: framer-motion 12 anima por WAAPI y jsdom no lo implementa, asi que en test la opacidad de las capas se queda congelada en su valor `initial` y solo se puede verificar la **forma** de las variantes, nunca el resultado pintado.
+
+- `?dur=25` alarga la transicion para poder congelarla (`document.getAnimations().forEach(a => a.pause())`) y capturarla a medio camino.
+- El fondo de la pagina es magenta para separar diagnosticos: **magenta** = hueco de geometria, **negro** = algo lo esta pintando, **color apagado** = bajon de opacidad.
+- La comprobacion clave es que `opacidad(saliente) + opacidad(entrante) === 1` en todo momento y que el contenido de la entrante este a opacidad plena desde el primer frame.
+- No entra en produccion: `electron.vite.config.ts` solo declara `index.html` y `splash.html` como inputs del build.
