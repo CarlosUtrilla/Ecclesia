@@ -74,7 +74,18 @@ export class OplogDriveService {
     return 0
   }
 
-  async downloadOplog(): Promise<{ data: Uint8Array; fileId: string; generation: number } | null> {
+  /**
+   * Descarga el OpLog remoto.
+   *
+   * `skipIfGeneration` corta antes de traer el cuerpo cuando la generación
+   * remota coincide con la que ya conocemos: la generación se resuelve con una
+   * llamada de metadatos que ya se hacía igualmente, así que ahorra la descarga
+   * completa (~1.9 MB) y, sobre todo, el `load()` + `merge()` de Automerge que
+   * vienen después y son síncronos. Devuelve `data: null` en ese caso.
+   */
+  async downloadOplog(
+    skipIfGeneration?: number,
+  ): Promise<{ data: Uint8Array | null; fileId: string; generation: number } | null> {
     oplogLogInfo('[Drive] downloadOplog: starting...')
     try {
       const drive = await this.getDrive()
@@ -99,6 +110,11 @@ export class OplogDriveService {
 
       const gen = await this.getFileGeneration(file.id)
       oplogLogInfo(`[Drive] downloadOplog: generation=${gen}`)
+
+      if (skipIfGeneration !== undefined && skipIfGeneration > 0 && gen === skipIfGeneration) {
+        oplogLogInfo(`[Drive] downloadOplog: sin cambios (generation=${gen}), se omite la descarga`)
+        return { data: null, fileId: file.id, generation: gen }
+      }
 
       const resp = await drive.files.get(
         { fileId: file.id, alt: 'media' },

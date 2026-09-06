@@ -1,5 +1,5 @@
 import {
-  from, change, merge, clone, save, load,
+  from, change, merge, clone, save, load, getHeads,
   type Doc,
 } from '@automerge/automerge'
 import { randomUUID, randomBytes } from 'crypto'
@@ -14,6 +14,7 @@ import { oplogBlobService } from './oplog-blob.service'
 import { oplogMigrationService } from './oplog-migration.service'
 import { oplogPurgeService } from './oplog-purge.service'
 import { computeSchemaHash } from './oplog-utils'
+import { headsMatch } from './oplog-heads'
 import { readJsonSafe, getAppInstanceIdFilePath, getMediaDir } from './oplog-shared'
 import { getSocket } from '../../sockets/socket.service'
 import log from 'electron-log'
@@ -88,6 +89,12 @@ export class OplogService {
   private localDoc: Doc<OplogDocument> | null = null
   private currentSeq = 0
   private pendingEvents: OplogEvent[] = []
+  /**
+   * El doc local tiene contenido que el archivo de Drive todavía no refleja.
+   * Se deduce de las heads al inicializar, porque `pendingEvents` solo recoge
+   * lo que se escribe durante esta ejecución.
+   */
+  private hasUnpushedChanges = false
   private onProgress: SyncEventCallback | null = null
   private blobFallbackDone = false
   private checksumCache = new Map<string, string>()
@@ -153,6 +160,7 @@ export class OplogService {
       lastSyncAt: null,
       lastRemoteGeneration: null,
       lastPurgeAt: null,
+      lastPushedHeads: null,
     }
 
     const existing = await oplogStateService.readOplogBinary()
@@ -236,9 +244,14 @@ export class OplogService {
             this.config = { ...this.config, ...savedConfig }
           }
 
-          // Poblar pendingEvents con todos los ops para que push() los suba a Drive
-          this.pendingEvents = [...(this.localDoc.ops ?? [])]
-          oplogLogInfo(`[OplogInit] pendingEvents populated with ${this.pendingEvents.length} events`)
+          // Antes se copiaban TODOS los ops a pendingEvents en cada arranque, así
+          // que `push()` siempre creía tener trabajo: serializaba el doc entero
+          // (`save()`) y resubía el binario completo a Drive aunque no hubiera
+          // cambiado nada. Ahora se compara contra las heads del último push.
+          this.hasUnpushedChanges = !headsMatch(getHeads(this.localDoc), this.config.lastPushedHeads)
+          oplogLogInfo(
+            `[OplogInit] hasUnpushedChanges=${this.hasUnpushedChanges} (heads locales vs. último push)`,
+          )
           return
         }
         oplogLogInfo('[OplogInit] Local OpLog vacío — bootstrapping desde DB local')
@@ -255,8 +268,8 @@ export class OplogService {
       try {
         oplogLogInfo('[OplogInit] Attempting to download remote OpLog...')
         const remote = await oplogDriveService.downloadOplog()
-        oplogLogInfo(`[OplogInit] Remote OpLog download result: ${remote ? 'found (' + remote.data.length + ' bytes, gen=' + remote.generation + ')' : 'not found'}`)
-        if (remote) {
+        oplogLogInfo(`[OplogInit] Remote OpLog download result: ${remote?.data ? 'found (' + remote.data.length + ' bytes, gen=' + remote.generation + ')' : 'not found'}`)
+        if (remote?.data) {
           const remoteDoc = load<OplogDocument>(remote.data)
           const ops = remoteDoc.ops ?? []
           oplogLogInfo(`[OplogInit] Remote OpLog has ${ops.length} operations`)
@@ -650,13 +663,27 @@ export class OplogService {
 
     this.emitProgress('pull', 5, 'Descargando OpLog remoto...')
     oplogLogInfo('[Pull] Attempting downloadOplog()...')
-    const remote = await oplogDriveService.downloadOplog()
-    oplogLogInfo(`[Pull] downloadOplog result: ${remote ? 'found (' + remote.data.length + ' bytes, gen=' + remote.generation + ')' : 'null (no remote oplog)'}`)
+
+    // Si ya tenemos doc local y la generación remota no ha cambiado desde el
+    // último ciclo, no hay nada que traer. Saltarlo evita descargar el binario
+    // completo y, sobre todo, el `load()` + `merge()` de Automerge, que son
+    // síncronos y bloquean el proceso main (y con él el IPC y el servidor HTTP
+    // que alimentan al renderer).
+    const knownGeneration = this.localDoc ? (this.config!.lastRemoteGeneration ?? 0) : 0
+    const remote = await oplogDriveService.downloadOplog(knownGeneration)
+    oplogLogInfo(`[Pull] downloadOplog result: ${remote ? (remote.data ? 'found (' + remote.data.length + ' bytes, gen=' + remote.generation + ')' : 'unchanged (gen=' + remote.generation + ')') : 'null (no remote oplog)'}`)
 
     if (!remote) {
       oplogLogInfo('[Pull] No remote OpLog found')
       this.emitProgress('pull', 100, 'No hay OpLog remoto')
       return { newEventsCount: 0, remoteGeneration: 0 }
+    }
+
+    if (!remote.data) {
+      oplogLogInfo('[Pull] Remoto sin cambios — se omite descarga, load y merge')
+      this.config!.lastPullAt = new Date().toISOString()
+      this.emitProgress('pull', 100, 'Sin cambios remotos')
+      return { newEventsCount: 0, remoteGeneration: remote.generation }
     }
 
     this.emitProgress('pull', 30, 'Mergeando cambios remotos...')
@@ -768,9 +795,11 @@ export class OplogService {
     }
 
     const localPending = this.pendingEvents.length
-    oplogLogInfo(`[Push] pendingEvents count: ${localPending}`)
-    if (localPending === 0) {
-      oplogLogInfo('[Push] No pending events to push')
+    oplogLogInfo(
+      `[Push] pendingEvents count: ${localPending}, hasUnpushedChanges=${this.hasUnpushedChanges}`,
+    )
+    if (localPending === 0 && !this.hasUnpushedChanges) {
+      oplogLogInfo('[Push] Nada que subir: el doc local ya coincide con el último push')
       return { pushed: 0 }
     }
 
@@ -795,9 +824,13 @@ export class OplogService {
       cfg.lastRemoteGeneration = result.generation
       cfg.lastPushAt = new Date().toISOString()
       cfg.lastSyncAt = new Date().toISOString()
+      // Se guardan las heads del doc recién subido: en el próximo arranque
+      // bastan para saber que no hay nada pendiente, sin recorrer los ops.
+      cfg.lastPushedHeads = getHeads(this.localDoc!)
       await oplogStateService.writeConfig(cfg)
 
       this.pendingEvents = []
+      this.hasUnpushedChanges = false
 
       this.emitProgress('push', 100, `${localPending} eventos subidos`)
       oplogLogInfo(`[Push] Push complete: ${localPending} events uploaded`)
@@ -814,7 +847,7 @@ export class OplogService {
         const { newEventsCount, remoteGeneration } = await this.pull()
         oplogLogInfo(`[Push] After conflict pull: ${newEventsCount} new events, remoteGen=${remoteGeneration}`)
 
-        if (this.pendingEvents.length > 0) {
+        if (this.pendingEvents.length > 0 || this.hasUnpushedChanges) {
           oplogLogInfo('[Push] Retrying push after conflict resolution...')
           return this.push()
         }
@@ -1343,8 +1376,7 @@ export class OplogService {
 
       oplogLogInfo('[SyncCycle] Phase 3/4: Push')
       const pushResult = await this.runMappedPhase('push', '3/4 Push', 66, 88, () => this.push())
-      result.blobsDownloaded = blobResult.downloaded
-      result.blobsUploaded = blobResult.uploaded
+      result.pushed = pushResult.pushed
       oplogLogInfo(`[SyncCycle] Push result: pushed=${pushResult.pushed}`)
 
       oplogLogInfo('[SyncCycle] Phase 4/4: Purge')

@@ -78,6 +78,12 @@ export interface OplogConfig {
   lastSyncAt: string | null
   lastRemoteGeneration: number | null
   lastPurgeAt: string | null
+  /**
+   * Heads de Automerge del doc tal y como quedó en el último push correcto.
+   * Permite saber si hay algo local sin subir sin tener que marcar todos los
+   * eventos como pendientes en cada arranque.
+   */
+  lastPushedHeads?: string[] | null
 }
 
 export interface SyncCycleResult {

@@ -181,8 +181,9 @@ export class OplogMigrationService {
 
     if (await oplogDriveService.isAvailable()) {
       oplogLogInfo('[Migration] Drive is available, checking for remote OpLog...')
+      // Sin generación conocida: aquí siempre interesa el cuerpo completo.
       const remote = await oplogDriveService.downloadOplog().catch(() => null)
-      if (remote) {
+      if (remote?.data) {
         const remoteDoc = load<OplogDocument>(remote.data)
         const opsCount = remoteDoc.ops?.length ?? 0
         oplogLogInfo(`[Migration] Remote OpLog found with ${opsCount} ops`)
