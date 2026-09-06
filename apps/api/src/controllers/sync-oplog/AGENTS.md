@@ -47,6 +47,20 @@ archivo `oplog.bin` — el binario en disco solo sirve para recuperación tras r
 - `persistLocal()` sigue usándose de forma **síncrona** fuera de la ruta caliente (`init`, `pull`,
   `backfillChecksums`, `syncBlobs`), donde sí se requiere durabilidad inmediata tras merge/bootstrap.
 
+## Coste de cada ciclo y bloqueo del proceso main
+
+Todo esto corre en el **proceso main de Electron**, que además atiende el IPC, el servidor Express del 7777 y Socket.IO. El renderer recibe sus datos por ahí, así que **cualquier trabajo síncrono de CPU en el ciclo de sync congela la interfaz**. Las operaciones de Automerge (`load`, `save`, `merge`, `clone`) son síncronas y su coste es O(tamaño del oplog).
+
+Medido sobre un oplog de 7365 eventos / 1,9 MB, el ciclo de arranque bloqueaba ~5,3 s. Correcciones aplicadas:
+
+- **No traer el oplog remoto si no ha cambiado.** `downloadOplog(skipIfGeneration?)` compara la generación —que ya resolvía con una llamada de metadatos previa al cuerpo— y devuelve `data: null` si coincide. `pull()` le pasa `lastRemoteGeneration` y sale sin descargar, sin `load()` y sin `merge()`. Ahorra 1,9 MB de descarga y 2,18 s de CPU por ciclo.
+- **No dar por pendiente todo el oplog en cada arranque.** Antes `init()` hacía `pendingEvents = [...ops]`, así que `push()` siempre creía tener trabajo: `save()` del doc entero y resubida completa. Ahora se guardan las heads del doc en cada push correcto (`OplogConfig.lastPushedHeads`) y al inicializar se comparan con `headsMatch()` (`oplog-heads.ts`, sin dependencias para poder testearlo). Sin heads guardadas se asume pendiente: es el lado seguro.
+- `syncCycle()` no asignaba `result.pushed` — repetía las asignaciones de blobs de la fase anterior. El resumen mentía con `0 pushed`.
+
+**Lo que sigue bloqueando:** el `load()` del oplog local en `init()`, ~2,90 s. No hay forma de evitarlo sin sacar Automerge del hilo principal (`utilityProcess` de Electron o `worker_threads`). Crece linealmente con el oplog.
+
+**La compactación no es un atajo para esto.** `oplog-compaction.service.ts` existe pero **no lo importa nadie**, y no se puede cablear sin más: `buildSnapshot()` construye un documento nuevo con `from()`, sin historia común con el de los demás dispositivos. Dos docs Automerge sin ancestro compartido se fusionan por unión, no se reemplazan, así que adoptar un snapshot de forma unilateral duplicaría datos en el resto de equipos. Requiere un protocolo de adopción coordinada antes de poder activarse.
+
 ## Logging en producción
 
 El logger `oplog-logger.ts` escribe a:
