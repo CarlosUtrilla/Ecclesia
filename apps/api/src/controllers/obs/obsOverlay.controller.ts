@@ -170,19 +170,33 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
     overflow: hidden;
     font-family: Arial, sans-serif;
   }
-  #stage {
+  /*
+   * El stage es un lienzo virtual de 1080px de alto que se escala al tamaño real
+   * del Browser Source. Así todo se mide en px de un lienzo conocido y cualquier
+   * unidad absoluta (px, rem, em) rinde igual aquí que en la vista previa de la
+   * app, que usa exactamente el mismo montaje.
+   */
+  #viewport {
     position: fixed;
     inset: 0;
+    overflow: hidden;
+  }
+  #stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 1080px;
+    transform-origin: top left;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    padding: 4vh 0;
+    padding: 43.2px 0;
   }
   #box {
     position: relative;
     display: flex;
     box-sizing: border-box;
-    border-radius: 0.4vh;
+    border-radius: 4px;
     line-height: 1.25;
     background-size: cover;
     background-position: center;
@@ -233,12 +247,14 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
 <style id="custom-css"></style>
 </head>
 <body>
-  <div id="stage">
-    <div id="box">
-      <video id="bgvideo" autoplay loop muted playsinline></video>
-      <div id="bgtint"></div>
-      <span id="text"></span>
-      <span id="reference"></span>
+  <div id="viewport">
+    <div id="stage">
+      <div id="box">
+        <video id="bgvideo" autoplay loop muted playsinline></video>
+        <div id="bgtint"></div>
+        <span id="text"></span>
+        <span id="reference"></span>
+      </div>
     </div>
   </div>
   <div id="debug"></div>
@@ -247,6 +263,23 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
     (function () {
       var stage = document.getElementById('stage')
       var box = document.getElementById('box')
+
+      /*
+       * Ajusta el lienzo virtual (1080px de alto) al tamaño real del Browser
+       * Source. La escala va por altura para conservar el tamaño de fuente que
+       * daban las unidades vh anteriores; el ancho virtual se estira para
+       * cubrir el lienzo aunque no sea 16:9.
+       */
+      function applyStageScale() {
+        var h = window.innerHeight || 1080
+        var w = window.innerWidth || 1920
+        var scale = h / 1080
+        if (!isFinite(scale) || scale <= 0) scale = 1
+        stage.style.transform = 'scale(' + scale + ')'
+        stage.style.width = (w / scale) + 'px'
+      }
+      applyStageScale()
+      window.addEventListener('resize', applyStageScale)
       var text = document.getElementById('text')
       var reference = document.getElementById('reference')
       var bgVideo = document.getElementById('bgvideo')
@@ -287,8 +320,10 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
       // Construye la hoja de estilos BASE (del editor) como reglas por id. Va antes de
       // #custom-css, así el CSS del usuario gana por la cascada SIN necesidad de !important.
       function buildBaseCss(config, backgroundImageUrl, backgroundVideoUrl) {
-        var vh = function (px) { return (px / 1080 * 100).toFixed(3) + 'vh' }
-        var vw = function (px) { return (px / 1920 * 100).toFixed(3) + 'vw' }
+        // El stage mide 1080px de alto de verdad, así que los valores del editor
+        // (que ya están referidos a 1080) se emiten como px literales.
+        var vh = function (px) { return px + 'px' }
+        var vw = vh
         var tint = hexToRgba(config.backgroundColor, config.backgroundOpacity)
         var justify = config.position === 'top' ? 'flex-start' : config.position === 'center' ? 'center' : 'flex-end'
         var halign = config.horizontalAlign === 'left' ? 'flex-start' : config.horizontalAlign === 'right' ? 'flex-end' : 'center'
@@ -319,7 +354,7 @@ const OBS_OVERLAY_HTML = /* html */ `<!doctype html>
         css += 'line-height:1.25;'
         css += 'border-radius:' + vh(4) + ';'
         css += 'text-transform:' + (config.uppercase ? 'uppercase' : 'none') + ';'
-        css += 'text-shadow:' + (config.textShadow ? '0 0.2vh 0.6vh rgba(0,0,0,0.85)' : 'none') + ';'
+        css += 'text-shadow:' + (config.textShadow ? '0 2px 6px rgba(0,0,0,0.85)' : 'none') + ';'
         css += 'background:' + boxBg + ';'
         css += '}'
         css += '#reference{color:' + config.referenceColor + ';font-size:' + vh(config.fontSize * config.referenceFontScale) + ';'

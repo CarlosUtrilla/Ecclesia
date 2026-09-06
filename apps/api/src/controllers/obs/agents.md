@@ -49,6 +49,15 @@ apps/api/src/controllers/obs/
 - `GET /obs/subtitle/:slug` → HTML autocontenido (CSS+JS inline). La página lee su `slug` de la URL
   y pide su config. Estructura: `#stage` › `#box` › `#bgvideo`+`#bgtint`+`#text`+`#reference`. El
   texto se inyecta con `textContent` (nunca `innerHTML`).
+  **Lienzo virtual escalado:** `#stage` mide **1920×1080 px de verdad** y se reduce con
+  `transform: scale(alto_real / 1080)` (`applyStageScale`, recalculado en `resize`); el ancho
+  virtual se estira a `ancho_real / escala` para cubrir lienzos que no sean 16:9. La vista previa
+  del diálogo monta exactamente lo mismo. Gracias a eso **cualquier unidad absoluta — `px`, `rem`,
+  `em` — rinde igual en las dos superficies**, que es lo que antes fallaba: con `vh` en `/obs` y
+  `cqh` en el preview, el CSS del usuario en `rem` se veía ~2,8× más grande en el preview (stage de
+  ~390 px) que en OBS (1080 px). Los valores del editor, que ya estaban referidos a 1080, se emiten
+  ahora como px literales; `maxWidth` sigue en `%` porque es relativo al ancho del lienzo.
+
   **Cascada de estilos (sin `!important`):** el `<style>` estructural (layout fijo) va primero;
   luego `<style id="base-css">` con las reglas del editor por id (`buildBaseCss`: posición, fuente,
   colores, fondo, borde, etc. en unidades `vh`); y por último `<style id="custom-css">` con el CSS
@@ -66,9 +75,9 @@ apps/api/src/controllers/obs/
 
 - Al añadir/quitar campos de `ObsOverlayConfig`: actualizar `DEFAULT_OBS_CONFIG`, `parseObsConfig`
   (+ su test), el mirror de tipo en `ObsTextOutputDialog.tsx`, y **las 2 generadoras de CSS base**
-  que deben producir lo mismo: `buildBaseCss` (página `/obs`, unidades `vh`, en el HTML servido) y
-  `buildGeneratedCss` (renderer: panel «CSS de la configuración» en `vh` y preview del diálogo en
-  `cqh`). El preview NO usa estilos inline dinámicos: inyecta `buildGeneratedCss(unit:'cqh')` como
+  que deben producir lo mismo: `buildBaseCss` (página `/obs`, en el HTML servido) y
+  `buildGeneratedCss` (renderer: panel «CSS de la configuración» y preview del diálogo). Ambas
+  emiten px sobre el lienzo virtual; `obsOverlayCss.test.ts` fija esa unidad en el lado del renderer. El preview NO usa estilos inline dinámicos: inyecta `buildGeneratedCss(unit:'cqh')` como
   hoja base y luego el `customCss`, replicando la cascada de la página.
 - `ObsSubtitle = ObsOverlayConfig + { slug, name, types }`. `parseObsSubtitles` sanea la lista
   (slug único vía `sanitizeSlug`, tipos válidos). El diálogo mantiene su propio mirror del tipo.

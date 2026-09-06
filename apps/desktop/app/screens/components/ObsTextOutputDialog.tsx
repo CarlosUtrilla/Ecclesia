@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useResizeObserver } from 'usehooks-ts'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Check, Copy, ImageIcon, Plus, Trash2, Video } from 'lucide-react'
 import {
@@ -189,14 +190,22 @@ function hexToRgba(hex: string, opacity: number): string {
 // Es la misma que aplica la página /obs; se inyecta ANTES del CSS del usuario para que este
 // gane por cascada SIN `!important`. `unit` = 'vh' para la página real / 'cqh' para el preview
 // (relativo al contenedor). Se usa también, con 'vh', en el panel de «CSS de la configuración».
-function buildGeneratedCss(
+// Lienzo virtual compartido con la página /obs: 1080px de alto, el mismo al que
+// están referidos todos los valores del editor.
+const PREVIEW_STAGE_WIDTH = 1920
+const PREVIEW_STAGE_HEIGHT = 1080
+/** Equivale al `4vh` que tenía el #stage antes de pasar a px. */
+const PREVIEW_STAGE_PADDING_Y = 43.2
+
+export function buildGeneratedCss(
   config: ObsOverlayConfig,
-  opts: { unit?: 'vh' | 'cqh'; backgroundImageUrl?: string | null; hasVideo?: boolean } = {}
+  opts: { backgroundImageUrl?: string | null; hasVideo?: boolean } = {}
 ): string {
-  const unit = opts.unit ?? 'vh'
-  const xUnit = unit === 'cqh' ? 'cqw' : 'vw'
-  const len = (px: number) => `${((px / 1080) * 100).toFixed(3)}${unit}`
-  const lenX = (px: number) => `${((px / 1920) * 100).toFixed(3)}${xUnit}`
+  // Tanto el preview como la página /obs montan un lienzo virtual de 1080px de
+  // alto y lo escalan, así que los valores del editor se emiten como px
+  // literales: no hay conversión que pueda divergir entre las dos superficies.
+  const len = (px: number) => `${px}px`
+  const lenX = len
   const tint = hexToRgba(config.backgroundColor, config.backgroundOpacity)
   const refAbove = config.referencePosition === 'above'
   const mTop = config.position === 'top' ? len(config.offsetY) : '0'
@@ -230,7 +239,7 @@ function buildGeneratedCss(
   out.push('  line-height: 1.25;')
   out.push(`  border-radius: ${len(4)};`)
   out.push(`  text-transform: ${config.uppercase ? 'uppercase' : 'none'};`)
-  if (config.textShadow) out.push(`  text-shadow: 0 ${len(2)} ${len(6)} rgba(0,0,0,0.85);`)
+  if (config.textShadow) out.push('  text-shadow: 0 2px 6px rgba(0,0,0,0.85);')
   out.push('}')
   out.push(
     `#reference {\n  color: ${config.referenceColor};\n  font-size: ${len(config.fontSize * config.referenceFontScale)};\n  margin: ${refAbove ? '0 0 0.4em' : '0.4em 0 0'};\n}`
@@ -310,17 +319,13 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
   // Usar la IP de la LAN (para poder conectarse desde otra PC); localhost como fallback.
   const serverHost = interfaces?.addresses?.[0] ?? 'localhost'
   const obsUrl = port ? `http://${serverHost}:${port}/obs/subtitle/${config.slug}` : ''
+  // Una sola hoja: el preview y la página /obs comparten lienzo virtual, así que
+  // el CSS que se muestra en el panel es literalmente el que se aplica en OBS.
   const generatedCss = buildGeneratedCss(config, {
-    unit: 'vh',
     backgroundImageUrl,
     hasVideo: !!backgroundVideoUrl
   })
-  // Hoja base del preview (unidades cqh, relativas al #stage del preview).
-  const previewCss = buildGeneratedCss(config, {
-    unit: 'cqh',
-    backgroundImageUrl,
-    hasVideo: !!backgroundVideoUrl
-  })
+  const previewCss = generatedCss
 
   const update = <K extends keyof ObsOverlayConfig>(key: K, value: ObsOverlayConfig[K]) =>
     setSubtitles((prev) => prev.map((s) => (s.slug === activeSlug ? { ...s, [key]: value } : s)))
@@ -397,17 +402,25 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
     return isPickerOpen || !!target?.closest?.('[role="dialog"]')
   }
 
-  // Vista previa a escala real: usa unidades cqh (relativas a la altura del
-  // contenedor #stage), igual que la página /obs usa vh sobre el lienzo.
+  const previewViewportRef = useRef<HTMLDivElement | null>(null)
+  const { width: previewWidth = 0 } = useResizeObserver({
+    ref: previewViewportRef as React.RefObject<HTMLElement>,
+    box: 'border-box'
+  })
+
   const previewTint = hexToRgba(config.backgroundColor, config.backgroundOpacity)
+
+  // Mismo montaje que la página /obs: un lienzo virtual de 1920x1080 escalado al
+  // hueco disponible. Al ser px reales sobre un lienzo de tamaño conocido, todo
+  // —incluido el CSS personalizado en px, rem o em— rinde igual aquí que en OBS.
+  const previewScale = previewWidth > 0 ? previewWidth / PREVIEW_STAGE_WIDTH : 0
 
   const preview = (
     <div className="flex min-h-0 flex-1 flex-col">
       <Label className="text-xs text-muted-foreground">Vista previa</Label>
       <div
-        id="stage"
-        className="relative mt-1.5 aspect-video w-full overflow-hidden rounded-lg border bg-black flex flex-col"
-        style={{ containerType: 'size' }}
+        ref={previewViewportRef}
+        className="relative mt-1.5 aspect-video w-full overflow-hidden rounded-lg border bg-black"
       >
         {/* Fondo de escena difuminado (solo referencia visual del preview) */}
         <div
@@ -425,6 +438,19 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
         {/* Hoja base (editor) primero; el CSS del usuario después → gana sin !important */}
         <style>{previewCss}</style>
         {config.customCss ? <style>{config.customCss}</style> : null}
+        <div
+          id="stage"
+          className="absolute left-0 top-0 flex flex-col"
+          style={{
+            width: PREVIEW_STAGE_WIDTH,
+            height: PREVIEW_STAGE_HEIGHT,
+            padding: `${PREVIEW_STAGE_PADDING_Y}px 0`,
+            boxSizing: 'border-box',
+            transform: `scale(${previewScale})`,
+            transformOrigin: 'top left',
+            visibility: previewScale > 0 ? 'visible' : 'hidden'
+          }}
+        >
         <div id="box" className="relative flex overflow-hidden" style={{ zIndex: 1 }}>
           {!config.transparentBackground && backgroundVideoUrl && (
             <>
@@ -449,9 +475,11 @@ export default function ObsTextOutputDialog({ open, onOpenChange }: Props) {
             </span>
           )}
         </div>
+        </div>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        Vista previa a escala real (16:9). En OBS el tamaño se ajusta al «Browser Source».
+        Vista previa a escala real (16:9): lienzo de 1920×1080 reducido, igual que en OBS. Las
+        medidas en px, rem o em del CSS personalizado se ven aquí tal cual saldrán.
       </p>
     </div>
   )
