@@ -102,9 +102,10 @@ src/
 │   │   └── oplog-logger.ts
 │   ├── ai/
 │   │   ├── ai.types.ts           # Configuración de proveedores, tipos de respuesta
-│   │   ├── ai.models.ts          # Helpers puros para listar modelos por proveedor (buildModelsRequest, parseModelsResponse, filtro Responses API de Zen)
+│   │   ├── ai.models.ts          # Helpers puros para listar modelos por proveedor (buildModelsRequest, parseModelsResponse, filtro Responses API de Zen). Para OpenCode Go añade el header `x-opencode-session`
+│   │   ├── ai.session.ts         # `getOpenCodeSessionId()`: ID de sesión estable por proceso para el header `x-opencode-session` de OpenCode Go (routing + prompt caching)
 │   │   ├── ai.settings.ts        # Claves de Setting por proveedor (ai.apiKey.<provider>, ai.model.<provider>) + claves legacy
-│   │   ├── ai.service.ts         # Lógica multi-proveedor (OpenAI/Anthropic/Gemini/OpenRouter/OpenCode Go) + getAvailableModels. API key y modelo por proveedor, con migración one-shot de las claves globales legacy (`ai.apiKey`/`ai.model`) al proveedor que estaba activo
+│   │   ├── ai.service.ts         # Lógica multi-proveedor (OpenAI/Anthropic/Gemini/OpenRouter/OpenCode Go) + getAvailableModels. API key y modelo por proveedor, con migración one-shot de las claves globales legacy (`ai.apiKey`/`ai.model`) al proveedor que estaba activo. Las llamadas a OpenCode Go (listado y chat/completions) envían `x-opencode-session` (obligatorio; sin él el endpoint responde 400)
 │   │   ├── ai.controller.ts      # Métodos IPC: getProviderConfig, getAvailableModels, extractFromText, extractFromPdf
 │   │   └── ai.dto.d.ts           # DTOs de entrada/salida
 │   └── selectedScreens/

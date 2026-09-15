@@ -80,6 +80,7 @@ SchedulePanel (index.tsx)
   - **GROUP**: Header de color con nombre del grupo. No clickeable para seleccionar.
   - **Item normal**: Card con icono + label. Click selecciona, doble-click presenta en vivo.
 - Label se carga async via `getScheduleItemLabel()` (puede necesitar fetch del nombre).
+- Items `BIBLE`: el label muestra la referencia y, a su lado, la versión guardada en el `accessData` (`(RVR1960)` en `text-muted-foreground text-xs`), igual que en `indexDataItems.tsx`. Por eso el label es `ReactNode` y no siempre `string`.
 - Color de fondo hereda del grupo al que pertenece.
 - Zona de insercion debajo de cada item para drops de biblioteca.
 - Context menu: Presentar en vivo, Eliminar.

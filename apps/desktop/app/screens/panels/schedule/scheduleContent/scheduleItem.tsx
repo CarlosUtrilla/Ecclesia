@@ -108,7 +108,13 @@ export function ScheduleItemComponent({
       case 'BIBLE': {
         const parsed = parseBibleAccessData(item.accessData)
         if (!parsed) return item.accessData
-        return `${getCompleteNameById(parsed.bookId) || parsed.bookId} ${parsed.chapter}:${parsed.verseRange}`
+        const reference = `${getCompleteNameById(parsed.bookId) || parsed.bookId} ${parsed.chapter}:${parsed.verseRange}`
+        if (!parsed.version) return reference
+        return (
+          <>
+            {reference} <span className="text-muted-foreground text-xs">({parsed.version})</span>
+          </>
+        )
       }
       case 'TIMER':
         return parseTimerAccessData(item.accessData).title || 'Cuenta atrás'

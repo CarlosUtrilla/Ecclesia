@@ -1,4 +1,4 @@
-import { memo, type RefObject } from 'react'
+import { memo, type Ref } from 'react'
 import { getContrastTextColor } from '@/lib/utils'
 import { PresentationViewProps } from '../types'
 import { AnimationType } from '@/lib/animations'
@@ -24,7 +24,7 @@ type Props = {
   videoError: boolean
   setVideoLoaded: (value: boolean) => void
   setVideoError: (value: boolean) => void
-  containerRef: RefObject<HTMLDivElement>
+  containerRef: Ref<HTMLDivElement>
   onClick: PresentationViewProps['onClick']
   onDoubleClick: PresentationViewProps['onDoubleClick']
   hasTagSong: boolean

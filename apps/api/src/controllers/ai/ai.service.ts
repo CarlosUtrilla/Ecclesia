@@ -8,6 +8,7 @@ import {
   EXTRACTION_SYSTEM_PROMPT
 } from './ai.types'
 import { buildModelsRequest, parseModelsResponse } from './ai.models'
+import { getOpenCodeSessionId } from './ai.session'
 import {
   AI_PROVIDER_SETTING,
   API_KEY_SETTING_PREFIX,
@@ -279,13 +280,15 @@ export default class AIService {
           AI_PROVIDER_LABELS.openrouter
         )
       case 'opencodego':
-        // OpenCode Zen Go expone chat/completions para sus modelos open-source
+        // OpenCode Zen Go expone chat/completions para sus modelos open-source.
+        // Requiere `x-opencode-session` para enrutar y cachear el prompt.
         return this.callOpenAI(
           apiKey,
           model,
           userText,
           AI_PROVIDER_DEFAULTS.opencodego.baseUrl,
-          AI_PROVIDER_LABELS.opencodego
+          AI_PROVIDER_LABELS.opencodego,
+          { 'x-opencode-session': getOpenCodeSessionId() }
         )
       default:
         throw new Error(`Proveedor no soportado: ${provider}`)
@@ -334,13 +337,15 @@ export default class AIService {
     model: string,
     userText: string,
     baseUrl: string = AI_PROVIDER_DEFAULTS.openai.baseUrl,
-    providerLabel: string = AI_PROVIDER_LABELS.openai
+    providerLabel: string = AI_PROVIDER_LABELS.openai,
+    extraHeaders: Record<string, string> = {}
   ): Promise<ExtractedContent> {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
+        Authorization: `Bearer ${apiKey}`,
+        ...extraHeaders
       },
       body: JSON.stringify({
         model,

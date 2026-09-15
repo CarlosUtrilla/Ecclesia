@@ -1,4 +1,5 @@
 import { AIProvider, AI_PROVIDER_DEFAULTS } from './ai.types'
+import { getOpenCodeSessionId } from './ai.session'
 
 export type ModelsRequest = {
   url: string
@@ -34,7 +35,10 @@ export function buildModelsRequest(provider: AIProvider, apiKey: string | null):
     case 'opencodego':
       return {
         url: `${AI_PROVIDER_DEFAULTS.opencodego.baseUrl}/models`,
-        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
+        headers: {
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          'x-opencode-session': getOpenCodeSessionId()
+        }
       }
   }
 }

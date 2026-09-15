@@ -177,9 +177,9 @@ PresentationView (index.tsx)
 - `PresentationView` interpreta `theme.textStyle.justifyContent` para alineación vertical del bloque de texto (`flex-start`/`center`/`flex-end`); si no existe, usa centrado por defecto.
 - `PresentationView` prioriza `presentationHeight`/`maxHeight` cuando se proveen (por ejemplo en previews embebidos), y usa `ResizeObserver` como fallback para calcular `screenSize`.
 - `PresentationView` acepta `customAspectRatio` opcional para forzar el cálculo interno de `screenSize` (ancho/alto relativos) con una relación específica en previews o contenedores controlados.
-- La medición de altura en `PresentationView` usa `useResizeObserver` con `box: 'border-box'` y estabiliza el valor reutilizando la última altura válida cuando el observer reporta `0` temporalmente.
-- Para evitar saltos de escala durante transiciones (`AnimatePresence`), `PresentationView` conserva la última altura no-cero observada del contenedor y la reutiliza cuando el observer reporta `0` temporalmente.
-- En modo `live`, la estabilización de altura está simplificada en un solo efecto: primero usa `ResizeObserver` y, si arranca en `0`, hace medición directa de `containerRef.getBoundingClientRect().height` con un ciclo corto en `requestAnimationFrame` hasta obtener un valor válido.
+- **La medición de altura vive en `usePresentationSizing` y se engancha con un ref callback, no con `useResizeObserver`.** El hook de `usehooks-ts` se suscribe en un único efecto con dependencias estables (`[box, ref, isMounted]`): si en ese commit `ref.current` es `null`, el observer no se engancha nunca más. `PresentationView` hace `if (!currentItem) return null`, así que al arrancar la app (live sin contenido todavía) el nodo no existía en el primer commit y el alto se quedaba clavado en la única medición de emergencia, dando una fuente mucho más pequeña de lo que toca para el resto de la sesión. El ref callback vuelve a observar cada vez que el nodo se monta, se desmonta o se remonta (`AnimatePresence`).
+- **El alto se lee del border box (`entry.borderBoxSize[0].blockSize`), nunca de `getBoundingClientRect()`.** El rect incluye el `transform`, así que medir durante una entrada `zoomIn`/`scale` devolvía el alto ya escalado y la fuente se calculaba a partir de él. El border box que reporta `ResizeObserver` ignora transforms.
+- Para evitar saltos de escala durante transiciones (`AnimatePresence`), `usePresentationSizing` conserva la última altura no-cero: una medida de `0` (nodo saliendo, ventana oculta) no pisa la buena, o la fuente caería a `0px` a mitad de transición.
 - El render de fondo (imagen/video/color) vive fuera del contenedor animado por slide; así, cambiar texto/slide no desmonta ni recarga el fondo en `live`.
 - El estado de fondo/video solo se reinicia cuando cambia la fuente real del fondo (`background`, `backgroundMedia.filePath`, `thumbnail`, `fallback`), evitando flashes negros por cambios de objeto sin cambio real de asset.
 - **`usePresentationBackground` deriva el fondo en el render (`useMemo`), no en un `useEffect`.** Resolviendolo por efecto, el primer frame de la capa salia con `backgroundType: 'color'` y sin URL; en una transicion de tema esa capa entra pintando el color del frame (`bg-background`, negro en modo oscuro) hasta que corre el efecto. `videoLoaded`/`videoError` se atan a la URL (`loadedVideoUrl === backgroundUrl`) en vez de resetearse por efecto, para que no quede ningun frame arrastrando el estado del fondo anterior.
@@ -279,7 +279,7 @@ Renderiza texto genérico del slide con animaciones:
 - `mediaType`, `backgroundUrl`, `thumbnailUrl`, `fallbackUrl`: Derivados de `theme.background` y `theme.backgroundMedia` en un solo `useEffect`.
 - `videoLoaded`, `videoError`: Estado de carga de video, reseteados junto con los URLs.
 - `animationSettings`, `variants`: Parseados de `theme.animationSettings` con `useMemo`.
-- `calculatedFontSize`: Proporcional al alto del contenedor via `useResizeObserver`.
+- `calculatedFontSize`: Proporcional al alto del contenedor medido por `usePresentationSizing` (ref callback + `ResizeObserver` sobre el border box).
 
 ## Componentes personalizados (no-Shadcn)
 

@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef } from 'react'
+import { memo, useMemo } from 'react'
 import { type Variants } from 'framer-motion'
 import { cn } from '../../lib/utils'
 import { PresentationViewProps } from './types'
@@ -61,13 +61,10 @@ function PresentationViewComponent({
   onCopyrightPositionChange,
   showCopyright = true
 }: PresentationViewProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
   const { tagSongs } = useTagSongs()
   const { buildMediaUrl } = useMediaServer()
   const { bibleSchema } = useBibleSchema()
-  const { screenSize } = usePresentationSizing({
-    containerRef: containerRef as React.RefObject<HTMLDivElement>,
-    live,
+  const { containerRef, screenSize } = usePresentationSizing({
     presentationHeight,
     maxHeight,
     displayId,
@@ -228,7 +225,7 @@ function PresentationViewComponent({
       videoError={videoError}
       setVideoLoaded={setVideoLoaded}
       setVideoError={setVideoError}
-      containerRef={containerRef as React.RefObject<HTMLDivElement>}
+      containerRef={containerRef}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       hasTagSong={tagSong !== null}

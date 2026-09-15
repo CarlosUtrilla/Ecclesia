@@ -210,6 +210,42 @@ describe('AIService — uso de la key en llamadas al proveedor', () => {
     expect(serialized).not.toContain('sk-openai')
   })
 
+  it('deberia reenviar x-opencode-session a OpenCode Go en el listado de modelos', async () => {
+    const service = newService()
+    await service.saveProviderConfig({ provider: 'opencodego', apiKey: 'ogk-123' })
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ id: 'glm-5.2' }] })
+    })
+
+    await service.getAvailableModels('opencodego')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://opencode.ai/zen/go/v1/models')
+    expect(init.headers['x-opencode-session']).toBeTruthy()
+  })
+
+  it('deberia enviar x-opencode-session a OpenCode Go en chat/completions', async () => {
+    const service = newService()
+    await service.saveProviderConfig({
+      provider: 'opencodego',
+      apiKey: 'ogk-123',
+      model: 'glm-5.2'
+    })
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{"references":[]}' } }] })
+    })
+
+    await service.extractFromText('Juan 3:16')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://opencode.ai/zen/go/v1/chat/completions')
+    expect(init.headers['x-opencode-session']).toBeTruthy()
+  })
+
   it('deberia rechazar el listado cuando el proveedor consultado no tiene key', async () => {
     const service = newService()
     await service.saveProviderConfig({ provider: 'openai', apiKey: 'sk-openai' })

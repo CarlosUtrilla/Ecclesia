@@ -35,6 +35,13 @@ describe('buildModelsRequest', () => {
     const req = buildModelsRequest('opencodego', 'ogk-123')
     expect(req.url).toBe('https://opencode.ai/zen/go/v1/models')
     expect(req.headers.Authorization).toBe('Bearer ogk-123')
+    expect(req.headers['x-opencode-session']).toBeTruthy()
+  })
+
+  it('debería enviar x-opencode-session a OpenCode Go incluso sin API key', () => {
+    const req = buildModelsRequest('opencodego', null)
+    expect(req.headers['x-opencode-session']).toBeTruthy()
+    expect(req.headers.Authorization).toBeUndefined()
   })
 })
 
