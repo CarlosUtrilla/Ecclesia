@@ -11,6 +11,7 @@ import { ApiProvider } from '@ecclesia/queries'
 import { RemoteModeProvider } from './contexts/RemoteModeContext'
 import RemoteConnectionListener from './RemoteConnectionListener'
 import { PPTX_RENDER_ROUTE } from '../electron/main/pptxRenderer/pptxRenderTypes'
+import { usePresenterRemoteKeys } from './hooks/usePresenterRemoteKeys'
 
 // Todas las rutas son lazy — cada ventana sólo parsea el código que su ruta necesita.
 // La ventana principal carga MainRoute (paneles, dnd-kit, zod, etc.).
@@ -78,6 +79,10 @@ function App() {
 }
 
 function MainApp({ children }: PropsWithChildren) {
+  // El apuntador tiene que cambiar de diapositiva desde cualquier ventana, así
+  // que la escucha vive aquí y no en el panel de items-on-live.
+  usePresenterRemoteKeys()
+
   return (
     <ApiProvider>
       <RemoteModeProvider>

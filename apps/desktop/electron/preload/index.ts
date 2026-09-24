@@ -16,6 +16,7 @@ import { remoteControlAPI } from '../main/remoteAPI'
 import { bibleSearchAPI } from '../main/bibleSearchAPI'
 import { ndiAPI } from '../main/ndiManager/ndiAPI'
 import { pptxRenderAPI } from '../main/pptxRenderer/pptxRenderAPI'
+import { presenterRemoteAPI } from '../main/presenterRemote/presenterRemoteAPI'
 import log from 'electron-log'
 
 // Silenciar el transporte de consola de `electron-log` en el renderer para
@@ -59,7 +60,8 @@ export const HandleManagers = {
   remoteControlAPI,
   bibleSearchAPI,
   ndiAPI,
-  pptxRenderAPI
+  pptxRenderAPI,
+  presenterRemoteAPI
 }
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -91,4 +93,6 @@ if (process.contextIsolated) {
   window.ndiAPI = ndiAPI
   // @ts-ignore (define in dts)
   window.pptxRenderAPI = pptxRenderAPI
+  // @ts-ignore (define in dts)
+  window.presenterRemoteAPI = presenterRemoteAPI
 }

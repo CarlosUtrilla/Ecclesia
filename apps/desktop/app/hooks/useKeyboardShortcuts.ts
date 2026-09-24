@@ -6,10 +6,7 @@ interface KeyboardShortcuts {
   onPaste?: () => void
   onDelete?: () => void
   onSelectAll?: () => void
-  onNavigate?: (
-    direction: 'up' | 'down' | 'left' | 'right' | 'PageUp' | 'PageDown',
-    extendSelection?: boolean
-  ) => void
+  onNavigate?: (direction: 'up' | 'down' | 'left' | 'right', extendSelection?: boolean) => void
   onItemClick?: (item: any, event: React.MouseEvent) => void
   onClickOutside?: () => void
   onEnter?: () => void
@@ -134,19 +131,19 @@ export function useKeyboardShortcuts(
         }
       }
 
-      // Navegación con flechas y AvPág/RePág (apuntadores de presentación)
+      // Navegación con flechas. AvPág/RePág no entran aquí: son las teclas del
+      // apuntador de presentación y las gestiona `usePresenterRemoteKeys` a
+      // nivel de app, sin depender de qué panel tenga el foco.
       if (
         shortcuts.onNavigate &&
-        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'].includes(e.key)
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)
       ) {
         e.preventDefault()
         const directionMap: Record<string, 'up' | 'down' | 'left' | 'right'> = {
           ArrowUp: 'up',
           ArrowDown: 'down',
           ArrowLeft: 'left',
-          ArrowRight: 'right',
-          PageUp: 'up',
-          PageDown: 'down'
+          ArrowRight: 'right'
         }
         // Pasar si Shift está presionado para extender la selección
         shortcuts.onNavigate(directionMap[e.key], e.shiftKey)

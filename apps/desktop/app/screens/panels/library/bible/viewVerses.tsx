@@ -64,7 +64,7 @@ export default function ViewVerses({
   }, [defaultBiblePresentationSettings?.chunkMaxLength])
 
   const handleNavigation = (
-    direction: 'up' | 'down' | 'left' | 'right' | 'PageUp' | 'PageDown',
+    direction: 'up' | 'down' | 'left' | 'right',
     extendSelection?: boolean
   ) => {
     if (!completeChapter.length || verse.length === 0) return
@@ -77,12 +77,10 @@ export default function ViewVerses({
     // Marcar que la selección viene del componente interno
     internalSelectionRef.current = true
 
-    if (direction === 'down' || direction === 'right' || direction === 'PageDown') {
+    if (direction === 'down' || direction === 'right') {
       newIndex = Math.min(currentIndex + 1, completeChapter.length - 1)
-    } else if (direction === 'up' || direction === 'left' || direction === 'PageUp') {
-      newIndex = Math.max(currentIndex - 1, 0)
     } else {
-      return // Solo soportamos up/down para versículos
+      newIndex = Math.max(currentIndex - 1, 0)
     }
 
     if (extendSelection) {

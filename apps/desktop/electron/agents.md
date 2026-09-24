@@ -25,6 +25,10 @@ electron/
 │   ├── bibleManager/
 │   ├── bibleSearchManager.ts
 │   ├── bibleSearchAPI.ts
+│   ├── presenterRemote/          # Apuntador de presentacion (AvPag/RePag sin foco)
+│   │   ├── presenterRemoteTypes.ts      # Canales IPC y aceleradores
+│   │   ├── presenterRemoteController.ts # initializePresenterRemoteManager()
+│   │   └── presenterRemoteAPI.ts        # API preload (window.presenterRemoteAPI)
 │   ├── ndiManager/               # Salida de video NDI (ver ndiManager/agents.md)
 │   │   ├── index.ts              # initializeNdiManager(), ciclo de vida, IPC
 │   │   ├── ndiConfig.ts          # Config persistida en Setting (NDI_OUTPUT_CONFIG)
@@ -82,8 +86,9 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 7. initializeRemoteManager()      -> Inicia listener UDP + registra IPC handlers de descubrimiento LAN
 8. initializeUpdaterManager()     -> Registra auto-updater (canal beta, check a los 10s)
 9. initializeNdiManager()         -> Arranca la salida NDI si esta habilitada
-10. Registra IPC locales          -> Fuentes, ventanas, notificaciones
-11. createMainWindow()            -> Crea ventana principal
+10. initializePresenterRemoteManager() -> Apuntador de presentacion (AvPag/RePag)
+11. Registra IPC locales          -> Fuentes, ventanas, notificaciones
+12. createMainWindow()            -> Crea ventana principal
 ```
 
 ## Helpers IPC
@@ -200,6 +205,48 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - Canal IPC: `live-media-state`.
 - Expone API en preload como `liveMediaAPI`.
 - `liveMediaAPI.onMediaState` desuscribe con `ipcRenderer.removeListener` del handler registrado (no usar `removeAllListeners`) para no romper otros suscriptores del mismo canal dentro de una misma ventana.
+
+### Presenter Remote (`presenterRemote/`)
+
+Apuntador de presentacion: AvPag/RePag cambian la diapositiva en vivo sin depender del
+foco (ni del panel, ni de la ventana, ni de la aplicacion).
+
+| Archivo | Que hace |
+| --- | --- |
+| `presenterRemoteTypes.ts` | Canales y aceleradores. Lo consumen main, preload y renderer. |
+| `presenterRemoteController.ts` | `initializePresenterRemoteManager()`: IPC + aceleradores globales. |
+| `presenterRemoteAPI.ts` | API de preload (`window.presenterRemoteAPI`). |
+
+Canales IPC:
+
+- `presenter-remote:key` (renderer -> main): una ventana recibio la tecla por DOM y la reenvia.
+- `presenter-remote:set-enabled` (renderer -> main): solo lo manda el panel items-on-live, cuando hay algo en vivo.
+- `presenter-remote:navigate` (main -> ventana principal): `'prev' | 'next'`.
+- `presenter-remote:enabled` (main -> todas las ventanas): broadcast del estado armado.
+- `presenter-remote:get-enabled` (invoke): estado inicial para una ventana recien abierta,
+  que se habria perdido el ultimo broadcast.
+
+Dos caminos, un solo destino (`presenter-remote:navigate` a la ventana principal, donde
+vive `LivePanel`):
+
+1. **Ecclesia tiene el foco.** `usePresenterRemoteKeys` (montado en `MainApp`, o sea en
+   todas las ventanas) escucha el `keydown` y reenvia. Ignora la tecla si el foco esta en
+   un campo de texto, para no romper el desplazamiento al escribir.
+2. **El foco esta en otra aplicacion** (las notas del predicador, un PDF). Ahi no llega
+   ningun evento de DOM: se registran aceleradores globales.
+
+Los aceleradores globales **solo** se registran cuando se cumplen las dos condiciones:
+hay contenido en vivo y ninguna ventana de Ecclesia tiene el foco. Un acelerador global
+secuestra la tecla para todo el sistema, asi que dejarlo puesto romperia AvPag/RePag en
+cualquier otro programa. El recalculo se hace en `browser-window-focus`/`browser-window-blur`
+con 50 ms de espera: saltar entre dos ventanas de Ecclesia emite `blur` y luego `focus`, y
+evaluar en el `blur` daria un registro/desregistro por cada salto.
+
+`usePresenterRemoteKeys` solo se queda con la tecla cuando el apuntador esta armado; si no
+hay nada en vivo, AvPag/RePag siguen desplazando listas y editores como siempre.
+
+`useKeyboardShortcuts` ya **no** mapea AvPag/RePag (antes las trataba como flechas y solo
+funcionaban con el panel enfocado): esas dos teclas pertenecen ahora al apuntador.
 
 ### Updater Manager (`updaterManager/`)
 

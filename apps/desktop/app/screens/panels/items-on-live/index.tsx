@@ -5,7 +5,7 @@ import { RenderSongLyrics } from './components/RenderSongLyrics'
 import RenderBibleLiveControls from './components/RenderBibleLiveControls'
 import { RenderMedia } from './components/RenderMedia'
 import { RenderTimerControls } from './components/RenderTimerControls'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
 import { ViewModeTypes } from './types'
 import RenderGridMode from './components/RenderGridMode'
@@ -70,13 +70,15 @@ export default function LivePanel() {
     return data.content.length
   }, [data?.content])
 
-  useKeyboardShortcuts(containerRef, {
-    onNavigate: (direction) => {
+  // Un solo punto de navegación para las dos entradas: las flechas del panel
+  // (solo con foco) y el apuntador de presentación (desde cualquier ventana,
+  // incluso con Ecclesia en segundo plano).
+  const navigateLive = useCallback(
+    (direction: 'prev' | 'next') => {
       if (!itemOnLive || slideCount <= 0) return
 
-      const isBackward = direction === 'left' || direction === 'up' || direction === 'PageUp'
-      const isForward = direction === 'right' || direction === 'down' || direction === 'PageDown'
-      if (!isBackward && !isForward) return
+      const isBackward = direction === 'prev'
+      const isForward = direction === 'next'
 
       if (itemOnLive.type === 'PRESENTATION' && Array.isArray(data?.content)) {
         const safeIndex = Math.max(0, Math.min(itemIndex, slideCount - 1))
@@ -114,8 +116,40 @@ export default function LivePanel() {
       if (isForward) {
         setItemIndex(Math.min(slideCount - 1, itemIndex + 1))
       }
+    },
+    [
+      itemOnLive,
+      slideCount,
+      data?.content,
+      itemIndex,
+      presentationVerseBySlideKey,
+      setPresentationVerseBySlideKey,
+      setItemIndex
+    ]
+  )
+
+  useKeyboardShortcuts(containerRef, {
+    onNavigate: (direction) => {
+      if (direction === 'left' || direction === 'up') navigateLive('prev')
+      if (direction === 'right' || direction === 'down') navigateLive('next')
     }
   })
+
+  // AvPág/RePág llegan por el proceso principal, no por el DOM de este panel:
+  // así el apuntador funciona sin foco e incluso con la app en segundo plano.
+  useEffect(() => {
+    return window.presenterRemoteAPI?.onNavigate(navigateLive)
+  }, [navigateLive])
+
+  // Los aceleradores globales secuestran AvPág/RePág en todo el sistema, así
+  // que solo se piden mientras hay algo en vivo que navegar.
+  useEffect(() => {
+    const api = window.presenterRemoteAPI
+    if (!api) return
+
+    api.setEnabled(Boolean(itemOnLive) && slideCount > 0)
+    return () => api.setEnabled(false)
+  }, [itemOnLive, slideCount])
 
   const renderContent = () => {
     const content = data!.content

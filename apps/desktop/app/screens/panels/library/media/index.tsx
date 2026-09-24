@@ -365,8 +365,6 @@ export default function MediaLibrary() {
     onDelete: handleDeleteSelection,
     onSelectAll: () => selection.selectAll(allSelectableItems),
     onNavigate: (direction, extendSelection = false) => {
-      if (direction === 'PageUp' || direction === 'PageDown') return
-
       // En vista flexbox, calcular columnas basándose en el ancho disponible
       // Aproximadamente 100px por item (24 * 4 + gaps)
       const containerWidth = containerRef.current?.clientWidth || 400

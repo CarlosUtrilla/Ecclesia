@@ -31,6 +31,7 @@ import { initializeUpdaterManager } from './updaterManager/updaterManager'
 import { initializeBibleSearchManager } from './bibleSearchManager'
 import { initializeRemoteManager } from './remoteManager'
 import { initializeNdiManager } from './ndiManager'
+import { initializePresenterRemoteManager } from './presenterRemote/presenterRemoteController'
 import { pptxToPngBuffers } from './pptxRenderer'
 import { setPptxRasterizer } from '@ecclesia/api/src/controllers/media/documentImport'
 
@@ -205,6 +206,10 @@ app.whenReady().then(async () => {
   crashLog()
   // Inicializar manager de salida de video NDI
   await initializeNdiManager()
+
+  crashLog()
+  // Inicializar apuntador de presentacion (AvPag/RePag fuera de foco)
+  initializePresenterRemoteManager()
 
   crashLog()
   // El rasterizado de PPTX necesita una ventana de Electron, asi que la capa

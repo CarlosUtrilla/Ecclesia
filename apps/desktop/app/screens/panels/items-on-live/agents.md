@@ -19,6 +19,21 @@ No exponer funciones directas de ipcRenderer fuera de este archivo.
 
 - `RenderGridMode.test.tsx` — Tests del componente de grilla de diapositivas: click handler con/ sin `indexMap`, `onSelectIndexOverride`, `activeIndexOverride`, badges de preview, `themeOverride`.
 
+## Navegacion por teclado y apuntador de presentacion
+
+- Las flechas del panel siguen pasando por `useKeyboardShortcuts` y solo funcionan con el
+  panel enfocado.
+- `AvPag/RePag` (las teclas que mandan los apuntadores) **no** pasan por ahi: llegan por
+  `window.presenterRemoteAPI.onNavigate` desde el proceso principal, asi que cambian de
+  diapositiva sin importar que panel, que ventana, o incluso que aplicacion tenga el foco.
+  Ver la seccion Presenter Remote de [`electron/agents.md`](../../../../electron/agents.md).
+- Las dos entradas llaman a la misma funcion, `navigateLive('prev' | 'next')`: ahi vive la
+  logica de avance (verso interno de una diapositiva biblica primero, cambio de
+  diapositiva despues). No duplicar esa logica en un manejador nuevo.
+- El panel es quien enciende y apaga los aceleradores globales
+  (`presenterRemoteAPI.setEnabled`), solo mientras hay un item en vivo con diapositivas:
+  mientras estan puestos, `AvPag/RePag` dejan de funcionar en el resto del sistema.
+
 ## Soporte de items MEDIA (video/imágenes)
 
 Este módulo ahora soporta la visualización de items del tipo MEDIA en vivo:
