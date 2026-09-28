@@ -205,6 +205,7 @@ prewarmEditorWindows()  →  crea hidden BrowserWindows para:
 - Canal IPC: `live-media-state`.
 - Expone API en preload como `liveMediaAPI`.
 - `liveMediaAPI.onMediaState` desuscribe con `ipcRenderer.removeListener` del handler registrado (no usar `removeAllListeners`) para no romper otros suscriptores del mismo canal dentro de una misma ventana.
+- `LiveMediaState` lleva `path?` (el `Media.filePath` destinatario). El canal es un broadcast a todas las ventanas, así que los reproductores descartan las órdenes cuyo `path` no coincide con el suyo: sin ese filtro, el `pause` que emite el controlador al cambiar de diapositiva apaga el vídeo entrante recién montado. Es opcional: los emisores que no lo mandan (media directo en vivo) siguen llegando a todos.
 
 ### Presenter Remote (`presenterRemote/`)
 

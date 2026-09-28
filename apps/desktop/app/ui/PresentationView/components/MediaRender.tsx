@@ -98,6 +98,10 @@ function MediaRenderComponent({
     }
 
     const unsuscribe = window.liveMediaAPI.onMediaState((state) => {
+      // Las ordenes que nombran otro media son de la diapositiva saliente: si se
+      // aplicaran aqui, pausarian el video que acaba de entrar.
+      if (state.path && itemData.filePath && state.path !== itemData.filePath) return
+
       const video = videoRef.current
       lastPlayStateRef.current = state
       if (!video) return
@@ -129,7 +133,7 @@ function MediaRenderComponent({
       if (unsuscribe) unsuscribe()
       window.removeEventListener('focus', onFocus)
     }
-  }, [live, type, currentItem.id])
+  }, [live, type, currentItem.id, itemData.filePath])
 
   const renderMedia = () => {
     if (!live) {

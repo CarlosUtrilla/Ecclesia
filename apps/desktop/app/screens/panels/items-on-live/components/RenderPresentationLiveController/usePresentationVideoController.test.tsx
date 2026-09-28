@@ -22,22 +22,23 @@ describe('usePresentationVideoController', () => {
         activeSlideVideoBehavior: 'auto',
         activeVideoDurationHint: 0,
         activeVideoUrl: 'http://localhost/video.mp4',
+        activeVideoPath: 'files/video.mp4',
         activeSlideVideoLoop: false,
         liveScreensReady: true,
         slideIndex: 0
       })
     )
 
-    expect(sendLiveMediaState).toHaveBeenNthCalledWith(1, { action: 'seek', time: 0 })
-    expect(sendLiveMediaState).toHaveBeenNthCalledWith(2, { action: 'play', time: 0 })
+    expect(sendLiveMediaState).toHaveBeenNthCalledWith(1, { action: 'seek', time: 0, path: 'files/video.mp4' })
+    expect(sendLiveMediaState).toHaveBeenNthCalledWith(2, { action: 'play', time: 0, path: 'files/video.mp4' })
 
     act(() => {
       vi.advanceTimersByTime(500)
     })
 
     expect(sendLiveMediaState).toHaveBeenCalledTimes(4)
-    expect(sendLiveMediaState).toHaveBeenNthCalledWith(3, { action: 'play', time: 0 })
-    expect(sendLiveMediaState).toHaveBeenNthCalledWith(4, { action: 'play', time: 0 })
+    expect(sendLiveMediaState).toHaveBeenNthCalledWith(3, { action: 'play', time: 0, path: 'files/video.mp4' })
+    expect(sendLiveMediaState).toHaveBeenNthCalledWith(4, { action: 'play', time: 0, path: 'files/video.mp4' })
 
     const seekCalls = sendLiveMediaState.mock.calls.filter(
       ([payload]) => payload?.action === 'seek'

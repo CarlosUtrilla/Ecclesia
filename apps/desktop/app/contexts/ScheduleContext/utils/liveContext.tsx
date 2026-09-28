@@ -15,7 +15,11 @@ import { Api, onSocketReconnect } from '@ecclesia/queries'
 import { useRemoteMode } from '../../RemoteModeContext'
 
 // Extensión: stub para sincronización de media
-type LiveMediaState = { action: 'play' | 'pause' | 'seek' | 'restart'; time: number }
+type LiveMediaState = {
+  action: 'play' | 'pause' | 'seek' | 'restart'
+  time: number
+  path?: string
+}
 const LiveContext = createContext({} as ILiveContext)
 
 export const LiveProvider = ({ children }: PropsWithChildren) => {

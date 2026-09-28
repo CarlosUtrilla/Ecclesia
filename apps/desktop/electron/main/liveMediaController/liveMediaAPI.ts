@@ -1,5 +1,15 @@
 // API y tipos para sincronización de media en pantallas en vivo
-export type LiveMediaState = { action: 'play' | 'pause' | 'seek' | 'restart'; time: number }
+/**
+ * `path` identifica el media al que va dirigida la orden (`Media.filePath`). Los
+ * consumidores descartan las ordenes de otro media para que el `pause` de la
+ * diapositiva saliente no apague el video entrante. Opcional por compatibilidad:
+ * los emisores que no lo mandan siguen llegando a todos los reproductores.
+ */
+export type LiveMediaState = {
+  action: 'play' | 'pause' | 'seek' | 'restart'
+  time: number
+  path?: string
+}
 
 import { ipcRenderer } from 'electron'
 

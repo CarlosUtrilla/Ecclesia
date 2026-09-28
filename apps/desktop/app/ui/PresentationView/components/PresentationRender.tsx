@@ -37,6 +37,10 @@ const LAYER_CONTAINER_STYLE_KEYS = new Set([
   'justifyContent'
 ])
 
+const PLAY_RETRY_INTERVAL_MS = 150
+const PLAY_RETRY_WINDOW_MS = 3000
+const FIRST_FRAME_REVEAL_TIME = 0.05
+
 const TYPOGRAPHY_SCALE_Y_KEYS = ['fontSize', 'lineHeight'] as const
 const TYPOGRAPHY_SCALE_X_KEYS = ['letterSpacing', 'wordSpacing'] as const
 
@@ -221,11 +225,13 @@ const parseAnimationSettings = (animationSettings?: string): AnimationSettings =
 
 function LiveSyncedLayerVideo({
   src,
+  mediaPath,
   posterUrl,
   shouldLoop,
   autoPlayOnMount
 }: {
   src: string
+  mediaPath?: string | null
   posterUrl?: string | null
   shouldLoop: boolean
   autoPlayOnMount: boolean
@@ -236,23 +242,73 @@ function LiveSyncedLayerVideo({
   // el video nuevo, asi que ese comando se puede perder. Guardar la intencion
   // permite reintentar en cuanto el elemento tenga datos o la ventana recupere foco.
   const shouldBePlayingRef = useRef(autoPlayOnMount)
+  const playRetryIntervalRef = useRef<number | null>(null)
+  const playRetryDeadlineRef = useRef(0)
 
-  const tryPlay = useCallback((time: number) => {
-    const video = videoRef.current
-    if (!video) return
+  const stopPlayRetry = useCallback(() => {
+    if (playRetryIntervalRef.current === null) return
 
-    const shouldSyncTimeOnPlay =
-      time === 0 && video.currentTime > 0.08 ? false : Math.abs(video.currentTime - time) > 0.25
-
-    if (shouldSyncTimeOnPlay) {
-      video.currentTime = time
-    }
-
-    video.play().catch(() => {
-      // noop: puede fallar temporalmente por foco/autoplay policy o porque el
-      // video todavia no tiene datos. `canplay`/`loadeddata`/`focus` reintentan.
-    })
+    window.clearInterval(playRetryIntervalRef.current)
+    playRetryIntervalRef.current = null
   }, [])
+
+  // Chromium mantiene el `poster` hasta que la reproduccion arranca: un video ya
+  // cargado pero nunca reproducido se queda con la miniatura puesta y parece que
+  // sigue cargando. Un salto minimo pinta el primer frame real en su lugar.
+  const revealFirstFrame = useCallback(() => {
+    const video = videoRef.current
+    if (!video || video.readyState < 2 || video.currentTime > 0) return
+
+    video.currentTime = FIRST_FRAME_REVEAL_TIME
+  }, [])
+
+  // `canplay`/`loadeddata` pueden haber disparado antes de que llegue la orden del
+  // controlador, y la ventana de proyeccion rara vez recibe `focus`: si el primer
+  // `play()` falla, sin este reintento el video se queda pausado para siempre.
+  const schedulePlayRetry = useCallback(() => {
+    playRetryDeadlineRef.current = Date.now() + PLAY_RETRY_WINDOW_MS
+    if (playRetryIntervalRef.current !== null) return
+
+    playRetryIntervalRef.current = window.setInterval(() => {
+      const video = videoRef.current
+      if (!video || !shouldBePlayingRef.current || !video.paused) {
+        stopPlayRetry()
+        return
+      }
+
+      if (Date.now() >= playRetryDeadlineRef.current) {
+        stopPlayRetry()
+        revealFirstFrame()
+        return
+      }
+
+      video.play().catch(() => {
+        // noop: se vuelve a intentar en el siguiente tick
+      })
+    }, PLAY_RETRY_INTERVAL_MS)
+  }, [revealFirstFrame, stopPlayRetry])
+
+  const tryPlay = useCallback(
+    (time: number) => {
+      const video = videoRef.current
+      if (!video) return
+
+      const shouldSyncTimeOnPlay =
+        time === 0 && video.currentTime > 0.08 ? false : Math.abs(video.currentTime - time) > 0.25
+
+      if (shouldSyncTimeOnPlay) {
+        video.currentTime = time
+      }
+
+      video.play().catch(() => {
+        // noop: puede fallar temporalmente por foco/autoplay policy o porque el
+        // video todavia no tiene datos. El reintento acotado insiste.
+      })
+
+      schedulePlayRetry()
+    },
+    [schedulePlayRetry]
+  )
 
   const ensureDesiredPlayback = useCallback(() => {
     const video = videoRef.current
@@ -267,6 +323,11 @@ function LiveSyncedLayerVideo({
     if (!video || !window.liveMediaAPI?.onMediaState) return
 
     const unsubscribe = window.liveMediaAPI.onMediaState((state) => {
+      // El controlador emite las ordenes en el mismo instante en que cambia la
+      // diapositiva: sin filtrar por origen, el `pause` de la saliente apaga el
+      // video entrante que acaba de montarse.
+      if (state.path && mediaPath && state.path !== mediaPath) return
+
       if (state.action === 'play') {
         shouldBePlayingRef.current = true
         tryPlay(state.time)
@@ -275,6 +336,7 @@ function LiveSyncedLayerVideo({
 
       if (state.action === 'pause') {
         shouldBePlayingRef.current = false
+        stopPlayRetry()
         video.currentTime = state.time
         video.pause()
         return
@@ -299,16 +361,21 @@ function LiveSyncedLayerVideo({
       if (unsubscribe) unsubscribe()
       window.removeEventListener('focus', handleWindowFocus)
     }
-  }, [src, tryPlay, ensureDesiredPlayback])
+  }, [src, mediaPath, tryPlay, ensureDesiredPlayback, stopPlayRetry])
 
   // Diapositivas marcadas como reproduccion automatica no dependen del comando
   // del controlador: arrancan solas al montar el video.
   useLayoutEffect(() => {
     shouldBePlayingRef.current = autoPlayOnMount
-    if (!autoPlayOnMount) return
+    if (!autoPlayOnMount) {
+      stopPlayRetry()
+      return
+    }
 
     tryPlay(0)
-  }, [autoPlayOnMount, src, tryPlay])
+  }, [autoPlayOnMount, src, tryPlay, stopPlayRetry])
+
+  useLayoutEffect(() => stopPlayRetry, [stopPlayRetry])
 
   const handlePlay = () => {
     const video = videoRef.current
@@ -460,6 +527,7 @@ function PresentationLayer({
           {item.media.type === 'VIDEO' ? (
             <LiveSyncedLayerVideo
               src={mediaUrl}
+              mediaPath={item.media.filePath}
               posterUrl={mediaThumbnailUrl}
               shouldLoop={item.videoLoop === true || slideVideoLoop}
               autoPlayOnMount={slideVideoLiveBehavior === 'auto'}

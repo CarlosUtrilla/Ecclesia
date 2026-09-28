@@ -2,7 +2,11 @@ import { RefObject, SyntheticEvent, useEffect, useRef, useState } from 'react'
 
 type LiveMediaAction = 'play' | 'pause' | 'seek' | 'restart'
 
-type SendLiveMediaState = (payload: { action: LiveMediaAction; time: number }) => void
+type SendLiveMediaState = (payload: {
+  action: LiveMediaAction
+  time: number
+  path?: string
+}) => void
 
 type Props = {
   controllerVideoRef: RefObject<HTMLVideoElement | null>
@@ -11,6 +15,7 @@ type Props = {
   activeSlideVideoBehavior: 'auto' | 'manual'
   activeVideoDurationHint: number
   activeVideoUrl: string | null
+  activeVideoPath: string | null
   activeSlideVideoLoop: boolean
   liveScreensReady: boolean
   slideIndex: number
@@ -23,6 +28,7 @@ export default function usePresentationVideoController({
   activeSlideVideoBehavior,
   activeVideoDurationHint,
   activeVideoUrl,
+  activeVideoPath,
   activeSlideVideoLoop,
   liveScreensReady,
   slideIndex
@@ -54,13 +60,13 @@ export default function usePresentationVideoController({
 
     const queueSyncPlay = () => {
       // Solo forzamos el seek inicial una vez para no reiniciar el video en cada reintento.
-      sendLiveMediaStateRef.current({ action: 'seek', time: 0 })
-      sendLiveMediaStateRef.current({ action: 'play', time: 0 })
+      sendLiveMediaStateRef.current({ action: 'seek', time: 0, path: activeVideoPath ?? undefined })
+      sendLiveMediaStateRef.current({ action: 'play', time: 0, path: activeVideoPath ?? undefined })
 
       const syncDelays = [180, 420]
       retryTimeouts = syncDelays.map((delayMs) =>
         window.setTimeout(() => {
-          sendLiveMediaStateRef.current({ action: 'play', time: 0 })
+          sendLiveMediaStateRef.current({ action: 'play', time: 0, path: activeVideoPath ?? undefined })
         }, delayMs)
       )
     }
@@ -78,8 +84,8 @@ export default function usePresentationVideoController({
         // Reintentos cortos para cubrir desmontaje/montaje al cambiar de slide.
         queueSyncPlay()
       } else {
-        sendLiveMediaStateRef.current({ action: 'seek', time: 0 })
-        sendLiveMediaStateRef.current({ action: 'pause', time: 0 })
+        sendLiveMediaStateRef.current({ action: 'seek', time: 0, path: activeVideoPath ?? undefined })
+        sendLiveMediaStateRef.current({ action: 'pause', time: 0, path: activeVideoPath ?? undefined })
       }
     }
 
@@ -89,6 +95,7 @@ export default function usePresentationVideoController({
   }, [
     activeSlideHasVideo,
     activeSlideVideoBehavior,
+    activeVideoPath,
     controllerVideoRef,
     liveScreensReady,
     slideIndex
@@ -121,13 +128,13 @@ export default function usePresentationVideoController({
       // noop: el controlador local puede no iniciar por autoplay policy
     })
     setIsPlaying(true)
-    sendLiveMediaStateRef.current({ action: 'play', time: currentTime })
+    sendLiveMediaStateRef.current({ action: 'play', time: currentTime, path: activeVideoPath ?? undefined })
   }
 
   const handlePause = () => {
     controllerVideoRef.current?.pause()
     setIsPlaying(false)
-    sendLiveMediaStateRef.current({ action: 'pause', time: currentTime })
+    sendLiveMediaStateRef.current({ action: 'pause', time: currentTime, path: activeVideoPath ?? undefined })
   }
 
   const handleRestart = () => {
@@ -139,7 +146,7 @@ export default function usePresentationVideoController({
     }
     setIsPlaying(true)
     setCurrentTime(0)
-    sendLiveMediaStateRef.current({ action: 'restart', time: 0 })
+    sendLiveMediaStateRef.current({ action: 'restart', time: 0, path: activeVideoPath ?? undefined })
   }
 
   const handleSeek = (time: number) => {
@@ -148,7 +155,7 @@ export default function usePresentationVideoController({
       controllerVideoRef.current.currentTime = nextTime
     }
     setCurrentTime(nextTime)
-    sendLiveMediaStateRef.current({ action: 'seek', time: nextTime })
+    sendLiveMediaStateRef.current({ action: 'seek', time: nextTime, path: activeVideoPath ?? undefined })
   }
 
   const handleVolumeChange = (nextVolume: number) => {

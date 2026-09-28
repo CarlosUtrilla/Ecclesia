@@ -161,10 +161,11 @@ export default function RenderPresentationLiveController({ data }: Props) {
   )
   const activeSlideHasVideo = useMemo(() => hasVideoInSlide(activeSlide), [activeSlide])
   const activeSlideVideoBehavior = activeSlide?.videoLiveBehavior === 'auto' ? 'auto' : 'manual'
-  const activeVideoUrl = useMemo(() => {
-    const path = getActiveVideoPath(activeSlide)
-    return path ? buildMediaUrl(path) : null
-  }, [activeSlide, buildMediaUrl])
+  const activeVideoPath = useMemo(() => getActiveVideoPath(activeSlide), [activeSlide])
+  const activeVideoUrl = useMemo(
+    () => (activeVideoPath ? buildMediaUrl(activeVideoPath) : null),
+    [activeVideoPath, buildMediaUrl]
+  )
   const activeVideoDurationHint = useMemo(() => getActiveVideoDuration(activeSlide), [activeSlide])
   const activeSlideVideoLoop = useMemo(() => getActiveVideoLoop(activeSlide), [activeSlide])
   const previewBadgeByIndex = useMemo(
@@ -238,6 +239,7 @@ export default function RenderPresentationLiveController({ data }: Props) {
     activeSlideVideoBehavior,
     activeVideoDurationHint,
     activeVideoUrl,
+    activeVideoPath,
     activeSlideVideoLoop,
     liveScreensReady,
     slideIndex: safeIndex
