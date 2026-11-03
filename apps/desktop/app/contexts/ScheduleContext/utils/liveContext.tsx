@@ -28,9 +28,14 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
   const { themes } = useThemes()
   const { bibleSchema } = useBibleSchema()
 
-  // Stub para sincronización de media (debe implementarse con IPC)
+  // Órdenes de vídeo hacia las pantallas en vivo. El host las manda por IPC; un remoto
+  // no tiene pantallas propias, así que las manda por socket y el host las aplica en su
+  // controlador (ver `useRemoteVideoSync`).
   const sendLiveMediaState = (state: LiveMediaState) => {
-    if (isRemoteMode) return
+    if (isRemoteMode) {
+      Api.socket.emit.liveMediaCommand(state)
+      return
+    }
     window.electron?.ipcRenderer?.send?.('live-media-state', state)
   }
   const { displays, mainDisplay } = useDisplays()

@@ -111,6 +111,7 @@ export class OplogController {
     const status: SyncStatus = {
       connected: !!token,
       pendingRestore: false,
+      syncing: oplogService.isSyncing,
       workspaceId: config?.workspaceId || 'default',
       deviceName: config?.deviceName || hostname,
       systemHostname: hostname,

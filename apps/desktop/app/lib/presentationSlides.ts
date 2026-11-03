@@ -186,6 +186,7 @@ const mapPresentationItemToLayer = (
             filePath: media.filePath,
             duration: media.duration,
             thumbnail: media.thumbnail,
+            fallback: media.fallback,
             format: media.format
           }
         : undefined,

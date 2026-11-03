@@ -66,6 +66,10 @@ export function syncPush(): Promise<unknown> {
   return apiRequest('POST', '/api/oplog/push')
 }
 
+export function syncCycle(): Promise<unknown> {
+  return apiRequest('POST', '/api/oplog/syncCycle')
+}
+
 export function syncPull(): Promise<unknown> {
   return apiRequest('POST', '/api/oplog/pull')
 }

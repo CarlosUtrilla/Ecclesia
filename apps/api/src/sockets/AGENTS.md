@@ -54,6 +54,9 @@ Estos eventos se usan para el control remoto de pantallas en vivo. Cualquier cli
 | `liveSetShowLogo` | `{ active: boolean }` | Mostrar logo/fallback |
 | `liveSetBlackScreen` | `{ active: boolean }` | Pantalla negra |
 | `liveSetShowLiveScreen` | `{ active: boolean }` | Encender/apagar la proyección (toggle «En Vivo»). Único camino aceptado para apagarla desde un remoto |
+| `liveMediaCommand` | `{ action, time, path? }` | Orden de vídeo (play/pause/seek/restart) de un remoto. El host la aplica con los handlers de su controlador (`useRemoteVideoSync`), que a su vez la mandan por IPC a sus pantallas |
+| `liveMediaStatus` | `{ path, isPlaying, currentTime, duration, volume, autoRewind? }` | Estado del vídeo en vivo, host → remotos: cada 500 ms, en cada cambio discreto y 50 ms después de aplicar una orden remota. El remoto pinta con él todos los controles |
+| `liveMediaSettings` | `{ path, volume?, autoRewind? }` | Volumen del host y rebobinado automático cambiados desde un remoto |
 | `liveStateUpdate` | `LiveStateUpdate` (incluye `themeId`) | Espejo bidireccional del estado live entre host y remotos |
 | `scheduleStateUpdate` | `ScheduleStateUpdate` | Broadcast de estado del cronograma (host → remotos) |
 | `requestScheduleState` | `void` | Cliente remoto pide el estado actual del cronograma al host |

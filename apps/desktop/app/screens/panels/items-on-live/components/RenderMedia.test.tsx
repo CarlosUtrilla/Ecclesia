@@ -15,6 +15,10 @@ vi.stubGlobal('ResizeObserver', ResizeObserverMock)
 const useScheduleMock = vi.fn()
 const useLiveMock = vi.fn()
 
+vi.mock('./useRemoteVideoSync', () => ({
+  default: ({ state, handlers }: { state: unknown; handlers: unknown }) => ({ state, handlers })
+}))
+
 vi.mock('@/contexts/ScheduleContext', () => ({
   useSchedule: () => useScheduleMock()
 }))

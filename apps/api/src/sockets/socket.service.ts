@@ -32,6 +32,23 @@ export interface SocketEventMap {
   // operador del simple espejo de estado (ver AGENTS.md de sockets).
   liveSetShowLiveScreen: { active: boolean }
 
+  // Control de vídeo en vivo desde un remoto. El remoto no tiene IPC con las
+  // pantallas del host: manda la orden por aquí y el host la aplica en su
+  // controlador como si la hubiera pulsado su operador. `path` = `Media.filePath`.
+  liveMediaCommand: { action: 'play' | 'pause' | 'seek' | 'restart'; time: number; path?: string }
+  // Estado de reproducción del vídeo en vivo (host → remotos) para pintar play/pausa
+  // y la barra de progreso en el remoto. Se emite periódicamente mientras hay vídeo.
+  liveMediaStatus: {
+    path: string
+    isPlaying: boolean
+    currentTime: number
+    duration: number
+    volume: number
+    autoRewind?: boolean
+  }
+  // Ajustes del vídeo en vivo desde un remoto (volumen del host, rebobinado automático).
+  liveMediaSettings: { path: string; volume?: number; autoRewind?: boolean }
+
   // Live state sync (renderer broadcasts current state to remotes)
   liveStateUpdate: {
     itemOnLive: { id: string; type: string; accessData: string; label?: string | null } | null

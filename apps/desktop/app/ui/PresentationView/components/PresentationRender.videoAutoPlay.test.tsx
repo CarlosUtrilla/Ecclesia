@@ -50,7 +50,8 @@ const renderSlide = (videoLiveBehavior?: 'auto' | 'manual') =>
               name: 'Video',
               type: 'VIDEO',
               filePath: '/videos/demo.mp4',
-              thumbnail: '/videos/demo.jpg'
+              thumbnail: '/videos/demo.jpg',
+              fallback: '/videos/demo-fallback.jpg'
             }
           }
         ]
@@ -90,15 +91,22 @@ describe('PresentationRender video auto play', () => {
     playSpy.mockRestore()
   })
 
-  it('deberia usar el thumbnail como poster para no dejar la pantalla vacia', () => {
+  it('deberia mostrar el fallback debajo y pintar el video encima al cargar su primer frame', () => {
     const playSpy = vi
       .spyOn(HTMLMediaElement.prototype, 'play')
       .mockImplementation(() => Promise.resolve())
 
     const { container } = renderSlide('auto')
     const video = container.querySelector('video') as HTMLVideoElement
+    const fallback = container.querySelector('img') as HTMLImageElement
 
-    expect(video.getAttribute('poster')).toBe('/videos/demo.jpg')
+    expect(video.hasAttribute('poster')).toBe(false)
+    expect(fallback.getAttribute('src')).toBe('/videos/demo-fallback.jpg')
+    expect(video.style.opacity).toBe('0')
+
+    fireEvent.loadedData(video)
+
+    expect(video.style.opacity).toBe('1')
     playSpy.mockRestore()
   })
 

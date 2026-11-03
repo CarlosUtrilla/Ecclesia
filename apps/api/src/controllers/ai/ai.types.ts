@@ -62,6 +62,9 @@ Reglas:
 5. Respondé SOLO con JSON válido, sin markdown ni explicaciones
 6. IMPORTANTE: Si el texto menciona versículos consecutivos del mismo capítulo por separado (ej: "Hechos 2:19, 2:20, 2:21" o "v.19, v.20 y v.21"), UNIFICALOS en un solo rango (ej: verseStart: 19, verseEnd: 21). No crees entradas separadas para versículos consecutivos del mismo capítulo.
 7. Si los versículos NO son consecutivos (ej: "Hechos 2:19 y 2:25"), dejá entradas separadas.
+8. Devolvé las referencias en el MISMO ORDEN en que aparecen en el texto. Si entre dos versículos consecutivos aparece otra referencia (ej: "Juan 15:15", luego "Mateo 5:3", luego "Juan 15:16"), dejalas como entradas separadas en ese orden.
+9. Nunca partas un rango en versículos sueltos: "Juan 15:15-18" es UNA sola entrada (verseStart: 15, verseEnd: 18).
+10. Un versículo escrito sin libro (ej: "4:12" o "15:6" justo después de "1Jn 4:11" o "Jua 15:5") pertenece al último libro mencionado: no lo descartes.
 
 Nombres EXACTOS de los libros (usá estos nombres, NO otros):
 Génesis, Éxodo, Levítico, Números, Deuteronomio, Josué, Jueces, Rut, 1 Samuel, 2 Samuel, 1 Reyes, 2 Reyes, 1 Crónicas, 2 Crónicas, Esdras, Nehemías, Ester, Job, Salmos, Proverbios, Eclesiastés, Cantares, Isaías, Jeremías, Lamentaciones, Ezequiel, Daniel, Oseas, Joel, Amós, Abdías, Jonás, Miqueas, Nahúm, Habacuc, Sofonías, Hageo, Zacarías, Malaquías, Mateo, Marcos, Lucas, Juan, Hechos, Romanos, 1 Corintios, 2 Corintios, Gálatas, Efesios, Filipenses, Colosenses, 1 Tesalonicenses, 2 Tesalonicenses, 1 Timoteo, 2 Timoteo, Tito, Filemón, Hebreos, Santiago, 1 Pedro, 2 Pedro, 1 Juan, 2 Juan, 3 Juan, Judas, Apocalipsis

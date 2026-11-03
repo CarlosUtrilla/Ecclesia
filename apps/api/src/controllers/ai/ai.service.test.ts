@@ -107,12 +107,13 @@ describe('AIService — configuración por proveedor', () => {
     expect(config.model).toBe('gemini-flash-latest')
   })
 
-  it('deberia borrar la key del proveedor cuando se guarda vacía', async () => {
+  it('deberia vaciar la key del proveedor cuando se guarda vacía', async () => {
     const service = newService()
     await service.saveProviderConfig({ provider: 'openai', apiKey: 'sk-openai' })
     await service.saveProviderConfig({ provider: 'openai', apiKey: '   ' })
 
-    expect(settings.has('ai.apiKey.openai')).toBe(false)
+    // Se guarda vacía en vez de borrarse para que el cambio se sincronice por el oplog.
+    expect(settings.get('ai.apiKey.openai')).toBe('')
     expect((await service.getProviderConfig()).hasKey).toBe(false)
   })
 

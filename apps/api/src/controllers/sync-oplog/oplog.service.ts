@@ -110,6 +110,11 @@ export class OplogService {
     return this.localDoc !== null
   }
 
+  /** `true` mientras corre un `syncCycle()`; el cierre de la app espera a que termine. */
+  get isSyncing(): boolean {
+    return this.syncing
+  }
+
   setOnProgress(cb: SyncEventCallback): void {
     this.onProgress = cb
   }
@@ -921,18 +926,37 @@ export class OplogService {
     const toUpload: Array<{ checksum: string; localPath: string }> = []
     const seenChecksums = new Set<string>()
 
+    // Último evento por entidad. Sin compactación, el oplog guarda todo el historial: un
+    // medio borrado o una miniatura reemplazada siguen teniendo su upsert antiguo, y pedir
+    // esos blobs es inútil (el GC ya los quitó de Drive) y se reintentaba en cada ciclo.
+    const latestByEntity = new Map<string, OplogEvent>()
+    for (let idx = 0; idx < opsLen; idx++) {
+      const op = ops[idx]
+      const key = `${op.entityType}:${op.entityId}`
+      const previous = latestByEntity.get(key)
+      if (!previous || op.timestamp > previous.timestamp || (op.timestamp === previous.timestamp && op.seq > previous.seq)) {
+        latestByEntity.set(key, op)
+      }
+    }
+    const isWantedBlob = (op: OplogEvent, checksum: string): boolean => {
+      const latest = latestByEntity.get(`${op.entityType}:${op.entityId}`)
+      if (!latest || latest.op === 'delete' || latest.data?.deletedAt) return false
+      return latest.checksum === checksum || latest.thumbnailChecksum === checksum || latest.fallbackChecksum === checksum
+    }
+
     const mediaRoot = getMediaDir()
     oplogLogInfo(`[Blob] Media root: ${mediaRoot}`)
 
     const resolveRelativePath = (dataPath: string | undefined, blobPath: string | undefined) => dataPath || blobPath || undefined
 
-    const enqueueBlob = async (checksum: string | undefined, relativePath: string | undefined) => {
+    const enqueueBlob = async (op: OplogEvent, checksum: string | undefined, relativePath: string | undefined) => {
       if (!checksum || !relativePath || seenChecksums.has(checksum)) return
-      seenChecksums.add(checksum)
       const localPath = path.join(mediaRoot, relativePath)
       if (await fs.pathExists(localPath)) {
+        seenChecksums.add(checksum)
         toUpload.push({ checksum, localPath })
-      } else {
+      } else if (isWantedBlob(op, checksum)) {
+        seenChecksums.add(checksum)
         toDownload.push({ checksum, path: relativePath })
       }
     }
@@ -940,10 +964,10 @@ export class OplogService {
     for (let idx = 0; idx < opsLen; idx++) {
       const op = ops[idx]
       if (op.op === 'upsert') {
-        await enqueueBlob(op.checksum, resolveRelativePath(op.data?.filePath as string | undefined, op.blobPath))
+        await enqueueBlob(op, op.checksum, resolveRelativePath(op.data?.filePath as string | undefined, op.blobPath))
         if (op.entityType === 'media') {
-          await enqueueBlob(op.thumbnailChecksum, resolveRelativePath(op.data?.thumbnail as string | undefined, op.thumbnailBlobPath))
-          await enqueueBlob(op.fallbackChecksum, resolveRelativePath(op.data?.fallback as string | undefined, op.fallbackBlobPath))
+          await enqueueBlob(op, op.thumbnailChecksum, resolveRelativePath(op.data?.thumbnail as string | undefined, op.thumbnailBlobPath))
+          await enqueueBlob(op, op.fallbackChecksum, resolveRelativePath(op.data?.fallback as string | undefined, op.fallbackBlobPath))
         }
       }
       if (idx % 500 === 0 && idx > 0) {

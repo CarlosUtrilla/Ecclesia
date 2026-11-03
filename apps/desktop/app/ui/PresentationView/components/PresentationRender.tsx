@@ -1,4 +1,4 @@
-import { CSSProperties, useCallback, useLayoutEffect, useMemo, useRef } from 'react'
+import { CSSProperties, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { m } from 'framer-motion'
 import { getAnimationVariants, AnimationType } from '@/lib/animations'
 import { defaultAnimationSettings, AnimationSettings } from '@/lib/animationSettings'
@@ -226,17 +226,23 @@ const parseAnimationSettings = (animationSettings?: string): AnimationSettings =
 function LiveSyncedLayerVideo({
   src,
   mediaPath,
-  posterUrl,
+  fallbackUrl,
   shouldLoop,
   autoPlayOnMount
 }: {
   src: string
   mediaPath?: string | null
-  posterUrl?: string | null
+  fallbackUrl?: string | null
   shouldLoop: boolean
   autoPlayOnMount: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  // El video se pinta encima del fallback solo cuando ya tiene su primer frame.
+  // Antes se usaba la miniatura (400px) como `poster`, y Chromium la mantiene
+  // hasta que arranca la reproduccion: si `play()` se retrasaba, la proyeccion
+  // se quedaba con una imagen pixelada en lugar del video.
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
+  const isVideoLoaded = loadedSrc === src
   // Estado deseado de reproduccion. El controlador emite `play` en el mismo
   // instante en que cambia la diapositiva, antes de que esta ventana haya montado
   // el video nuevo, asi que ese comando se puede perder. Guardar la intencion
@@ -386,21 +392,35 @@ function LiveSyncedLayerVideo({
     }
   }
 
+  const handleLoadedData = () => {
+    setLoadedSrc(src)
+    ensureDesiredPlayback()
+  }
+
   return (
-    <video
-      ref={videoRef}
-      src={src}
-      poster={posterUrl || undefined}
-      className="w-full h-full object-contain"
-      autoPlay={autoPlayOnMount}
-      loop={shouldLoop}
-      muted
-      playsInline
-      preload="auto"
-      onCanPlay={ensureDesiredPlayback}
-      onLoadedData={ensureDesiredPlayback}
-      onPlay={handlePlay}
-    />
+    <div className="relative w-full h-full">
+      {fallbackUrl && (
+        <img
+          src={fallbackUrl}
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain"
+        />
+      )}
+      <video
+        ref={videoRef}
+        src={src}
+        className="absolute inset-0 w-full h-full object-contain"
+        style={{ opacity: isVideoLoaded ? 1 : 0 }}
+        autoPlay={autoPlayOnMount}
+        loop={shouldLoop}
+        muted
+        playsInline
+        preload="auto"
+        onCanPlay={ensureDesiredPlayback}
+        onLoadedData={handleLoadedData}
+        onPlay={handlePlay}
+      />
+    </div>
   )
 }
 
@@ -498,6 +518,9 @@ function PresentationLayer({
   if (item.resourceType === 'MEDIA' && item.media) {
     const mediaUrl = buildMediaUrl(item.media.filePath)
     const mediaThumbnailUrl = item.media.thumbnail ? buildMediaUrl(item.media.thumbnail) : null
+    const mediaFallbackUrl = item.media.fallback
+      ? buildMediaUrl(item.media.fallback)
+      : mediaThumbnailUrl
 
     if (isPreview) {
       return (
@@ -528,7 +551,7 @@ function PresentationLayer({
             <LiveSyncedLayerVideo
               src={mediaUrl}
               mediaPath={item.media.filePath}
-              posterUrl={mediaThumbnailUrl}
+              fallbackUrl={mediaFallbackUrl}
               shouldLoop={item.videoLoop === true || slideVideoLoop}
               autoPlayOnMount={slideVideoLiveBehavior === 'auto'}
             />

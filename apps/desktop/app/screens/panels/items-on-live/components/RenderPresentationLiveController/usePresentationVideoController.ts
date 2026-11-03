@@ -1,4 +1,5 @@
 import { RefObject, SyntheticEvent, useEffect, useRef, useState } from 'react'
+import useRemoteVideoSync from '../useRemoteVideoSync'
 
 type LiveMediaAction = 'play' | 'pause' | 'seek' | 'restart'
 
@@ -210,16 +211,29 @@ export default function usePresentationVideoController({
     setVolume(event.currentTarget.volume)
   }
 
+  const { state: playback, handlers: playbackHandlers } = useRemoteVideoSync({
+    path: activeSlideHasVideo ? activeVideoPath : null,
+    videoRef: controllerVideoRef,
+    state: { isPlaying, currentTime, duration, volume },
+    handlers: {
+      play: handlePlay,
+      pause: handlePause,
+      restart: handleRestart,
+      seek: handleSeek,
+      volumeChange: handleVolumeChange
+    }
+  })
+
   return {
-    isPlaying,
-    currentTime,
-    duration,
-    volume,
-    handlePlay,
-    handlePause,
-    handleRestart,
-    handleSeek,
-    handleVolumeChange,
+    isPlaying: playback.isPlaying,
+    currentTime: playback.currentTime,
+    duration: playback.duration,
+    volume: playback.volume,
+    handlePlay: playbackHandlers.play,
+    handlePause: playbackHandlers.pause,
+    handleRestart: playbackHandlers.restart,
+    handleSeek: playbackHandlers.seek,
+    handleVolumeChange: playbackHandlers.volumeChange,
     handleControllerTimeUpdate,
     handleControllerEnded,
     handleHiddenVideoPlay,

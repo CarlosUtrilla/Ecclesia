@@ -5,7 +5,7 @@ import path, { join } from 'path'
 import fs from 'fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { initializeHttpServer } from '@ecclesia/api'
-import { setCrashLogPath } from '@ecclesia/api/src/utils/crashLogger'
+import { appendCrashLog, setCrashLogPath } from '@ecclesia/api/src/utils/crashLogger'
 import { loadAppEnv } from '@ecclesia/api/src/utils/loadEnv'
 import { getBiblesResourcesPath } from './paths'
 import { setGetBiblesResourcesPath } from '@ecclesia/api/src/prisma'
@@ -107,35 +107,18 @@ async function clearPersistedStageTimersOnShutdown() {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-process.on('uncaughtException', (err) => {
-  try {
-    require('fs').appendFileSync(
-      require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
-      `[${new Date().toISOString()}] UNCAUGHT_EXCEPTION_MAIN:\n${err.stack ?? err.message}\n`
-    )
-  } catch { /* ignore */ }
-})
-process.on('unhandledRejection', (reason) => {
-  try {
-    const err = reason as { stack?: string; message?: string }
-    require('fs').appendFileSync(
-      require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
-      `[${new Date().toISOString()}] UNHANDLED_REJECTION_MAIN:\n${err?.stack ?? err?.message ?? String(reason)}\n`
-    )
-  } catch { /* ignore */ }
-})
+// Ruta del log de crashes antes de `whenReady`: los fallos de arranque también van a userData.
+// `crashLogger` registra los handlers globales (uncaughtException/unhandledRejection).
+setCrashLogPath(require('path').join(app.getPath('userData'), 'ecclesia-crash.log'))
 
 app.whenReady().then(async () => {
-  // Set up crash logger immediately
-  setCrashLogPath(require('path').join(app.getPath('userData'), 'ecclesia-crash.log'))
 
   // --debug flag: disable GPU, log GPU info to crash log
   if (process.argv.includes('--debug')) {
     app.disableHardwareAcceleration()
     try {
-      const logPath = require('path').join(app.getPath('userData'), 'ecclesia-crash.log')
       const gpuInfo = app.getGPUFeatureStatus()
-      require('fs').appendFileSync(logPath, `[${new Date().toISOString()}] GPU_INFO:\n${JSON.stringify(gpuInfo, null, 2)}\n`)
+      appendCrashLog(`GPU_INFO:\n${JSON.stringify(gpuInfo, null, 2)}`)
     } catch { /* ignore */ }
   }
   // V8 bytecode cache: tras la primera apertura, V8 guarda el bytecode compilado
@@ -148,8 +131,7 @@ app.whenReady().then(async () => {
 
   const crashLog = () => {
     try {
-      const p = require('path').join(app.getPath('userData'), 'ecclesia-crash.log')
-      require('fs').appendFileSync(p, `[${new Date().toISOString()}] STEP: ${new Error().stack?.split('\n')[2]?.trim() ?? ''}\n`)
+      appendCrashLog(`STEP: ${new Error().stack?.split('\n')[2]?.trim() ?? ''}`)
     } catch { /* ignore */ }
   }
 
@@ -270,20 +252,14 @@ app.whenReady().then(async () => {
 
   mainWindow.webContents.on('crashed', (_, killed) => {
     try {
-      require('fs').appendFileSync(
-        require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
-        `[${new Date().toISOString()}] RENDERER_CRASHED killed=${killed}\n`
-      )
+      appendCrashLog(`RENDERER_CRASHED killed=${killed}`)
     } catch { /* ignore */ }
   })
 
   mainWindow.webContents.on('did-finish-load', () => {
     crashLog()
     try {
-      require('fs').appendFileSync(
-        require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
-        `[${new Date().toISOString()}] RENDERER_FINISHED_LOAD url=${mainWindow.webContents.getURL()}\n`
-      )
+      appendCrashLog(`RENDERER_FINISHED_LOAD url=${mainWindow.webContents.getURL()}`)
     } catch { /* ignore */ }
   })
 
@@ -300,10 +276,7 @@ app.whenReady().then(async () => {
   })
 }).catch((err) => {
   try {
-    require('fs').appendFileSync(
-      require('path').join(app.getPath('userData'), 'ecclesia-crash.log'),
-      `[${new Date().toISOString()}] FATAL_INIT_CRASH:\n${err?.stack ?? err?.message ?? String(err)}\n`
-    )
+    appendCrashLog(`FATAL_INIT_CRASH:\n${err?.stack ?? err?.message ?? String(err)}`)
   } catch { /* ignore */ }
   console.error('FATAL INIT ERROR:', err)
 })

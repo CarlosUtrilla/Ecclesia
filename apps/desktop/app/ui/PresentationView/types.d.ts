@@ -73,6 +73,7 @@ export type PresentationViewItems = {
     filePath: string
     duration?: number | null
     thumbnail?: string | null
+    fallback?: string | null
     format?: string
   }
   presentationItems?: PresentationLayerItem[]

@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
-import { syncPush, syncPull, syncStatus, syncGetAuthUrl, syncExchangeOAuthToken } from './syncBridge'
+import { syncCycle, syncPush, syncPull, syncStatus, syncGetAuthUrl, syncExchangeOAuthToken } from './syncBridge'
 
 function notifyWindowsOAuthComplete(): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -23,6 +23,19 @@ export async function getIsSyncing(): Promise<boolean> {
   }
 }
 
+const RUNNING_CYCLE_POLL_MS = 300
+const RUNNING_CYCLE_MAX_WAIT_MS = 5 * 60 * 1000
+
+async function waitForRunningCycle(): Promise<void> {
+  const deadline = Date.now() + RUNNING_CYCLE_MAX_WAIT_MS
+  while (Date.now() < deadline) {
+    const status = (await syncStatus()) as any
+    const cfg = status?.response ?? status
+    if (!cfg?.syncing) return
+    await new Promise((resolve) => setTimeout(resolve, RUNNING_CYCLE_POLL_MS))
+  }
+}
+
 export async function executeSyncCycle(reason: string): Promise<void> {
   if (isSyncing) return
 
@@ -35,7 +48,11 @@ export async function executeSyncCycle(reason: string): Promise<void> {
     if (!isEnabled) return
 
     if (reason === 'close') {
-      await syncPush()
+      // Ciclo completo, no solo el push del oplog: los ficheros (media, miniaturas,
+      // biblias) solo suben en la fase de blobs. Si hay un ciclo periódico en curso,
+      // `syncCycle` lo saltaría sin hacer nada, así que primero se espera a que acabe.
+      await waitForRunningCycle()
+      await syncCycle()
     } else {
       await syncPull()
       await syncPush()

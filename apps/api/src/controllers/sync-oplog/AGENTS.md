@@ -159,6 +159,8 @@ event loop se ve como tirones en la UI y en la proyeccion. Reglas que hay que ma
 - **Progreso throttled.** `notifyProgress` en el scheduler limita a ~3 emisiones/segundo
   (dejando pasar inicio, fin y errores): `processBlobOps` reporta por cada blob y cada
   emit es un broadcast que re-renderiza a todos los clientes.
+- **Solo se descargan blobs vigentes.** `syncBlobs()` calcula el último evento por entidad y solo pide descargar un blob si la entidad no está borrada (`delete` o `deletedAt`) y ese checksum sigue siendo el actual (main/thumbnail/fallback). Sin compactación el oplog guarda el historial completo, y antes cada ciclo pedía decenas de blobs de medios borrados o miniaturas reemplazadas que ya no existen en Drive. Los que se piden y no están en Drive se avisan una vez por sesión (`reportedMissingRemote`), no en cada ciclo.
+- **`uploaded` cuenta solo subidas reales.** Los blobs que ya están en Drive van a `ya en Drive` en el resumen de `processBlobOps`; antes inflaban `blobsUploaded` (cientos por ciclo sin subir nada).
 - **No sincronizar mientras se proyecta.** `services/live-activity.service.ts` deduce el
   estado de vivo de los eventos que ya se reenvian por Socket.IO (`liveStateUpdate`,
   comandos `live*`, `obsTextUpdate`; el hook esta en el relay de `apps/api/src/index.ts`).

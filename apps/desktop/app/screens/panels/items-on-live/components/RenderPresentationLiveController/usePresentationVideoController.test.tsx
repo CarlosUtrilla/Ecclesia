@@ -5,6 +5,10 @@ import { createRef } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import usePresentationVideoController from './usePresentationVideoController'
 
+vi.mock('../useRemoteVideoSync', () => ({
+  default: ({ state, handlers }: { state: unknown; handlers: unknown }) => ({ state, handlers })
+}))
+
 describe('usePresentationVideoController', () => {
   beforeEach(() => {
     vi.useFakeTimers()

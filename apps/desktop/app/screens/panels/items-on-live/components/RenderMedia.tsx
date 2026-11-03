@@ -6,10 +6,13 @@ import { useQuery } from '@tanstack/react-query'
 import { Api } from '@ecclesia/queries'
 import VideoLiveControls from './VideoLiveControls'
 import { isDocumentMediaType } from '../liveRenderTarget'
+import { useRemoteMode } from '@/contexts/RemoteModeContext'
+import useRemoteVideoSync from './useRemoteVideoSync'
 
 export const RenderMedia = () => {
   const { itemOnLive, media } = useSchedule()
   const { sendLiveMediaState, liveScreensReady } = useLive()
+  const { isRemoteMode } = useRemoteMode()
 
   const mediaId = itemOnLive?.type === 'MEDIA' ? Number(itemOnLive.accessData) : null
   const contextMediaItem = useMemo(
@@ -32,6 +35,8 @@ export const RenderMedia = () => {
   const { buildMediaUrl } = useMediaServer()
   // Rebobinación automática: si termina el video y está activado, reinicia
   const handleEnded = () => {
+    // En el remoto la vista previa solo acompaña al host: el rebobinado lo decide el host.
+    if (isRemoteMode) return
     if (autoRewind && videoRef.current) {
       videoRef.current.currentTime = 0
       videoRef.current.play()
@@ -79,6 +84,9 @@ export const RenderMedia = () => {
 
   useLayoutEffect(() => {
     if (!videoRef.current) return
+    // El remoto no tiene pantallas propias (`liveScreensReady` siempre false): mandar la
+    // pausa de aquí apagaría el vídeo del host cada vez que el remoto monta el item.
+    if (isRemoteMode) return
 
     if (liveScreensReady) {
       handlePlay()
@@ -90,6 +98,20 @@ export const RenderMedia = () => {
       handlePause()
     }
   }, [liveScreensReady, itemOnLive?.accessData])
+
+  const { state: playback, handlers: playbackHandlers } = useRemoteVideoSync({
+    path: resolvedMediaItem?.type === 'VIDEO' ? resolvedMediaItem.filePath : null,
+    videoRef,
+    state: { isPlaying, currentTime, duration, volume, autoRewind },
+    handlers: {
+      play: handlePlay,
+      pause: handlePause,
+      restart: handleRestart,
+      seek: handleSeek,
+      volumeChange: handleVolumeChange,
+      setAutoRewind
+    }
+  })
 
   if (!itemOnLive || itemOnLive.type !== 'MEDIA') {
     return (
@@ -145,17 +167,17 @@ export const RenderMedia = () => {
         </div>
         <VideoLiveControls
           className="flex items-center gap-2 w-full px-28 bg-background/80 p-2 rounded shadow z-10"
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          volume={volume}
-          autoRewind={autoRewind}
-          onToggleAutoRewind={() => setAutoRewind((prev) => !prev)}
-          onVolumeChange={handleVolumeChange}
-          onSeek={handleSeek}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onRestart={handleRestart}
+          isPlaying={playback.isPlaying}
+          currentTime={playback.currentTime}
+          duration={playback.duration}
+          volume={playback.volume}
+          autoRewind={playback.autoRewind}
+          onToggleAutoRewind={() => playbackHandlers.setAutoRewind?.(!playback.autoRewind)}
+          onVolumeChange={playbackHandlers.volumeChange}
+          onSeek={playbackHandlers.seek}
+          onPlay={playbackHandlers.play}
+          onPause={playbackHandlers.pause}
+          onRestart={playbackHandlers.restart}
         />
       </div>
     )

@@ -9,6 +9,7 @@ import {
 } from './ai.types'
 import { buildModelsRequest, parseModelsResponse } from './ai.models'
 import { getOpenCodeSessionId } from './ai.session'
+import { mergeConsecutiveReferences } from './ai.references'
 import {
   AI_PROVIDER_SETTING,
   API_KEY_SETTING_PREFIX,
@@ -23,6 +24,10 @@ import * as pdfjsLib from 'pdfjs-dist'
 type SettingRow = {
   key: string
   value: string
+}
+
+type SettingIdRow = {
+  id: number
 }
 
 // Presupuesto de salida para extracción de referencias. Los modelos de razonamiento
@@ -60,6 +65,31 @@ export default class AIService {
           updatedAt = CURRENT_TIMESTAMP
       `
     )
+    await this.recordSettingSync(key, value)
+  }
+
+  /**
+   * El SQL crudo no pasa por el middleware del oplog, así que la key y el modelo no
+   * llegaban a las otras computadoras. Se registra el evento a mano, igual que
+   * `SettingsService.updateSetting`; el replay hace upsert por `key`, no por `id`.
+   */
+  private async recordSettingSync(key: string, value: string): Promise<void> {
+    try {
+      const prisma = getPrisma()
+      const rows = await prisma.$queryRaw<SettingIdRow[]>(
+        Prisma.sql`SELECT id FROM Setting WHERE key = ${key} LIMIT 1`
+      )
+      if (rows.length === 0) return
+      const { oplogService } = await import('../sync-oplog/oplog.service')
+      await oplogService.appendEvent({
+        entityType: 'setting',
+        entityId: String(rows[0].id),
+        op: 'upsert',
+        data: { id: rows[0].id, key, value }
+      })
+    } catch {
+      // Si el oplog no está inicializado, no bloquear el guardado local.
+    }
   }
 
   private async deleteRawSetting(key: string): Promise<void> {
@@ -169,11 +199,9 @@ export default class AIService {
 
     if (config.apiKey !== undefined) {
       const apiKey = config.apiKey.trim()
-      if (apiKey) {
-        await this.saveRawSetting(apiKeySettingKey(config.provider), apiKey)
-      } else {
-        await this.deleteRawSetting(apiKeySettingKey(config.provider))
-      }
+      // Borrar la key se guarda como valor vacío (se lee como "sin key"): un DELETE no
+      // se propaga, porque el replay de settings identifica por `key` y el oplog por `id`.
+      await this.saveRawSetting(apiKeySettingKey(config.provider), apiKey)
     }
 
     if (config.model !== undefined) {
@@ -498,13 +526,15 @@ export default class AIService {
         title: parsed.title || undefined,
         summary: parsed.summary || undefined,
         references: Array.isArray(parsed.references)
-          ? parsed.references.map((ref: any) => ({
-              book: String(ref.book || ''),
-              bookShort: ref.bookShort ? String(ref.bookShort) : undefined,
-              chapter: Number(ref.chapter),
-              verseStart: Number(ref.verseStart),
-              verseEnd: ref.verseEnd != null ? Number(ref.verseEnd) : undefined
-            }))
+          ? mergeConsecutiveReferences(
+              parsed.references.map((ref: any) => ({
+                book: String(ref.book || ''),
+                bookShort: ref.bookShort ? String(ref.bookShort) : undefined,
+                chapter: Number(ref.chapter),
+                verseStart: Number(ref.verseStart),
+                verseEnd: ref.verseEnd != null ? Number(ref.verseEnd) : undefined
+              }))
+            )
           : []
       }
     } catch (e) {

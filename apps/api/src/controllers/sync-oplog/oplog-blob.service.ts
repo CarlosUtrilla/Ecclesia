@@ -29,6 +29,11 @@ const CHECKSUM_CACHE_MAX = 5000
 export class OplogBlobService {
   /** checksums ya calculados, keyed por `path:size:mtime`. */
   private checksumCache = new Map<string, string>()
+  /**
+   * Blobs pedidos para descargar que no existen en Drive. Ningún ciclo los va a recuperar,
+   * así que se avisa una sola vez por sesión en vez de un warning por blob en cada ciclo.
+   */
+  private reportedMissingRemote = new Set<string>()
 
   async processBlobOps(
     ops: BlobOperation[],
@@ -44,6 +49,8 @@ export class OplogBlobService {
     const total = ops.length
     let uploadErrors = 0
     let uploadSkipped = 0
+    let missingRemote = 0
+    const newlyMissingRemote: string[] = []
     let completed = 0
 
     const remoteBlobs = await this.listAllBlobFiles(drive, folderId)
@@ -72,7 +79,11 @@ export class OplogBlobService {
             const remoteName = getRemoteBlobFileName(op.checksum)
             const remoteFileId = remoteBlobNames.get(remoteName)
             if (!remoteFileId) {
-              log.warn(`[OplogBlob] Blob remoto no encontrado: ${remoteName}`)
+              missingRemote++
+              if (!this.reportedMissingRemote.has(remoteName)) {
+                this.reportedMissingRemote.add(remoteName)
+                newlyMissingRemote.push(op.path)
+              }
               return
             }
             log.info(`[OplogBlob] Descargando ${op.checksum} → ${op.path}`)
@@ -85,13 +96,15 @@ export class OplogBlobService {
 
           case 'upload': {
             const remoteName = getRemoteBlobFileName(op.checksum)
+            // `uploaded` cuenta solo subidas reales: antes sumaba también los blobs que ya
+            // estaban en Drive y cada ciclo informaba cientos de "subidos" sin subir nada.
             if (!missingFromDrive.has(remoteName)) {
               uploadSkipped++
-            } else {
-              log.info(`[OplogBlob] Subiendo ${op.checksum} desde ${op.localPath}`)
-              await this.uploadBlob(drive, folderId, remoteName, op.localPath)
-              log.info(`[OplogBlob] Subido correctamente: ${op.checksum}`)
+              return
             }
+            log.info(`[OplogBlob] Subiendo ${op.checksum} desde ${op.localPath}`)
+            await this.uploadBlob(drive, folderId, remoteName, op.localPath)
+            log.info(`[OplogBlob] Subido correctamente: ${op.checksum}`)
             result.uploaded++
             return
           }
@@ -129,9 +142,13 @@ export class OplogBlobService {
     }
 
     await this.saveManifest()
-    const uploadedCount = result.uploaded - uploadSkipped
+    if (newlyMissingRemote.length > 0) {
+      log.warn(
+        `[OplogBlob] ${newlyMissingRemote.length} blobs no están ni en local ni en Drive (irrecuperables desde este equipo):\n  ${newlyMissingRemote.join('\n  ')}`,
+      )
+    }
     if (total > 1) {
-      log.info(`[OplogBlob] Resumen: ${uploadedCount} subidos, ${uploadErrors} fallos, ${uploadSkipped} ya en Drive, ${result.downloaded} descargados, ${result.deleted} eliminados`)
+      log.info(`[OplogBlob] Resumen: ${result.uploaded} subidos, ${uploadErrors} fallos, ${uploadSkipped} ya en Drive, ${result.downloaded} descargados, ${missingRemote} no disponibles en Drive, ${result.deleted} eliminados`)
     }
 
     return result

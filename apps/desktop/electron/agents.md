@@ -101,10 +101,17 @@ En `electron/main/index.ts`, al ejecutar `app.whenReady()`:
 
 Usar siempre estos helpers en lugar de `ipcMain.on/handle` directo en `index.ts` para handlers locales.
 
+## Log de crashes (`ecclesia-crash.log`)
+
+- Todo pasa por `appendCrashLog()` de `apps/api/src/utils/crashLogger.ts` (no `appendFileSync` directo): rota a `.old` al pasar de 5 MB, así que ocupa como mucho ~10 MB.
+- `crashLogger` registra los handlers globales `uncaughtException`/`unhandledRejection`; `main/index.ts` no debe registrar otros.
+- Escribir en stdout/stderr con la terminal cerrada da `EIO`/`EPIPE`. `crashLogger` pone listeners de `error` en ambos streams y, si llega como excepción, la ignora y deja de escribir en stderr. Antes el handler volvía a escribir en stderr, fallaba otra vez y entraba en bucle (~15.000 entradas/s, el log llegó a 53 GB).
+
 ## Flujo de cierre
 
 - En `before-quit` se limpian los timers persistidos de `StageScreenConfig.state`.
 - Solo se vacia `state.timers`; `message` y `clock` se conservan.
+- Al confirmar el cierre (`ClosingDialog` → `app-close-confirm`), `executeSyncCycle('close')` (`syncInit.ts`) corre un **ciclo completo** (`/api/oplog/syncCycle`: pull, blobs, push, purge), no solo `push`: tras la migración al oplog, `push` solo sube eventos y los ficheros nuevos (media, miniaturas) se quedaban sin subir. Si hay un ciclo periódico en curso espera a que termine (`getSyncStatus().syncing`, máx. 5 min), porque `syncCycle` se salta las llamadas concurrentes sin hacer nada. El ciclo de cierre no pasa por la política del scheduler (no se posterga por «en vivo»).
 - Canal IPC `window:trigger-close`: llama a `mainWindow.close()` desde el renderer (usado por `UpdateNotification` para instalar actualizaciones respetando el flujo de sync).
 - `getMainWindow()` exportado desde `windowManager.ts` devuelve la referencia a la ventana principal activa.
 
