@@ -18,8 +18,7 @@ import {
 import { Sparkles, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Api } from '@ecclesia/queries'
 import { Alert, AlertDescription } from '@/ui/alert'
-
-type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'opencodego'
+import { AI_PROVIDER_LABELS, formatModelLabel, type AIProvider } from '@/lib/aiModels'
 
 type AIProviderConfig = {
   provider: AIProvider
@@ -27,14 +26,6 @@ type AIProviderConfig = {
   hasKey: boolean
   /** Cada proveedor guarda su propia API key; esto indica cuales ya estan configurados. */
   hasKeyByProvider?: Partial<Record<AIProvider, boolean>>
-}
-
-const PROVIDER_LABELS: Record<AIProvider, string> = {
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-  gemini: 'Google Gemini',
-  openrouter: 'OpenRouter',
-  opencodego: 'OpenCode Go'
 }
 
 const PROVIDER_DOCS: Record<AIProvider, { label: string; url: string }> = {
@@ -58,19 +49,6 @@ const PROVIDER_DOCS: Record<AIProvider, { label: string; url: string }> = {
     label: 'opencode.ai/auth (OpenCode Zen)',
     url: 'https://opencode.ai/auth'
   }
-}
-
-function formatModelLabel(id: string): string {
-  const name = id.split('/').pop() ?? id
-  return name
-    .split(/[-_]/g)
-    .filter(Boolean)
-    .map((part) => {
-      if (/^(gpt|ai|llm|ocr)$/i.test(part)) return part.toUpperCase()
-      if (/^\d/.test(part) || /^[a-z]\d/i.test(part)) return part
-      return part.charAt(0).toUpperCase() + part.slice(1)
-    })
-    .join(' ')
 }
 
 export default function AISettingsSection() {
@@ -234,8 +212,8 @@ export default function AISettingsSection() {
             type="password"
             placeholder={
               hasKeyForSelected
-                ? `••••••••... (ya configurada para ${PROVIDER_LABELS[selectedProvider]})`
-                : `Ingresa tu API key de ${PROVIDER_LABELS[selectedProvider]}`
+                ? `••••••••... (ya configurada para ${AI_PROVIDER_LABELS[selectedProvider]})`
+                : `Ingresa tu API key de ${AI_PROVIDER_LABELS[selectedProvider]}`
             }
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
@@ -264,7 +242,7 @@ export default function AISettingsSection() {
             {modelsQuery.isFetching && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Cargando modelos de {PROVIDER_LABELS[selectedProvider]}...
+                Cargando modelos de {AI_PROVIDER_LABELS[selectedProvider]}...
               </span>
             )}
           </div>
@@ -277,7 +255,7 @@ export default function AISettingsSection() {
             >
               <ComboboxTrigger className="w-full" />
               <ComboboxContent>
-                <ComboboxInput placeholder={`Buscar modelo de ${PROVIDER_LABELS[selectedProvider]}...`} />
+                <ComboboxInput placeholder={`Buscar modelo de ${AI_PROVIDER_LABELS[selectedProvider]}...`} />
                 <ComboboxEmpty>No se encontraron modelos</ComboboxEmpty>
                 <ComboboxList>
                   <ComboboxGroup>

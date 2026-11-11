@@ -20,6 +20,7 @@ app/screens/panels/schedule/
 ├── index.tsx                           # SchedulePanel: alterna entre lista de schedules y contenido
 ├── scheduleList.tsx                    # ScheduleList: CRUD de cronogramas
 ├── components/
+│   ├── AIScheduleDialog.tsx            # Asistente IA: extrae referencias biblicas (pestañas Texto y Archivos; Archivos acepta PDF o Word por clic o drag & drop y elige extractFromPdf/extractFromDocx por extensión, cualquier otra da error); selector de modelo del proveedor activo en el pie, junto a Configurar IA y Cerrar (comparte queryKey ['ai-models', provider] con ajustes). "Configurar IA" abre ajustes sin cerrar el dialog y la config se relee al volver el foco. Alto acotado a la ventana (`max-h-[calc(100vh-2rem)]`): cabecera y pie fijos, solo el cuerpo hace scroll
 │   └── scheduleGroups/
 │       ├── scheduleGruopItem.tsx       # Item visual de grupo en el cronograma
 │       └── GroupTemplateManagerDialog.tsx  # Dialog para CRUD de plantillas de grupo
