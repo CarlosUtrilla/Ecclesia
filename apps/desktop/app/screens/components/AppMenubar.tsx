@@ -1,3 +1,5 @@
+import { Button } from '@/ui/button'
+import SyncButton from '@/screens/panels/library/SyncButton'
 import { useState } from 'react'
 import {
   Menubar,
@@ -23,7 +25,9 @@ import {
   Radio,
   Timer,
   Upload,
-  Wrench
+  Wrench,
+  MonitorCog,
+  Settings
 } from 'lucide-react'
 import ExportDialog from '@/screens/panels/library/ExportDialog'
 import SongImporter from '@/screens/panels/library/songs/songImporter'
@@ -217,6 +221,29 @@ export default function AppMenubar() {
             </MenubarItem>
           </MenubarContent>
         </MenubarMenu>
+
+        {/* Acciones globales: no dependen de la pestaña de la biblioteca. */}
+        <div className="ml-auto flex items-center gap-0.5">
+          <SyncButton />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => window.windowAPI.openStageControlWindow()}
+          >
+            <MonitorCog className="h-4 w-4" />
+            Control Stage
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => window.windowAPI.openSettingsWindow()}
+          >
+            <Settings className="h-4 w-4" />
+            Ajustes
+          </Button>
+        </div>
       </Menubar>
 
       <ExportDialog

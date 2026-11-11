@@ -38,7 +38,7 @@ const PreviewSchedule = forwardRef<HTMLDivElement, Omit<PreviewScheduleProps, 'p
         ref={ref}
       >
         <div className="sticky top-0 z-10 bg-muted flex justify-between items-center px-2 py-2 border-y panel-header">
-          <h3 className="font-medium text-sm italic">Vista previa</h3>
+          <h3 className="font-medium text-sm">Vista previa</h3>
           <div className="flex items-center gap-2">
             {bibleVersion && bibleVersion.options.length > 0 && (
               <Select value={bibleVersion.value} onValueChange={bibleVersion.onChange}>

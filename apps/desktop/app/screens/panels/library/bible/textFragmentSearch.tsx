@@ -118,13 +118,13 @@ export default function TextFragmentSearch({ defaultVersion }: Props) {
       <DialogTrigger asChild>
         <Button className="text-xs col-span-4 flex-1">
           <Search className="h-3 w-3" />
-          Busqueda avanzada
+          Búsqueda avanzada
         </Button>
       </DialogTrigger>
       <DialogContent className="!max-w-5xl w-full">
         <DialogHeader className="border-b pb-3.5">
           <DialogTitle className="flex gap-2 items-center">
-            <Search className="w-5 h-5" /> Busqueda avanzada
+            <Search className="w-5 h-5" /> Búsqueda avanzada
           </DialogTitle>
         </DialogHeader>
         <div>

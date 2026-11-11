@@ -113,7 +113,7 @@ export default function SongImporter({ forceOpen, onOpenChange }: SongImporterPr
   const triggerButton = (
     <Tooltip content="Importar canciones">
       <DialogTrigger asChild>
-        <Button size="icon">
+        <Button size="icon" variant="ghost">
           <Download className="h-4 w-4" />
         </Button>
       </DialogTrigger>

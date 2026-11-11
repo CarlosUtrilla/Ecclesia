@@ -32,7 +32,7 @@ export default function ImportBibleButton() {
   }
 
   return (
-    <Button className="text-xs" onClick={handleImportBible}>
+    <Button variant="outline" className="text-xs" onClick={handleImportBible}>
       <Import className="w-4 h-4" /> Importar biblia
     </Button>
   )

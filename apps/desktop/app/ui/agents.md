@@ -449,3 +449,10 @@ Renderiza texto genérico del slide con animaciones:
 - El fondo de la pagina es magenta para separar diagnosticos: **magenta** = hueco de geometria, **negro** = algo lo esta pintando, **color apagado** = bajon de opacidad.
 - La comprobacion clave es que `opacidad(saliente) + opacidad(entrante) === 1` en todo momento y que el contenido de la entrante este a opacidad plena desde el primer frame.
 - No entra en produccion: `electron.vite.config.ts` solo declara `index.html` y `splash.html` como inputs del build.
+
+## Convenciones visuales del layout principal
+
+- **Un solo botón primario (verde) por zona.** Acciones secundarias en `variant="ghost"` o `"outline"`; conmutadores de vista (lista/cuadrícula) con `secondary` para el activo y `ghost` para el resto.
+- **Cabeceras de panel**: `h-10`/`h-11`, `bg-muted/40`, `border-b`, `px-3`, texto `text-sm` sin cursiva. Los títulos de sección dentro de un panel usan `text-[11px] font-semibold uppercase tracking-wide text-muted-foreground`.
+- Los `SubTrigger` de context-menu/dropdown/menubar llevan `gap-2` como los items, para que el icono no quede pegado al texto.
+- `ResizableHandle` se resalta en `hover` y con `data-[separator=active]` (react-resizable-panels v4) para que se vea dónde arrastrar.

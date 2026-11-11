@@ -1,7 +1,7 @@
 import { Button } from '@/ui/button'
 import { AnimatePresence, m, LazyMotion, domAnimation } from 'framer-motion'
 import { useSchedule } from '@/contexts/ScheduleContext'
-import { Save, CalendarSearch, Upload, Sparkles } from 'lucide-react'
+import { Save, CalendarSearch, Upload, Sparkles, Layers } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { ScheduleItem } from '@ecclesia/api'
@@ -92,7 +92,7 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
         style={{ outline: 'none' }}
       >
         {/* Header editable del schedule */}
-        <div className="px-4 py-3 border-b bg-muted/20 flex flex-col gap-2 panel-header">
+        <div className="px-3 py-2 border-b bg-muted/40 flex flex-col gap-1.5 panel-header">
           {/* Input y botón Guardar en la misma fila */}
           <div className="flex items-center gap-2 w-full max-w-xl">
             <input
@@ -121,15 +121,18 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
             </span>
           )}
           {/* Botones secundarios debajo */}
-          <div className="flex items-center gap-2 flex-wrap justify-end mt-1">
-            <Button size="sm" variant="outline" onClick={() => setShowAIDialog(true)}>
+          <div className="flex items-center gap-1 flex-wrap justify-end">
+            <Button size="sm" variant="ghost" onClick={() => setShowAIDialog(true)}>
               <Sparkles className="h-4 w-4" />
               Asistente IA
             </Button>
             <GroupTemplateManager>
-              <Button size="sm">Grupos</Button>
+              <Button size="sm" variant="ghost">
+                <Layers className="h-4 w-4" />
+                Grupos
+              </Button>
             </GroupTemplateManager>
-            <Button size="sm" onClick={onBack}>
+            <Button size="sm" variant="ghost" onClick={onBack}>
               <CalendarSearch className="h-4 w-4" />
               Cronogramas
             </Button>

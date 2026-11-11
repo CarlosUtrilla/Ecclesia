@@ -38,7 +38,7 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
     <ContextMenu key={song.id}>
       <ContextMenuTrigger>
         <div
-          className={cn('p-1 px-4 pl-3 hover:bg-muted/30', 'cursor-pointer transition-colors', {
+          className={cn('py-1.5 px-3 hover:bg-muted/40', 'cursor-pointer transition-colors', {
             'bg-secondary/20 hover:bg-secondary/10': selectedSong === song.id,
             'opacity-50 bg-muted ': isDragging
           })}
@@ -54,12 +54,12 @@ export default function SongItem({ song, selectedSong, setSelectedSong, handleDe
           }}
           onDoubleClick={() => addItemToSchedule({ type: 'SONG', accessData: song.id })}
         >
-          <h3 className="font-semibold text-base flex gap-2 items-center">
-            <Music className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-medium text-sm flex gap-2 items-center">
+            <Music className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             {song.title}
             {song.author ? (
               <Tooltip content={song.author}>
-                <div className="text-xs text-muted-foreground mt-1 max-w-1/3 ml-auto text-nowrap overflow-hidden text-ellipsis">
+                <div className="text-xs font-normal text-muted-foreground max-w-1/3 ml-auto text-nowrap overflow-hidden text-ellipsis">
                   ({song.author && <span>{song.author}</span>})
                 </div>
               </Tooltip>

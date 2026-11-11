@@ -39,8 +39,8 @@ export default function PreviewSong({ song, onDelete }: Props) {
   if (!song) {
     return (
       <ResizablePanel>
-        <div className="panel-header bg-muted/50 px-4 py-2 border-b flex items-center gap-1 h-12">
-          <div className="italic text-sm text-muted-foreground">Ninguna canción seleccionada</div>
+        <div className="panel-header bg-muted/40 px-3 border-b flex items-center gap-1 h-11">
+          <div className="text-sm text-muted-foreground">Ninguna canción seleccionada</div>
         </div>
 
         <div className="panel-scroll-content flex-col gap-2 text-muted-foreground text-sm bg-muted/10 flex items-center justify-center h-full">

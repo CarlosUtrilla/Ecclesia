@@ -7,6 +7,7 @@ import { RenderMedia } from './components/RenderMedia'
 import { RenderTimerControls } from './components/RenderTimerControls'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/ui/button'
+import { cn } from '@/lib/utils'
 import { ViewModeTypes } from './types'
 import RenderGridMode from './components/RenderGridMode'
 import { useLive } from '../../../contexts/ScheduleContext/utils/liveContext'
@@ -23,8 +24,7 @@ function getInitialViewMode(): ViewModeTypes {
 }
 
 export default function LivePanel() {
-  const { itemOnLive, getScheduleItemContentScreen, songs, media, presentations } =
-    useSchedule()
+  const { itemOnLive, getScheduleItemContentScreen, songs, media, presentations } = useSchedule()
   const {
     liveContentVersion,
     itemIndex,
@@ -191,8 +191,8 @@ export default function LivePanel() {
       onMouseDown={() => containerRef.current?.focus()}
     >
       <div className="shrink-0">
-        <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2 text-sm">
-          <div className="text-muted-foreground italic">
+        <div className="h-11 bg-muted/40 px-3 border-b flex items-center gap-2 text-sm">
+          <div className={cn('truncate', itemOnLive ? 'font-medium' : 'text-muted-foreground')}>
             <span>
               {itemOnLive ? (
                 <>
@@ -218,20 +218,22 @@ export default function LivePanel() {
           </div>
           <div className="ml-auto flex items-center gap-1">
             <Button
-              className={`rounded-md p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-primary`}
+              size="icon"
+              className="size-8"
               aria-label="Vista de lista"
-              variant={viewMode === 'list' ? 'default' : 'outline'}
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               onClick={() => setViewMode('list')}
             >
-              <List className="h-5 w-5" />
+              <List className="h-4 w-4" />
             </Button>
             <Button
-              className={`rounded-md p-1.5 transition-colors  focus:outline-none focus:ring-2 focus:ring-primary`}
+              size="icon"
+              className="size-8"
               aria-label="Vista de cuadrícula"
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
               onClick={() => setViewMode('grid')}
             >
-              <LayoutGrid className="h-5 w-5" />
+              <LayoutGrid className="h-4 w-4" />
             </Button>
           </div>
         </div>

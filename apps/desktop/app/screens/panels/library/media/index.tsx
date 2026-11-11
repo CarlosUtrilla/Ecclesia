@@ -390,7 +390,7 @@ export default function MediaLibrary() {
   return (
     <div ref={containerRef} className="panel-scrollable relative flex flex-col">
       {/* Header unificado */}
-      <div className="panel-header border-b bg-background/50 gap-2 p-3 py-1 flex flex-col md:flex-row md:items-center flex-wrap">
+      <div className="panel-header border-b bg-muted/40 gap-2 px-2 py-1.5 flex flex-col md:flex-row md:items-center flex-wrap">
         {/* Primera fila: navegación y botones */}
         <div className="flex items-center gap-2 flex-1 min-w-0 mb-2 md:mb-0">
           {/* Botón back */}
@@ -461,7 +461,7 @@ export default function MediaLibrary() {
           {/* Controles de vista */}
           <div className="flex border rounded-md">
             <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
               size="sm"
               className="rounded-r-none h-8 w-8 p-0"
               onClick={() => setViewMode('grid')}
@@ -470,7 +470,7 @@ export default function MediaLibrary() {
               <LayoutGrid className="h-6 w-6" />
             </Button>
             <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="sm"
               className="rounded-l-none h-8 w-8 p-0"
               onClick={() => setViewMode('list')}
@@ -485,6 +485,7 @@ export default function MediaLibrary() {
             <Button
               onClick={() => setShowNewFolderDialog(true)}
               size="sm"
+              variant="ghost"
               className="h-8 w-8 p-0"
               disabled={loading}
             >
@@ -492,12 +493,24 @@ export default function MediaLibrary() {
             </Button>
           </Tooltip>
           <Tooltip content="Importar medios">
-            <Button onClick={handleImport} size="sm" className="h-8 w-8 p-0" disabled={loading}>
+            <Button
+              onClick={handleImport}
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              disabled={loading}
+            >
               <Plus className="h-6 w-6" />
             </Button>
           </Tooltip>
           <Tooltip content="Importar presentación PPTX...">
-            <Button onClick={handleImportPptx} size="sm" className="h-8 w-8 p-0" disabled={loading}>
+            <Button
+              onClick={handleImportPptx}
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0"
+              disabled={loading}
+            >
               <FileText className="h-6 w-6" />
             </Button>
           </Tooltip>

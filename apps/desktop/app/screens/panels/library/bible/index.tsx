@@ -131,7 +131,11 @@ export default function BiblePanel({ searchParams }: Props) {
           <TextFragmentSearch defaultVersion={selectedVersion} />
           <ImportBibleButton />
           <BiblePresentationConfiguration>
-            <Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Configuración de presentación bíblica"
+            >
               <Settings />
             </Button>
           </BiblePresentationConfiguration>
@@ -143,7 +147,7 @@ export default function BiblePanel({ searchParams }: Props) {
         <div className="bg-muted/40 panel-header">
           <div className="grid border-t grid-cols-10 text-center text-sm">
             <div className="p-2 py-1 col-span-7">Libro</div>
-            <div className="p-2 py-1 border-x col-span-3">Capitulo</div>
+            <div className="p-2 py-1 border-x col-span-3">Capítulo</div>
           </div>
         </div>
         <div

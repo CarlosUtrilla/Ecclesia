@@ -5,9 +5,8 @@
 ## Descripcion
 
 Panel de biblioteca que ocupa la parte inferior de la aplicacion. Contiene cuatro secciones en tabs: Canciones, Medios, Biblia y Presentaciones. Permite buscar, explorar y arrastrar recursos al cronograma.
-En el extremo derecho del header de tabs incluye un botón `Ajustes` que abre la ventana de configuración.
-Al lado de `Ajustes` incluye acceso rápido a `Control Stage` para abrir la ventana operativa de stage sin salir del flujo principal.
-Cuando hay una operación activa de sync con Google Drive, muestra la etiqueta `Sincronizando X%` junto al botón (fallback `Sincronizando...` mientras inicializa el progreso).
+El header de tabs solo contiene las pestañas. Las acciones globales `Sync` (`SyncButton.tsx`, vive en esta carpeta), `Control Stage` y `Ajustes` se renderizan a la derecha de la barra superior (`screens/components/AppMenubar.tsx`) porque no dependen de la pestaña activa.
+Cuando hay una operación activa de sync con Google Drive, `SyncButton` muestra la etiqueta `Sincronizando X%` (fallback `Sincronizando...` mientras inicializa el progreso).
 La visibilidad del botón `Sync` se refresca automáticamente al recuperar foco en la ventana principal (al volver de `Ajustes`) y al finalizar eventos `sync-state`, para reflejar conexiones nuevas sin reiniciar la app.
 
 ## Archivos

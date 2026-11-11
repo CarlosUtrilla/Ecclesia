@@ -115,7 +115,7 @@ export default function SongsPanelLibrary() {
         maxSize={'35%'}
       >
         {/* Buscador */}
-        <div className="panel-header p-2 bg-muted/30 border-b flex items-center gap-2">
+        <div className="panel-header h-11 px-2 bg-muted/40 border-b flex items-center gap-1.5">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -126,13 +126,17 @@ export default function SongsPanelLibrary() {
             />
           </div>
           <Tooltip content={t('songsPanelLibrary.addSong')}>
-            <Button size="icon" onClick={() => window.windowAPI.openSongWindow()}>
+            <Button size="icon" variant="ghost" onClick={() => window.windowAPI.openSongWindow()}>
               <Plus className="h-4 w-4" />
             </Button>
           </Tooltip>
           <SongImporter />
           <Tooltip content={t('songsPanelLibrary.manageTags')}>
-            <Button size="icon" variant="ghost" onClick={() => window.windowAPI.openTagSongsWindow()}>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => window.windowAPI.openTagSongsWindow()}
+            >
               <Tags className="h-4 w-4" />
             </Button>
           </Tooltip>

@@ -140,7 +140,7 @@ export default function LiveScreens() {
   return (
     <div className="h-full pannel-scrollable">
       <div className="panel-scroll-content flex flex-col h-full">
-        <div className="bg-muted/50 border-b py-2 px-4 flex flex-col gap-2">
+        <div className="h-11 bg-muted/40 border-b px-3 flex flex-col justify-center gap-2">
           <div className="flex gap-2">
             <Button
               onClick={() => setShowLiveScreen(!showLiveScreen)}
@@ -165,7 +165,9 @@ export default function LiveScreens() {
           </div>
         </div>
         <div className="flex-1">
-          <div className="p-2 bg-muted/40">Pantallas publicas</div>
+          <div className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Pantallas públicas
+          </div>
           <div className="flex gap-2 p-2">
             {contentScreen ? (
               liveScreens.map((screen, idx) => (
@@ -177,21 +179,27 @@ export default function LiveScreens() {
                     showLogo: showLogoOnLive,
                     blackScreen: blackScreenOnLive
                   }}
-                  {...(isRemoteMode ? {
-                    previewContent: contentScreen,
-                    previewItemIndex: itemIndex,
-                    previewTheme: appliedTheme,
-                    previewPresentationVerseBySlideKey: presentationVerseBySlideKey
-                  } : {})}
+                  {...(isRemoteMode
+                    ? {
+                        previewContent: contentScreen,
+                        previewItemIndex: itemIndex,
+                        previewTheme: appliedTheme,
+                        previewPresentationVerseBySlideKey: presentationVerseBySlideKey
+                      }
+                    : {})}
                 />
               ))
             ) : (
-              <div>No hay contenido para mostrar</div>
+              <div className="px-1 text-xs text-muted-foreground">
+                No hay contenido para mostrar
+              </div>
             )}
           </div>
 
-          <div className="p-2 bg-muted/40 border-t flex items-center justify-between gap-2">
-            <span>Pantallas stage</span>
+          <div className="px-3 pt-3 pb-1 mt-1 border-t flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Pantallas stage
+            </span>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Modo enfoque</span>
               <Switch
