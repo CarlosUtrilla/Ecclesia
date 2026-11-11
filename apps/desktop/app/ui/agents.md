@@ -276,6 +276,8 @@ Renderiza texto genérico del slide con animaciones:
 - Encapsula solo la lógica bíblica específica (referencia con libro/capítulo/verso, versión y ubicación según settings).
 - Reutiliza `AnimatedText` para el render/base interactiva del bloque de texto y mantiene en este componente solo la edición/posición del verso en modo pantalla.
 - Si el contenido entrante del verso ya trae prefijo numérico (`"16. ..."`) y `showVerseNumber` está desactivado, `BibleTextRender` elimina ese prefijo para respetar la configuración visual del tema/global.
+- **Auto-ajuste del texto**: pasa `autoFit` a `AnimatedText` para que los versículos que no caben (aun troceados, típico en pantallas 4:3) reduzcan la letra en vez de desbordar. Mide la referencia superpuesta (`upScreen`/`downScreen`) con `ResizeObserver` y la pasa como `autoFitReserve` (`offset + alto + 0.4 × smallFontSize`) para que el texto no la pise.
+- `AnimatedText` con `autoFit`: en un `useLayoutEffect` (antes de pintar) parte siempre del tamaño original y busca por bisección la mayor escala (mín. 0.5) que respeta los límites de la caja y la reserva. Compara bordes (`offsetTop`/`offsetHeight`, inmunes a los transforms de la animación), no solo alturas, porque con alineación centrada el texto puede pisar la reserva aunque su alto quepa. Mide de cero en cada render: no acumula escalas, así un estado transitorio no deja el texto reducido. Re-renderiza al cambiar el tamaño de la caja (`ResizeObserver`) y al terminar de cargar una fuente web (`document.fonts` `loadingdone`).
 
 ### Estado interno de PresentationView
 

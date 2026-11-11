@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { m } from 'framer-motion'
 import { sanitizeHTML } from '@/lib/utils'
 import { wordVariants, AnimationType } from '@/lib/animations'
@@ -559,7 +559,35 @@ export function BibleTextRender({
     [animationType, variants, verseTextStyle, isPreview]
   )
 
-  const verseEdgeOffsetPx = `${(safePresentationHeight * clampedVersePositionStyle) / BASE_PRESENTATION_HEIGHT}px`
+  const verseEdgeOffset = (safePresentationHeight * clampedVersePositionStyle) / BASE_PRESENTATION_HEIGHT
+  const verseEdgeOffsetPx = `${verseEdgeOffset}px`
+
+  // La referencia (arriba/abajo) se superpone a la caja del texto: el auto-ajuste
+  // del texto debe dejarle su hueco.
+  const verseRef = useRef<HTMLDivElement>(null)
+  const [verseHeight, setVerseHeight] = useState(0)
+  const showsScreenVerse = !!(isScreenModeVerse && verseText && !(hideTextInLive && !isPreview))
+  useLayoutEffect(() => {
+    const el = verseRef.current
+    if (!showsScreenVerse || !el) {
+      setVerseHeight(0)
+      return
+    }
+    const update = () => setVerseHeight(Math.round(el.offsetHeight))
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [showsScreenVerse])
+
+  const autoFitReserve = useMemo(() => {
+    if (!verseHeight) return undefined
+    const gap = (parseFloat(smallFontSize) || 0) * 0.4
+    const reserved = verseEdgeOffset + verseHeight + gap
+    return selectedBiblePresentationSettings?.position === 'upScreen'
+      ? { top: reserved, bottom: 0 }
+      : { top: 0, bottom: reserved }
+  }, [verseHeight, verseEdgeOffset, smallFontSize, selectedBiblePresentationSettings?.position])
 
   const handleSelectTarget = useCallback(() => {
     onEditableTargetSelect?.('verse')
@@ -594,6 +622,9 @@ export function BibleTextRender({
         blockBgStyle={blockBgStyle}
         blockBgPadding={blockBgPadding}
         animationDuration={animationDuration}
+        // Versículos largos pueden no caber aun troceados (sobre todo en 4:3).
+        autoFit
+        autoFitReserve={autoFitReserve}
       />
 
       {canEditVerseBounds && snapGuides.centerX ? (
@@ -613,8 +644,9 @@ export function BibleTextRender({
         />
       ) : null}
 
-      {isScreenModeVerse && verseText && !(hideTextInLive && !isPreview) && (
+      {showsScreenVerse && (
         <div
+          ref={verseRef}
           style={{
             position: 'absolute',
             left: '50%',
