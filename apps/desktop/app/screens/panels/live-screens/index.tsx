@@ -5,7 +5,7 @@ import { useRemoteMode } from '@/contexts/RemoteModeContext'
 import { cn } from '@/lib/utils'
 import { Button } from '@/ui/button'
 import { Switch } from '@/ui/switch'
-import { Radio } from 'lucide-react'
+import { MonitorCog, Radio } from 'lucide-react'
 import LiveScreen from '@/screens/live-screen'
 import StageScreen from '@/screens/stage-screen/index'
 import {
@@ -157,9 +157,9 @@ export default function LiveScreens() {
             <Button
               variant="outline"
               size="sm"
-              className="h-6 px-2 text-[11px]"
               onClick={() => window.displayAPI.showNewDisplayConnected()}
             >
+              <MonitorCog className="size-4" />
               Gestionar pantallas
             </Button>
           </div>

@@ -26,7 +26,7 @@ import {
   Timer,
   Upload,
   Wrench,
-  MonitorCog,
+  UserRoundCog,
   Settings
 } from 'lucide-react'
 import ExportDialog from '@/screens/panels/library/ExportDialog'
@@ -231,7 +231,7 @@ export default function AppMenubar() {
             className="h-7 text-xs"
             onClick={() => window.windowAPI.openStageControlWindow()}
           >
-            <MonitorCog className="h-4 w-4" />
+            <UserRoundCog className="h-4 w-4" />
             Control Stage
           </Button>
           <Button
