@@ -6,22 +6,28 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger
 } from '@/ui/context-menu'
 import { useSortable } from '@dnd-kit/sortable'
 import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import type { ScheduleItem } from '@ecclesia/api'
-import { Pencil, Radio, Trash2 } from 'lucide-react'
+import { BookOpen, Pencil, Radio, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Api } from '@ecclesia/queries'
 import { Tooltip } from '@/ui/tooltip'
 import PreviewSchedule from './previewSchedule'
 import { PresentationViewItems } from '@/ui/PresentationView/types'
-import { parseBibleAccessData } from '../../library/bible/accessData'
+import { buildBibleAccessData, parseBibleAccessData } from '../../library/bible/accessData'
 import { parseTimerAccessData } from '@/lib/timerAccessData'
 import ChurchCountdownDialog from '@/screens/components/ChurchCountdownDialog'
 import useBibleSchema from '@/hooks/useBibleSchema'
+import useBibleVersions from '@/hooks/useBibleVersions'
 import { isExternalDragData } from '@/contexts/ScheduleContext/utils/scheduleCollision'
 import { usePendingInsertion } from '@/contexts/ScheduleContext/utils/pendingInsertion'
 import InsertionIndicator, {
@@ -42,6 +48,8 @@ type Props = {
   /** Copia renderizada dentro del DragOverlay: no debe registrarse en dnd-kit. */
   isPreview?: boolean
 }
+
+const normalizeLabel = (value: string) => value.normalize('NFC').trim().toLowerCase()
 
 export function ScheduleItemComponent({
   setSelectedItem,
@@ -72,6 +80,7 @@ export function ScheduleItemComponent({
   const {
     getScheduleItemIcon,
     deleteItemFromSchedule,
+    updateItemAccessData,
     currentSchedule,
     getScheduleItemContentScreen,
     selectedTheme,
@@ -81,6 +90,14 @@ export function ScheduleItemComponent({
   } = useSchedule()
 
   const { getCompleteNameById } = useBibleSchema()
+  const { data: availableBibles = [] } = useBibleVersions()
+  const bibleAccess = item.type === 'BIBLE' ? parseBibleAccessData(item.accessData) : null
+
+  // Solo cambia la versión: libro, capítulo y rango de versículos se conservan.
+  const handleChangeBibleVersion = (version: string) => {
+    if (!bibleAccess || version === bibleAccess.version) return
+    updateItemAccessData(item.id, buildBibleAccessData({ ...bibleAccess, version }))
+  }
   const { showItemOnLiveScreen } = useLive()
   const [groupTemplate, setGroupTemplate] = useState<any>(null)
   const [groupColor, setGroupColor] = useState<string | undefined>(undefined)
@@ -292,6 +309,15 @@ export function ScheduleItemComponent({
               showItemOnLiveScreen(item, index)
               setSelectedItem?.(null)
             }}
+            bibleVersion={
+              bibleAccess
+                ? {
+                    value: bibleAccess.version,
+                    options: availableBibles,
+                    onChange: handleChangeBibleVersion
+                  }
+                : undefined
+            }
           />
         ) : null
       }
@@ -371,6 +397,32 @@ export function ScheduleItemComponent({
                 <Pencil className="h-4 w-4" />
                 Editar
               </ContextMenuItem>
+            )}
+            {bibleAccess && availableBibles.length > 0 && (
+              <ContextMenuSub>
+                <ContextMenuSubTrigger>
+                  <BookOpen className="h-4 w-4" />
+                  Cambiar versión
+                </ContextMenuSubTrigger>
+                <ContextMenuSubContent className="max-h-80 overflow-y-auto">
+                  <ContextMenuRadioGroup
+                    value={bibleAccess.version}
+                    onValueChange={handleChangeBibleVersion}
+                  >
+                    {availableBibles.map((bible) => (
+                      <ContextMenuRadioItem key={bible.version} value={bible.version}>
+                        <span>{bible.name}</span>
+                        {/* Algunas biblias importadas usan el nombre completo como código. */}
+                        {normalizeLabel(bible.version) !== normalizeLabel(bible.name) && (
+                          <span className="ml-auto pl-4 whitespace-nowrap text-xs text-muted-foreground">
+                            {bible.version}
+                          </span>
+                        )}
+                      </ContextMenuRadioItem>
+                    ))}
+                  </ContextMenuRadioGroup>
+                </ContextMenuSubContent>
+              </ContextMenuSub>
             )}
             <ContextMenuItem
               onClick={() => {

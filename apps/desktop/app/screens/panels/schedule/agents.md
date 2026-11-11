@@ -84,7 +84,8 @@ SchedulePanel (index.tsx)
 - Items `BIBLE`: el label muestra la referencia y, a su lado, la versión guardada en el `accessData` (`(RVR1960)` en `text-muted-foreground text-xs`), igual que en `indexDataItems.tsx`. Por eso el label es `ReactNode` y no siempre `string`.
 - Color de fondo hereda del grupo al que pertenece.
 - Zona de insercion debajo de cada item para drops de biblioteca.
-- Context menu: Presentar en vivo, Eliminar.
+- Context menu: Editar (SONG/PRESENTATION/TIMER), **Cambiar versión** (solo BIBLE), Presentar en vivo, Eliminar.
+- **Cambiar versión** (BIBLE): submenú con las biblias de `useBibleVersions()` como radio items. `handleChangeBibleVersion` reescribe el `accessData` con `buildBibleAccessData({ ...parsed, version })` vía `updateItemAccessData` — libro, capítulo y rango se conservan. La misma función alimenta el selector de la vista previa.
 
 ### InsertionDropZone (`scheduleContent/insertionDropZone.tsx`)
 
@@ -98,6 +99,9 @@ SchedulePanel (index.tsx)
 - Grid de `PresentationView` components mostrando cada slide del item seleccionado.
 - Click selecciona un slide, doble-click lo presenta en vivo.
 - Boton "Presentar en vivo" envia todo el item a pantallas.
+- Prop opcional `bibleVersion` (`{ value, options, onChange }`): en items BIBLE muestra un `Select` junto a "Presentar en vivo" para cambiar la versión antes de mandarlo. El trigger muestra solo el código (DHH) con el nombre completo en `title`; la lista usa dos columnas de ancho fijo (código | nombre) porque `ItemText` es inline y sin ancho fijo no alinean. Biblias cuyo código es el propio nombre se muestran en una sola columna (`normalizeLabel`).
+- El `SelectContent` va en un portal fuera del panel: `scheduleContent/index.tsx` ignora el `onClickOutside` mientras hay un `[data-slot="select-content"][data-state="open"]`, si no elegir una versión cerraba la vista previa.
+- Radix Tooltip duplica el contenido en una copia visualmente oculta (a11y): en tests e2e usar `:visible` para localizar controles de la vista previa.
 
 ### EmptySchedule (`scheduleContent/emptyShcedule.tsx`)
 

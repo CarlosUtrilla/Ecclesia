@@ -61,6 +61,9 @@ function ScheduleContentComponent({ onBack }: ScheduleContentProps) {
         }
       },
       onClickOutside: () => {
+        // El selector de versión de la vista previa se abre en un portal fuera del
+        // panel: elegir una opción no debe cerrar la vista previa.
+        if (document.querySelector('[data-slot="select-content"][data-state="open"]')) return
         setSelectedItem(null)
       }
     },
