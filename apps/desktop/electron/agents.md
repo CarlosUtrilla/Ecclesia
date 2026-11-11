@@ -13,6 +13,7 @@ electron/
 ├── main/
 │   ├── index.ts
 │   ├── ipcHelpers.ts             # Helpers onIpc/onIpcFromWindow/handleIpc para registro IPC
+│   ├── zoomLock.ts               # lockWindowZoom(): zoom fijo al 100 % en todas las ventanas
 │   ├── windowManager.ts
 │   ├── prisma.ts
 │   ├── liveMediaController.ts
@@ -398,3 +399,15 @@ El renderer ahora usa `Api.fetch.sync.*` (HTTP directo) en lugar de canales IPC.
 - Modelos de datos: `prisma/agents.md`
 - Consumo de APIs en frontend: `app/contexts/agents.md`
 - Pantallas live: `app/screens/panels/schedule/agents.md`
+
+## Zoom de ventanas y sesiones aisladas
+
+- Chromium guarda el zoom **por origen** (`localhost` en dev, `file://` en prod) en `userData/Preferences` y lo comparte entre todas las ventanas de ese origen. Un `setZoomFactor` en cualquier ventana agranda toda la app y persiste tras reiniciar.
+- `lockWindowZoom()` (registrado en `browser-window-created`) resetea a 1 al cargar y bloquea Cmd/Ctrl +/-/0, el pellizco y Ctrl+rueda. Las ventanas `offscreen` se excluyen.
+- Toda ventana que necesite su propio zoom (p. ej. `pptxRenderWindow`) debe usar una `partition` propia no persistente (`'pptx-render'`), nunca la sesión por defecto.
+
+## E2E con Playwright
+
+- En dev (`!app.isPackaged`) el main abre CDP en `ECCLESIA_CDP_PORT` (por defecto 9222).
+- `pnpm test:e2e` (`playwright.config.ts`, tests en `tests/e2e/*.e2e.ts`) se conecta por CDP a la app de `pnpm dev` ya abierta y no la cierra. Con `ECCLESIA_E2E_LAUNCH=1` lanza el build de `out/` (cerrar antes la app de dev: el puerto 7777 es fijo).
+

@@ -34,6 +34,7 @@ import { initializeNdiManager } from './ndiManager'
 import { initializePresenterRemoteManager } from './presenterRemote/presenterRemoteController'
 import { pptxToPngBuffers } from './pptxRenderer'
 import { setPptxRasterizer } from '@ecclesia/api/src/controllers/media/documentImport'
+import { lockWindowZoom } from './zoomLock'
 
 declare const __GOOGLE_CLIENT_ID__: string
 declare const __GOOGLE_CLIENT_SECRET__: string
@@ -111,6 +112,12 @@ async function clearPersistedStageTimersOnShutdown() {
 // `crashLogger` registra los handlers globales (uncaughtException/unhandledRejection).
 setCrashLogPath(require('path').join(app.getPath('userData'), 'ecclesia-crash.log'))
 
+// Puerto CDP en desarrollo para que Playwright se conecte a la app ya abierta
+// (ver tests/e2e). Nunca se abre en builds empaquetados.
+if (!app.isPackaged) {
+  app.commandLine.appendSwitch('remote-debugging-port', process.env.ECCLESIA_CDP_PORT ?? '9222')
+}
+
 app.whenReady().then(async () => {
 
   // --debug flag: disable GPU, log GPU info to crash log
@@ -161,6 +168,7 @@ app.whenReady().then(async () => {
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+    lockWindowZoom(window)
   })
 
   crashLog()

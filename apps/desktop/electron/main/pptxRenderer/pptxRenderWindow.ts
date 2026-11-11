@@ -82,7 +82,11 @@ export async function createPptxRenderWindow({
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       backgroundThrottling: false,
-      offscreen: true
+      offscreen: true,
+      // Sesión propia en memoria: el zoom de Chromium es por origen y se
+      // persiste, así que el setZoomFactor de resize() agrandaba todas las
+      // ventanas de la app (y seguía así tras reiniciar).
+      partition: 'pptx-render'
     }
   })
   win.webContents.setAudioMuted(true)

@@ -23,3 +23,7 @@ packages/prebuilds/
 
 # Salidas de Playwright MCP (capturas de depuracion)
 .playwright-mcp/
+
+# Playwright e2e
+apps/desktop/test-results/
+apps/desktop/playwright-report/
