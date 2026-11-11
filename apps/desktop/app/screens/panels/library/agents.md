@@ -228,6 +228,7 @@ app/screens/panels/library/
 - La cabecera del libro actual queda **fija arriba** mientras se scrollea vía `renderStickyHeader` de `VirtualizedScrollArea`, resolviendo el libro con `findBookHeaderForIndex(rows, índiceVisible)`. El componente `BookHeader` se reutiliza en la lista y en el sticky, con fondo opaco (`bg-muted`, no `bg-muted/60`) para que las filas no se transparenten por debajo.
 - La lista se remonta con `key={submittedAt}` de la mutación en cada búsqueda nueva, para volver arriba y reiniciar la cabecera fija.
 - El `rounded-md border` va en un wrapper con `overflow-hidden`, NO en el propio contenedor de scroll: la cabecera fija es rectangular y, sin el clip del wrapper, el radio del borde dejaba ver una franja del fondo por encima de ella.
+- **Doble clic** en un versículo (o menú contextual → *Presentar*) lo manda en vivo con `showItemOnLiveScreen` (item BIBLE efímero, `id: '-1'`, igual que `viewVerses`). La versión sale de `variables.body.version` de la mutación —la de la búsqueda que produjo los resultados—, no del form, que puede haber cambiado sin volver a buscar. El diálogo queda abierto para poder presentar varios seguidos. *Añadir al temporario* y *Copiar texto* siguen sin conectar.
 
 ## Drag & Drop hacia cronograma
 

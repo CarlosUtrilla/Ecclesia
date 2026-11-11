@@ -19,6 +19,9 @@ import { useForm } from 'react-hook-form'
 import z from 'zod'
 import { Api } from '@ecclesia/queries'
 import { cn } from '@/lib/utils'
+import { useLive } from '@/contexts/ScheduleContext/utils/liveContext'
+import type { BibleDTO } from '@ecclesia/api/src/controllers/bible/bible.dto'
+import { buildBibleAccessData, resolveBibleBookAccessId } from './accessData'
 import {
   countBibleSearchBooks,
   findBookHeaderForIndex,
@@ -73,7 +76,35 @@ export default function TextFragmentSearch({ defaultVersion }: Props) {
 
   const values = watch()
 
-  const { data: searchData, mutate, submittedAt } = useMutation(Api.mutation.bible.searchTextFragment)
+  const {
+    data: searchData,
+    mutate,
+    submittedAt,
+    variables
+  } = useMutation(Api.mutation.bible.searchTextFragment)
+  const { showItemOnLiveScreen } = useLive()
+
+  // La versión es la de la búsqueda que produjo los resultados, no la del form
+  // (el usuario puede haberla cambiado sin volver a buscar).
+  const handleShowOnLive = (verse: BibleDTO) => {
+    const bookId = resolveBibleBookAccessId(verse)
+    const version = variables?.body.version ?? values.version
+    if (bookId === null || !version) return
+    showItemOnLiveScreen({
+      type: 'BIBLE',
+      accessData: buildBibleAccessData({
+        bookId,
+        chapter: verse.chapter,
+        verseRange: String(verse.verse),
+        version
+      }),
+      id: '-1',
+      order: -1,
+      scheduleId: -1,
+      updatedAt: new Date(),
+      deletedAt: null
+    })
+  }
 
   const resultRows = useMemo(() => groupBibleSearchResultsByBook(searchData ?? []), [searchData])
   const booksCount = useMemo(() => countBibleSearchBooks(resultRows), [resultRows])
@@ -166,7 +197,11 @@ export default function TextFragmentSearch({ defaultVersion }: Props) {
                           <ContextMenuTrigger>
                             {/* pl-[11px] alinea la guía vertical justo bajo el punto del libro */}
                             <div className="pl-[11px]">
-                              <div className="flex select-none gap-2 border-l py-1.5 pl-3 pr-2 hover:bg-muted/40">
+                              <div
+                                className="flex cursor-pointer select-none gap-2 border-l py-1.5 pl-3 pr-2 hover:bg-muted/40"
+                                title="Doble clic para presentar en vivo"
+                                onDoubleClick={() => handleShowOnLive(row.verse)}
+                              >
                                 <span className="w-11 shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
                                   {row.verse.chapter}:{row.verse.verse}
                                 </span>
@@ -175,7 +210,7 @@ export default function TextFragmentSearch({ defaultVersion }: Props) {
                             </div>
                           </ContextMenuTrigger>
                           <ContextMenuContent>
-                            <ContextMenuItem>
+                            <ContextMenuItem onSelect={() => handleShowOnLive(row.verse)}>
                               <Play className="text-green-600" /> Presentar
                             </ContextMenuItem>
                             <ContextMenuItem>
