@@ -78,7 +78,7 @@ export class OplogDriveService {
   }
 
   /**
-   * Descarga el OpLog remoto.
+   * Descarga el OpLog remoto (v2).
    *
    * `skipIfGeneration` corta antes de traer el cuerpo cuando la generación
    * remota coincide con la que ya conocemos: la generación se resuelve con una
@@ -88,39 +88,64 @@ export class OplogDriveService {
   async downloadOplog(
     skipIfGeneration?: number,
   ): Promise<{ data: Uint8Array | null; fileId: string; generation: number } | null> {
-    oplogLogInfo('[Drive] downloadOplog: starting...')
+    return this.downloadByName(REMOTE_OPLOG_FILE_NAME, skipIfGeneration)
+  }
+
+  /**
+   * Descarga el OpLog v1 de Automerge (`ecclesia-oplog.bin`). Solo lectura: lo
+   * siguen escribiendo los equipos sin actualizar y es el respaldo de la historia.
+   */
+  async downloadLegacyOplog(
+    skipIfGeneration?: number,
+  ): Promise<{ data: Uint8Array | null; fileId: string; generation: number } | null> {
+    return this.downloadByName(LEGACY_REMOTE_OPLOG_FILE_NAME, skipIfGeneration)
+  }
+
+  /**
+   * El v2 y, si ningún equipo lo ha creado todavía, el v1. Para los caminos que
+   * necesitan "el oplog remoto, sea cual sea" (equipo nuevo, comprobación antes de
+   * subir un bootstrap): ignorar el v1 ahí haría que un equipo nuevo se inventara
+   * una historia propia en vez de adoptar la existente.
+   */
+  async downloadOplogOrLegacy(): Promise<
+    { data: Uint8Array; fileId: string; generation: number; legacy: boolean } | null
+  > {
+    const current = await this.downloadOplog()
+    if (current?.data) return { ...current, data: current.data, legacy: false }
+    const legacy = await this.downloadLegacyOplog()
+    if (legacy?.data) return { ...legacy, data: legacy.data, legacy: true }
+    return null
+  }
+
+  private async downloadByName(
+    name: string,
+    skipIfGeneration?: number,
+  ): Promise<{ data: Uint8Array | null; fileId: string; generation: number } | null> {
+    oplogLogInfo(`[Drive] download ${name}: starting...`)
     try {
       const drive = await this.getDrive()
-      oplogLogInfo('[Drive] downloadOplog: got drive client')
       const folderId = await this.getFolderId()
-      oplogLogInfo(`[Drive] downloadOplog: folderId=${folderId}`)
 
-      // Sin v2 todavía (ningún equipo migró), se trae el v1 para convertirlo.
-      let file: drive_v3.Schema$File | undefined
-      for (const name of [REMOTE_OPLOG_FILE_NAME, LEGACY_REMOTE_OPLOG_FILE_NAME]) {
-        const search = await drive.files.list({
-          q: `name='${name}' and '${folderId}' in parents and trashed=false`,
-          spaces: 'drive',
-          fields: 'files(id, headRevisionId)',
-          orderBy: 'createdTime',
-          pageSize: 1,
-        })
-        file = search.data.files?.[0]
-        oplogLogInfo(`[Drive] downloadOplog: ${name} ${file?.id ? 'encontrado' : 'no encontrado'}`)
-        if (file?.id) break
-      }
+      const search = await drive.files.list({
+        q: `name='${name}' and '${folderId}' in parents and trashed=false`,
+        spaces: 'drive',
+        fields: 'files(id, headRevisionId)',
+        // Si dos equipos crearon el archivo a la vez, todos usan el más antiguo.
+        orderBy: 'createdTime',
+        pageSize: 1,
+      })
 
+      const file = search.data.files?.[0]
       if (!file?.id) {
-        oplogLogInfo('[Drive] downloadOplog: no file found')
+        oplogLogInfo(`[Drive] download ${name}: no file found`)
         return null
       }
-      oplogLogInfo(`[Drive] downloadOplog: file found, id=${file.id}`)
 
       const gen = await this.getFileGeneration(file.id)
-      oplogLogInfo(`[Drive] downloadOplog: generation=${gen}`)
+      oplogLogInfo(`[Drive] download ${name}: id=${file.id}, generation=${gen}`)
 
       if (skipIfGeneration !== undefined && skipIfGeneration > 0 && gen === skipIfGeneration) {
-        oplogLogInfo(`[Drive] downloadOplog: sin cambios (generation=${gen}), se omite la descarga`)
+        oplogLogInfo(`[Drive] download ${name}: sin cambios (generation=${gen}), se omite la descarga`)
         return { data: null, fileId: file.id, generation: gen }
       }
 
@@ -128,7 +153,7 @@ export class OplogDriveService {
         { fileId: file.id, alt: 'media' },
         { responseType: 'arraybuffer' }
       )
-      oplogLogInfo(`[Drive] downloadOplog: downloaded ${((resp.data as ArrayBuffer)?.byteLength ?? 0)} bytes`)
+      oplogLogInfo(`[Drive] download ${name}: ${((resp.data as ArrayBuffer)?.byteLength ?? 0)} bytes`)
 
       return {
         data: new Uint8Array(resp.data as ArrayBuffer),
@@ -136,7 +161,7 @@ export class OplogDriveService {
         generation: gen,
       }
     } catch (err: any) {
-      oplogLogError(`[Drive] downloadOplog error: ${err.message}`, { code: err.code, status: err.status })
+      oplogLogError(`[Drive] download ${name} error: ${err.message}`, { code: err.code, status: err.status })
       throw err
     }
   }

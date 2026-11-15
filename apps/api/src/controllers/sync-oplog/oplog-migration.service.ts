@@ -182,7 +182,7 @@ export class OplogMigrationService {
     if (await oplogDriveService.isAvailable()) {
       oplogLogInfo('[Migration] Drive is available, checking for remote OpLog...')
       // Sin generación conocida: aquí siempre interesa el cuerpo completo.
-      const remote = await oplogDriveService.downloadOplog().catch(() => null)
+      const remote = await oplogDriveService.downloadOplogOrLegacy().catch(() => null)
       if (remote?.data) {
         const remoteDoc = await deserializeOplogDoc(remote.data)
         const opsCount = remoteDoc.ops?.length ?? 0
@@ -230,7 +230,7 @@ export class OplogMigrationService {
       // Recheck drive and remote to avoid overwriting a remote OpLog that
       // may have appeared while we were bootstrapping (race on first-run).
       if (await oplogDriveService.isAvailable()) {
-        const existingRemote = await oplogDriveService.downloadOplog().catch(() => null)
+        const existingRemote = await oplogDriveService.downloadOplogOrLegacy().catch(() => null)
         if (existingRemote && (existingRemote.data?.length ?? 0) > 0) {
           log.info('[OplogMigration] Remote OpLog detected after bootstrap — skipping upload to avoid overwrite')
         } else {

@@ -25,21 +25,43 @@ usaba nada propio de un CRDT, así que v2 es JSON plano:
 
 ### Migración v1 → v2 (1:1, sin perder historia)
 
-- Local: si solo existe `oplog.bin`, `init()` lo carga con Automerge (import dinámico: el
-  WASM solo se carga ese arranque), escribe el v2 con los mismos ops en el mismo orden y
-  aparta el v1 como `sync/oplog.v1.bak.bin`. **El v1 nunca se borra** (tampoco en
+- **Decodificar v1 nunca ocurre en el proceso main.** El binario de Automerge se lee en
+  un `utilityProcess` de vida corta (`apps/desktop/electron/main/oplogV1Decoder/`,
+  entrada `oplogV1Decoder.js` del build de main) que devuelve el doc en JSON y termina;
+  así su memoria WASM (~1 GB con el oplog real) se libera entera. La API lo recibe con
+  `setLegacyOplogDecoder()` (registrado antes de `initializeHttpServer`); sin registro
+  (tests, Node plano) decodifica en el propio proceso. Medido migrando el oplog real:
+  footprint del main con pico de 289 MB, sin rastro de Automerge en su mapa de memoria.
+- Local: si solo existe `oplog.bin`, `init()` lo convierte con los mismos ops en el mismo
+  orden y lo aparta como `sync/oplog.v1.bak.bin`. **El v1 nunca se borra** (tampoco en
   `deleteOplogBinary`). Verificado con un oplog real: 12 761 ops idénticos y en orden.
-- Drive: `downloadOplog` busca el v2 y, si no existe, trae el `ecclesia-oplog.bin` v1 para
-  convertirlo. **El v1 de Drive nunca se escribe ni se borra**: las versiones viejas siguen
-  leyéndolo y la historia queda intacta. El primer push crea el v2.
+- Drive: `ecclesia-oplog.bin` (v1) **solo se lee, nunca se escribe ni se borra**. El
+  primer push crea `ecclesia-oplog-v2.json.gz`.
+  - `downloadOplogOrLegacy()` (equipo nuevo, comprobación antes de subir un bootstrap):
+    usa el v2 y, si no existe, el v1. Ignorar el v1 ahí haría que un equipo nuevo se
+    inventara una historia propia.
+  - **Transición:** cada `pull()` hace `pullV2()` y luego `pullLegacy()`. Este compara la
+    generación del v1 con `OplogConfig.lastLegacyGeneration`; si un equipo sin actualizar
+    escribió en él, lo descarga, lo decodifica en el proceso hijo, lo une al doc local,
+    aplica los ops nuevos (`applyPulledEvents`, compartido con el pull normal) y marca
+    `hasUnpushedChanges` para que el siguiente push los lleve al v2. Así no se pierde nada
+    de lo que hagan los equipos viejos. Lo que hacen los nuevos no llega a los viejos
+    hasta que se actualizan (al hacerlo, su oplog local se migra y se une sin duplicados).
+  - Cuando todos estén actualizados el v1 deja de cambiar y `pullLegacy` solo hace la
+    consulta de metadatos.
 - Dos equipos migrando a la vez pueden crear dos v2: las búsquedas usan
   `orderBy: 'createdTime'`, así todos convergen en el más antiguo.
-- Mientras convivan versiones, un equipo sin actualizar sigue en el v1 y no ve los
-  cambios de los migrados (ni al revés). **Hay que actualizar todos los equipos.**
 
-## Arquitectura
+### Prueba diferencial contra Automerge
 
-Ver diseño completo en: `apps/desktop/app/SISTEMA_SYNC_OPLOG.md`
+`oplog-doc.differential.test.ts` ejecuta historias aleatorias con semilla (2–3 equipos,
+altas, rellenos de campos de blobs, podas, pull/push contra un Drive compartido) en
+Automerge y en el merge propio a la vez. Exige los mismos ops nuevos en cada pull y el
+mismo estado final en cada equipo y en Drive. Con rellenos conflictivos (mismo campo,
+valores distintos y concurrentes) solo exige que cada sistema converja consigo mismo: el
+ganador puede diferir y en la app no ocurre. 400 historias por defecto (~30 s);
+`OPLOG_DIFF_RUNS` / `OPLOG_DIFF_FROM` para más o para reproducir un seed. Verificado con
+3 000 historias sin diferencias.
 
 ## Archivos
 

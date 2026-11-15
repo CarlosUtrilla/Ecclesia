@@ -90,6 +90,11 @@ export interface OplogConfig {
    * eventos como pendientes en cada arranque.
    */
   lastPushedHeads?: string[] | null
+  /**
+   * Generación del archivo v1 de Drive (`ecclesia-oplog.bin`) ya incorporada. Mientras
+   * un equipo sin actualizar siga escribiéndolo, cada pull lo trae y lo une al v2.
+   */
+  lastLegacyGeneration?: number | null
 }
 
 export interface SyncCycleResult {

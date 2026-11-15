@@ -48,6 +48,28 @@ export function isLegacyAutomergeBinary(data: Uint8Array): boolean {
   return startsWith(data, AUTOMERGE_MAGIC)
 }
 
+/** Convierte un binario v1 de Automerge en el doc JSON equivalente. */
+export type LegacyOplogDecoder = (data: Uint8Array) => Promise<OplogDocument>
+
+let legacyDecoder: LegacyOplogDecoder | null = null
+
+/**
+ * El proceso principal registra un decoder que corre Automerge en un proceso hijo
+ * (`utilityProcess`): su memoria WASM (~1 GB con el oplog real) solo crece y nunca
+ * se libera, y al terminar el hijo el sistema la recupera entera. Mismo patrón de
+ * inyección que `setPptxRasterizer`. Sin registro (tests, Node plano) se decodifica
+ * en el propio proceso.
+ */
+export function setLegacyOplogDecoder(decoder: LegacyOplogDecoder | null): void {
+  legacyDecoder = decoder
+}
+
+/** Decodificación en el propio proceso; también la usa el proceso hijo. */
+export async function decodeLegacyOplogInProcess(data: Uint8Array): Promise<OplogDocument> {
+  const { load, toJS } = await import('@automerge/automerge')
+  return toJS(load<OplogDocument>(data)) as OplogDocument
+}
+
 export function createOplogDoc(fields: {
   schemaVersion: 1
   schemaHash: string
@@ -65,8 +87,8 @@ export async function serializeOplogDoc(doc: OplogDocument): Promise<Uint8Array>
 /**
  * Lee un oplog en formato v2 (JSON gzip) o v1 (binario de Automerge).
  *
- * El v1 solo aparece una vez por dispositivo, al migrar: Automerge se importa de
- * forma dinámica para que su WASM no se cargue en un arranque normal.
+ * El v1 aparece al migrar y, durante la transición, cuando un equipo sin actualizar
+ * escribe en el archivo viejo de Drive. Ver `setLegacyOplogDecoder`.
  */
 export async function deserializeOplogDoc(data: Uint8Array): Promise<OplogDocument> {
   if (startsWith(data, GZIP_MAGIC)) {
@@ -74,8 +96,7 @@ export async function deserializeOplogDoc(data: Uint8Array): Promise<OplogDocume
     return normalizeOplogDoc(JSON.parse(json))
   }
   if (isLegacyAutomergeBinary(data)) {
-    const { load, toJS } = await import('@automerge/automerge')
-    return normalizeOplogDoc(toJS(load<OplogDocument>(data)))
+    return normalizeOplogDoc(await (legacyDecoder ?? decodeLegacyOplogInProcess)(data))
   }
   throw new Error('Formato de oplog desconocido')
 }

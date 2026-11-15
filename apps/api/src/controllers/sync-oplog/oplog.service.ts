@@ -283,7 +283,7 @@ export class OplogService {
     if (driveAvailable) {
       try {
         oplogLogInfo('[OplogInit] Attempting to download remote OpLog...')
-        const remote = await oplogDriveService.downloadOplog()
+        const remote = await oplogDriveService.downloadOplogOrLegacy()
         oplogLogInfo(`[OplogInit] Remote OpLog download result: ${remote?.data ? 'found (' + remote.data.length + ' bytes, gen=' + remote.generation + ')' : 'not found'}`)
         if (remote?.data) {
           const remoteDoc = await deserializeOplogDoc(remote.data)
@@ -301,7 +301,9 @@ export class OplogService {
             oplogLogInfo(`[OplogInit] Remote doc loaded, currentSeq=${this.currentSeq}`)
             await this.persistLocal()
 
-            this.config.lastRemoteGeneration = remote.generation
+            // Viniendo del v1, el v2 aún no existe: lo creará el primer push.
+            if (remote.legacy) this.config.lastLegacyGeneration = remote.generation
+            else this.config.lastRemoteGeneration = remote.generation
             this.config.lastPullAt = new Date().toISOString()
 
             // Diagnostic: contar eventos media con thumbnailChecksum
@@ -660,6 +662,50 @@ export class OplogService {
   }
 
   async pull(): Promise<{ newEventsCount: number; remoteGeneration: number }> {
+    const result = await this.pullV2()
+    const legacyCount = await this.pullLegacy()
+    return { newEventsCount: result.newEventsCount + legacyCount, remoteGeneration: result.remoteGeneration }
+  }
+
+  /**
+   * Transición v1 → v2: si un equipo sin actualizar escribió en el archivo v1 de
+   * Drive desde la última vez, se trae y se une al doc local. El v1 solo se lee;
+   * lo nuevo llega a los demás en el siguiente push del v2. El binario se
+   * decodifica en un proceso hijo (`setLegacyOplogDecoder`), así que el pico de
+   * memoria de Automerge no se queda en el proceso main.
+   */
+  private async pullLegacy(): Promise<number> {
+    if (!this.localDoc || !this.config) return 0
+    try {
+      if (!(await oplogDriveService.isAvailable())) return 0
+      const known = this.config.lastLegacyGeneration ?? 0
+      const legacy = await oplogDriveService.downloadLegacyOplog(known)
+      if (!legacy || !legacy.data) return 0
+
+      oplogLogInfo(`[PullLegacy] Oplog v1 cambió (gen ${known} → ${legacy.generation}), decodificando...`)
+      this.emitProgress('pull', 90, 'Leyendo cambios de equipos sin actualizar...')
+      const legacyDoc = await deserializeOplogDoc(legacy.data)
+
+      const hashBefore = oplogContentHash(this.localDoc)
+      const { merged, newOps } = mergeOplogDocs(this.localDoc, legacyDoc)
+      this.localDoc = merged
+      await this.persistLocal()
+      if (oplogContentHash(merged) !== hashBefore) this.hasUnpushedChanges = true
+      oplogLogInfo(`[PullLegacy] ${legacyDoc.ops.length} ops en v1, ${newOps.length} nuevos`)
+
+      if (newOps.length > 0) await this.applyPulledEvents(newOps, merged, '[PullLegacy]')
+
+      // Se guarda al final: si algo falla, el siguiente ciclo lo reintenta.
+      this.config.lastLegacyGeneration = legacy.generation
+      await oplogStateService.writeConfig(this.config)
+      return newOps.length
+    } catch (err: any) {
+      oplogLogWarn(`[PullLegacy] No se pudo leer el oplog v1: ${err.message}`)
+      return 0
+    }
+  }
+
+  private async pullV2(): Promise<{ newEventsCount: number; remoteGeneration: number }> {
     oplogLogInfo('[Pull] Starting pull()')
     if (!this.config) {
       oplogLogInfo('[Pull] Config not set, calling ensureInitialized()')
@@ -728,57 +774,8 @@ export class OplogService {
     }
 
     if (newEvents.length > 0) {
-      this.emitProgress('pull', 60, `Aplicando ${newEvents.length} eventos nuevos...`)
-      oplogLogInfo(`[Pull] Applying ${newEvents.length} new events...`)
-      let applyResult
-      try {
-        applyResult = await oplogReplayService.applyEvents(newEvents)
-      } catch (applyErr: any) {
-        oplogLogError(`[Pull] applyEvents CRASHED: ${applyErr.message}`, { stack: applyErr.stack })
-        log.error(`[Pull] applyEvents CRASHED: ${applyErr.message}`)
-        this.emitProgress('pull', 100, `Error: ${applyErr.message}`)
-        return { newEventsCount: 0, remoteGeneration: remote.generation }
-      }
-      emitInvalidateQueries(newEvents)
-      oplogLogInfo(`[Pull] Apply result: ${applyResult.applied} applied, ${applyResult.errors.length} errors, ${applyResult.blobOps.length} blobOps`)
-
-      const thumbnailOps = applyResult.blobOps.filter((b: any) => b.path?.startsWith('thumbnails/'))
-      oplogLogInfo(`[Pull] Blob ops: ${applyResult.blobOps.length} total, ${thumbnailOps.length} thumbnails, ${applyResult.blobOps.length - thumbnailOps.length} files`)
-
-      if (applyResult.errors.length > 0) {
-        oplogLogWarn(`[OplogPull] ${applyResult.errors.length} errores al aplicar ${newEvents.length} eventos remotos:`)
-        log.warn(`[OplogPull] ${applyResult.errors.length} errores al aplicar ${newEvents.length} eventos remotos:`)
-        for (const err of applyResult.errors.slice(0, 20)) {
-          oplogLogWarn(`  ${err}`)
-          log.warn(`  ${err}`)
-        }
-        if (applyResult.errors.length > 20) {
-          oplogLogWarn(`  ... y ${applyResult.errors.length - 20} más`)
-          log.warn(`  ... y ${applyResult.errors.length - 20} más`)
-        }
-      }
-
-      const replayState = await oplogStateService.readReplayState()
-      if (replayState) {
-        replayState.lastAppliedIndex = (merged.ops?.length ?? 0) - 1
-        replayState.lastAppliedEventId = newEvents[newEvents.length - 1]?.id ?? null
-        replayState.appliedAt = new Date().toISOString()
-        await oplogStateService.writeReplayState(replayState)
-        oplogLogInfo('[Pull] Replay state updated')
-      }
-
-      if (applyResult.blobOps.length > 0) {
-        oplogLogInfo(`[Pull] Processing ${applyResult.blobOps.length} blob ops...`)
-        this.emitProgress('pull', 80, `Sincronizando ${applyResult.blobOps.length} blobs...`)
-        try {
-          const blobResult = await oplogBlobService.processBlobOps(applyResult.blobOps)
-          oplogLogInfo(`[Pull] Blob ops processed: ${blobResult.downloaded} downloaded, ${blobResult.uploaded} uploaded`)
-        } catch (blobErr: any) {
-          oplogLogError(`[Pull] processBlobOps CRASHED: ${blobErr.message}`, { stack: blobErr.stack })
-          log.error(`[Pull] processBlobOps CRASHED: ${blobErr.message}`)
-        }
-      }
-
+      const applied = await this.applyPulledEvents(newEvents, merged, '[Pull]')
+      if (!applied) return { newEventsCount: 0, remoteGeneration: remote.generation }
       this.emitProgress('pull', 100, `${newEvents.length} eventos aplicados`)
       oplogLogInfo('[Pull] Pull complete')
       return { newEventsCount: newEvents.length, remoteGeneration: remote.generation }
@@ -787,6 +784,62 @@ export class OplogService {
     oplogLogInfo('[Pull] No new events to apply — but checking if merged doc gained checksums from remote...')
     this.emitProgress('pull', 100, 'Sin cambios nuevos')
     return { newEventsCount: 0, remoteGeneration: remote.generation }
+  }
+
+  /** Aplica a la DB los ops traídos por un pull y descarga sus blobs. */
+  private async applyPulledEvents(newEvents: OplogEvent[], merged: OplogDocument, tag: string): Promise<boolean> {
+    this.emitProgress('pull', 60, `Aplicando ${newEvents.length} eventos nuevos...`)
+    oplogLogInfo(`${tag} Applying ${newEvents.length} new events...`)
+    let applyResult
+    try {
+      applyResult = await oplogReplayService.applyEvents(newEvents)
+    } catch (applyErr: any) {
+      oplogLogError(`${tag} applyEvents CRASHED: ${applyErr.message}`, { stack: applyErr.stack })
+      log.error(`${tag} applyEvents CRASHED: ${applyErr.message}`)
+      this.emitProgress('pull', 100, `Error: ${applyErr.message}`)
+      return false
+    }
+    emitInvalidateQueries(newEvents)
+    oplogLogInfo(`${tag} Apply result: ${applyResult.applied} applied, ${applyResult.errors.length} errors, ${applyResult.blobOps.length} blobOps`)
+
+    const thumbnailOps = applyResult.blobOps.filter((b: any) => b.path?.startsWith('thumbnails/'))
+    oplogLogInfo(`${tag} Blob ops: ${applyResult.blobOps.length} total, ${thumbnailOps.length} thumbnails, ${applyResult.blobOps.length - thumbnailOps.length} files`)
+
+    if (applyResult.errors.length > 0) {
+      oplogLogWarn(`${tag} ${applyResult.errors.length} errores al aplicar ${newEvents.length} eventos remotos:`)
+      log.warn(`${tag} ${applyResult.errors.length} errores al aplicar ${newEvents.length} eventos remotos:`)
+      for (const err of applyResult.errors.slice(0, 20)) {
+        oplogLogWarn(`  ${err}`)
+        log.warn(`  ${err}`)
+      }
+      if (applyResult.errors.length > 20) {
+        oplogLogWarn(`  ... y ${applyResult.errors.length - 20} más`)
+        log.warn(`  ... y ${applyResult.errors.length - 20} más`)
+      }
+    }
+
+    const replayState = await oplogStateService.readReplayState()
+    if (replayState) {
+      replayState.lastAppliedIndex = (merged.ops?.length ?? 0) - 1
+      replayState.lastAppliedEventId = newEvents[newEvents.length - 1]?.id ?? null
+      replayState.appliedAt = new Date().toISOString()
+      await oplogStateService.writeReplayState(replayState)
+      oplogLogInfo(`${tag} Replay state updated`)
+    }
+
+    if (applyResult.blobOps.length > 0) {
+      oplogLogInfo(`${tag} Processing ${applyResult.blobOps.length} blob ops...`)
+      this.emitProgress('pull', 80, `Sincronizando ${applyResult.blobOps.length} blobs...`)
+      try {
+        const blobResult = await oplogBlobService.processBlobOps(applyResult.blobOps)
+        oplogLogInfo(`${tag} Blob ops processed: ${blobResult.downloaded} downloaded, ${blobResult.uploaded} uploaded`)
+      } catch (blobErr: any) {
+        oplogLogError(`${tag} processBlobOps CRASHED: ${blobErr.message}`, { stack: blobErr.stack })
+        log.error(`${tag} processBlobOps CRASHED: ${blobErr.message}`)
+      }
+    }
+
+    return true
   }
 
   async push(): Promise<{ pushed: number }> {
