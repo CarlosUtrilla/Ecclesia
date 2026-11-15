@@ -194,7 +194,13 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       if (state.itemOnLive) {
         const item = currentScheduleRef.current.find((i) => i.id === state.itemOnLive?.id)
         if (item) {
-          showItemOnLiveScreenRef.current(item, state.itemIndex)
+          // El accessData en vivo puede diferir del guardado en el cronograma (p. ej. el
+          // `endsAt` de un TIMER o la versión de biblia cambiada en vivo). Usar el del
+          // cronograma revertía ese cambio y ambos lados se lo reenviaban sin fin.
+          showItemOnLiveScreenRef.current(
+            { ...item, accessData: state.itemOnLive.accessData },
+            state.itemIndex
+          )
         } else {
           showItemOnLiveScreenRef.current(
             {

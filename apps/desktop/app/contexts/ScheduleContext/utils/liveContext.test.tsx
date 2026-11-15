@@ -40,6 +40,7 @@ const {
 
 const getScheduleItemContentScreenMock = vi.fn().mockResolvedValue(null)
 let _itemOnLive: ScheduleItem | null = null
+let _currentSchedule: ScheduleItem[] = []
 const setItemOnLiveMock = vi.fn((item: ScheduleItem | null) => { _itemOnLive = item })
 const selectedThemeMock = {
   id: 1,
@@ -55,7 +56,7 @@ vi.mock('..', () => ({
     get itemOnLive() { return _itemOnLive },
     selectedTheme: selectedThemeMock,
     setItemOnLive: setItemOnLiveMock,
-    currentSchedule: [],
+    get currentSchedule() { return _currentSchedule },
     songs: [],
     media: [],
     presentations: []
@@ -154,6 +155,7 @@ describe('LiveContext', () => {
   beforeEach(() => {
     resetLiveStateMocks()
     _itemOnLive = null
+    _currentSchedule = []
     getScheduleItemContentScreenMock.mockReset()
     getScheduleItemContentScreenMock.mockResolvedValue(null)
   })
@@ -262,6 +264,33 @@ describe('LiveContext', () => {
     // El tema debe haberse actualizado al remoto
     expect(result.current.appliedTheme.id).toBe(5)
     expect(result.current.appliedTheme.name).toBe('Oscuro')
+  })
+
+  it('deberia usar el accessData recibido aunque el item exista en el cronograma', async () => {
+    // Un TIMER en vivo lleva `endsAt`; la copia del cronograma no. Si se mostrara la del
+    // cronograma, cada lado reiniciaría el reloj y se lo reenviaría al otro sin fin.
+    const scheduleItem = { ...createItem('timer-1'), type: 'TIMER', accessData: '{"endsAt":null}' } as ScheduleItem
+    _currentSchedule = [scheduleItem]
+    renderHook(() => useLive(), { wrapper })
+
+    const cb = onLiveStateUpdateCbRef.get()
+    await act(async () => {
+      cb!({
+        itemOnLive: { id: 'timer-1', type: 'TIMER', accessData: '{"endsAt":1794762000000}' },
+        itemIndex: 0,
+        hideTextOnLive: false,
+        showLogoOnLive: false,
+        blackScreenOnLive: false,
+        showLiveScreen: true,
+        themeId: null,
+        liveScreens: [],
+        stageScreens: []
+      })
+    })
+
+    expect(setItemOnLiveMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'timer-1', accessData: '{"endsAt":1794762000000}' })
+    )
   })
 
   it('deberia mantener el tema local cuando themeId del remoto no existe en la lista', async () => {

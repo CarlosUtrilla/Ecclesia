@@ -107,6 +107,7 @@ Ver detalles de implementación y convenciones en los agents de [schedule](../..
   - Incluye `themeId` (appliedTheme.id) para que el receptor aplique el mismo tema que el emisor.
   - El flag `isApplyingRemoteUpdate` evita que el broadcast effect re-emita cambios recibidos desde remotos (ping-pong loop).
   - El handler de `liveStateUpdate` sobreescribe `appliedTheme` con el tema remoto (`themesRef.find(t => t.id === state.themeId)`) después de que `showItemOnLiveScreen` lo haya seteado con el `selectedTheme` local.
+  - Si el item recibido existe en el cronograma, se muestra con el `accessData` **recibido**, no con el del cronograma: el valor en vivo puede diferir (`endsAt` de un TIMER, versión de biblia cambiada en vivo). Usar el del cronograma revertía el cambio y host y remoto se lo reenviaban sin fin (el panel del timer parpadeaba).
 - **Sincronización de schedule (vía Socket.IO):**
   - `scheduleStateUpdate` se emite después de cada mutación (add/delete/reorder/save/load) y en el montaje inicial (`getActualSchedule()`).
   - `requestScheduleState` se emite al reconectar el socket (`socketReconnectKey` cambia).
