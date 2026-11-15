@@ -2,12 +2,66 @@
 
 ## Descripción
 
-Implementation del sistema de sincronización basado en Automerge CRDT + Operation Log.
-Reemplaza el sistema anterior de snapshots + last-write-wins.
+Implementation del sistema de sincronización basado en un Operation Log en JSON con
+merge propio (`oplog-doc.ts`). Reemplaza el sistema anterior de snapshots + last-write-wins.
 
-## Arquitectura
+## Formato v2 (sin Automerge)
 
-Ver diseño completo en: `apps/desktop/app/SISTEMA_SYNC_OPLOG.md`
+Hasta v1 el doc era un `Doc<OplogDocument>` de Automerge. Cada string era un Text CRDT:
+con ~12 700 ops el proceso main quedaba en **~1,3 GB** de memoria WASM que no se libera
+(medición en `docs/experimentos/medicion-ram.md`, rama `exp/medicion-ram`). El sync no
+usaba nada propio de un CRDT, así que v2 es JSON plano:
+
+- `oplog-doc.ts` (puro, testeado en `oplog-doc.test.ts`): `serialize/deserializeOplogDoc`
+  (JSON gzip; detecta v1 por los bytes mágicos), `mergeOplogDocs` y `oplogContentHash`.
+- **Merge:** unión de ops por `id` (locales en su posición, nuevos remotos al final, para
+  que `replayState.lastAppliedIndex` siga siendo válido), campos de blobs rellenados (vacío
+  nunca pisa; si ambos difieren gana el remoto) y unión de `tombstones`.
+- **Tombstones:** `prune-deleted-media` registra el id de cada op podado. Sin ellos la
+  unión con otro dispositivo los resucitaría (Automerge lo hacía propagando el `splice`).
+- **Cambios sin subir:** `lastPushedHeads` guarda ahora `[oplogContentHash(doc)]`. Las heads
+  de Automerge antiguas no coinciden, así que el primer arranque tras migrar sube el v2.
+- **Archivos:** local `sync/oplog-v2.json.gz`, Drive `ecclesia-oplog-v2.json.gz`.
+
+### Migración v1 → v2 (1:1, sin perder historia)
+
+- **Decodificar v1 nunca ocurre en el proceso main.** El binario de Automerge se lee en
+  un `utilityProcess` de vida corta (`apps/desktop/electron/main/oplogV1Decoder/`,
+  entrada `oplogV1Decoder.js` del build de main) que devuelve el doc en JSON y termina;
+  así su memoria WASM (~1 GB con el oplog real) se libera entera. La API lo recibe con
+  `setLegacyOplogDecoder()` (registrado antes de `initializeHttpServer`); sin registro
+  (tests, Node plano) decodifica en el propio proceso. Medido migrando el oplog real:
+  footprint del main con pico de 289 MB, sin rastro de Automerge en su mapa de memoria.
+- Local: si solo existe `oplog.bin`, `init()` lo convierte con los mismos ops en el mismo
+  orden y lo aparta como `sync/oplog.v1.bak.bin`. **El v1 nunca se borra** (tampoco en
+  `deleteOplogBinary`). Verificado con un oplog real: 12 761 ops idénticos y en orden.
+- Drive: `ecclesia-oplog.bin` (v1) **solo se lee, nunca se escribe ni se borra**. El
+  primer push crea `ecclesia-oplog-v2.json.gz`.
+  - `downloadOplogOrLegacy()` (equipo nuevo, comprobación antes de subir un bootstrap):
+    usa el v2 y, si no existe, el v1. Ignorar el v1 ahí haría que un equipo nuevo se
+    inventara una historia propia.
+  - **Transición:** cada `pull()` hace `pullV2()` y luego `pullLegacy()`. Este compara la
+    generación del v1 con `OplogConfig.lastLegacyGeneration`; si un equipo sin actualizar
+    escribió en él, lo descarga, lo decodifica en el proceso hijo, lo une al doc local,
+    aplica los ops nuevos (`applyPulledEvents`, compartido con el pull normal) y marca
+    `hasUnpushedChanges` para que el siguiente push los lleve al v2. Así no se pierde nada
+    de lo que hagan los equipos viejos. Lo que hacen los nuevos no llega a los viejos
+    hasta que se actualizan (al hacerlo, su oplog local se migra y se une sin duplicados).
+  - Cuando todos estén actualizados el v1 deja de cambiar y `pullLegacy` solo hace la
+    consulta de metadatos.
+- Dos equipos migrando a la vez pueden crear dos v2: las búsquedas usan
+  `orderBy: 'createdTime'`, así todos convergen en el más antiguo.
+
+### Prueba diferencial contra Automerge
+
+`oplog-doc.differential.test.ts` ejecuta historias aleatorias con semilla (2–3 equipos,
+altas, rellenos de campos de blobs, podas, pull/push contra un Drive compartido) en
+Automerge y en el merge propio a la vez. Exige los mismos ops nuevos en cada pull y el
+mismo estado final en cada equipo y en Drive. Con rellenos conflictivos (mismo campo,
+valores distintos y concurrentes) solo exige que cada sistema converja consigo mismo: el
+ganador puede diferir y en la app no ocurre. 400 historias por defecto (~30 s);
+`OPLOG_DIFF_RUNS` / `OPLOG_DIFF_FROM` para más o para reproducir un seed. Verificado con
+3 000 historias sin diferencias.
 
 ## Archivos
 
@@ -49,7 +103,9 @@ archivo `oplog.bin` — el binario en disco solo sirve para recuperación tras r
 
 ## Coste de cada ciclo y bloqueo del proceso main
 
-Todo esto corre en el **proceso main de Electron**, que además atiende el IPC, el servidor Express del 7777 y Socket.IO. El renderer recibe sus datos por ahí, así que **cualquier trabajo síncrono de CPU en el ciclo de sync congela la interfaz**. Las operaciones de Automerge (`load`, `save`, `merge`, `clone`) son síncronas y su coste es O(tamaño del oplog).
+Todo esto corre en el **proceso main de Electron**, que además atiende el IPC, el servidor Express del 7777 y Socket.IO. El renderer recibe sus datos por ahí, así que **cualquier trabajo síncrono de CPU en el ciclo de sync congela la interfaz**.
+
+Con v2, sobre el oplog real de 12 761 ops: parseo 45 ms, merge 9 ms, hash 17 ms, serializar 83 ms; footprint del proceso main ~190 MB (antes ~1,3 GB y ~2,9 s de `load()`). El texto histórico de abajo describe la etapa Automerge.
 
 Medido sobre un oplog de 7365 eventos / 1,9 MB, el ciclo de arranque bloqueaba ~5,3 s. Correcciones aplicadas:
 
@@ -57,7 +113,7 @@ Medido sobre un oplog de 7365 eventos / 1,9 MB, el ciclo de arranque bloqueaba ~
 - **No dar por pendiente todo el oplog en cada arranque.** Antes `init()` hacía `pendingEvents = [...ops]`, así que `push()` siempre creía tener trabajo: `save()` del doc entero y resubida completa. Ahora se guardan las heads del doc en cada push correcto (`OplogConfig.lastPushedHeads`) y al inicializar se comparan con `headsMatch()` (`oplog-heads.ts`, sin dependencias para poder testearlo). Sin heads guardadas se asume pendiente: es el lado seguro.
 - `syncCycle()` no asignaba `result.pushed` — repetía las asignaciones de blobs de la fase anterior. El resumen mentía con `0 pushed`.
 
-**Lo que sigue bloqueando:** el `load()` del oplog local en `init()`, ~2,90 s. No hay forma de evitarlo sin sacar Automerge del hilo principal (`utilityProcess` de Electron o `worker_threads`). Crece linealmente con el oplog.
+**Resuelto con v2:** el `load()` de Automerge en `init()` (~2,90 s) ya no existe salvo en el arranque que migra un v1.
 
 **La compactación no es un atajo para esto.** `oplog-compaction.service.ts` existe pero **no lo importa nadie**, y no se puede cablear sin más: `buildSnapshot()` construye un documento nuevo con `from()`, sin historia común con el de los demás dispositivos. Dos docs Automerge sin ancestro compartido se fusionan por unión, no se reemplazan, así que adoptar un snapshot de forma unilateral duplicaría datos en el resto de equipos. Requiere un protocolo de adopción coordinada antes de poder activarse.
 

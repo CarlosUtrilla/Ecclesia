@@ -34,6 +34,8 @@ import { initializeNdiManager } from './ndiManager'
 import { initializePresenterRemoteManager } from './presenterRemote/presenterRemoteController'
 import { pptxToPngBuffers } from './pptxRenderer'
 import { setPptxRasterizer } from '@ecclesia/api/src/controllers/media/documentImport'
+import { setLegacyOplogDecoder } from '@ecclesia/api/src/controllers/sync-oplog/oplog-doc'
+import { decodeLegacyOplogInUtilityProcess } from './oplogV1Decoder'
 import { lockWindowZoom } from './zoomLock'
 
 declare const __GOOGLE_CLIENT_ID__: string
@@ -156,6 +158,9 @@ app.whenReady().then(async () => {
     resourcesPath: process.resourcesPath || path.join(app.getAppPath(), '..'),
     cwd: process.cwd()
   }
+  // Antes de levantar la API: el sync arranca con ella y la migración del oplog v1
+  // ya debe decodificarse en el proceso hijo.
+  setLegacyOplogDecoder(decodeLegacyOplogInUtilityProcess)
   await initializeHttpServer(config, undefined)
 
   crashLog()

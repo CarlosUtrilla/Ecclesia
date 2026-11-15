@@ -57,7 +57,11 @@ export default defineConfig({
     },
     build: {
       lib: {
-        entry: 'electron/main/index.ts',
+        entry: {
+          index: 'electron/main/index.ts',
+          // Proceso hijo que decodifica oplogs v1 (ver electron/main/oplogV1Decoder).
+          oplogV1Decoder: 'electron/main/oplogV1Decoder/worker.ts'
+        },
         formats: ['cjs']
       },
       minify: 'terser',

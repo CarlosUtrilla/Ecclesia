@@ -38,6 +38,7 @@ ScheduleContext es el contexto central para la gestión del cronograma (schedule
       - `F10`: alterna mostrar logo/fallback sin quitar el item del cronograma.
       - `F11`: alterna pantalla negra en live.
       - `Escape`: limpia item en vivo manteniendo la ventana live abierta.
+      - Se registran también en clientes remotos (`isRemoteMode`): el cambio de estado local viaja al host por `liveStateUpdate`, igual que los botones del panel. Excepción: `F7` sigue deshabilitado en remoto, porque apagar la proyección del host solo se permite con la orden explícita `liveSetShowLiveScreen` del botón «En Vivo».
     - **Integración Socket.IO para control remoto:**
       - Escucha comandos remotos (`liveSendToItem`, `liveNextSlide`, `livePrevSlide`, `liveGoToSlide`, `liveClearItem`, `liveSetHideText`, `liveSetShowLogo`, `liveSetBlackScreen`) y los procesa como si fueran acciones locales.
       - Usa `useRef` (`currentScheduleRef`, `showItemOnLiveScreenRef`, `navigateSlideRef`, `goToSlideRef`) para evitar closures stale en los callbacks de Socket.IO.

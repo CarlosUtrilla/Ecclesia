@@ -11,12 +11,16 @@ Ecclesia utiliza skills globales para mejorar la calidad, performance y diseño 
 | [frontend-design](~/.agents/skills/frontend-design/SKILL.md) | Generación de interfaces frontend distintivas y de alta calidad estética. | Creación de componentes, páginas, estilos, UI memorable |
 | [react-doctor](~/.agents/skills/react-doctor/SKILL.md) | Diagnóstico y corrección de problemas de salud en código React. | Seguridad, performance, arquitectura, dead code |
 | [vercel-composition-patterns](~/.agents/skills/vercel-composition-patterns/SKILL.md) | Patrones de composición React escalables y modernos. | Refactor de props, librerías de componentes, arquitectura |
-
 | [prisma-expert](~/.agents/skills/prisma-expert/SKILL.md) | Skill avanzada para gestión y optimización de Prisma ORM. | Modelado, migraciones, queries avanzadas, performance |
-
+| [charles-ux-animation](~/.claude/skills/charles-ux-animation/SKILL.md) | Las 20 leyes de UX y animación como procedimiento: qué debe moverse, cuánto dura, con qué curva, y si la gente llega a tocarlo. | Animaciones, transiciones, gestos, micro-interacciones, estados de carga, modales, toasts, áreas de toque |
 | [electron-architect](~/.agents/skills/electron-architect/SKILL.md) | Skill experta en arquitectura y optimización de Electron. | Arquitectura, IPC, seguridad, performance Electron |
 
 > **IMPORTANTE:** Antes de escribir o modificar código relacionado con UI, React, performance o composición, consulta la skill correspondiente. Estas skills se invocan automáticamente según el tipo de tarea.
+>
+> **Animación y micro-interacciones:** `charles-ux-animation` es obligatoria antes de
+> añadir o revisar cualquier movimiento —transiciones, modales, drawers, toasts, gestos,
+> estados de carga— y también cuando algo «se siente lento» o hay que decidir el tamaño de
+> un área de toque. No se improvisan duraciones ni curvas: se sacan de ahí.
 
 ## Descripcion del proyecto
 

@@ -56,6 +56,11 @@ export interface OplogDocument {
   schemaHash: string
   createdAt: number
   ops: OplogEvent[]
+  /**
+   * Ids de ops podados → timestamp de la poda. Sin ellos, la unión con el oplog
+   * de otro dispositivo devolvería los ops borrados (ver `oplog-doc.ts`).
+   */
+  tombstones: Record<string, number>
   snapshot?: {
     takenAt: number
     takenFrom: Array<{ deviceId: string; seq: number }>
@@ -79,11 +84,17 @@ export interface OplogConfig {
   lastRemoteGeneration: number | null
   lastPurgeAt: string | null
   /**
-   * Heads de Automerge del doc tal y como quedó en el último push correcto.
+   * Hash de contenido (`oplogContentHash`) del doc tal y como quedó en el último
+   * push correcto, en un array de un elemento (antes eran las heads de Automerge).
    * Permite saber si hay algo local sin subir sin tener que marcar todos los
    * eventos como pendientes en cada arranque.
    */
   lastPushedHeads?: string[] | null
+  /**
+   * Generación del archivo v1 de Drive (`ecclesia-oplog.bin`) ya incorporada. Mientras
+   * un equipo sin actualizar siga escribiéndolo, cada pull lo trae y lo une al v2.
+   */
+  lastLegacyGeneration?: number | null
 }
 
 export interface SyncCycleResult {
@@ -98,6 +109,8 @@ export interface SyncProgress {
   phase: 'pull' | 'push' | 'blob' | 'gc' | 'purge' | 'idle'
   progress: number
   message: string
+  /** El ciclo terminó con error; la UI deja de mostrar "Sincronizando". */
+  error?: boolean
 }
 
 export type BlobOperation =
