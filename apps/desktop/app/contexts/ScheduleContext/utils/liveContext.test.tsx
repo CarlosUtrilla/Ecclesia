@@ -554,4 +554,76 @@ describe('LiveContext', () => {
 
     expect(result.current.showLiveScreen).toBe(false)
   })
+
+  it('un cliente remoto deberia limpiar el item en vivo con Escape y avisar al host', async () => {
+    isRemoteModeRef.value = true
+
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    const cb = onLiveStateUpdateCbRef.get()
+    await act(async () => {
+      cb!({
+        itemOnLive: { id: 'item-esc', type: 'SONG', accessData: 'texto-item-esc' },
+        itemIndex: 0,
+        slideCount: 1,
+        hideTextOnLive: false,
+        showLogoOnLive: false,
+        blackScreenOnLive: false,
+        showLiveScreen: true,
+        themeId: null,
+        liveScreens: [],
+        stageScreens: []
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.showLiveScreen).toBe(true)
+    })
+    liveStateUpdateEmitMock.mockClear()
+    setItemOnLiveMock.mockClear()
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape' }))
+    })
+
+    expect(setItemOnLiveMock).toHaveBeenCalledWith(null)
+    await waitFor(() => {
+      expect(liveStateUpdateEmitMock).toHaveBeenCalledWith(
+        expect.objectContaining({ itemOnLive: null, showLiveScreen: true })
+      )
+    })
+  })
+
+  it('un cliente remoto no deberia apagar la proyeccion con F7', async () => {
+    isRemoteModeRef.value = true
+
+    const { result } = renderHook(() => useLive(), { wrapper })
+
+    const cb = onLiveStateUpdateCbRef.get()
+    await act(async () => {
+      cb!({
+        itemOnLive: null,
+        itemIndex: 0,
+        slideCount: 0,
+        hideTextOnLive: false,
+        showLogoOnLive: false,
+        blackScreenOnLive: false,
+        showLiveScreen: true,
+        themeId: null,
+        liveScreens: [],
+        stageScreens: []
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.showLiveScreen).toBe(true)
+    })
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'F7' }))
+    })
+
+    expect(result.current.showLiveScreen).toBe(true)
+    expect(setShowLiveScreenEmitMock).not.toHaveBeenCalled()
+  })
 })

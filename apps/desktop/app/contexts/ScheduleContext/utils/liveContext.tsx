@@ -649,8 +649,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
     isRemoteMode
   ])
 
+  // Atajos del operador. También se registran en clientes remotos: sus cambios de
+  // estado llegan al host por `liveStateUpdate`, igual que los botones del panel.
   useEffect(() => {
-    if (isRemoteMode) return
     const handleKeyUp = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       if (target) {
@@ -661,6 +662,9 @@ export const LiveProvider = ({ children }: PropsWithChildren) => {
       }
 
       if (event.key === 'F7') {
+        // En remoto F7 queda deshabilitado: apagar la proyección del host solo se
+        // permite con la orden explícita del botón «En Vivo».
+        if (isRemoteMode) return
         event.preventDefault()
         setShowLiveScreen((prev) => !prev)
         return
