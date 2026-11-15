@@ -3,10 +3,26 @@ import { Button } from '@/ui/button'
 import { CheckCircle2 } from 'lucide-react'
 import { Api } from '@ecclesia/queries'
 
+// El mensaje llega como "2/4 Blobs — Escaneando…": en la barra solo cabe la fase; el
+// detalle completo va en el tooltip.
+const PHASE_NAMES: Record<string, string> = {
+  Pull: 'descargando',
+  Blobs: 'archivos',
+  Push: 'subiendo',
+  Purge: 'limpieza'
+}
+
+function phaseLabel(message: string): string {
+  const match = /^\d\/\d (\w+)/.exec(message)
+  const name = match ? PHASE_NAMES[match[1]] : undefined
+  return name ? ` · ${name}` : ''
+}
+
 export default function SyncButton() {
   const [isConnected, setIsConnected] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState(0)
+  const [syncMessage, setSyncMessage] = useState('')
 
   const refreshStatus = useCallback(() => {
     Api.fetch.oplog
@@ -29,6 +45,7 @@ export default function SyncButton() {
       } else if (data.progress > 0) {
         setIsSyncing(true)
         setSyncProgress(data.progress)
+        setSyncMessage(data.message ?? '')
       }
     })
 
@@ -54,11 +71,14 @@ export default function SyncButton() {
     <Button
       size="sm"
       variant="ghost"
+      title={isSyncing ? syncMessage : undefined}
       onClick={() => !isSyncing && Api.fetch.oplog.syncCycle()}
     >
       {isSyncing ? (
         <span className="text-xs text-primary">
-          {syncProgress > 0 ? `Sincronizando ${syncProgress}%` : 'Sincronizando...'}
+          {syncProgress > 0
+            ? `Sincronizando ${syncProgress}%${phaseLabel(syncMessage)}`
+            : 'Sincronizando...'}
         </span>
       ) : (
         <>

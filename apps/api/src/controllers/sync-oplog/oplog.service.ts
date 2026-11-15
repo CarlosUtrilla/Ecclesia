@@ -135,8 +135,13 @@ export class OplogService {
     return result
   }
 
-  private emitProgress(phase: SyncProgress['phase'], progress: number, message: string): void {
-    this.onProgress?.({ phase, progress, message })
+  private emitProgress(
+    phase: SyncProgress['phase'],
+    progress: number,
+    message: string,
+    error?: boolean,
+  ): void {
+    this.onProgress?.({ phase, progress, message, ...(error ? { error } : {}) })
   }
 
   private async runMappedPhase<T>(
@@ -149,7 +154,7 @@ export class OplogService {
     const prevCb = this.onProgress
     this.onProgress = (p: SyncProgress) => {
       const mapped = startPct + Math.round((p.progress / 100) * (endPct - startPct))
-      prevCb?.({ phase, progress: Math.min(mapped, endPct), message: `${label} — ${p.message}` })
+      prevCb?.({ ...p, phase, progress: Math.min(mapped, endPct), message: `${label} — ${p.message}` })
     }
     try {
       return await fn()
@@ -864,6 +869,7 @@ export class OplogService {
     )
     if (localPending === 0 && !this.hasUnpushedChanges) {
       oplogLogInfo('[Push] Nada que subir: el doc local ya coincide con el último push')
+      this.emitProgress('push', 100, 'Nada que subir')
       return { pushed: 0 }
     }
 
@@ -1408,6 +1414,7 @@ export class OplogService {
     if (!this.config) return
     if (!oplogPurgeService.isPurgeDue(this.config)) {
       oplogLogInfo('[Purge] Not due yet, skipping')
+      this.emitProgress('purge', 100, 'No toca todavía')
       return
     }
 
@@ -1467,10 +1474,13 @@ export class OplogService {
 
       oplogLogInfo('[SyncCycle] Phase 4/4: Purge')
       await this.runMappedPhase('purge', '4/4 Purge', 88, 100, () => this.runPurge())
+      // Sin este cierre, un ciclo sin nada que subir ni purgar dejaba la UI en el último
+      // porcentaje emitido (56 %, fin de blobs) hasta el siguiente ciclo del scheduler.
+      this.emitProgress('idle', 100, 'Sincronizado')
     } catch (err: any) {
       oplogLogError(`[SyncCycle] Error during cycle: ${err.message}`, { stack: err.stack })
       result.errors.push(err.message)
-      this.emitProgress('idle', 0, `Error: ${err.message}`)
+      this.emitProgress('idle', 0, `Error: ${err.message}`, true)
     } finally {
       this.syncing = false
     }

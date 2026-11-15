@@ -75,7 +75,7 @@ export class OplogController {
   async syncCycle(): Promise<SyncCycleResult> {
     oplogService.setOnProgress((p: SyncProgress) => {
       try {
-        getSocket().emit.syncProgress({ progress: p.progress, message: p.message })
+        getSocket().emit.syncProgress({ progress: p.progress, message: p.message, error: p.error })
       } catch { /* socket no listo */ }
     })
     try {

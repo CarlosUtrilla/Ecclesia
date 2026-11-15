@@ -109,6 +109,8 @@ export interface SyncProgress {
   phase: 'pull' | 'push' | 'blob' | 'gc' | 'purge' | 'idle'
   progress: number
   message: string
+  /** El ciclo terminó con error; la UI deja de mostrar "Sincronizando". */
+  error?: boolean
 }
 
 export type BlobOperation =

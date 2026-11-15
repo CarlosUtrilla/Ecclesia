@@ -91,7 +91,7 @@ async function runSyncCycle(reason: string): Promise<SyncCycleResult | null> {
     oplogLogInfo(`[Scheduler] Starting sync cycle: ${reason}`)
 
     oplogService.setOnProgress((p: SyncProgress) => {
-      notifyProgress(p.progress, p.message)
+      notifyProgress(p.progress, p.message, p.error)
     })
 
     oplogLogInfo('[Scheduler] Calling oplogService.syncCycle()...')
