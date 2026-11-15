@@ -1,6 +1,6 @@
 import { drive_v3 } from 'googleapis'
 import { driveClientService } from './oplog-drive-client.service'
-import { REMOTE_OPLOG_FILE_NAME } from './oplog.config'
+import { LEGACY_REMOTE_OPLOG_FILE_NAME, REMOTE_OPLOG_FILE_NAME } from './oplog.config'
 import { getTokenFilePath } from './oplog-shared'
 import fs from 'fs-extra'
 import { Readable } from 'stream'
@@ -46,6 +46,9 @@ export class OplogDriveService {
       q: `name='${REMOTE_OPLOG_FILE_NAME}' and '${folderId}' in parents and trashed=false`,
       spaces: 'drive',
       fields: 'files(id, name, size, modifiedTime)',
+      // Si dos equipos migraron a la vez puede haber dos v2: todos usan el más
+      // antiguo, y el duplicado queda huérfano tras el siguiente pull + push.
+      orderBy: 'createdTime',
       pageSize: 1,
     })
 
@@ -80,8 +83,7 @@ export class OplogDriveService {
    * `skipIfGeneration` corta antes de traer el cuerpo cuando la generación
    * remota coincide con la que ya conocemos: la generación se resuelve con una
    * llamada de metadatos que ya se hacía igualmente, así que ahorra la descarga
-   * completa (~1.9 MB) y, sobre todo, el `load()` + `merge()` de Automerge que
-   * vienen después y son síncronos. Devuelve `data: null` en ese caso.
+   * completa y el parseo + merge que vienen después. Devuelve `data: null` en ese caso.
    */
   async downloadOplog(
     skipIfGeneration?: number,
@@ -93,15 +95,21 @@ export class OplogDriveService {
       const folderId = await this.getFolderId()
       oplogLogInfo(`[Drive] downloadOplog: folderId=${folderId}`)
 
-      const search = await drive.files.list({
-        q: `name='${REMOTE_OPLOG_FILE_NAME}' and '${folderId}' in parents and trashed=false`,
-        spaces: 'drive',
-        fields: 'files(id, headRevisionId)',
-        pageSize: 1,
-      })
-      oplogLogInfo(`[Drive] downloadOplog: search found ${search.data.files?.length ?? 0} files`)
+      // Sin v2 todavía (ningún equipo migró), se trae el v1 para convertirlo.
+      let file: drive_v3.Schema$File | undefined
+      for (const name of [REMOTE_OPLOG_FILE_NAME, LEGACY_REMOTE_OPLOG_FILE_NAME]) {
+        const search = await drive.files.list({
+          q: `name='${name}' and '${folderId}' in parents and trashed=false`,
+          spaces: 'drive',
+          fields: 'files(id, headRevisionId)',
+          orderBy: 'createdTime',
+          pageSize: 1,
+        })
+        file = search.data.files?.[0]
+        oplogLogInfo(`[Drive] downloadOplog: ${name} ${file?.id ? 'encontrado' : 'no encontrado'}`)
+        if (file?.id) break
+      }
 
-      const file = search.data.files?.[0]
       if (!file?.id) {
         oplogLogInfo('[Drive] downloadOplog: no file found')
         return null
@@ -152,7 +160,7 @@ export class OplogDriveService {
         const res = await drive.files.update({
           fileId: existing.id,
           media: {
-            mimeType: 'application/octet-stream',
+            mimeType: 'application/gzip',
             body: Readable.from(Buffer.from(data)),
           },
           requestBody: { name: REMOTE_OPLOG_FILE_NAME },
@@ -182,7 +190,7 @@ export class OplogDriveService {
           parents: [folderId],
         },
         media: {
-          mimeType: 'application/octet-stream',
+          mimeType: 'application/gzip',
           body: Readable.from(Buffer.from(data)),
         },
         fields: 'id, headRevisionId',

@@ -1,4 +1,4 @@
-import { from, save, load, type Doc } from '@automerge/automerge'
+import { createOplogDoc, deserializeOplogDoc, serializeOplogDoc } from './oplog-doc'
 import { getPrisma } from '../../prisma'
 import { getPrismaModelFields, computeSchemaHash } from './oplog-utils'
 import { oplogStateService } from './oplog-state.service'
@@ -15,7 +15,7 @@ import { oplogLogInfo, oplogLogWarn } from './oplog-logger'
 
 export class OplogMigrationService {
 
-  async bootstrapOplog(deviceId: string): Promise<Doc<OplogDocument>> {
+  async bootstrapOplog(deviceId: string): Promise<OplogDocument> {
     const schemaHash = computeSchemaHash()
     const createdAt = Date.now()
     const prisma = getPrisma()
@@ -117,7 +117,7 @@ export class OplogMigrationService {
       oplogLogWarn(`[Migration-DIAG] ${mediaWithThumbnailPath.length - mediaWithThumbnailChecksum.length} media records have thumbnailBlobPath but no thumbnailChecksum (file missing?)`)
     }
 
-    const doc = from<OplogDocument>({
+    const doc = createOplogDoc({
       schemaVersion: 1,
       schemaHash,
       createdAt,
@@ -161,7 +161,7 @@ export class OplogMigrationService {
     const existing = await oplogStateService.readOplogBinary()
     if (!existing || existing.length === 0) return false
     try {
-      const doc = load<OplogDocument>(existing)
+      const doc = await deserializeOplogDoc(existing)
       return (doc.ops?.length ?? 0) > 0
     } catch {
       return false
@@ -184,12 +184,13 @@ export class OplogMigrationService {
       // Sin generación conocida: aquí siempre interesa el cuerpo completo.
       const remote = await oplogDriveService.downloadOplog().catch(() => null)
       if (remote?.data) {
-        const remoteDoc = load<OplogDocument>(remote.data)
+        const remoteDoc = await deserializeOplogDoc(remote.data)
         const opsCount = remoteDoc.ops?.length ?? 0
         oplogLogInfo(`[Migration] Remote OpLog found with ${opsCount} ops`)
         if (opsCount > 0) {
           log.info('[OplogMigration] OpLog remoto encontrado — descargando en vez de bootstrappear')
-          await oplogStateService.writeOplogBinary(remote.data)
+          // Se guarda ya en v2 aunque el remoto fuera v1: mismos ops, sin pérdida.
+          await oplogStateService.writeOplogBinary(await serializeOplogDoc(remoteDoc))
 
           await oplogStateService.writeReplayState({
             lastAppliedIndex: -1,
@@ -213,7 +214,7 @@ export class OplogMigrationService {
     const opsCount = (doc.ops ?? []).length
     oplogLogInfo(`[Migration] Bootstrap produced ${opsCount} ops`)
 
-    const binary = save(doc)
+    const binary = await serializeOplogDoc(doc)
     await oplogStateService.writeOplogBinary(binary)
     oplogLogInfo(`[Migration] OpLog binary written: ${binary.length} bytes`)
 

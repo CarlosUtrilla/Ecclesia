@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { load, save, from } from '@automerge/automerge'
+import { createOplogDoc, deserializeOplogDoc, serializeOplogDoc } from './oplog-doc'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPrismaModelFields, computeSchemaHash } from './oplog-utils'
 import { setPrismaClient } from '../../prisma'
@@ -153,18 +153,18 @@ describe('OplogMigration Bootstrap', () => {
         if (records.length > 0) totalOps.push({ modelName, count: records.length })
       }
 
-      // Crear documento Automerge con los eventos simulados
-      const doc = from<OplogDocument>({
+      // Crear documento del oplog con los eventos simulados
+      const doc = createOplogDoc({
         schemaVersion: 1,
         schemaHash,
         createdAt: Date.now(),
         ops: [],
       })
 
-      const binary = save(doc)
+      const binary = await serializeOplogDoc(doc)
       expect(binary.length).toBeGreaterThan(0)
 
-      const reloaded = load<OplogDocument>(binary)
+      const reloaded = await deserializeOplogDoc(binary)
       expect(reloaded.ops).toBeDefined()
       expect(Array.isArray(reloaded.ops)).toBe(true)
 

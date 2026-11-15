@@ -1,4 +1,4 @@
-import { from, type Doc } from '@automerge/automerge'
+import { createOplogDoc } from './oplog-doc'
 import { getPrisma } from '../../prisma'
 import { getPrismaModelFields } from './oplog-utils'
 import type { OplogDocument, EntityType, OplogEvent } from './oplog.types'
@@ -9,7 +9,7 @@ export class OplogCompactionService {
     schemaHash: string,
     ops: OplogEvent[],
     createdAt: number
-  ): Promise<Doc<OplogDocument>> {
+  ): Promise<OplogDocument> {
     const entities: Record<string, Record<string, Record<string, unknown>>> = {}
     const prisma = getPrisma()
 
@@ -37,7 +37,7 @@ export class OplogCompactionService {
 
     const lastEventByDevice = this.getLastEventMetadata(ops)
 
-    const doc = from<OplogDocument>({
+    const doc = createOplogDoc({
       schemaVersion: 1,
       schemaHash,
       createdAt,

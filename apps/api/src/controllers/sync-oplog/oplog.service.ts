@@ -1,7 +1,11 @@
 import {
-  from, change, merge, clone, save, load, getHeads,
-  type Doc,
-} from '@automerge/automerge'
+  createOplogDoc,
+  deserializeOplogDoc,
+  isLegacyAutomergeBinary,
+  mergeOplogDocs,
+  oplogContentHash,
+  serializeOplogDoc,
+} from './oplog-doc'
 import { randomUUID, randomBytes } from 'crypto'
 import os from 'os'
 import path from 'path'
@@ -70,9 +74,9 @@ const BLOB_INVALIDATE_KEYS: string[][] = [['media'], ['folders'], ['fonts']]
 export type SyncEventCallback = (progress: SyncProgress) => void
 
 // Debounce para coalescer la escritura del oplog a disco. La mutación en memoria
-// del doc Automerge es inmediata; solo la serialización completa (save()) + writeFile
+// del doc es inmediata; solo la serialización completa (JSON + gzip) + writeFile
 // se difieren para no bloquear la respuesta de cada escritura de Prisma.
-// save() serializa el documento entero, así que en ráfagas de escrituras (importar,
+// Se serializa el documento entero, así que en ráfagas de escrituras (importar,
 // editar un cronograma) conviene una ventana amplia; flushPersist() en before-quit
 // garantiza que no se pierda lo último.
 const PERSIST_DEBOUNCE_MS = 1500
@@ -86,7 +90,7 @@ const BLOB_GC_INTERVAL_MS = 30 * 60 * 1000
 const MAX_REGEN_PER_CYCLE = 5
 
 export class OplogService {
-  private localDoc: Doc<OplogDocument> | null = null
+  private localDoc: OplogDocument | null = null
   private currentSeq = 0
   private pendingEvents: OplogEvent[] = []
   /**
@@ -171,9 +175,16 @@ export class OplogService {
     const existing = await oplogStateService.readOplogBinary()
     oplogLogInfo(`[OplogInit] readOplogBinary: ${existing ? existing.length + ' bytes' : 'null'}`)
     if (existing && existing.length > 0) {
+      const isLegacy = isLegacyAutomergeBinary(existing)
       try {
-        this.localDoc = load<OplogDocument>(existing)
-        oplogLogInfo('[OplogInit] Local OpLog loaded successfully')
+        this.localDoc = await deserializeOplogDoc(existing)
+        oplogLogInfo(`[OplogInit] Local OpLog loaded successfully${isLegacy ? ' (v1 Automerge)' : ''}`)
+        if (isLegacy) {
+          // Migración v1 → v2: mismos ops, mismo orden. oplog.bin queda como respaldo.
+          await this.persistLocal()
+          oplogLogInfo(`[OplogInit] OpLog migrado a v2 (${this.localDoc.ops.length} ops)`)
+          log.info(`[OplogInit] OpLog migrado de Automerge a v2 (${this.localDoc.ops.length} ops)`)
+        }
       } catch (e: any) {
         oplogLogWarn('[OplogInit] Local OpLog corrupto — bootstrapping desde DB local', { error: e.message })
         log.warn('[OplogInit] Local OpLog corrupto — bootstrapping desde DB local')
@@ -253,7 +264,7 @@ export class OplogService {
           // que `push()` siempre creía tener trabajo: serializaba el doc entero
           // (`save()`) y resubía el binario completo a Drive aunque no hubiera
           // cambiado nada. Ahora se compara contra las heads del último push.
-          this.hasUnpushedChanges = !headsMatch(getHeads(this.localDoc), this.config.lastPushedHeads)
+          this.hasUnpushedChanges = !headsMatch([oplogContentHash(this.localDoc)], this.config.lastPushedHeads)
           oplogLogInfo(
             `[OplogInit] hasUnpushedChanges=${this.hasUnpushedChanges} (heads locales vs. último push)`,
           )
@@ -275,7 +286,7 @@ export class OplogService {
         const remote = await oplogDriveService.downloadOplog()
         oplogLogInfo(`[OplogInit] Remote OpLog download result: ${remote?.data ? 'found (' + remote.data.length + ' bytes, gen=' + remote.generation + ')' : 'not found'}`)
         if (remote?.data) {
-          const remoteDoc = load<OplogDocument>(remote.data)
+          const remoteDoc = await deserializeOplogDoc(remote.data)
           const ops = remoteDoc.ops ?? []
           oplogLogInfo(`[OplogInit] Remote OpLog has ${ops.length} operations`)
 
@@ -377,7 +388,7 @@ export class OplogService {
         const binary = await oplogStateService.readOplogBinary()
         oplogLogInfo(`[OplogInit] Post-migration binary: ${binary ? binary.length + ' bytes' : 'null'}`)
         if (binary) {
-          this.localDoc = load<OplogDocument>(binary)
+          this.localDoc = await deserializeOplogDoc(binary)
         }
         if (this.localDoc) {
           this.currentSeq = (this.localDoc.ops ?? []).reduce((max, e) => Math.max(max, e.seq ?? 0), 0)
@@ -404,7 +415,7 @@ export class OplogService {
 
       if (!this.localDoc) {
         oplogLogInfo('[OplogInit] Creating empty document')
-        this.localDoc = from<OplogDocument>({
+        this.localDoc = createOplogDoc({
           schemaVersion: 1,
           schemaHash: computeSchemaHash(),
           createdAt: Date.now(),
@@ -473,15 +484,15 @@ export class OplogService {
       return
     }
 
-    this.localDoc = change(this.localDoc, 'backfill-checksums', (d) => {
+    {
       for (const [index, checksumUpdate] of updates) {
-        const target = d.ops[index]
+        const target = this.localDoc.ops[index]
         if (!target) continue
         if (checksumUpdate.checksum) target.checksum = checksumUpdate.checksum
         if (checksumUpdate.thumbnailChecksum) target.thumbnailChecksum = checksumUpdate.thumbnailChecksum
         if (checksumUpdate.fallbackChecksum) target.fallbackChecksum = checksumUpdate.fallbackChecksum
       }
-    })
+    }
 
     await this.persistLocal()
     oplogLogInfo(`[Backfill] Checksums backfilled for ${opsBackfilled} ops`)
@@ -593,9 +604,7 @@ export class OplogService {
 
     this.pendingEvents.push(event)
 
-    this.localDoc = change(this.localDoc, `append:${event.entityType}:${event.entityId}`, (d) => {
-      d.ops.push(event)
-    })
+    this.localDoc.ops.push(event)
 
     // La respuesta al frontend no espera la escritura a disco: el doc ya está
     // actualizado en memoria (que es lo que usan push()/syncCycle()). El binario
@@ -621,7 +630,7 @@ export class OplogService {
         while (this.persistDirty) {
           this.persistDirty = false
           if (!this.localDoc) return
-          const binary = save(this.localDoc)
+          const binary = await serializeOplogDoc(this.localDoc)
           await oplogStateService.writeOplogBinary(binary)
         }
       } finally {
@@ -645,7 +654,7 @@ export class OplogService {
 
   private async persistLocal(): Promise<void> {
     if (this.localDoc) {
-      const binary = save(this.localDoc)
+      const binary = await serializeOplogDoc(this.localDoc)
       await oplogStateService.writeOplogBinary(binary)
     }
   }
@@ -671,7 +680,7 @@ export class OplogService {
 
     // Si ya tenemos doc local y la generación remota no ha cambiado desde el
     // último ciclo, no hay nada que traer. Saltarlo evita descargar el binario
-    // completo y, sobre todo, el `load()` + `merge()` de Automerge, que son
+    // completo y, sobre todo, el parseo + merge del oplog, que son
     // síncronos y bloquean el proceso main (y con él el IPC y el servidor HTTP
     // que alimentan al renderer).
     const knownGeneration = this.localDoc ? (this.config!.lastRemoteGeneration ?? 0) : 0
@@ -692,7 +701,7 @@ export class OplogService {
     }
 
     this.emitProgress('pull', 30, 'Mergeando cambios remotos...')
-    const remoteDoc = load<OplogDocument>(remote.data)
+    const remoteDoc = await deserializeOplogDoc(remote.data)
     oplogLogInfo(`[Pull] Remote doc loaded: ${remoteDoc.ops?.length ?? 0} ops`)
 
     if (!this.localDoc) {
@@ -703,15 +712,12 @@ export class OplogService {
       return { newEventsCount: 0, remoteGeneration: remote.generation }
     }
 
-    const localIds = new Set(this.localDoc.ops?.map(o => o.id) ?? [])
-    oplogLogInfo(`[Pull] Local doc has ${localIds.size} ops, cloning and merging...`)
-    const localClone = clone(this.localDoc)
-    const merged = merge(localClone, remoteDoc)
+    oplogLogInfo(`[Pull] Local doc has ${this.localDoc.ops.length} ops, merging...`)
+    const { merged, newOps: newEvents } = mergeOplogDocs(this.localDoc, remoteDoc)
 
     this.localDoc = merged
     await this.persistLocal()
 
-    const newEvents = (merged.ops ?? []).filter(o => !localIds.has(o.id))
     oplogLogInfo(`[Pull] New events after merge: ${newEvents.length}`)
 
     const mergedMediaOps = (merged.ops ?? []).filter(o => o.entityType === 'media')
@@ -818,7 +824,8 @@ export class OplogService {
     oplogLogInfo('[Push] Attempting uploadOplog()...')
 
     try {
-      const binary = save(this.localDoc!)
+      const binary = await serializeOplogDoc(this.localDoc!)
+      const pushedHash = oplogContentHash(this.localDoc!)
       oplogLogInfo(`[Push] Binary size: ${binary.length} bytes`)
       const result = await oplogDriveService.uploadOplog(
         binary,
@@ -831,7 +838,7 @@ export class OplogService {
       cfg.lastSyncAt = new Date().toISOString()
       // Se guardan las heads del doc recién subido: en el próximo arranque
       // bastan para saber que no hay nada pendiente, sin recorrer los ops.
-      cfg.lastPushedHeads = getHeads(this.localDoc!)
+      cfg.lastPushedHeads = [pushedHash]
       await oplogStateService.writeConfig(cfg)
 
       this.pendingEvents = []
@@ -1078,9 +1085,9 @@ export class OplogService {
         oplogLogInfo(`[Blob-DIAG] Fallback: ${fbChecksumCount} main, ${fbThumbnailChecksumCount} thumbnail, ${fbFallbackChecksumCount} fallback. Cache hits: ${fbCacheHitCount}, File found: ${fbFileFoundCount}, File missing: ${fbFileMissingCount}, Already seen: ${fbAlreadySeenCount}`)
 
         if (fallbackUpdates.size > 0) {
-          this.localDoc = change(this.localDoc!, 'fallback-backfill', (d) => {
+          {
             for (const [idx, update] of fallbackUpdates) {
-              const target = d.ops[idx]
+              const target = this.localDoc!.ops[idx]
               if (!target) continue
               if (update.checksum) target.checksum = update.checksum
               if (update.blobPath) target.blobPath = update.blobPath
@@ -1089,7 +1096,7 @@ export class OplogService {
               if (update.fallbackChecksum) target.fallbackChecksum = update.fallbackChecksum
               if (update.fallbackBlobPath) target.fallbackBlobPath = update.fallbackBlobPath
             }
-          })
+          }
           await this.persistLocal()
           oplogLogInfo(`[Blob] Fallback checksums persisted to ${fallbackUpdates.size} events`)
         }
@@ -1195,9 +1202,9 @@ export class OplogService {
     }
 
     if (generatedThumbnails.size > 0) {
-      this.localDoc = change(this.localDoc!, 'regenerate-media-assets', (d) => {
+      {
         for (const [idx, update] of generatedThumbnails) {
-          const target = d.ops[idx]
+          const target = this.localDoc!.ops[idx]
           if (!target) continue
           target.thumbnailChecksum = update.checksum
           target.thumbnailBlobPath = update.blobPath
@@ -1208,7 +1215,7 @@ export class OplogService {
             if (update.fallbackBlobPath) target.data.fallback = update.fallbackBlobPath
           }
         }
-      })
+      }
       await this.persistLocal()
       oplogLogInfo(`[Blob] Regenerated ${thumbRegenerated} thumbnails and ${fallbackRegenerated} fallbacks from source files`)
     }
@@ -1260,14 +1267,16 @@ export class OplogService {
       }
       if (prunedEntityIds.size > 0) {
         let removedCount = 0
-        this.localDoc = change(this.localDoc!, 'prune-deleted-media', (d) => {
-          for (let i = d.ops.length - 1; i >= 0; i--) {
-            const op = d.ops[i]
-            if (op.entityType === 'media' && prunedEntityIds.has(op.entityId)) {
-              d.ops.splice(i, 1)
-              removedCount++
-            }
+        // Los tombstones impiden que el merge con otro dispositivo devuelva estos ops.
+        const doc = this.localDoc!
+        const prunedAt = Date.now()
+        doc.ops = doc.ops.filter((op) => {
+          if (op.entityType === 'media' && prunedEntityIds.has(op.entityId)) {
+            doc.tombstones[op.id] = prunedAt
+            removedCount++
+            return false
           }
+          return true
         })
         if (removedCount > 0) {
           await this.persistLocal()
