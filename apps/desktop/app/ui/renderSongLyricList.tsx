@@ -1,6 +1,6 @@
 import { cn, getContrastTextColor, getGrupedLyrics } from '@/lib/utils'
-import { SongResponseDTO, SongLyricDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { SongResponseDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
+import { useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -28,7 +28,7 @@ type Props = {
   onDoubleClick?: (e: React.MouseEvent<HTMLParagraphElement, MouseEvent>, index: number) => void
   tagSongs?: TagSong[]
   onTagChange?: (verseIndex: number, newTagId: number | null) => void
-  onGroupTagChange?: (verseIndex: number, newTagId: number | null) => void
+  onGroupTagChange?: (verseIndexes: number[], newTagId: number | null) => void
   editingIndex?: number | null
   editingText?: string
   onEditingTextChange?: (text: string) => void
@@ -54,28 +54,18 @@ export default function RenderSongLyricList({
 }: Props) {
   const songGroups = useMemo(() => getGrupedLyrics(song?.lyrics || []), [song])
 
-  const lyricIndexes = useMemo(() => {
-    let counter = 0
-    const indexes: Record<string, number> = {}
-    songGroups.forEach((group) => {
-      group.contents.forEach((_, idx) => {
-        indexes[`${group.tagSongsId}-${idx}`] = counter
-        counter++
-      })
-    })
-    return indexes
-  }, [song, songGroups])
-
-  const indexToKey = useMemo(() => {
-    const map: Record<number, { tagSongsId: number | null; localIndex: number }> = {}
+  // Índice global (posición real dentro de song.lyrics) con el que empieza cada grupo.
+  // No se puede indexar por `tagSongsId`: un mismo tag genera varios grupos (dos estrofas
+  // sin tag, el coro repetido...) y las claves colisionaban, devolviendo el índice del
+  // último grupo con ese tag.
+  const groupStartIndexes = useMemo(() => {
+    const starts: number[] = []
     let counter = 0
     songGroups.forEach((group) => {
-      group.contents.forEach((_, idx) => {
-        map[counter] = { tagSongsId: group.tagSongsId, localIndex: idx }
-        counter++
-      })
+      starts.push(counter)
+      counter += group.contents.length
     })
-    return map
+    return starts
   }, [songGroups])
 
   const simpleEscapeHtml = (unsafe: string) => {
@@ -109,6 +99,8 @@ export default function RenderSongLyricList({
 
   return songGroups.map((group, groupIndex) => {
     const tagSong = tagSongs.find((t) => t.id === group.tagSongsId)
+    const groupStart = groupStartIndexes[groupIndex]
+    const groupVerseIndexes = group.contents.map((_, idx) => groupStart + idx)
     return (
       <div key={`group-${group.tagSongsId}-${groupIndex}`} className="relative">
         {tagSong ? (
@@ -126,8 +118,8 @@ export default function RenderSongLyricList({
         ) : null}
         <div className="pl-6">
           {group.contents.map((content, idx) => {
-            const key = `${group.tagSongsId}-${idx}`
-            const verseIndex = lyricIndexes[key]
+            const verseIndex = groupStart + idx
+            const key = `lyric-${verseIndex}`
             const isSelected = verseIndex === selectedLyricIndex
             const isEditing = verseIndex === editingIndex
             const background = tagSong
@@ -254,7 +246,7 @@ export default function RenderSongLyricList({
                         </ContextMenuSubTrigger>
                         <ContextMenuSubContent>
                           <ContextMenuItem
-                            onClick={() => onGroupTagChange(verseIndex, null)}
+                            onClick={() => onGroupTagChange(groupVerseIndexes, null)}
                             className={!group.tagSongsId ? 'bg-muted' : ''}
                           >
                             Sin tag
@@ -262,7 +254,7 @@ export default function RenderSongLyricList({
                           {tagSongs.map((tag) => (
                             <ContextMenuItem
                               key={tag.id}
-                              onClick={() => onGroupTagChange(verseIndex, tag.id)}
+                              onClick={() => onGroupTagChange(groupVerseIndexes, tag.id)}
                               className={group.tagSongsId === tag.id ? 'bg-muted' : ''}
                             >
                               <div

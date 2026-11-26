@@ -6,7 +6,6 @@ import useTagSongs from '@/hooks/useTagSongs'
 import { Api } from '@ecclesia/queries'
 
 import { useMemo, useRef, useState, useCallback } from 'react'
-import { SongLyricDTO } from '@ecclesia/api/src/controllers/songs/songs.dto'
 
 export const RenderSongLyrics = () => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -40,15 +39,13 @@ export const RenderSongLyrics = () => {
     async (verseIndex: number, newTagId: number | null) => {
       if (!selectedSong) return
 
-      const updatedLyrics = [...selectedSong.lyrics]
-      const currentTagId = updatedLyrics[verseIndex]?.tagSongsId ?? null
+      const target = selectedSong.lyrics[verseIndex]
+      if (!target) return
+      if ((target.tagSongsId ?? null) === newTagId) return
 
-      if (currentTagId === newTagId) return
-
-      updatedLyrics[verseIndex] = {
-        ...updatedLyrics[verseIndex],
-        tagSongsId: newTagId
-      }
+      const updatedLyrics = selectedSong.lyrics.map((lyric, idx) =>
+        idx === verseIndex ? { ...lyric, tagSongsId: newTagId } : lyric
+      )
 
       await Api.fetch.songs.updateSong({
         body: {
@@ -66,18 +63,18 @@ export const RenderSongLyrics = () => {
   )
 
   const handleGroupTagChange = useCallback(
-    async (verseIndex: number, newTagId: number | null) => {
-      if (!selectedSong) return
+    async (verseIndexes: number[], newTagId: number | null) => {
+      if (!selectedSong || verseIndexes.length === 0) return
 
-      const currentTagId = selectedSong.lyrics[verseIndex]?.tagSongsId ?? null
+      // Solo los versos del grupo señalado: filtrar por `tagSongsId` re-etiquetaba también
+      // los demás grupos con ese mismo tag (el otro coro, el resto de versos sin tag...).
+      const targets = new Set(verseIndexes)
+      const currentTagId = selectedSong.lyrics[verseIndexes[0]]?.tagSongsId ?? null
       if (currentTagId === newTagId) return
 
-      const updatedLyrics = selectedSong.lyrics.map((lyric, idx) => {
-        if (lyric.tagSongsId === currentTagId) {
-          return { ...lyric, tagSongsId: newTagId }
-        }
-        return lyric
-      })
+      const updatedLyrics = selectedSong.lyrics.map((lyric, idx) =>
+        targets.has(idx) ? { ...lyric, tagSongsId: newTagId } : lyric
+      )
 
       await Api.fetch.songs.updateSong({
         body: {
