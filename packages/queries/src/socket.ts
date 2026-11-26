@@ -62,10 +62,28 @@ function getOrCreateSocket(apiUrl: string, port: number): Socket {
 }
 
 export function createSocketProxy(apiUrl: string, port: number): SocketShape {
-  const socket = getOrCreateSocket(apiUrl, port)
+  getOrCreateSocket(apiUrl, port)
+
+  /**
+   * La instancia se resuelve **al suscribirse/emitir**, no al crear el proxy.
+   *
+   * Al conectarse a un host remoto, `getOrCreateSocket` desconecta el socket local
+   * y crea el del host, y avisa a `onSocketChange` ANTES de que `exposeRoutes`
+   * devuelva el SDK nuevo y `ApiProvider` reasigne `apiInstance`. Quien reacciona a
+   * ese aviso re-suscribiéndose de forma síncrona (`RemoteConnectionListener`) leía
+   * todavía el proxy viejo y volvía a engancharse al socket ya desconectado: el
+   * cliente dejaba de recibir `queryKeysInvalidate` y no refrescaba datos (tags,
+   * temas, canciones…) aunque el host sí lo hiciera.
+   */
+  const currentSocket = (): Socket | null => socketInstance
 
   const listen = new Proxy({} as any, {
     get: (_, eventName) => (callback: any) => {
+      const socket = currentSocket()
+      if (!socket) {
+        console.warn(`[DEBUG-SOCKET] No socket available to listen: ${String(eventName)}`)
+        return () => {}
+      }
       socket.on(eventName as string, callback)
       return () => socket.off(eventName as string, callback)
     },
@@ -73,7 +91,12 @@ export function createSocketProxy(apiUrl: string, port: number): SocketShape {
 
   const emit = new Proxy({} as any, {
     get: (_, eventName) => (data?: any) => {
-      console.warn(`[DEBUG-SOCKET] Emitting event: ${eventName}`, data)
+      const socket = currentSocket()
+      if (!socket) {
+        console.warn(`[DEBUG-SOCKET] No socket available to emit: ${String(eventName)}`)
+        return
+      }
+      console.warn(`[DEBUG-SOCKET] Emitting event: ${String(eventName)}`, data)
       socket.emit(eventName as string, data)
     },
   }) as SocketEmitShape
